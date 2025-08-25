@@ -1,61 +1,61 @@
-import React, { useState } from "react";
-import { Search, Edit2, Trash2, RotateCcw, Users } from "lucide-react";
-import type { Student } from "../../types";
-import Modal from "../Common/Modal";
-import Button from "../Common/Button";
+import React, { useState } from 'react';
+import { Search, Edit2, Trash2, RotateCcw, Users } from 'lucide-react';
+import { Student } from '../../types';
+import Modal from '../Common/Modal';
+import Button from '../Common/Button';
 
 const StudentManagement: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([
     {
-      id: "1",
-      studentId: "2022001",
-      name: "张三",
-      classId: "1",
-      className: "软件工程2022级",
-      phone: "13800138001",
-      email: "zhangsan@student.edu.cn",
-      status: "active",
-      createdAt: "2024-01-15",
+      id: '1',
+      studentId: '2022001',
+      name: '张三',
+      classId: '1',
+      className: '软件工程2022级',
+      phone: '13800138001',
+      email: 'zhangsan@student.edu.cn',
+      status: 'active',
+      createdAt: '2024-01-15'
     },
     {
-      id: "2",
-      studentId: "2022002",
-      name: "李四",
-      classId: "1",
-      className: "软件工程2022级",
-      phone: "13800138002",
-      email: "lisi@student.edu.cn",
-      status: "active",
-      createdAt: "2024-01-16",
+      id: '2',
+      studentId: '2022002',
+      name: '李四',
+      classId: '1',
+      className: '软件工程2022级',
+      phone: '13800138002',
+      email: 'lisi@student.edu.cn',
+      status: 'active',
+      createdAt: '2024-01-16'
     },
     {
-      id: "3",
-      studentId: "2023001",
-      name: "王五",
-      classId: "2",
-      className: "计算机科学2023级",
-      phone: "13800138003",
-      email: "wangwu@student.edu.cn",
-      status: "active",
-      createdAt: "2024-02-20",
-    },
+      id: '3',
+      studentId: '2023001',
+      name: '王五',
+      classId: '2',
+      className: '计算机科学2023级',
+      phone: '13800138003',
+      email: 'wangwu@student.edu.cn',
+      status: 'active',
+      createdAt: '2024-02-20'
+    }
   ]);
 
   const [filteredStudents, setFilteredStudents] = useState(students);
-  const [selectedClass, setSelectedClass] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedClass, setSelectedClass] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [formData, setFormData] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    classId: "",
+    name: '',
+    phone: '',
+    email: '',
+    classId: ''
   });
 
   const classes = [
-    { id: "1", name: "软件工程2022级" },
-    { id: "2", name: "计算机科学2023级" },
+    { id: '1', name: '软件工程2022级' },
+    { id: '2', name: '计算机科学2023级' }
   ];
 
   // 筛选功能
@@ -63,16 +63,13 @@ const StudentManagement: React.FC = () => {
     let filtered = students;
 
     if (selectedClass) {
-      filtered = filtered.filter(
-        (student) => student.classId === selectedClass,
-      );
+      filtered = filtered.filter(student => student.classId === selectedClass);
     }
 
     if (searchTerm) {
-      filtered = filtered.filter(
-        (student) =>
-          student.studentId.includes(searchTerm) ||
-          student.name.includes(searchTerm),
+      filtered = filtered.filter(student => 
+        student.studentId.includes(searchTerm) || 
+        student.name.includes(searchTerm)
       );
     }
 
@@ -85,7 +82,7 @@ const StudentManagement: React.FC = () => {
       name: student.name,
       phone: student.phone,
       email: student.email,
-      classId: student.classId,
+      classId: student.classId
     });
     setShowEditModal(true);
   };
@@ -93,29 +90,25 @@ const StudentManagement: React.FC = () => {
   const handleUpdate = () => {
     if (!editingStudent) return;
 
-    setStudents((prev) =>
-      prev.map((student) =>
-        student.id === editingStudent.id
-          ? {
-              ...student,
-              name: formData.name,
-              phone: formData.phone,
-              email: formData.email,
-              classId: formData.classId,
-              className:
-                classes.find((c) => c.id === formData.classId)?.name ||
-                student.className,
-            }
-          : student,
-      ),
-    );
+    setStudents(prev => prev.map(student => 
+      student.id === editingStudent.id
+        ? {
+            ...student,
+            name: formData.name,
+            phone: formData.phone,
+            email: formData.email,
+            classId: formData.classId,
+            className: classes.find(c => c.id === formData.classId)?.name || student.className
+          }
+        : student
+    ));
     setShowEditModal(false);
     setEditingStudent(null);
-    setFormData({ name: "", phone: "", email: "", classId: "" });
+    setFormData({ name: '', phone: '', email: '', classId: '' });
   };
 
   const handleDelete = (id: string) => {
-    setStudents((prev) => prev.filter((student) => student.id !== id));
+    setStudents(prev => prev.filter(student => student.id !== id));
   };
 
   const handleResetPassword = (studentId: string) => {
@@ -132,9 +125,7 @@ const StudentManagement: React.FC = () => {
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              选择班级
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">选择班级</label>
             <select
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
@@ -142,21 +133,14 @@ const StudentManagement: React.FC = () => {
             >
               <option value="">全部班级</option>
               {classes.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.name}
-                </option>
+                <option key={cls.id} value={cls.id}>{cls.name}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              按学号/姓名搜索
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">按学号/姓名搜索</label>
             <div className="relative">
-              <Search
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                size={16}
-              />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
               <input
                 type="text"
                 value={searchTerm}
@@ -176,9 +160,7 @@ const StudentManagement: React.FC = () => {
             <Users className="w-8 h-8 text-blue-600 mr-3" />
             <div>
               <p className="text-sm text-gray-600">总学生数</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {students.length}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{students.length}</p>
             </div>
           </div>
         </div>
@@ -188,7 +170,7 @@ const StudentManagement: React.FC = () => {
             <div>
               <p className="text-sm text-gray-600">活跃学生</p>
               <p className="text-2xl font-bold text-gray-900">
-                {students.filter((s) => s.status === "active").length}
+                {students.filter(s => s.status === 'active').length}
               </p>
             </div>
           </div>
@@ -198,9 +180,7 @@ const StudentManagement: React.FC = () => {
             <Users className="w-8 h-8 text-orange-600 mr-3" />
             <div>
               <p className="text-sm text-gray-600">筛选结果</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {filteredStudents.length}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{filteredStudents.length}</p>
             </div>
           </div>
         </div>
@@ -216,30 +196,14 @@ const StudentManagement: React.FC = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  学号
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  学生姓名
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  班级
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  手机号码
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  邮箱
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  状态
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  创建时间
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  操作
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学号</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学生姓名</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">班级</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">手机号码</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">邮箱</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -263,14 +227,12 @@ const StudentManagement: React.FC = () => {
                     {student.email}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        student.status === "active"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {student.status === "active" ? "活跃" : "停用"}
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      student.status === 'active' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {student.status === 'active' ? '活跃' : '停用'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -314,65 +276,47 @@ const StudentManagement: React.FC = () => {
         onClose={() => {
           setShowEditModal(false);
           setEditingStudent(null);
-          setFormData({ name: "", phone: "", email: "", classId: "" });
+          setFormData({ name: '', phone: '', email: '', classId: '' });
         }}
         title="修改学生信息"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              学生姓名
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">学生姓名</label>
             <input
               type="text"
               value={formData.name}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, name: e.target.value }))
-              }
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              手机号码
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">手机号码</label>
             <input
               type="text"
               value={formData.phone}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, phone: e.target.value }))
-              }
+              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              邮箱
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">邮箱</label>
             <input
               type="email"
               value={formData.email}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, email: e.target.value }))
-              }
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              班级
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">班级</label>
             <select
               value={formData.classId}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, classId: e.target.value }))
-              }
+              onChange={(e) => setFormData(prev => ({ ...prev, classId: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               {classes.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.name}
-                </option>
+                <option key={cls.id} value={cls.id}>{cls.name}</option>
               ))}
             </select>
           </div>
@@ -391,12 +335,14 @@ const StudentManagement: React.FC = () => {
               onClick={() => {
                 setShowEditModal(false);
                 setEditingStudent(null);
-                setFormData({ name: "", phone: "", email: "", classId: "" });
+                setFormData({ name: '', phone: '', email: '', classId: '' });
               }}
             >
               取消
             </Button>
-            <Button onClick={handleUpdate}>保存修改</Button>
+            <Button onClick={handleUpdate}>
+              保存修改
+            </Button>
           </div>
         </div>
       </Modal>

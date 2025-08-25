@@ -1,46 +1,42 @@
-import React from "react";
-import type { MenuItem } from "../../types";
-import PersonalInfo from "../Account/PersonalInfo";
-import AssistantManagement from "../Account/AssistantManagement";
-import ClassManagement from "../Class/ClassManagement";
-import StudentManagement from "../Student/StudentManagement";
-import ExperimentProgress from "../Experiment/ExperimentProgress";
-import ExperimentReports from "../Experiment/ExperimentReports";
-import ExperimentLogs from "../Experiment/ExperimentLogs";
-import QuestionBank from "../Assessment/QuestionBank";
-import GradeWeights from "../Assessment/GradeWeights";
-import GradesOverview from "../Assessment/GradesOverview";
+import React from 'react';
+import { MenuItem } from '../../types';
+import PersonalInfo from '../Account/PersonalInfo';
+import AssistantManagement from '../Account/AssistantManagement';
+import ClassManagement from '../Class/ClassManagement';
+import StudentManagement from '../Student/StudentManagement';
+import ExperimentProgress from '../Experiment/ExperimentProgress';
+import ExperimentReports from '../Experiment/ExperimentReports';
+import ExperimentLogs from '../Experiment/ExperimentLogs';
+import QuestionBank from '../Assessment/QuestionBank';
+import GradeWeights from '../Assessment/GradeWeights';
+import GradesOverview from '../Assessment/GradesOverview';
 
 interface MainContentProps {
   activeMenuItem: MenuItem;
-  sidebarCollapsed: boolean;
 }
 
-const MainContent: React.FC<MainContentProps> = ({
-  activeMenuItem,
-  sidebarCollapsed,
-}) => {
+const MainContent: React.FC<MainContentProps> = ({ activeMenuItem }) => {
   const renderContent = () => {
     switch (activeMenuItem) {
-      case "account-personal":
+      case 'account-personal':
         return <PersonalInfo />;
-      case "account-assistant":
+      case 'account-assistant':
         return <AssistantManagement />;
-      case "class-management":
+      case 'class-management':
         return <ClassManagement />;
-      case "student-management":
+      case 'student-management':
         return <StudentManagement />;
-      case "experiment-progress":
+      case 'experiment-progress':
         return <ExperimentProgress />;
-      case "experiment-reports":
+      case 'experiment-reports':
         return <ExperimentReports />;
-      case "experiment-logs":
+      case 'experiment-logs':
         return <ExperimentLogs />;
-      case "assessment-questions":
+      case 'assessment-questions':
         return <QuestionBank />;
-      case "assessment-weights":
+      case 'assessment-weights':
         return <GradeWeights />;
-      case "assessment-grades":
+      case 'assessment-grades':
         return <GradesOverview />;
       default:
         return <PersonalInfo />;
@@ -48,10 +44,10 @@ const MainContent: React.FC<MainContentProps> = ({
   };
 
   return (
-    <main
-      className={`flex-1 p-6 overflow-y-auto transition-all duration-300 ${sidebarCollapsed ? "ml-0" : "ml-0"}`}
-    >
-      <div className="max-w-7xl mx-auto">{renderContent()}</div>
+    <main className="flex-1 p-6 overflow-y-auto">
+      <div className="max-w-7xl mx-auto">
+        {renderContent()}
+      </div>
     </main>
   );
 };

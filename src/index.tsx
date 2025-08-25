@@ -1,11 +1,12 @@
 import { serve } from "bun";
 import shiyan from "./shiyan/shiyan.html";
 import jiaoshi from "./jiaoshi/jiaoshi.html";
+import login from "./login/login.html";
 
 const server = serve({
   routes: {
-    // Serve index.html for all unmatched routes.
-    "/*": shiyan,
+    "/*": login,
+    "/login": login,
 
     "/jiaoshi": jiaoshi,
 

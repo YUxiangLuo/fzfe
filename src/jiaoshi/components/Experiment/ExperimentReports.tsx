@@ -1,55 +1,46 @@
-import React, { useState } from "react";
-import {
-  FileText,
-  Download,
-  Eye,
-  Star,
-  MessageCircle,
-  Download as DownloadIcon,
-} from "lucide-react";
-import type { ExperimentReport } from "../../types";
-import Modal from "../Common/Modal";
-import Button from "../Common/Button";
+import React, { useState } from 'react';
+import { FileText, Download, Eye, Star, MessageCircle, Download as DownloadIcon } from 'lucide-react';
+import { ExperimentReport } from '../../types';
+import Modal from '../Common/Modal';
+import Button from '../Common/Button';
 
 const ExperimentReports: React.FC = () => {
   const [reports, setReports] = useState<ExperimentReport[]>([
     {
-      id: "1",
-      studentId: "2022001",
-      studentName: "张三",
-      fileName: "张三_实验报告_2024030.pdf",
-      submittedAt: "2024-03-01 15:30:00",
-      status: "unreviewed",
+      id: '1',
+      studentId: '2022001',
+      studentName: '张三',
+      fileName: '张三_实验报告_2024030.pdf',
+      submittedAt: '2024-03-01 15:30:00',
+      status: 'unreviewed',
     },
     {
-      id: "2",
-      studentId: "2022002",
-      studentName: "李四",
-      fileName: "李四_实验报告_20240302.pdf",
-      submittedAt: "2024-03-02 10:45:00",
-      status: "reviewed",
+      id: '2',
+      studentId: '2022002',
+      studentName: '李四',
+      fileName: '李四_实验报告_20240302.pdf',
+      submittedAt: '2024-03-02 10:45:00',
+      status: 'reviewed',
       score: 88,
-      comments: "实验步骤清晰，数据分析较为准确，但结论部分需要更深入的思考。",
+      comments: '实验步骤清晰，数据分析较为准确，但结论部分需要更深入的思考。'
     },
     {
-      id: "3",
-      studentId: "2023001",
-      studentName: "王五",
-      fileName: "王五_实验报告_20240303.pdf",
-      submittedAt: "2024-03-03 14:20:00",
-      status: "reviewed",
+      id: '3',
+      studentId: '2023001',
+      studentName: '王五',
+      fileName: '王五_实验报告_20240303.pdf',
+      submittedAt: '2024-03-03 14:20:00',
+      status: 'reviewed',
       score: 92,
-      comments: "优秀的实验报告，分析透彻，结论合理。",
-    },
+      comments: '优秀的实验报告，分析透彻，结论合理。'
+    }
   ]);
 
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showScoreModal, setShowScoreModal] = useState(false);
-  const [selectedReport, setSelectedReport] = useState<ExperimentReport | null>(
-    null,
-  );
-  const [tempScore, setTempScore] = useState("");
-  const [tempComments, setTempComments] = useState("");
+  const [selectedReport, setSelectedReport] = useState<ExperimentReport | null>(null);
+  const [tempScore, setTempScore] = useState('');
+  const [tempComments, setTempComments] = useState('');
 
   const handlePreview = (report: ExperimentReport) => {
     setSelectedReport(report);
@@ -58,30 +49,28 @@ const ExperimentReports: React.FC = () => {
 
   const handleScoring = (report: ExperimentReport) => {
     setSelectedReport(report);
-    setTempScore(report.score?.toString() || "");
-    setTempComments(report.comments || "");
+    setTempScore(report.score?.toString() || '');
+    setTempComments(report.comments || '');
     setShowScoreModal(true);
   };
 
   const handleSaveScore = () => {
     if (!selectedReport) return;
 
-    setReports((prev) =>
-      prev.map((report) =>
-        report.id === selectedReport.id
-          ? {
-              ...report,
-              score: parseInt(tempScore),
-              comments: tempComments,
-              status: "reviewed" as const,
-            }
-          : report,
-      ),
-    );
+    setReports(prev => prev.map(report => 
+      report.id === selectedReport.id
+        ? {
+            ...report,
+            score: parseInt(tempScore),
+            comments: tempComments,
+            status: 'reviewed' as const
+          }
+        : report
+    ));
     setShowScoreModal(false);
     setSelectedReport(null);
-    setTempScore("");
-    setTempComments("");
+    setTempScore('');
+    setTempComments('');
   };
 
   const handleDownload = (fileName: string) => {
@@ -90,38 +79,36 @@ const ExperimentReports: React.FC = () => {
   };
 
   const handleBatchReject = () => {
-    const unreviewed = reports.filter((r) => r.status === "unreviewed");
+    const unreviewed = reports.filter(r => r.status === 'unreviewed');
     if (unreviewed.length === 0) {
-      alert("没有待评阅的报告");
+      alert('没有待评阅的报告');
       return;
     }
     alert(`已批量驳回 ${unreviewed.length} 份未评阅的报告`);
   };
 
   const handleExportList = () => {
-    alert("正在导出报告列表...");
+    alert('正在导出报告列表...');
   };
 
   const handleExportContent = () => {
-    alert("正在导出报告内容...");
+    alert('正在导出报告内容...');
   };
 
   const getStatusColor = (status: string) => {
-    return status === "reviewed"
-      ? "bg-green-100 text-green-800"
-      : "bg-yellow-100 text-yellow-800";
+    return status === 'reviewed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
   };
 
   const getStatusText = (status: string) => {
-    return status === "reviewed" ? "已评阅" : "未评阅";
+    return status === 'reviewed' ? '已评阅' : '未评阅';
   };
 
   const getScoreColor = (score?: number) => {
-    if (!score) return "";
-    if (score >= 90) return "text-green-600";
-    if (score >= 80) return "text-blue-600";
-    if (score >= 70) return "text-yellow-600";
-    return "text-red-600";
+    if (!score) return '';
+    if (score >= 90) return 'text-green-600';
+    if (score >= 80) return 'text-blue-600';
+    if (score >= 70) return 'text-yellow-600';
+    return 'text-red-600';
   };
 
   return (
@@ -137,9 +124,7 @@ const ExperimentReports: React.FC = () => {
             <FileText className="w-8 h-8 text-blue-600 mr-3" />
             <div>
               <p className="text-sm text-gray-600">总报告数</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {reports.length}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{reports.length}</p>
             </div>
           </div>
         </div>
@@ -149,7 +134,7 @@ const ExperimentReports: React.FC = () => {
             <div>
               <p className="text-sm text-gray-600">已评阅</p>
               <p className="text-2xl font-bold text-gray-900">
-                {reports.filter((r) => r.status === "reviewed").length}
+                {reports.filter(r => r.status === 'reviewed').length}
               </p>
             </div>
           </div>
@@ -160,7 +145,7 @@ const ExperimentReports: React.FC = () => {
             <div>
               <p className="text-sm text-gray-600">未评阅</p>
               <p className="text-2xl font-bold text-gray-900">
-                {reports.filter((r) => r.status === "unreviewed").length}
+                {reports.filter(r => r.status === 'unreviewed').length}
               </p>
             </div>
           </div>
@@ -171,12 +156,7 @@ const ExperimentReports: React.FC = () => {
             <div>
               <p className="text-sm text-gray-600">平均分</p>
               <p className="text-2xl font-bold text-gray-900">
-                {Math.round(
-                  reports
-                    .filter((r) => r.score)
-                    .reduce((sum, r) => sum + (r.score || 0), 0) /
-                    reports.filter((r) => r.score).length,
-                ) || "--"}
+                {Math.round(reports.filter(r => r.score).reduce((sum, r) => sum + (r.score || 0), 0) / reports.filter(r => r.score).length) || '--'}
               </p>
             </div>
           </div>
@@ -193,30 +173,14 @@ const ExperimentReports: React.FC = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  序号
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  姓名
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  学号
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  文件名
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  提交时间
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  状态
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  分数
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  操作
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学号</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">文件名</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">提交时间</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分数</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -243,17 +207,13 @@ const ExperimentReports: React.FC = () => {
                     {report.submittedAt}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${getStatusColor(report.status)}`}
-                    >
+                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(report.status)}`}>
                       {getStatusText(report.status)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {report.score ? (
-                      <span
-                        className={`font-medium ${getScoreColor(report.score)}`}
-                      >
+                      <span className={`font-medium ${getScoreColor(report.score)}`}>
                         {report.score}分
                       </span>
                     ) : (
@@ -332,9 +292,7 @@ const ExperimentReports: React.FC = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
               <div>
-                <h3 className="font-medium text-gray-900">
-                  {selectedReport.fileName}
-                </h3>
+                <h3 className="font-medium text-gray-900">{selectedReport.fileName}</h3>
                 <p className="text-sm text-gray-600">
                   {selectedReport.studentName} ({selectedReport.studentId})
                 </p>
@@ -367,25 +325,21 @@ const ExperimentReports: React.FC = () => {
         onClose={() => {
           setShowScoreModal(false);
           setSelectedReport(null);
-          setTempScore("");
-          setTempComments("");
+          setTempScore('');
+          setTempComments('');
         }}
         title="评阅报告"
       >
         {selectedReport && (
           <div className="space-y-4">
             <div className="p-4 bg-gray-50 rounded-lg">
-              <h3 className="font-medium text-gray-900">
-                {selectedReport.fileName}
-              </h3>
+              <h3 className="font-medium text-gray-900">{selectedReport.fileName}</h3>
               <p className="text-sm text-gray-600">
                 {selectedReport.studentName} ({selectedReport.studentId})
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                分数 (0-100分)
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">分数 (0-100分)</label>
               <input
                 type="number"
                 min="0"
@@ -397,9 +351,7 @@ const ExperimentReports: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                评语
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">评语</label>
               <textarea
                 value={tempComments}
                 onChange={(e) => setTempComments(e.target.value)}
@@ -414,13 +366,15 @@ const ExperimentReports: React.FC = () => {
                 onClick={() => {
                   setShowScoreModal(false);
                   setSelectedReport(null);
-                  setTempScore("");
-                  setTempComments("");
+                  setTempScore('');
+                  setTempComments('');
                 }}
               >
                 取消
               </Button>
-              <Button onClick={handleSaveScore}>保存评阅</Button>
+              <Button onClick={handleSaveScore}>
+                保存评阅
+              </Button>
             </div>
           </div>
         )}
