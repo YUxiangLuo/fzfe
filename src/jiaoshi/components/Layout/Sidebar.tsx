@@ -32,6 +32,15 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [expandedMenus, setExpandedMenus] = useState<string[]>(['account']);
 
+  // 如果默认选中的是实验相关页面，自动展开实验菜单
+  React.useEffect(() => {
+    if (activeMenuItem.startsWith('experiment-')) {
+      setExpandedMenus(prev => 
+        prev.includes('experiment') ? prev : [...prev, 'experiment']
+      );
+    }
+  }, [activeMenuItem]);
+
   const toggleMenu = (menu: string) => {
     setExpandedMenus(prev => 
       prev.includes(menu) 
