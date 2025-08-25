@@ -36,22 +36,16 @@ const ExperimentReports: React.FC = () => {
     }
   ]);
 
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ExperimentReport | null>(null);
   const [tempScore, setTempScore] = useState('');
   const [tempComments, setTempComments] = useState('');
 
-  const handlePreview = (report: ExperimentReport) => {
-    setSelectedReport(report);
-    setShowPreviewModal(true);
-  };
-
-  const handleScoring = (report: ExperimentReport) => {
+  const handleReview = (report: ExperimentReport) => {
     setSelectedReport(report);
     setTempScore(report.score?.toString() || '');
     setTempComments(report.comments || '');
-    setShowScoreModal(true);
+    setShowReviewModal(true);
   };
 
   const handleSaveScore = () => {
@@ -67,7 +61,26 @@ const ExperimentReports: React.FC = () => {
           }
         : report
     ));
-    setShowScoreModal(false);
+    setShowReviewModal(false);
+    setSelectedReport(null);
+    setTempScore('');
+    setTempComments('');
+  };
+
+  const handleReject = () => {
+    if (!selectedReport) return;
+
+    setReports(prev => prev.map(report => 
+      report.id === selectedReport.id
+        ? {
+            ...report,
+            status: 'unreviewed' as const,
+            score: undefined,
+            comments: tempComments || '报告需要重新提交，请按要求完善内容。'
+          }
+        : report
+    ));
+    setShowReviewModal(false);
     setSelectedReport(null);
     setTempScore('');
     setTempComments('');
@@ -196,12 +209,11 @@ const ExperimentReports: React.FC = () => {
                     {report.studentId}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
-                    <button
-                      onClick={() => handlePreview(report)}
-                      className="text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      {report.fileName}
-                    </button>
+                    <div className="max-w-xs">
+                      <p className="text-sm text-gray-900 truncate" title={report.fileName}>
+                        {report.fileName}
+                      </p>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {report.submittedAt}
@@ -221,29 +233,13 @@ const ExperimentReports: React.FC = () => {
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handlePreview(report)}
-                        className="text-blue-600 hover:text-blue-800"
-                        title="预览"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDownload(report.fileName)}
-                        className="text-green-600 hover:text-green-800"
-                        title="下载"
-                      >
-                        <Download size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleScoring(report)}
-                        className="text-orange-600 hover:text-orange-800"
-                        title="评分"
-                      >
-                        <Star size={16} />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handleReview(report)}
+                      className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                    >
+                      <Star size={16} className="mr-2" />
+                      评阅
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -281,100 +277,118 @@ const ExperimentReports: React.FC = () => {
         </div>
       </div>
 
-      {/* 预览模态框 */}
+      {/* 评阅模态框 */}
       <Modal
-        isOpen={showPreviewModal}
-        onClose={() => setShowPreviewModal(false)}
-        title="实验报告预览"
-        size="large"
-      >
-        {selectedReport && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-              <div>
-                <h3 className="font-medium text-gray-900">{selectedReport.fileName}</h3>
-                <p className="text-sm text-gray-600">
-                  {selectedReport.studentName} ({selectedReport.studentId})
-                </p>
-              </div>
-              <Button
-                onClick={() => handleDownload(selectedReport.fileName)}
-                variant="outline"
-                size="sm"
-              >
-                <Download size={16} className="mr-1" />
-                下载
-              </Button>
-            </div>
-            <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">PDF 文档预览</p>
-                <p className="text-sm text-gray-400 mt-2">
-                  实际系统中此处会显示 PDF 预览内容
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* 评分模态框 */}
-      <Modal
-        isOpen={showScoreModal}
+        isOpen={showReviewModal}
         onClose={() => {
-          setShowScoreModal(false);
+          setShowReviewModal(false);
           setSelectedReport(null);
           setTempScore('');
           setTempComments('');
         }}
         title="评阅报告"
+        size="large"
       >
         {selectedReport && (
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <h3 className="font-medium text-gray-900">{selectedReport.fileName}</h3>
-              <p className="text-sm text-gray-600">
-                {selectedReport.studentName} ({selectedReport.studentId})
-              </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[600px]">
+            {/* 左侧：PDF预览区域 */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h3 className="font-medium text-gray-900">{selectedReport.fileName}</h3>
+                  <p className="text-sm text-gray-600">
+                    {selectedReport.studentName} ({selectedReport.studentId})
+                  </p>
+                </div>
+                <Button
+                  onClick={() => handleDownload(selectedReport.fileName)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Download size={16} className="mr-1" />
+                  下载
+                </Button>
+              </div>
+              <div className="h-96 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                <div className="text-center">
+                  <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 font-medium">PDF 文档预览</p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    实际系统中此处会显示 PDF 预览内容
+                  </p>
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">分数 (0-100分)</label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={tempScore}
-                onChange={(e) => setTempScore(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="请输入分数"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">评语</label>
-              <textarea
-                value={tempComments}
-                onChange={(e) => setTempComments(e.target.value)}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                placeholder="请输入评语..."
-              />
-            </div>
-            <div className="flex justify-end space-x-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowScoreModal(false);
-                  setSelectedReport(null);
-                  setTempScore('');
-                  setTempComments('');
-                }}
-              >
-                取消
-              </Button>
-              <Button onClick={handleSaveScore}>
-                保存评阅
-              </Button>
+
+            {/* 右侧：评阅区域 */}
+            <div className="space-y-6">
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 className="text-lg font-semibold text-blue-900 mb-2">评阅操作</h4>
+                <p className="text-sm text-blue-700">
+                  请仔细查看左侧PDF内容后进行评分或驳回操作
+                </p>
+              </div>
+
+              {/* 评分区域 */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    分数 (0-100分)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={tempScore}
+                    onChange={(e) => setTempScore(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                    placeholder="请输入分数"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    评语
+                  </label>
+                  <textarea
+                    value={tempComments}
+                    onChange={(e) => setTempComments(e.target.value)}
+                    rows={6}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    placeholder="请输入评语..."
+                  />
+                </div>
+              </div>
+
+              {/* 操作按钮 */}
+              <div className="flex flex-col space-y-3 pt-4 border-t border-gray-200">
+                <Button 
+                  onClick={handleSaveScore}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
+                  disabled={!tempScore || parseInt(tempScore) < 0 || parseInt(tempScore) > 100}
+                >
+                  <Star size={18} className="mr-2" />
+                  通过并评分
+                </Button>
+                <Button 
+                  onClick={handleReject}
+                  variant="outline"
+                  className="w-full border-red-300 text-red-700 hover:bg-red-50 py-3"
+                >
+                  驳回报告
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowReviewModal(false);
+                    setSelectedReport(null);
+                    setTempScore('');
+                    setTempComments('');
+                  }}
+                  className="w-full py-3"
+                >
+                  取消评阅
+                </Button>
+              </div>
             </div>
           </div>
         )}

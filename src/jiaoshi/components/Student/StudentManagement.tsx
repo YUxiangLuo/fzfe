@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Edit2, Trash2, RotateCcw, Users } from 'lucide-react';
+import { Search, Edit2, Users, AlertTriangle, RotateCcw, Trash2 } from 'lucide-react';
 import { Student } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
@@ -45,6 +45,8 @@ const StudentManagement: React.FC = () => {
   const [selectedClass, setSelectedClass] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'reset' | 'delete' | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -102,17 +104,37 @@ const StudentManagement: React.FC = () => {
           }
         : student
     ));
+    closeEditModal();
+  };
+
+  const closeEditModal = () => {
     setShowEditModal(false);
     setEditingStudent(null);
     setFormData({ name: '', phone: '', email: '', classId: '' });
   };
 
-  const handleDelete = (id: string) => {
-    setStudents(prev => prev.filter(student => student.id !== id));
+  const handleConfirmAction = (action: 'reset' | 'delete') => {
+    setConfirmAction(action);
+    setShowConfirmModal(true);
   };
 
-  const handleResetPassword = (studentId: string) => {
-    alert(`学生 ${studentId} 的密码已重置为默认密码`);
+  const executeConfirmAction = () => {
+    if (!editingStudent || !confirmAction) return;
+
+    if (confirmAction === 'reset') {
+      alert(`学生 ${editingStudent.studentId} 的密码已重置为默认密码`);
+    } else if (confirmAction === 'delete') {
+      setStudents(prev => prev.filter(student => student.id !== editingStudent.id));
+      closeEditModal();
+    }
+
+    setShowConfirmModal(false);
+    setConfirmAction(null);
+  };
+
+  const cancelConfirmAction = () => {
+    setShowConfirmModal(false);
+    setConfirmAction(null);
   };
 
   return (
@@ -239,29 +261,14 @@ const StudentManagement: React.FC = () => {
                     {student.createdAt}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleEdit(student)}
-                        className="text-blue-600 hover:text-blue-800"
-                        title="修改信息"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleResetPassword(student.studentId)}
-                        className="text-orange-600 hover:text-orange-800"
-                        title="重置密码"
-                      >
-                        <RotateCcw size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(student.id)}
-                        className="text-red-600 hover:text-red-800"
-                        title="删除学生"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handleEdit(student)}
+                      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition-all duration-200"
+                      title="修改学生信息"
+                    >
+                      <Edit2 size={14} className="mr-1" />
+                      修改
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -273,11 +280,7 @@ const StudentManagement: React.FC = () => {
       {/* 编辑学生模态框 */}
       <Modal
         isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          setEditingStudent(null);
-          setFormData({ name: '', phone: '', email: '', classId: '' });
-        }}
+        onClose={closeEditModal}
         title="修改学生信息"
       >
         <div className="space-y-4">
@@ -320,28 +323,97 @@ const StudentManagement: React.FC = () => {
               ))}
             </select>
           </div>
-          <div className="bg-yellow-50 p-4 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <RotateCcw className="w-5 h-5 text-yellow-600" />
-              <p className="text-sm text-yellow-800 font-medium">密码重置</p>
+          
+          {/* 危险操作区域 */}
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+              <AlertTriangle className="w-4 h-4 text-orange-500 mr-2" />
+              危险操作
+            </h4>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
+                <div>
+                  <p className="text-sm font-medium text-orange-800">重置密码</p>
+                  <p className="text-xs text-orange-600 mt-1">将学生密码重置为默认密码</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleConfirmAction('reset')}
+                  className="border-orange-300 text-orange-700 hover:bg-orange-100"
+                >
+                  <RotateCcw size={14} className="mr-1" />
+                  重置
+                </Button>
+              </div>
+              
+              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-200">
+                <div>
+                  <p className="text-sm font-medium text-red-800">删除学生</p>
+                  <p className="text-xs text-red-600 mt-1">从班级中永久移除该学生</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleConfirmAction('delete')}
+                  className="border-red-300 text-red-700 hover:bg-red-100"
+                >
+                  <Trash2 size={14} className="mr-1" />
+                  删除
+                </Button>
+              </div>
             </div>
-            <p className="text-xs text-yellow-700 mt-1">
-              如需重置学生密码，请在保存后使用重置密码功能
-            </p>
           </div>
+          
           <div className="flex justify-end space-x-3 pt-4">
             <Button
               variant="outline"
-              onClick={() => {
-                setShowEditModal(false);
-                setEditingStudent(null);
-                setFormData({ name: '', phone: '', email: '', classId: '' });
-              }}
+              onClick={closeEditModal}
             >
               取消
             </Button>
             <Button onClick={handleUpdate}>
               保存修改
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* 确认操作模态框 */}
+      <Modal
+        isOpen={showConfirmModal}
+        onClose={cancelConfirmAction}
+        title="确认操作"
+        size="small"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center space-x-3">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+              confirmAction === 'delete' ? 'bg-red-100' : 'bg-orange-100'
+            }`}>
+              <AlertTriangle className={`w-6 h-6 ${
+                confirmAction === 'delete' ? 'text-red-600' : 'text-orange-600'
+              }`} />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium text-gray-900">
+                {confirmAction === 'delete' ? '确认删除学生' : '确认重置密码'}
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                {confirmAction === 'delete' 
+                  ? `确定要删除学生 "${editingStudent?.studentName}" 吗？此操作不可撤销。`
+                  : `确定要重置学生 "${editingStudent?.studentName}" 的密码吗？`
+                }
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button variant="outline" onClick={cancelConfirmAction}>取消</Button>
+            <Button 
+              onClick={executeConfirmAction}
+              className={confirmAction === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700'}
+            >
+              {confirmAction === 'delete' ? '确认删除' : '确认重置'}
             </Button>
           </div>
         </div>

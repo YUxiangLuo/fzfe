@@ -1,42 +1,82 @@
 import React, { useState } from 'react';
-import { Search, TrendingUp, Users, Clock, Play } from 'lucide-react';
+import { Search, TrendingUp, Users, Clock, Play, CheckCircle, Circle, ChevronDown, ChevronRight } from 'lucide-react';
 import { ExperimentProgress as Progress } from '../../types';
 
+interface ProgressNode {
+  id: string;
+  name: string;
+  completed: boolean;
+  completedAt?: string;
+}
+
+interface DetailedProgress extends Progress {
+  nodes: ProgressNode[];
+}
+
 const ExperimentProgress: React.FC = () => {
-  const [progressData, setProgressData] = useState<Progress[]>([
+  const [progressData, setProgressData] = useState<DetailedProgress[]>([
     {
       studentId: '2022001',
       studentName: '张三',
       progress: 85,
       stayTime: 120,
-      startTime: '2024-03-01 09:30:00'
+      startTime: '2024-03-01 09:30:00',
+      nodes: [
+        { id: 'data-prep', name: '数据准备', completed: true, completedAt: '2024-03-01 10:15:00' },
+        { id: 'data-stats', name: '数据统计', completed: true, completedAt: '2024-03-01 10:45:00' },
+        { id: 'demand-forecast', name: '需求预测', completed: true, completedAt: '2024-03-01 11:20:00' },
+        { id: 'production-plan', name: '生产计划制定', completed: true, completedAt: '2024-03-01 11:50:00' },
+        { id: 'submit-report', name: '提交实验报告', completed: false }
+      ]
     },
     {
       studentId: '2022002',
       studentName: '李四',
       progress: 92,
       stayTime: 95,
-      startTime: '2024-03-01 10:15:00'
+      startTime: '2024-03-01 10:15:00',
+      nodes: [
+        { id: 'data-prep', name: '数据准备', completed: true, completedAt: '2024-03-01 10:30:00' },
+        { id: 'data-stats', name: '数据统计', completed: true, completedAt: '2024-03-01 10:50:00' },
+        { id: 'demand-forecast', name: '需求预测', completed: true, completedAt: '2024-03-01 11:15:00' },
+        { id: 'production-plan', name: '生产计划制定', completed: true, completedAt: '2024-03-01 11:40:00' },
+        { id: 'submit-report', name: '提交实验报告', completed: true, completedAt: '2024-03-01 12:00:00' }
+      ]
     },
     {
       studentId: '2023001',
       studentName: '王五',
       progress: 67,
       stayTime: 180,
-      startTime: '2024-03-01 08:45:00'
+      startTime: '2024-03-01 08:45:00',
+      nodes: [
+        { id: 'data-prep', name: '数据准备', completed: true, completedAt: '2024-03-01 09:15:00' },
+        { id: 'data-stats', name: '数据统计', completed: true, completedAt: '2024-03-01 09:45:00' },
+        { id: 'demand-forecast', name: '需求预测', completed: true, completedAt: '2024-03-01 10:30:00' },
+        { id: 'production-plan', name: '生产计划制定', completed: false },
+        { id: 'submit-report', name: '提交实验报告', completed: false }
+      ]
     },
     {
       studentId: '2022003',
       studentName: '赵六',
       progress: 100,
       stayTime: 85,
-      startTime: '2024-03-01 11:00:00'
+      startTime: '2024-03-01 11:00:00',
+      nodes: [
+        { id: 'data-prep', name: '数据准备', completed: true, completedAt: '2024-03-01 11:20:00' },
+        { id: 'data-stats', name: '数据统计', completed: true, completedAt: '2024-03-01 11:35:00' },
+        { id: 'demand-forecast', name: '需求预测', completed: true, completedAt: '2024-03-01 11:50:00' },
+        { id: 'production-plan', name: '生产计划制定', completed: true, completedAt: '2024-03-01 12:10:00' },
+        { id: 'submit-report', name: '提交实验报告', completed: true, completedAt: '2024-03-01 12:25:00' }
+      ]
     }
   ]);
 
   const [selectedClass, setSelectedClass] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredData, setFilteredData] = useState(progressData);
+  const [expandedRows, setExpandedRows] = useState<string[]>([]);
 
   const classes = [
     { id: '1', name: '软件工程2022级' },
@@ -77,10 +117,56 @@ const ExperimentProgress: React.FC = () => {
     return 'bg-red-100';
   };
 
+  // 获取节点颜色
+  const getNodeColor = (nodeName: string) => {
+    const colorMap: { [key: string]: string } = {
+      '数据准备': 'bg-blue-100 text-blue-800',
+      '数据统计': 'bg-purple-100 text-purple-800', 
+      '需求预测': 'bg-yellow-100 text-yellow-800',
+      '生产计划制定': 'bg-orange-100 text-orange-800',
+      '提交实验报告': 'bg-green-100 text-green-800',
+      '未开始': 'bg-gray-100 text-gray-600'
+    };
+    return colorMap[nodeName] || 'bg-gray-100 text-gray-600';
+  };
+
+  // 获取最新已完成的节点信息
+  const getLatestCompletedNodeInfo = (nodes: ProgressNode[]) => {
+    // 找到最后一个已完成的节点
+    const completedNodes = nodes.filter(node => node.completed);
+    if (completedNodes.length === 0) {
+      return { nodeName: '未开始' };
+    }
+    
+    // 返回最后一个已完成的节点
+    const latestCompleted = completedNodes[completedNodes.length - 1];
+    return { nodeName: latestCompleted.name };
+  };
+
+  // 获取当前进行的节点信息（用于详情展示）
+  const getCurrentNodeInfo = (nodes: ProgressNode[]) => {
+    const completedNodes = nodes.filter(node => node.completed);
+    if (completedNodes.length === 0) {
+      return { nodeName: '未开始' };
+    }
+    
+    // 返回最后一个已完成的节点
+    const latestCompleted = completedNodes[completedNodes.length - 1];
+    return { nodeName: '未开始' };
+  };
+
   const formatDuration = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  };
+
+  const toggleRowExpansion = (studentId: string) => {
+    setExpandedRows(prev => 
+      prev.includes(studentId) 
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
   };
 
   return (
@@ -184,6 +270,7 @@ const ExperimentProgress: React.FC = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学号</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实验进度</th>
@@ -193,40 +280,108 @@ const ExperimentProgress: React.FC = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredData.map((item) => (
-                <tr key={item.studentId} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {item.studentName}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.studentId}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full transition-all duration-300 ${getProgressColor(item.progress)}`}
-                          style={{ width: `${item.progress}%` }}
-                        ></div>
+                <React.Fragment key={item.studentId}>
+                  <tr className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => toggleRowExpansion(item.studentId)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        {expandedRows.includes(item.studentId) ? (
+                          <ChevronDown size={20} />
+                        ) : (
+                          <ChevronRight size={20} />
+                        )}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {item.studentName}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {item.studentId}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="space-y-2">
+                        <div>
+                          {(() => {
+                            const latestInfo = getLatestCompletedNodeInfo(item.nodes);
+                            return (
+                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getNodeColor(latestInfo.nodeName)}`}>
+                                {latestInfo.nodeName}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </div>
-                      <span className={`px-2 py-1 text-xs rounded-full font-medium ${getProgressBgColor(item.progress)} ${
-                        item.progress >= 90 ? 'text-green-800' :
-                        item.progress >= 70 ? 'text-blue-800' :
-                        item.progress >= 50 ? 'text-yellow-800' : 'text-red-800'
-                      }`}>
-                        {item.progress}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className="flex items-center">
-                      <Clock className="w-4 h-4 text-gray-400 mr-1" />
-                      {formatDuration(item.stayTime)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.startTime}
-                  </td>
-                </tr>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="flex items-center">
+                        <Clock className="w-4 h-4 text-gray-400 mr-1" />
+                        {formatDuration(item.stayTime)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {item.startTime}
+                    </td>
+                  </tr>
+                  {expandedRows.includes(item.studentId) && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-4 bg-gray-50">
+                        <div className="space-y-4">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-3">实验节点详情</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {item.nodes.map((node, index) => (
+                              <div key={node.id} className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                                node.completed 
+                                  ? 'bg-green-50 border-green-200 shadow-sm' 
+                                  : 'bg-gray-50 border-gray-200'
+                              }`}>
+                                <div className="flex items-center space-x-3">
+                                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                                    node.completed 
+                                      ? 'bg-green-100 text-green-600' 
+                                      : 'bg-gray-100 text-gray-400'
+                                  }`}>
+                                    {node.completed ? (
+                                      <CheckCircle size={18} />
+                                    ) : (
+                                      <Circle size={18} />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center space-x-2">
+                                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                        node.completed 
+                                          ? 'bg-green-100 text-green-800' 
+                                          : 'bg-gray-100 text-gray-600'
+                                      }`}>
+                                        步骤 {index + 1}
+                                      </span>
+                                      <span className={`text-xs font-medium ${
+                                        node.completed ? 'text-green-600' : 'text-gray-500'
+                                      }`}>
+                                        {node.completed ? '已完成' : '未完成'}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-900 mt-1">
+                                      {node.name}
+                                    </p>
+                                    {node.completedAt && (
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        完成时间: {node.completedAt}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
