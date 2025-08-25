@@ -11,6 +11,7 @@ const server = serve({
     "/jiaoshi": jiaoshi,
 
     "/shiyan": shiyan,
+    "/shiyan/*": shiyan,
 
     "/api/hello": {
       async GET(req) {
