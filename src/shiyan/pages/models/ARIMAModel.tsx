@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { AppState } from '../../App';
 import { TrendingUp, Settings, Play, BarChart, Activity, CheckCircle, Target, X, History } from 'lucide-react';
 
+import { useNavigate } from 'react-router-dom';
+
 interface Props {
   appState: AppState;
   updateAppState: (updates: Partial<AppState>) => void;
@@ -9,6 +11,7 @@ interface Props {
 }
 
 const ARIMAModel: React.FC<Props> = ({ completeStep }) => {
+  const navigate = useNavigate();
   const [pValue, setPValue] = useState(1);
   const [dValue, setDValue] = useState(1);
   const [qValue, setQValue] = useState(1);
@@ -43,6 +46,8 @@ const ARIMAModel: React.FC<Props> = ({ completeStep }) => {
       predictions,
       metrics: evaluationMetrics
     });
+    completeStep(5);
+    completeStep(5);
   };
 
   const handleCompleteStep = () => {
@@ -60,6 +65,8 @@ const ARIMAModel: React.FC<Props> = ({ completeStep }) => {
       metrics: evaluationMetrics
     });
     completeStep(5);
+    // 跳转到结果评估页面
+    navigate('/evaluation');
   };
 
   const getParameterDescription = (param: string) => {
@@ -198,12 +205,6 @@ const ARIMAModel: React.FC<Props> = ({ completeStep }) => {
                   className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   关闭
-                </button>
-                <button
-                  onClick={handleCompleteStep}
-                  className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md hover:shadow-lg transition-all"
-                >
-                  完成ARIMA模型学习，继续下一步
                 </button>
               </div>
             </div>

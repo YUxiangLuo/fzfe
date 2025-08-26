@@ -35,6 +35,8 @@ const MovingAverageModel: React.FC<Props> = ({ appState, updateAppState, complet
       predictions,
       metrics: evaluationMetrics
     });
+    completeStep(5);
+    completeStep(5);
   };
 
   const handleCompleteStep = () => {
@@ -48,6 +50,8 @@ const MovingAverageModel: React.FC<Props> = ({ appState, updateAppState, complet
       metrics: evaluationMetrics
     });
     completeStep(5);
+    // 跳转到结果评估页面
+    navigate('/evaluation');
   };
 
   // 模拟移动平均预测结果
@@ -165,12 +169,6 @@ const MovingAverageModel: React.FC<Props> = ({ appState, updateAppState, complet
                   className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   关闭
-                </button>
-                <button
-                  onClick={handleCompleteStep}
-                  className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all"
-                >
-                  完成移动平均法学习，继续下一步
                 </button>
               </div>
             </div>

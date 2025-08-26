@@ -110,7 +110,7 @@ function App() {
                     ) : <Navigate to="/industry" replace />
                   } />
                   <Route path="/evaluation" element={
-                    appState.completedSteps.includes(5) ? (
+                    appState.completedSteps.includes(4) ? (
                       <ResultEvaluation 
                         appState={appState} 
                         updateAppState={updateAppState}

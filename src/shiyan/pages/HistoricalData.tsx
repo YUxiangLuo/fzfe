@@ -79,7 +79,7 @@ const HistoricalData: React.FC<Props> = ({ completeStep }) => {
 
         {/* 柱状图区域 */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-20">
             <h2 className="text-2xl font-semibold text-gray-900 flex items-center">
               <BarChart3 className="w-6 h-6 mr-3 text-blue-600" />
               月度销量趋势图

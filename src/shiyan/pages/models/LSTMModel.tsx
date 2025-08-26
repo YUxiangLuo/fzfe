@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { AppState } from '../../App';
 import { Brain, Settings, Play, Zap, Layers, CheckCircle, TrendingUp, Award, X, History } from 'lucide-react';
 
+import { useNavigate } from 'react-router-dom';
+
 interface Props {
   appState: AppState;
   updateAppState: (updates: Partial<AppState>) => void;
@@ -9,6 +11,7 @@ interface Props {
 }
 
 const LSTMModel: React.FC<Props> = ({ completeStep }) => {
+  const navigate = useNavigate();
   const [hiddenUnits, setHiddenUnits] = useState(50);
   const [timeSteps, setTimeSteps] = useState(12);
   const [epochs, setEpochs] = useState(100);
@@ -49,6 +52,8 @@ const LSTMModel: React.FC<Props> = ({ completeStep }) => {
       predictions,
       metrics: evaluationMetrics
     });
+    completeStep(5);
+    completeStep(5);
   };
 
   const handleCompleteStep = () => {
@@ -64,6 +69,8 @@ const LSTMModel: React.FC<Props> = ({ completeStep }) => {
       metrics: evaluationMetrics
     });
     completeStep(5);
+    // 跳转到结果评估页面
+    navigate('/evaluation');
   };
 
   // 模拟LSTM预测结果
@@ -189,12 +196,6 @@ const LSTMModel: React.FC<Props> = ({ completeStep }) => {
                   className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   关闭
-                </button>
-                <button
-                  onClick={handleCompleteStep}
-                  className="px-8 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 shadow-md hover:shadow-lg transition-all"
-                >
-                  完成LSTM模型学习，继续下一步
                 </button>
               </div>
             </div>
