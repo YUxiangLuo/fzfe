@@ -270,30 +270,20 @@ const ExperimentProgress: React.FC = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学号</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实验进度</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">停留时间</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">开始时间</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredData.map((item) => (
                 <React.Fragment key={item.studentId}>
-                  <tr className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => toggleRowExpansion(item.studentId)}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        {expandedRows.includes(item.studentId) ? (
-                          <ChevronDown size={20} />
-                        ) : (
-                          <ChevronRight size={20} />
-                        )}
-                      </button>
-                    </td>
+                  <tr 
+                    className="hover:bg-gray-50 transition-colors duration-200"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {item.studentName}
                     </td>
@@ -323,23 +313,34 @@ const ExperimentProgress: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {item.startTime}
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <button
+                        onClick={() => toggleRowExpansion(item.studentId)}
+                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition-all duration-200"
+                      >
+                        {expandedRows.includes(item.studentId) ? '收起详情' : '展开详情'}
+                      </button>
+                    </td>
                   </tr>
                   {expandedRows.includes(item.studentId) && (
                     <tr>
-                      <td colSpan={6} className="px-6 py-4 bg-gray-50">
+                      <td colSpan={6} className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-400">
                         <div className="space-y-4">
-                          <h4 className="text-sm font-semibold text-gray-900 mb-3">实验节点详情</h4>
+                          <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                            实验节点详情
+                          </h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {item.nodes.map((node, index) => (
                               <div key={node.id} className={`p-4 rounded-xl border-2 transition-all duration-200 ${
                                 node.completed 
-                                  ? 'bg-green-50 border-green-200 shadow-sm' 
-                                  : 'bg-gray-50 border-gray-200'
+                                  ? 'bg-green-50 border-green-200 shadow-md' 
+                                  : 'bg-white border-gray-200 shadow-sm'
                               }`}>
                                 <div className="flex items-center space-x-3">
                                   <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                                     node.completed 
-                                      ? 'bg-green-100 text-green-600' 
+                                      ? 'bg-green-500 text-white' 
                                       : 'bg-gray-100 text-gray-400'
                                   }`}>
                                     {node.completed ? (
@@ -352,13 +353,13 @@ const ExperimentProgress: React.FC = () => {
                                     <div className="flex items-center space-x-2">
                                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                                         node.completed 
-                                          ? 'bg-green-100 text-green-800' 
+                                          ? 'bg-green-500 text-white' 
                                           : 'bg-gray-100 text-gray-600'
                                       }`}>
                                         步骤 {index + 1}
                                       </span>
                                       <span className={`text-xs font-medium ${
-                                        node.completed ? 'text-green-600' : 'text-gray-500'
+                                        node.completed ? 'text-green-700' : 'text-gray-500'
                                       }`}>
                                         {node.completed ? '已完成' : '未完成'}
                                       </span>
@@ -367,7 +368,7 @@ const ExperimentProgress: React.FC = () => {
                                       {node.name}
                                     </p>
                                     {node.completedAt && (
-                                      <p className="text-xs text-gray-500 mt-1">
+                                      <p className="text-xs text-green-600 mt-1 font-medium">
                                         完成时间: {node.completedAt}
                                       </p>
                                     )}
@@ -376,7 +377,6 @@ const ExperimentProgress: React.FC = () => {
                               </div>
                             ))}
                           </div>
-                          
                         </div>
                       </td>
                     </tr>

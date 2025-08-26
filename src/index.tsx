@@ -2,14 +2,14 @@ import { serve } from "bun";
 import shiyan from "./shiyan/shiyan.html";
 import jiaoshi from "./jiaoshi/jiaoshi.html";
 import login from "./login/login.html";
+import admin from "./admin/admin.html";
 
 const server = serve({
   routes: {
     "/*": login,
     "/login": login,
-
+    "/admin": admin,
     "/jiaoshi": jiaoshi,
-
     "/shiyan": shiyan,
     "/shiyan/*": shiyan,
 

@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
-import { User, Lock, Eye, EyeOff, LogIn } from 'lucide-react';
+import React, { useState } from "react";
+import { User, Lock, Eye, EyeOff, LogIn } from "lucide-react";
 
 interface LoginFormProps {
   selectedRole: string;
-  onSubmit: (credentials: { username: string; password: string }) => void;
+  onSubmit: (username: string, password: string) => Promise<void>;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = ({ selectedRole, onSubmit }) => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+export const LoginForm: React.FC<LoginFormProps> = ({
+  selectedRole,
+  onSubmit,
+}) => {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -18,12 +21,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ selectedRole, onSubmit }) 
     if (!username.trim() || !password.trim() || !selectedRole) return;
 
     setIsLoading(true);
-    
+
     // 模拟登录延迟
-    setTimeout(() => {
-      onSubmit({ username, password });
-      setIsLoading(false);
-    }, 1500);
+    await onSubmit(username, password);
+    setIsLoading(false);
   };
 
   const isFormValid = username.trim() && password.trim() && selectedRole;
@@ -55,7 +56,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ selectedRole, onSubmit }) 
         <div className="relative">
           <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50" />
           <input
-            type={showPassword ? 'text' : 'password'}
+            type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/20 rounded-lg
@@ -70,7 +71,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ selectedRole, onSubmit }) 
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/50 hover:text-white/80 transition-colors"
           >
-            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            {showPassword ? (
+              <EyeOff className="w-5 h-5" />
+            ) : (
+              <Eye className="w-5 h-5" />
+            )}
           </button>
         </div>
       </div>
@@ -104,8 +109,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ selectedRole, onSubmit }) 
           transition-all duration-300 flex items-center justify-center space-x-2
           ${
             isFormValid && !isLoading
-              ? 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 shadow-lg hover:shadow-xl'
-              : 'bg-white/20 cursor-not-allowed'
+              ? "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              : "bg-white/20 cursor-not-allowed"
           }
         `}
       >
