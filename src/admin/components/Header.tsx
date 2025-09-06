@@ -1,10 +1,11 @@
-import React from 'react';
-import { LogOut, User, Shield } from 'lucide-react';
+import React from "react";
+import { LogOut, User, Shield } from "lucide-react";
 
 const Header: React.FC = () => {
   const handleLogout = () => {
     // 这里可以添加退出登录逻辑
-    console.log('退出登录');
+    window.location.href = "/login";
+    console.log("退出登录");
   };
 
   return (
@@ -21,7 +22,7 @@ const Header: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-3 px-4 py-2 bg-gray-50 rounded-lg">
             <div className="w-8 h-8 bg-gradient-to-br from-gray-400 to-gray-600 rounded-full flex items-center justify-center">
@@ -32,7 +33,7 @@ const Header: React.FC = () => {
               <p className="text-xs text-gray-500">系统管理员</p>
             </div>
           </div>
-          
+
           <button
             onClick={handleLogout}
             className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200 border border-gray-200 hover:border-red-200"

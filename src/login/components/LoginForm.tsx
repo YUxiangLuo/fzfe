@@ -23,8 +23,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     setIsLoading(true);
 
     // 模拟登录延迟
-    await onSubmit(username, password);
-    setIsLoading(false);
+    setTimeout(async () => {
+      await onSubmit(username, password);
+      // setIsLoading(false);
+    }, 1500);
   };
 
   const isFormValid = username.trim() && password.trim() && selectedRole;

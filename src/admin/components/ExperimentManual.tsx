@@ -1,45 +1,72 @@
-import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Download, Upload } from 'lucide-react';
-import { ExperimentManual } from '../types';
-import { mockManuals } from '../data/mockData';
-import Modal from './Modal';
+import React, { useState } from "react";
+import { Plus, Edit, Trash2, Download, Upload } from "lucide-react";
+import type { ExperimentManual } from "../types";
+import { mockManuals } from "../data/mockData";
+import Modal from "./Modal";
 
 const ExperimentManualView: React.FC = () => {
   const [manuals, setManuals] = useState<ExperimentManual[]>(mockManuals);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingManual, setEditingManual] = useState<ExperimentManual | null>(null);
+  const [editingManual, setEditingManual] = useState<ExperimentManual | null>(
+    null,
+  );
   const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   const handleStatusToggle = (id: string) => {
-    setManuals(prev => prev.map(manual => ({
-      ...manual,
-      status: manual.id === id ? 
-        (manual.status === 'enabled' ? 'disabled' : 'enabled') : 
-        (manual.id === id && manual.status === 'disabled' ? 'enabled' : 'disabled')
-    })));
+    setManuals((prev) =>
+      prev.map((manual) => ({
+        ...manual,
+        status:
+          manual.id === id
+            ? manual.status === "enabled"
+              ? "disabled"
+              : "enabled"
+            : manual.id === id && manual.status === "disabled"
+              ? "enabled"
+              : "disabled",
+      })),
+    );
   };
 
   const handleDelete = (id: string) => {
-    if (confirm('确定要删除此实验手册吗？')) {
-      setManuals(prev => prev.filter(manual => manual.id !== id));
+    if (confirm("确定要删除此实验手册吗？")) {
+      setManuals((prev) => prev.filter((manual) => manual.id !== id));
     }
   };
 
   const handleUpload = () => {
-    if (uploadFile) {
-      const newManual: ExperimentManual = {
-        id: Date.now().toString(),
-        name: uploadFile.name.replace('.pdf', ''),
-        version: 'v1.0.0',
-        uploadTime: new Date().toLocaleString('zh-CN'),
-        status: 'disabled',
-        filename: uploadFile.name
-      };
-      setManuals(prev => [...prev, newManual]);
-      setUploadFile(null);
-      setIsUploadModalOpen(false);
+    if (!uploadFile) {
+      alert("请选择文件");
+      return;
     }
+    const newManual: ExperimentManual = {
+      id: Date.now().toString(),
+      name: uploadFile.name.replace(".pdf", ""),
+      version: "v1.0.0",
+      uploadTime: new Date().toLocaleString("zh-CN"),
+      status: "disabled",
+      filename: uploadFile.name,
+    };
+
+    const formData = new FormData();
+    formData.append("file", uploadFile);
+    fetch("http://localhost:3001/api/upload/manual", {
+      method: "POST",
+      body: formData,
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        console.log(data);
+        if (data.message === "Manual uploaded successfully") {
+          setManuals((prev) => [...prev, newManual]);
+        }
+        setUploadFile(null);
+        setIsUploadModalOpen(false);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
   };
 
   const handleEdit = (manual: ExperimentManual) => {
@@ -49,9 +76,11 @@ const ExperimentManualView: React.FC = () => {
 
   const handleSaveEdit = () => {
     if (editingManual) {
-      setManuals(prev => prev.map(manual => 
-        manual.id === editingManual.id ? editingManual : manual
-      ));
+      setManuals((prev) =>
+        prev.map((manual) =>
+          manual.id === editingManual.id ? editingManual : manual,
+        ),
+      );
       setIsEditModalOpen(false);
       setEditingManual(null);
     }
@@ -68,7 +97,9 @@ const ExperimentManualView: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">实验手册管理</h1>
-          <p className="text-sm text-gray-500 mt-1">管理学生端显示的实验手册，支持上传、更新和启用/禁用操作</p>
+          <p className="text-sm text-gray-500 mt-1">
+            管理学生端显示的实验手册，支持上传、更新和启用/禁用操作
+          </p>
         </div>
         <button
           onClick={() => setIsUploadModalOpen(true)}
@@ -83,38 +114,69 @@ const ExperimentManualView: React.FC = () => {
         <table className="w-full">
           <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">手册名称</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">版本号</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">上传时间</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">状态</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">操作</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                手册名称
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                版本号
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                上传时间
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                状态
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                操作
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {manuals.map((manual) => (
-              <tr key={manual.id} className="hover:bg-blue-50/30 transition-colors duration-200">
-                <td className="px-6 py-4 text-sm text-gray-900">{manual.name}</td>
-                <td className="px-6 py-4 text-sm text-gray-600">{manual.version}</td>
-                <td className="px-6 py-4 text-sm text-gray-600">{manual.uploadTime}</td>
+              <tr
+                key={manual.id}
+                className="hover:bg-blue-50/30 transition-colors duration-200"
+              >
+                <td className="px-6 py-4 text-sm text-gray-900">
+                  {manual.name}
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-600">
+                  {manual.version}
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-600">
+                  {manual.uploadTime}
+                </td>
                 <td className="px-6 py-4">
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={manual.status === 'enabled'}
+                      checked={manual.status === "enabled"}
                       onChange={() => handleStatusToggle(manual.id)}
                       className="sr-only"
                     />
-                    <div className={`w-11 h-6 rounded-full transition-colors duration-200 ${
-                      manual.status === 'enabled' ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gray-300'
-                    }`}>
-                      <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-200 ${
-                        manual.status === 'enabled' ? 'translate-x-5' : 'translate-x-0.5'
-                      } mt-0.5`}></div>
+                    <div
+                      className={`w-11 h-6 rounded-full transition-colors duration-200 ${
+                        manual.status === "enabled"
+                          ? "bg-gradient-to-r from-green-500 to-emerald-500"
+                          : "bg-gray-300"
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-200 ${
+                          manual.status === "enabled"
+                            ? "translate-x-5"
+                            : "translate-x-0.5"
+                        } mt-0.5`}
+                      ></div>
                     </div>
-                    <span className={`ml-3 text-sm ${
-                      manual.status === 'enabled' ? 'text-green-600 font-semibold' : 'text-gray-500'
-                    }`}>
-                      {manual.status === 'enabled' ? '启用' : '禁用'}
+                    <span
+                      className={`ml-3 text-sm ${
+                        manual.status === "enabled"
+                          ? "text-green-600 font-semibold"
+                          : "text-gray-500"
+                      }`}
+                    >
+                      {manual.status === "enabled" ? "启用" : "禁用"}
                     </span>
                   </label>
                 </td>
@@ -178,13 +240,17 @@ const ExperimentManualView: React.FC = () => {
               >
                 点击选择文件
               </label>
-              <p className="text-sm text-gray-500 mt-2">支持PDF格式，文件大小不超过10MB</p>
+              <p className="text-sm text-gray-500 mt-2">
+                支持PDF格式，文件大小不超过10MB
+              </p>
               {uploadFile && (
-                <p className="text-sm text-green-600 mt-2">已选择: {uploadFile.name}</p>
+                <p className="text-sm text-green-600 mt-2">
+                  已选择: {uploadFile.name}
+                </p>
               )}
             </div>
           </div>
-          
+
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <button
               onClick={() => {
@@ -224,13 +290,15 @@ const ExperimentManualView: React.FC = () => {
               <input
                 type="text"
                 value={editingManual.name}
-                onChange={(e) => setEditingManual(prev => 
-                  prev ? { ...prev, name: e.target.value } : null
-                )}
+                onChange={(e) =>
+                  setEditingManual((prev) =>
+                    prev ? { ...prev, name: e.target.value } : null,
+                  )
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 版本号
@@ -238,13 +306,15 @@ const ExperimentManualView: React.FC = () => {
               <input
                 type="text"
                 value={editingManual.version}
-                onChange={(e) => setEditingManual(prev => 
-                  prev ? { ...prev, version: e.target.value } : null
-                )}
+                onChange={(e) =>
+                  setEditingManual((prev) =>
+                    prev ? { ...prev, version: e.target.value } : null,
+                  )
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-150"
               />
             </div>
-            
+
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
               <button
                 onClick={() => {

@@ -49,6 +49,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/introduction" replace />} />
         <Route path="/introduction" element={<Introduction />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="/*" element={
           <div className="min-h-screen bg-gray-50">
             <Header />
@@ -56,7 +57,6 @@ function App() {
               <Sidebar currentStep={appState.currentStep} completedSteps={appState.completedSteps} />
               <main className="flex-1 overflow-auto">
                 <Routes>
-                  <Route path="/profile" element={<Profile />} />
                   <Route path="/industry" element={
                     <IndustrySelection 
                       appState={appState} 
