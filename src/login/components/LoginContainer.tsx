@@ -6,7 +6,7 @@ export const LoginContainer: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState("");
 
   const handleLogin = async (username: string, password: string) => {
-    fetch("http://localhost:3001/api/auth/login", {
+    fetch("http://5.223.46.161:3001/api/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
