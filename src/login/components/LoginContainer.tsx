@@ -3,27 +3,31 @@ import { RoleSelector } from "./RoleSelector";
 import { LoginForm } from "./LoginForm";
 
 export const LoginContainer: React.FC = () => {
-  const [selectedRole, setSelectedRole] = useState("");
+  const [selectedRole, setSelectedRole] = useState("student");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (username: string, password: string) => {
-    fetch("http://5.223.46.161:3001/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ username, password }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        console.log(data.token);
-        if (data.token) {
-          localStorage.setItem("token", data.token);
-        }
-      })
-      .catch((error) => {
-        console.error("login error:", error);
-      })
-      .finally(() => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("http://localhost:3001/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "登录失败，请检查您的凭据");
+      }
+
+      if (data.token) {
+        localStorage.setItem("token", data.token);
         switch (selectedRole) {
           case "student":
             window.location.href = "/shiyan";
@@ -37,18 +41,24 @@ export const LoginContainer: React.FC = () => {
           case "admin":
             window.location.href = "/admin";
             break;
+          default:
+            window.location.href = "/shiyan";
+            break;
         }
-      });
-  };
-
-  const getRoleName = (roleId: string): string => {
-    const roleNames = {
-      student: "学生",
-      teacher: "教师",
-      assistant: "助教",
-      admin: "管理员",
-    };
-    return roleNames[roleId as keyof typeof roleNames] || "";
+      } else {
+        throw new Error("登录失败，未能获取到Token");
+      }
+    } catch (error: any) {
+      // 翻译后端错误信息为用户友好的中文提示
+      if (error.message === "Invalid credentials") {
+        setError("用户名或密码错误");
+      } else {
+        setError(error.message || "发生未知错误，请稍后再试");
+      }
+      console.error("Login error:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -70,7 +80,12 @@ export const LoginContainer: React.FC = () => {
             onRoleSelect={setSelectedRole}
           />
 
-          <LoginForm selectedRole={selectedRole} onSubmit={handleLogin} />
+          <LoginForm
+            selectedRole={selectedRole}
+            onSubmit={handleLogin}
+            isLoading={isLoading}
+            error={error}
+          />
         </div>
 
         {/* 底部信息 */}

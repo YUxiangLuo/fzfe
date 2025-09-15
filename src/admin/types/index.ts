@@ -1,12 +1,12 @@
 export interface User {
-  id: string;
-  account: string;
-  name: string;
-  role: 'student' | 'teacher' | 'assistant';
-  phone: string;
+  user_id: number;
+  username: string;
+  full_name: string;
   email: string;
-  registerTime: string;
-  status: 'active' | 'inactive';
+  role: 'Student' | 'Teacher' | 'Assistant' | 'Admin';
+  created_at: string;
+  phone_number?: string | null;
+  status?: 'active' | 'inactive'; 
 }
 
 export interface ExperimentManual {
@@ -27,13 +27,22 @@ export interface ExperimentData {
   lastUpdated: string;
 }
 
+// Updated Student type to match the new API response
+export interface Student {
+  user_id: number;
+  username: string;
+  full_name: string;
+  email: string;
+}
+
+// Updated Class type to include the optional students array
 export interface Class {
-  id: string;
-  classNumber: string;
-  className: string;
-  teacher: string;
-  createTime: string;
-  studentCount: number;
+  class_id: number;
+  class_name: string;
+  class_code: string;
+  teacher_id: number;
+  teacher_name: string;
+  students?: Student[];
 }
 
 export interface MenuItem {

@@ -51,7 +51,7 @@ const ExperimentManualView: React.FC = () => {
 
     const formData = new FormData();
     formData.append("file", uploadFile);
-    fetch("http://5.223.46.161:3001/api/upload/manual", {
+    fetch("http://localhost:3001/manuals", {
       method: "POST",
       body: formData,
     })

@@ -1,38 +1,42 @@
 import React, { useState } from "react";
-import { User, Lock, Eye, EyeOff, LogIn } from "lucide-react";
+import { User, Lock, Eye, EyeOff, LogIn, AlertCircle } from "lucide-react";
 
 interface LoginFormProps {
   selectedRole: string;
   onSubmit: (username: string, password: string) => Promise<void>;
+  isLoading: boolean;
+  error: string | null;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({
   selectedRole,
   onSubmit,
+  isLoading,
+  error,
 }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim() || !selectedRole) return;
-
-    setIsLoading(true);
-
-    // 模拟登录延迟
-    setTimeout(async () => {
-      await onSubmit(username, password);
-      // setIsLoading(false);
-    }, 1500);
+    await onSubmit(username, password);
   };
 
   const isFormValid = username.trim() && password.trim() && selectedRole;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* 错误信息提示 */}
+      {error && (
+        <div className="bg-red-500/20 border border-red-500/50 text-red-300 text-sm rounded-lg p-3 flex items-center space-x-2">
+          <AlertCircle className="w-5 h-5" />
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* 用户名输入 */}
       <div className="space-y-2">
         <label className="text-white/90 text-sm font-medium">用户名</label>

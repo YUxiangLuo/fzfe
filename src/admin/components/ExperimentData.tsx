@@ -58,7 +58,7 @@ const ExperimentDataView: React.FC = () => {
       };
       const formData = new FormData();
       formData.append("file", uploadFile);
-      fetch("http://5.223.46.161:3001/api/upload/dataset", {
+      fetch("http://localhost:3001/api/upload/dataset", {
         method: "POST",
         body: formData,
       })

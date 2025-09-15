@@ -1,9 +1,8 @@
 import React from 'react';
 import { GraduationCap, Users, UserCheck, Shield } from 'lucide-react';
+import { ROLES } from '../../config/roles'; // 导入新的角色配置
 
-interface Role {
-  id: string;
-  name: string;
+interface RoleUI {
   icon: React.ComponentType<any>;
   description: string;
   color: string;
@@ -14,36 +13,33 @@ interface RoleSelectorProps {
   onRoleSelect: (roleId: string) => void;
 }
 
-const roles: Role[] = [
-  {
-    id: 'student',
-    name: '学生',
-    icon: GraduationCap,
-    description: '访问学习资源和实验',
-    color: 'from-blue-500 to-cyan-500',
-  },
-  {
-    id: 'teacher',
-    name: '教师',
-    icon: Users,
-    description: '管理课程和评估',
-    color: 'from-green-500 to-emerald-500',
-  },
-  {
-    id: 'assistant',
-    name: '助教',
-    icon: UserCheck,
-    description: '协助教学和答疑',
-    color: 'from-purple-500 to-violet-500',
-  },
-  {
-    id: 'admin',
-    name: '管理员',
-    icon: Shield,
-    description: '系统配置和管理',
-    color: 'from-orange-500 to-red-500',
-  },
-];
+// 将UI相关的配置与核心的角色定义结合起来
+const rolesData = ROLES.map(role => {
+  const uiConfig: Omit<RoleUI, 'id' | 'name'> = {
+    student: {
+      icon: GraduationCap,
+      description: '访问学习资源和实验',
+      color: 'from-blue-500 to-cyan-500',
+    },
+    teacher: {
+      icon: Users,
+      description: '管理课程和评估',
+      color: 'from-green-500 to-emerald-500',
+    },
+    assistant: {
+      icon: UserCheck,
+      description: '协助教学和答疑',
+      color: 'from-purple-500 to-violet-500',
+    },
+    admin: {
+      icon: Shield,
+      description: '系统配置和管理',
+      color: 'from-orange-500 to-red-500',
+    },
+  }[role.id];
+
+  return { ...role, ...uiConfig };
+});
 
 export const RoleSelector: React.FC<RoleSelectorProps> = ({
   selectedRole,
@@ -55,7 +51,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
         请选择您的身份
       </h3>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        {roles.map((role) => {
+        {rolesData.map((role) => {
           const IconComponent = role.icon;
           const isSelected = selectedRole === role.id;
 
@@ -84,7 +80,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
                   <IconComponent className="w-6 h-6 text-white" />
                 </div>
                 <div className="text-center">
-                  <p className="text-white font-medium text-sm">{role.name}</p>
+                  <p className="text-white font-medium text-sm">{role.displayName}</p>
                   <p className="text-white/70 text-xs mt-1 hidden sm:block">
                     {role.description}
                   </p>

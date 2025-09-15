@@ -19,7 +19,7 @@ const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div 
         className={`bg-white rounded-2xl shadow-2xl ${maxWidth} w-full transform transition-all duration-300 scale-100 border border-gray-200`}
         onClick={(e) => e.stopPropagation()}
