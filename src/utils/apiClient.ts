@@ -37,14 +37,12 @@ const handleResponse = async (response: Response) => {
  * @param options - fetch请求的配置对象 (例如, method, body)。
  * @returns 返回一个Promise，解析为API的响应数据。
  */
-const request = async (endpoint: string, options: RequestInit = {}) => {
+const request = async (endpoint: string, options: RequestInit = {}, isFormData = false) => {
   const token = localStorage.getItem("token");
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...options.headers,
-  };
+  
+  // Do not set Content-Type for FormData, browser does it automatically with boundary
+  const headers: HeadersInit = isFormData ? {} : { "Content-Type": "application/json" };
 
-  // 如果本地存储中有token，则将其添加到Authorization请求头中
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
@@ -54,9 +52,7 @@ const request = async (endpoint: string, options: RequestInit = {}) => {
     headers,
   };
 
-  // 发起fetch请求
   const response = await fetch(`${BASE_URL}${endpoint}`, config);
-  // 使用统一的响应处理器来处理返回结果
   return handleResponse(response);
 };
 
@@ -67,6 +63,9 @@ export const apiClient = {
 
   post: (endpoint: string, body: any, options?: RequestInit) =>
     request(endpoint, { ...options, method: "POST", body: JSON.stringify(body) }),
+  
+  postFormData: (endpoint: string, formData: FormData, options?: RequestInit) =>
+    request(endpoint, { ...options, method: "POST", body: formData }, true),
 
   put: (endpoint: string, body: any, options?: RequestInit) =>
     request(endpoint, { ...options, method: "PUT", body: JSON.stringify(body) }),

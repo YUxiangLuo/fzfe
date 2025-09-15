@@ -10,24 +10,24 @@ export interface User {
 }
 
 export interface ExperimentManual {
-  id: string;
-  name: string;
-  version: string;
-  uploadTime: string;
-  status: 'enabled' | 'disabled';
-  filename: string;
+  manual_id: number;
+  file_name: string;
+  file_path: string;
+  description: string | null;
+  is_active: 0 | 1;
+  uploader_id: number;
+  uploaded_at: string;
+  uploader_name: string;
 }
 
 export interface ExperimentData {
-  id: string;
-  name: string;
-  industry: string;
-  enterprise: string;
-  version: string;
-  lastUpdated: string;
+  dataset_id: number;
+  data_name: string;
+  file_path: string;
+  description: string | null;
+  uploaded_at: string;
 }
 
-// Updated Student type to match the new API response
 export interface Student {
   user_id: number;
   username: string;
@@ -35,7 +35,6 @@ export interface Student {
   email: string;
 }
 
-// Updated Class type to include the optional students array
 export interface Class {
   class_id: number;
   class_name: string;
