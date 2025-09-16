@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Loader, AlertTriangle, UserPlus } from 'lucide-react';
+import { Plus, Edit2, Trash2, Loader, AlertTriangle, UserPlus, RefreshCw } from 'lucide-react';
 import type { User as Assistant, Class } from '../../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import { SelectAssistantModal } from './SelectAssistantModal';
+import { ReassignAssistantModal } from './ReassignAssistantModal';
 
 const AssistantManagement: React.FC = () => {
   const [assistants, setAssistants] = useState<Assistant[]>([]);
@@ -15,6 +16,8 @@ const AssistantManagement: React.FC = () => {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showSelectModal, setShowSelectModal] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [assistantToReassign, setAssistantToReassign] = useState<Assistant | null>(null);
 
   const [newAssistant, setNewAssistant] = useState({
     username: '', password: '', full_name: '', email: '', phone_number: '',
@@ -35,7 +38,7 @@ const AssistantManagement: React.FC = () => {
 
         const [assistantsData, classesData] = await Promise.all([
           apiClient.get(`/teachers/${teacherId}/assistants`),
-          apiClient.get(`/classes/teacher/${teacherId}/classes`)
+          apiClient.get(`/teachers/${teacherId}/classes`)
         ]);
 
         setAssistants(assistantsData || []);
@@ -67,9 +70,14 @@ const AssistantManagement: React.FC = () => {
   };
 
   const handleCreateAssistant = async () => {
+    if (selectedClassIds.length === 0) {
+      alert('请至少选择一个班级');
+      return;
+    }
+
     try {
-      const payload = { ...newAssistant, class_ids: selectedClassIds };
-      const createdAssistant = await apiClient.post('/assistants/create-and-assign', payload);
+      const payload = { ...newAssistant, role: 'Assistant', class_ids: selectedClassIds };
+      const createdAssistant = await apiClient.post('/assistants', payload);
       setAssistants(prev => [createdAssistant, ...prev]);
       resetCreateModal();
     } catch (err: any) {
@@ -81,6 +89,11 @@ const AssistantManagement: React.FC = () => {
     if (!assistants.some(a => a.user_id === newlyAssigned.user_id)) {
       setAssistants(prev => [newlyAssigned, ...prev]);
     }
+  };
+
+  const openReassignModal = (assistant: Assistant) => {
+    setAssistantToReassign(assistant);
+    setShowReassignModal(true);
   };
 
   if (isLoading) return <div className="flex justify-center"><Loader className="animate-spin" /></div>;
@@ -122,7 +135,13 @@ const AssistantManagement: React.FC = () => {
                   <td className="px-6 py-4 text-sm">{assistant.phone_number || '-'}</td>
                   <td className="px-6 py-4 text-sm">{assistant.email}</td>
                   <td className="px-6 py-4">
-                    {/* Placeholder for future actions */}
+                    <Button
+                      variant="outline"
+                      onClick={() => openReassignModal(assistant)}
+                      className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                    >
+                      <RefreshCw size={16} className="mr-2" />重新分配
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -132,7 +151,19 @@ const AssistantManagement: React.FC = () => {
       </div>
 
       {/* Modals */}
-      <SelectAssistantModal isOpen={showSelectModal} onClose={() => setShowSelectModal(false)} managedClasses={managedClasses} existingAssistantIds={assistants.map(a => a.user_id)} onAssignmentSuccess={handleAssignmentSuccess} />
+      <SelectAssistantModal
+        isOpen={showSelectModal}
+        onClose={() => setShowSelectModal(false)}
+        managedClasses={managedClasses}
+        existingAssistantIds={assistants.map(a => a.user_id)}
+        onAssignmentSuccess={handleAssignmentSuccess}
+      />
+      <ReassignAssistantModal
+        isOpen={showReassignModal}
+        onClose={() => setShowReassignModal(false)}
+        assistant={assistantToReassign}
+        managedClasses={managedClasses}
+      />
       
       <Modal isOpen={showCreateModal} onClose={resetCreateModal} title="创建新助教">
         <div className="space-y-4">

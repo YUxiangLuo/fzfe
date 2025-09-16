@@ -29,7 +29,7 @@ const PersonalInfo: React.FC = () => {
         if (userData && userData.user_id) {
           setIsClassesLoading(true);
           setClassesError(null);
-          const classesData = await apiClient.get(`/classes/teacher/${userData.user_id}/classes`);
+          const classesData = await apiClient.get(`/teachers/${userData.user_id}/classes`);
           setManagedClasses(classesData || []);
           setIsClassesLoading(false);
         }

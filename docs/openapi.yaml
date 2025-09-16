@@ -1,0 +1,1519 @@
+openapi: 3.0.3
+info:
+  title: Fangzhen API
+  version: 1.0.0
+  description: |
+    REST API for the Fangzhen virtual experiment platform. All secured routes require
+    a JWT access token obtained from the `/auth/login` endpoint and delivered via the
+    `Authorization: Bearer <token>` header.
+servers:
+  - url: https://api.example.com/api
+    description: Production server
+  - url: http://localhost:3000/api
+    description: Local development
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    TeacherIdParam:
+      name: teacherId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: Numeric identifier of the teacher
+    UserIdParam:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: Numeric identifier of the user
+    ClassIdParam:
+      name: classId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: Numeric identifier of the class
+    AssistantIdParam:
+      name: assistantId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: Numeric identifier of the assistant user
+    DatasetIdParam:
+      name: datasetId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: Numeric identifier of the dataset
+    ManualIdParam:
+      name: manualId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: Numeric identifier of the experiment manual
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+      required:
+        - token
+    RegisterUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+        password:
+          type: string
+          minLength: 6
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [Student, Teacher, Assistant, Admin]
+          default: Student
+        phone_number:
+          type: string
+          nullable: true
+      required:
+        - username
+        - password
+        - full_name
+        - email
+    AssistantCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/RegisterUserRequest'
+        - type: object
+          properties:
+            class_ids:
+              type: array
+              items:
+                type: integer
+                minimum: 1
+              minItems: 1
+          required:
+            - class_ids
+    UpdateUserRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+        phone_number:
+          type: string
+        email:
+          type: string
+          format: email
+      description: At least one field must be provided.
+    ChangePasswordRequest:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 6
+      required:
+        - currentPassword
+        - newPassword
+    AdminResetPasswordRequest:
+      type: object
+      properties:
+        newPassword:
+          type: string
+          minLength: 6
+      required:
+        - newPassword
+    PaginationResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSummary'
+        pagination:
+          type: object
+          properties:
+            currentPage:
+              type: integer
+            pageSize:
+              type: integer
+            totalItems:
+              type: integer
+            totalPages:
+              type: integer
+          required:
+            - currentPage
+            - pageSize
+            - totalItems
+            - totalPages
+    UserSummary:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        username:
+          type: string
+        full_name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        phone_number:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - user_id
+        - username
+        - full_name
+        - email
+        - role
+        - created_at
+    ClassResponse:
+      type: object
+      properties:
+        class_id:
+          type: integer
+        class_name:
+          type: string
+        class_code:
+          type: string
+          nullable: true
+        teacher_id:
+          type: integer
+        teacher_name:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - class_id
+        - class_name
+        - teacher_id
+        - created_at
+    ClassCreateRequest:
+      type: object
+      properties:
+        class_name:
+          type: string
+        class_code:
+          type: string
+          nullable: true
+      required:
+        - class_name
+    ClassUpdateRequest:
+      type: object
+      properties:
+        class_name:
+          type: string
+        class_code:
+          type: string
+          nullable: true
+      description: At least one field must be provided.
+    ClassEnrollRequest:
+      type: object
+      properties:
+        class_code:
+          type: string
+      required:
+        - class_code
+    AddAssistantRequest:
+      type: object
+      properties:
+        assistant_id:
+          type: integer
+          minimum: 1
+      required:
+        - assistant_id
+    ManualUploadRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+        file_name:
+          type: string
+        description:
+          type: string
+          nullable: true
+      required:
+        - file
+        - file_name
+    ManualUpdateRequest:
+      type: object
+      properties:
+        file_name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+    DatasetUploadRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+        data_name:
+          type: string
+        description:
+          type: string
+          nullable: true
+      required:
+        - file
+        - data_name
+    DatasetUpdateRequest:
+      type: object
+      properties:
+        data_name:
+          type: string
+        description:
+          type: string
+          nullable: true
+    ForecastRequest:
+      description: Discriminated union over forecasting methods.
+      oneOf:
+        - $ref: '#/components/schemas/ForecastMovingAverageRequest'
+        - $ref: '#/components/schemas/ForecastExponentialSmoothingRequest'
+        - $ref: '#/components/schemas/ForecastArimaRequest'
+        - $ref: '#/components/schemas/ForecastLstmRequest'
+      discriminator:
+        propertyName: method
+    ForecastMovingAverageRequest:
+      type: object
+      properties:
+        method:
+          type: string
+          enum: [moving_average]
+        product_id:
+          oneOf:
+            - type: string
+            - type: integer
+        forecast_periods:
+          type: integer
+          minimum: 1
+        time_unit:
+          type: string
+        historical_data:
+          type: array
+          items:
+            type: number
+          minItems: 3
+        window_size:
+          type: integer
+          minimum: 1
+      required:
+        - method
+        - forecast_periods
+        - historical_data
+        - window_size
+    ForecastExponentialSmoothingRequest:
+      type: object
+      properties:
+        method:
+          type: string
+          enum: [exponential_smoothing]
+        product_id:
+          oneOf:
+            - type: string
+            - type: integer
+        forecast_periods:
+          type: integer
+          minimum: 1
+        time_unit:
+          type: string
+        historical_data:
+          type: array
+          items:
+            type: number
+          minItems: 3
+        alpha:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          maximum: 1
+      required:
+        - method
+        - forecast_periods
+        - historical_data
+        - alpha
+    ForecastArimaRequest:
+      type: object
+      properties:
+        method:
+          type: string
+          enum: [arima]
+        product_id:
+          oneOf:
+            - type: string
+            - type: integer
+        forecast_periods:
+          type: integer
+          minimum: 1
+        time_unit:
+          type: string
+        historical_data:
+          type: array
+          items:
+            type: number
+          minItems: 8
+        d:
+          type: integer
+          enum: [0, 1, 2]
+      required:
+        - method
+        - forecast_periods
+        - historical_data
+        - d
+    ForecastLstmRequest:
+      type: object
+      properties:
+        method:
+          type: string
+          enum: [lstm]
+        product_id:
+          oneOf:
+            - type: string
+            - type: integer
+          nullable: true
+        forecast_periods:
+          type: integer
+          minimum: 1
+        time_unit:
+          type: string
+        data:
+          type: object
+          properties:
+            rows:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+              minItems: 50
+          required:
+            - rows
+        feature_config:
+          type: object
+          properties:
+            time_column:
+              type: string
+            target:
+              type: string
+            feature_columns:
+              type: array
+              items:
+                type: string
+              minItems: 1
+            normalization:
+              type: object
+              properties:
+                method:
+                  type: string
+                  enum: [minmax, zscore]
+              required:
+                - method
+            missing:
+              type: object
+              properties:
+                strategy:
+                  type: string
+                  enum: [ffill, bfill, interpolate, drop]
+            time_features:
+              type: object
+              properties:
+                enable:
+                  type: boolean
+                components:
+                  type: array
+                  items:
+                    type: string
+                    enum: [dow, month, dom, doy]
+                cyclic:
+                  type: boolean
+            categorical:
+              type: object
+              properties:
+                columns:
+                  type: array
+                  items:
+                    type: string
+                encoding:
+                  type: string
+                  enum: [onehot, target]
+          required:
+            - time_column
+            - target
+            - feature_columns
+            - normalization
+      required:
+        - method
+        - data
+        - feature_config
+        - forecast_periods
+    ForecastResponse:
+      type: object
+      properties:
+        product_id:
+          oneOf:
+            - type: string
+            - type: integer
+            - type: 'null'
+        method:
+          type: string
+        params:
+          type: object
+          nullable: true
+        forecast:
+          type: object
+          properties:
+            horizon:
+              type: integer
+            values:
+              type: array
+              items:
+                type: number
+      required:
+        - method
+        - forecast
+    AdfTestRequest:
+      type: object
+      properties:
+        product_id:
+          oneOf:
+            - type: string
+            - type: integer
+          nullable: true
+        time_series:
+          type: array
+          items:
+            type: number
+          minItems: 8
+        significance_level:
+          type: number
+          default: 0.05
+        max_difference_order:
+          type: integer
+          default: 2
+      required:
+        - time_series
+    DifferenceTestRequest:
+      type: object
+      properties:
+        product_id:
+          oneOf:
+            - type: string
+            - type: integer
+          nullable: true
+        time_series:
+          type: array
+          items:
+            type: number
+          minItems: 8
+        difference_order:
+          type: integer
+          enum: [0, 1, 2]
+        significance_level:
+          type: number
+          default: 0.05
+      required:
+        - time_series
+        - difference_order
+    MetricsRequest:
+      type: object
+      properties:
+        y_true:
+          type: array
+          items:
+            type: number
+          minItems: 1
+        y_pred:
+          type: array
+          items:
+            type: number
+          minItems: 1
+        metrics:
+          type: array
+          items:
+            type: string
+            enum: [rmse, mae, r2]
+        sample_weight:
+          type: array
+          items:
+            type: number
+        nan_policy:
+          type: string
+          enum: [omit, raise]
+          default: omit
+        decimal_places:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 4
+      required:
+        - y_true
+        - y_pred
+  responses:
+    Forbidden:
+      description: Access forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /assistants:
+    post:
+      summary: Create an assistant and assign to classes
+      tags: [Assistants]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantCreateRequest'
+      responses:
+        '201':
+          description: Assistant created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    get:
+      summary: List assistants
+      tags: [Assistants]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Assistants list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSummary'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /teachers/{teacherId}/assistants:
+    get:
+      summary: List assistants assigned to a teacher's classes
+      tags: [Assistants]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TeacherIdParam'
+      responses:
+        '200':
+          description: Assistants linked to teacher
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSummary'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /users:
+    post:
+      summary: Register a new user
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        '409':
+          description: Username or email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: List users
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+          required: false
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          required: false
+      responses:
+        '200':
+          description: Paginated users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginationResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /users/me:
+    get:
+      summary: Get current user profile
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Update current user profile
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        '400':
+          description: No fields provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/me/password:
+    put:
+      summary: Change own password
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Invalid current password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/{userId}:
+    get:
+      summary: Get user by ID
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        '200':
+          description: User information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Delete user by ID
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        '200':
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Cannot delete self
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users/{userId}/password:
+    put:
+      summary: Force reset user password (admin)
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminResetPasswordRequest'
+      responses:
+        '200':
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid request (self-reset)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /classes:
+    post:
+      summary: Create class
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClassCreateRequest'
+      responses:
+        '201':
+          description: Class created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Duplicate class code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: List all classes (admin only)
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Classes list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClassResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /classes/enroll:
+    post:
+      summary: Enroll student into class using code
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClassEnrollRequest'
+      responses:
+        '200':
+          description: Enrollment created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Already enrolled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /classes/{classId}:
+    get:
+      summary: Get class details
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClassIdParam'
+      responses:
+        '200':
+          description: Class with enrolled students
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Update class information
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClassIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClassUpdateRequest'
+      responses:
+        '200':
+          description: Updated class
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassResponse'
+        '400':
+          description: No fields to update
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate class code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Delete class (teacher or admin)
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClassIdParam'
+      responses:
+        '200':
+          description: Class deleted with cleanup summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  cleanup:
+                    type: object
+                    properties:
+                      removedAssistants:
+                        type: integer
+                      removedEnrollments:
+                        type: integer
+                      removedGradeWeights:
+                        type: integer
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /teachers/{teacherId}/classes:
+    get:
+      summary: List classes created by teacher
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TeacherIdParam'
+      responses:
+        '200':
+          description: Teacher classes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClassResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Target user not a teacher
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /classes/{classId}/assistants:
+    post:
+      summary: Assign assistant to class
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClassIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddAssistantRequest'
+      responses:
+        '201':
+          description: Assistant assigned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Not an assistant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Assistant already assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: List assistants assigned to class
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClassIdParam'
+      responses:
+        '200':
+          description: Assistants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSummary'
+  /classes/{classId}/assistants/{assistantId}:
+    delete:
+      summary: Remove assistant from class
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClassIdParam'
+        - $ref: '#/components/parameters/AssistantIdParam'
+      responses:
+        '200':
+          description: Assistant removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Assignment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /manuals:
+    post:
+      summary: Upload experiment manual
+      tags: [Manuals]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ManualUploadRequest'
+      responses:
+        '201':
+          description: Manual created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: List manuals
+      tags: [Manuals]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Manuals list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /manuals/active:
+    get:
+      summary: Get active manual
+      tags: [Manuals]
+      responses:
+        '200':
+          description: Active manual
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          description: No active manual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /manuals/{manualId}:
+    put:
+      summary: Update manual metadata
+      tags: [Manuals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ManualIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualUpdateRequest'
+      responses:
+        '200':
+          description: Manual updated
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: No fields provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Manual not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Delete manual
+      tags: [Manuals]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ManualIdParam'
+      responses:
+        '200':
+          description: Manual deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Manual not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /datasets:
+    post:
+      summary: Upload dataset
+      tags: [Datasets]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DatasetUploadRequest'
+      responses:
+        '201':
+          description: Dataset created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: List datasets
+      tags: [Datasets]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Datasets list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+  /datasets/{datasetId}:
+    get:
+      summary: Get dataset metadata
+      tags: [Datasets]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdParam'
+      responses:
+        '200':
+          description: Dataset
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          description: Dataset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Update dataset metadata
+      tags: [Datasets]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatasetUpdateRequest'
+      responses:
+        '200':
+          description: Dataset updated
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: No fields provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Dataset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Delete dataset
+      tags: [Datasets]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/DatasetIdParam'
+      responses:
+        '200':
+          description: Dataset deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: Dataset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /forecast:
+    post:
+      summary: Generate demand forecast (mocked response)
+      tags: [Forecasting]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForecastRequest'
+      responses:
+        '200':
+          description: Forecast result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForecastResponse'
+  /tools/adf-test:
+    post:
+      summary: Stationarity test (ADF)
+      tags: [Forecasting]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdfTestRequest'
+      responses:
+        '200':
+          description: Test outcome
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /tools/difference-test:
+    post:
+      summary: Difference order recommendation
+      tags: [Forecasting]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DifferenceTestRequest'
+      responses:
+        '200':
+          description: Difference test
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /tools/metrics:
+    post:
+      summary: Evaluate prediction metrics
+      tags: [Forecasting]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetricsRequest'
+      responses:
+        '200':
+          description: Metrics output
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true

@@ -14,13 +14,24 @@ export interface User {
 export interface Class {
   class_id: number;
   class_name: string;
-  class_code: string;
+  class_code: string | null;
   teacher_id: number;
+  teacher_name?: string | null;
+  created_at?: string;
 }
 
-// Represents a student within a class context
 export interface Student {
-  // This will be defined later
+  user_id: number;
+  username: string;
+  full_name: string;
+  email: string;
+}
+
+export interface Assistant {
+  user_id: number;
+  username: string;
+  full_name: string;
+  email: string;
 }
 
 // For sidebar navigation

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { RoleSelector } from "./RoleSelector";
 import { LoginForm } from "./LoginForm";
+import { API_BASE_URL } from "../../../utils/apiClient";
 
 export const LoginContainer: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState("student");
@@ -12,7 +13,7 @@ export const LoginContainer: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch("http://localhost:3001/api/auth/login", {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

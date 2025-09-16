@@ -33,7 +33,7 @@ export const SelectAssistantModal: React.FC<SelectAssistantModalProps> = ({
         setIsLoading(true);
         setError(null);
         try {
-          const data = await apiClient.get('/users/assistants');
+          const data = await apiClient.get('/assistants');
           setAllAssistants(data.filter((a: Assistant) => !existingAssistantIds.includes(a.user_id)) || []);
         } catch (err: any) {
           setError(err.message || '获取助教库失败');

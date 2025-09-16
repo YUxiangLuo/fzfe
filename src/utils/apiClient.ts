@@ -1,4 +1,6 @@
-const BASE_URL = "http://localhost:3001/api"; // 后端API的基础URL
+export const API_BASE_URL = "http://localhost:3001/api"; // 后端API的基础URL
+
+const BASE_URL = API_BASE_URL;
 
 /**
  * 统一处理API响应。

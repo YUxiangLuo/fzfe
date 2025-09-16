@@ -42,6 +42,7 @@ export interface Class {
   teacher_id: number;
   teacher_name: string;
   students?: Student[];
+  assistants?: User[];
 }
 
 export interface MenuItem {
