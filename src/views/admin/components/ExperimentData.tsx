@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Download, Upload, Loader, AlertTriangle } from "lucide-react";
-import type { ExperimentData } from "../types";
-import { apiClient } from "../../utils/apiClient";
-import { DOWNLOAD_SERVER_BASE_URL } from "../../config/appConfig";
+import type { ExperimentData } from "../../../types";
+import { apiClient } from "../../../utils/apiClient";
+import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig";
 import Modal from "./Modal";
 
 const ExperimentDataView: React.FC = () => {

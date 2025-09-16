@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Edit, Loader, AlertTriangle, Trash2 } from 'lucide-react';
-import { User } from '../types';
-import { apiClient } from '../../utils/apiClient';
-import { decodeToken } from '../../utils/auth';
+import { User } from '../../../types';
+import { apiClient } from '../../../utils/apiClient';
+import { decodeToken } from '../../../utils/auth';
 import Modal from './Modal';
 import Pagination from './Pagination';
 

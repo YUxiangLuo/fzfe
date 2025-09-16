@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
-import { Class, Student } from '../types';
-import { apiClient } from '../../utils/apiClient';
+import { Class, Student } from '../../../types';
+import { apiClient } from '../../../utils/apiClient';
 import { User, Loader, AlertTriangle } from 'lucide-react';
 
 interface ClassDetailsModalProps {

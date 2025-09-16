@@ -1,8 +1,8 @@
 import { serve } from "bun";
-import shiyan from "./shiyan/shiyan.html";
-import jiaoshi from "./jiaoshi/jiaoshi.html";
-import login from "./login/login.html";
-import admin from "./admin/admin.html";
+import shiyan from "./views/shiyan/shiyan.html";
+import jiaoshi from "./views/jiaoshi/jiaoshi.html";
+import login from "./views/login/login.html";
+import admin from "./views/admin/admin.html";
 
 const server = serve({
   routes: {

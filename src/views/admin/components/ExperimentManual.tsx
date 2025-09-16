@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Download, Upload, Loader, AlertTriangle } from "lucide-react";
-import type { ExperimentManual } from "../types";
-import { apiClient } from "../../utils/apiClient";
-import { DOWNLOAD_SERVER_BASE_URL } from "../../config/appConfig"; // Import the new config value
+import type { ExperimentManual } from "../../../types";
+import { apiClient } from "../../../utils/apiClient";
+import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig"; // Import the new config value
 import Modal from "./Modal";
 
 const ExperimentManualView: React.FC = () => {

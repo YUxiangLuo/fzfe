@@ -1,6 +1,6 @@
 import React from 'react';
 import { GraduationCap, Users, UserCheck, Shield } from 'lucide-react';
-import { ROLES } from '../../config/roles'; // 导入新的角色配置
+import { ROLES } from '../../../config/roles'; // 导入新的角色配置
 
 interface RoleUI {
   icon: React.ComponentType<any>;

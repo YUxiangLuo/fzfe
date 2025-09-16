@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Eye, Loader, AlertTriangle } from 'lucide-react';
-import { Class } from '../types';
-import { apiClient } from '../../utils/apiClient';
+import { Class } from '../../../types';
+import { apiClient } from '../../../utils/apiClient';
 import { ClassDetailsModal } from './ClassDetailsModal'; // 引入新的弹窗组件
 
 const ClassManagement: React.FC = () => {
