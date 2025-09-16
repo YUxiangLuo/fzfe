@@ -1,216 +1,315 @@
-import React, { useState } from 'react';
-import { Search, TrendingUp, Users, Clock, Play, CheckCircle, Circle, ChevronDown, ChevronRight } from 'lucide-react';
-import { ExperimentProgress as Progress } from '../../types';
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Loader,
+  Search,
+  AlertTriangle,
+  Clock,
+  Flag,
+} from "lucide-react";
+import type { Class, Student, StepEvent, ClassStepEvent } from "../../types";
+import { apiClient } from "../../../../utils/apiClient";
+import { decodeToken } from "../../../../utils/auth";
 
-interface ProgressNode {
+interface StepProgress {
   id: string;
-  name: string;
+  label: string;
+  order: number;
   completed: boolean;
   completedAt?: string;
 }
 
-interface DetailedProgress extends Progress {
-  nodes: ProgressNode[];
-}
+// This serves as the base structure and ordering for the experiment steps.
+const STEP_DEFINITIONS: Omit<StepProgress, "completed" | "completedAt">[] = [
+  { id: "industry_selection", label: "选择行业", order: 1 },
+  { id: "company_selection", label: "选择企业", order: 2 },
+  { id: "product_selection", label: "选择产品", order: 3 },
+  { id: "data_analysis", label: "历史数据", order: 4 },
+  { id: "model_building", label: "预测模型", order: 5 },
+  { id: "result_evaluation", label: "结果评估", order: 6 },
+  { id: "production_planning", label: "生产计划", order: 7 },
+];
 
 const ExperimentProgress: React.FC = () => {
-  const [progressData, setProgressData] = useState<DetailedProgress[]>([
-    {
-      studentId: '2022001',
-      studentName: '张三',
-      progress: 85,
-      stayTime: 120,
-      startTime: '2024-03-01 09:30:00',
-      nodes: [
-        { id: 'data-prep', name: '数据准备', completed: true, completedAt: '2024-03-01 10:15:00' },
-        { id: 'data-stats', name: '数据统计', completed: true, completedAt: '2024-03-01 10:45:00' },
-        { id: 'demand-forecast', name: '需求预测', completed: true, completedAt: '2024-03-01 11:20:00' },
-        { id: 'production-plan', name: '生产计划制定', completed: true, completedAt: '2024-03-01 11:50:00' },
-        { id: 'submit-report', name: '提交实验报告', completed: false }
-      ]
-    },
-    {
-      studentId: '2022002',
-      studentName: '李四',
-      progress: 92,
-      stayTime: 95,
-      startTime: '2024-03-01 10:15:00',
-      nodes: [
-        { id: 'data-prep', name: '数据准备', completed: true, completedAt: '2024-03-01 10:30:00' },
-        { id: 'data-stats', name: '数据统计', completed: true, completedAt: '2024-03-01 10:50:00' },
-        { id: 'demand-forecast', name: '需求预测', completed: true, completedAt: '2024-03-01 11:15:00' },
-        { id: 'production-plan', name: '生产计划制定', completed: true, completedAt: '2024-03-01 11:40:00' },
-        { id: 'submit-report', name: '提交实验报告', completed: true, completedAt: '2024-03-01 12:00:00' }
-      ]
-    },
-    {
-      studentId: '2023001',
-      studentName: '王五',
-      progress: 67,
-      stayTime: 180,
-      startTime: '2024-03-01 08:45:00',
-      nodes: [
-        { id: 'data-prep', name: '数据准备', completed: true, completedAt: '2024-03-01 09:15:00' },
-        { id: 'data-stats', name: '数据统计', completed: true, completedAt: '2024-03-01 09:45:00' },
-        { id: 'demand-forecast', name: '需求预测', completed: true, completedAt: '2024-03-01 10:30:00' },
-        { id: 'production-plan', name: '生产计划制定', completed: false },
-        { id: 'submit-report', name: '提交实验报告', completed: false }
-      ]
-    },
-    {
-      studentId: '2022003',
-      studentName: '赵六',
-      progress: 100,
-      stayTime: 85,
-      startTime: '2024-03-01 11:00:00',
-      nodes: [
-        { id: 'data-prep', name: '数据准备', completed: true, completedAt: '2024-03-01 11:20:00' },
-        { id: 'data-stats', name: '数据统计', completed: true, completedAt: '2024-03-01 11:35:00' },
-        { id: 'demand-forecast', name: '需求预测', completed: true, completedAt: '2024-03-01 11:50:00' },
-        { id: 'production-plan', name: '生产计划制定', completed: true, completedAt: '2024-03-01 12:10:00' },
-        { id: 'submit-report', name: '提交实验报告', completed: true, completedAt: '2024-03-01 12:25:00' }
-      ]
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState<string>("");
+  const [students, setStudents] = useState<Student[]>([]);
+  const [progressByStudent, setProgressByStudent] = useState<
+    Record<number, StepProgress[]>
+  >({});
+  const [expandedRows, setExpandedRows] = useState<number[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const [teacherId, setTeacherId] = useState<number | null>(null);
+  const [isLoadingClasses, setIsLoadingClasses] = useState(true);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+  const [isLoadingProgress, setIsLoadingProgress] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setError("未找到登录凭据，请重新登录。");
+      setIsLoadingClasses(false);
+      return;
     }
-  ]);
+    const decoded = decodeToken(token);
+    if (!decoded) {
+      setError("登录信息已失效，请重新登录。");
+      setIsLoadingClasses(false);
+      return;
+    }
+    setTeacherId(decoded.sub);
+  }, []);
 
-  const [selectedClass, setSelectedClass] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredData, setFilteredData] = useState(progressData);
-  const [expandedRows, setExpandedRows] = useState<string[]>([]);
+  useEffect(() => {
+    if (teacherId === null) return;
 
-  const classes = [
-    { id: '1', name: '软件工程2022级' },
-    { id: '2', name: '计算机科学2023级' }
-  ];
+    const fetchClasses = async () => {
+      setIsLoadingClasses(true);
+      setError(null);
+      try {
+        const response = await apiClient.get<Class[]>(`/teachers/${teacherId}/classes`);
+        const classList = Array.isArray(response) ? response : [];
+        setClasses(classList);
+        if (classList.length > 0) {
+          setSelectedClassId(String(classList[0].class_id));
+        }
+      } catch (err: any) {
+        setError(err.message || "获取班级列表失败");
+      } finally {
+        setIsLoadingClasses(false);
+      }
+    };
+    fetchClasses();
+  }, [teacherId]);
 
-  // 筛选功能
-  React.useEffect(() => {
-    let filtered = progressData;
+  useEffect(() => {
+    setExpandedRows([]);
+    setProgressByStudent({});
+    setStudents([]);
 
-    if (searchTerm) {
-      filtered = filtered.filter(item => 
-        item.studentId.includes(searchTerm) || 
-        item.studentName.includes(searchTerm)
+    if (!selectedClassId) {
+      return;
+    }
+
+    const fetchData = async () => {
+      setIsLoadingStudents(true);
+      setIsLoadingProgress(true);
+      setError(null);
+
+      try {
+        const [studentsResponse, progressResponse] = await Promise.all([
+          apiClient.get<Student[]>(`/classes/${selectedClassId}/students`),
+          apiClient.get<ClassStepEvent[]>(`/classes/${selectedClassId}/step-events`)
+        ]);
+
+        const studentList = Array.isArray(studentsResponse) ? studentsResponse : [];
+        setStudents(studentList);
+
+        const allEvents = Array.isArray(progressResponse) ? progressResponse : [];
+        
+        const eventsByStudent = allEvents.reduce((acc, event) => {
+          if (!acc[event.student_id]) {
+            acc[event.student_id] = [];
+          }
+          acc[event.student_id].push(event);
+          return acc;
+        }, {} as Record<number, StepEvent[]>);
+
+        const newProgressMap: Record<number, StepProgress[]> = {};
+        for (const student of studentList) {
+          const studentEvents = eventsByStudent[student.user_id] || [];
+          newProgressMap[student.user_id] = processStudentEvents(studentEvents);
+        }
+        setProgressByStudent(newProgressMap);
+
+      } catch (err: any) {
+        setError(err.message || "获取班级数据失败");
+        setStudents([]);
+        setProgressByStudent({});
+      } finally {
+        setIsLoadingStudents(false);
+        setIsLoadingProgress(false);
+      }
+    };
+
+    fetchData();
+  }, [selectedClassId]);
+
+  const filteredStudents = useMemo(() => {
+    if (!searchTerm) return students;
+    const query = searchTerm.trim();
+    return students.filter(
+      (student) =>
+        student.username.includes(query) || student.full_name.includes(query),
+    );
+  }, [students, searchTerm]);
+
+  const currentClassName = useMemo(() => {
+    return classes.find((cls) => String(cls.class_id) === selectedClassId)?.class_name ?? "—";
+  }, [classes, selectedClassId]);
+
+  const toggleRow = (studentId: number) => {
+    setExpandedRows((prev) =>
+      prev.includes(studentId)
+        ? prev.filter((id) => id !== studentId)
+        : [...prev, studentId],
+    );
+  };
+
+  const renderProgressRows = () => {
+    if (!selectedClassId) {
+      return (
+        <tr>
+          <td colSpan={7} className="py-12 text-center text-gray-500">
+            请先选择一个班级查看学生的实验进度。
+          </td>
+        </tr>
       );
     }
 
-    setFilteredData(filtered);
-  }, [progressData, searchTerm]);
-
-  // 计算统计数据
-  const averageProgress = Math.round(progressData.reduce((sum, item) => sum + item.progress, 0) / progressData.length);
-  const completedCount = progressData.filter(item => item.progress === 100).length;
-  const incompleteCount = progressData.length - completedCount;
-  const completionRate = Math.round((completedCount / progressData.length) * 100);
-
-  const getProgressColor = (progress: number) => {
-    if (progress >= 90) return 'bg-green-500';
-    if (progress >= 70) return 'bg-blue-500';
-    if (progress >= 50) return 'bg-yellow-500';
-    return 'bg-red-500';
-  };
-
-  const getProgressBgColor = (progress: number) => {
-    if (progress >= 90) return 'bg-green-100';
-    if (progress >= 70) return 'bg-blue-100';
-    if (progress >= 50) return 'bg-yellow-100';
-    return 'bg-red-100';
-  };
-
-  // 获取节点颜色
-  const getNodeColor = (nodeName: string) => {
-    const colorMap: { [key: string]: string } = {
-      '数据准备': 'bg-blue-100 text-blue-800',
-      '数据统计': 'bg-purple-100 text-purple-800', 
-      '需求预测': 'bg-yellow-100 text-yellow-800',
-      '生产计划制定': 'bg-orange-100 text-orange-800',
-      '提交实验报告': 'bg-green-100 text-green-800',
-      '未开始': 'bg-gray-100 text-gray-600'
-    };
-    return colorMap[nodeName] || 'bg-gray-100 text-gray-600';
-  };
-
-  // 获取最新已完成的节点信息
-  const getLatestCompletedNodeInfo = (nodes: ProgressNode[]) => {
-    // 找到最后一个已完成的节点
-    const completedNodes = nodes.filter(node => node.completed);
-    if (completedNodes.length === 0) {
-      return { nodeName: '未开始' };
+    if (isLoadingStudents || isLoadingProgress) {
+      return (
+        <tr>
+          <td colSpan={7} className="py-12 text-center text-gray-500">
+            <div className="flex items-center justify-center space-x-2">
+              <Loader className="animate-spin" size={18} />
+              <span>正在加载实验进度...</span>
+            </div>
+          </td>
+        </tr>
+      );
     }
-    
-    // 返回最后一个已完成的节点
-    const latestCompleted = completedNodes[completedNodes.length - 1];
-    return { nodeName: latestCompleted.name };
-  };
 
-  // 获取当前进行的节点信息（用于详情展示）
-  const getCurrentNodeInfo = (nodes: ProgressNode[]) => {
-    const completedNodes = nodes.filter(node => node.completed);
-    if (completedNodes.length === 0) {
-      return { nodeName: '未开始' };
+    if (filteredStudents.length === 0) {
+      return (
+        <tr>
+          <td colSpan={7} className="py-12 text-center text-gray-500">
+            {students.length === 0 ? "该班级暂无学生。" : "未找到符合条件的学生。"}
+          </td>
+        </tr>
+      );
     }
-    
-    // 返回最后一个已完成的节点
-    const latestCompleted = completedNodes[completedNodes.length - 1];
-    return { nodeName: '未开始' };
-  };
 
-  const formatDuration = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-  };
+    return filteredStudents.map((student, index) => {
+      const steps = progressByStudent[student.user_id] || STEP_DEFINITIONS.map(step => ({ ...step, completed: false }));
+      const completedSteps = steps.filter((step) => step.completed).length;
+      const completionPercent = Math.round((completedSteps / steps.length) * 100);
+      const latestCompleted = [...steps].reverse().find((step) => step.completed);
+      const inProgressStep = steps.find((step) => !step.completed);
+      const isExpanded = expandedRows.includes(student.user_id);
 
-  const toggleRowExpansion = (studentId: string) => {
-    setExpandedRows(prev => 
-      prev.includes(studentId) 
-        ? prev.filter(id => id !== studentId)
-        : [...prev, studentId]
-    );
+      return (
+        <React.Fragment key={student.user_id}>
+          <tr className="hover:bg-slate-50">
+            <td className="w-12 text-center text-sm text-gray-500">{index + 1}</td>
+            <td className="px-4 py-4 text-sm text-gray-900 font-medium">
+              <div className="flex items-center space-x-2">
+                <span>{student.full_name}</span>
+                <span className="text-xs text-gray-500">({student.username})</span>
+              </div>
+            </td>
+            <td className="px-4 py-4">
+              <div className="flex items-center space-x-2">
+                <div className="flex-1 h-2 rounded-full bg-slate-200">
+                  <div
+                    className="h-2 rounded-full bg-blue-500"
+                    style={{ width: `${completionPercent}%` }}
+                  />
+                </div>
+                <span className="text-sm text-gray-600 w-12 text-right">{completionPercent}%</span>
+              </div>
+            </td>
+            <td className="px-4 py-4 text-sm text-gray-700">{latestCompleted ? latestCompleted.label : "未开始"}</td>
+            <td className="px-4 py-4 text-sm text-gray-700">{inProgressStep ? inProgressStep.label : "已完成"}</td>
+            <td className="px-4 py-4 text-sm text-gray-500 text-right">{completedSteps}/{steps.length} 步</td>
+            <td className="px-4 py-4 text-center">
+              <button
+                onClick={() => toggleRow(student.user_id)}
+                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition-all duration-200"
+              >
+                {isExpanded ? (
+                  <><ChevronDown size={14} className="mr-1" />收起详情</>
+                ) : (
+                  <><ChevronRight size={14} className="mr-1" />展开详情</>
+                )}
+              </button>
+            </td>
+          </tr>
+          {isExpanded && (
+            <tr className="bg-slate-50">
+              <td colSpan={7} className="px-8 py-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                  {steps.map((step) => (
+                    <div
+                      key={step.id}
+                      className={`rounded-xl border p-4 flex items-start space-x-3 bg-white ${
+                        step.completed ? "border-green-200" : "border-slate-200"
+                      }`}
+                    >
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          step.completed ? "bg-green-500 text-white" : "bg-slate-200 text-slate-500"
+                        }`}
+                      >
+                        {step.completed ? <Flag size={18} /> : <Clock size={18} />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{step.label}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {step.completed ? `完成时间：${formatTime(step.completedAt)}` : "尚未完成"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </td>
+            </tr>
+          )}
+        </React.Fragment>
+      );
+    });
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">实验进度</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">实验进度</h1>
+          {selectedClassId && <p className="text-sm text-gray-500 mt-1">当前班级：{currentClassName}</p>}
+        </div>
       </div>
 
-      {/* 筛选器 */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">选择班级</label>
             <select
-              value={selectedClass}
-              onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              value={selectedClassId}
+              onChange={(e) => setSelectedClassId(e.target.value)}
+              disabled={isLoadingClasses}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             >
-              <option value="">全部班级</option>
-              {classes.map((cls) => (
-                <option key={cls.id} value={cls.id}>{cls.name}</option>
-              ))}
+              {classes.length === 0 ? (
+                <option value="" disabled>{isLoadingClasses ? "加载中..." : "暂无班级"}</option>
+              ) : (
+                classes.map((cls) => (
+                  <option key={cls.class_id} value={cls.class_id}>{cls.class_name}</option>
+                ))
+              )}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">按姓名搜索</label>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">按学号/姓名搜索</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="输入姓名"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">按学号搜索</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-              <input
-                type="text"
-                placeholder="输入学号"
+                placeholder="输入学号或姓名"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
@@ -218,177 +317,62 @@ const ExperimentProgress: React.FC = () => {
         </div>
       </div>
 
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center">
-            <TrendingUp className="w-8 h-8 text-blue-600 mr-3" />
-            <div>
-              <p className="text-sm text-gray-600">课程平均进度</p>
-              <p className="text-2xl font-bold text-gray-900">{averageProgress}%</p>
-            </div>
-          </div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center space-x-2">
+          <AlertTriangle size={16} />
+          <span>{error}</span>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center">
-            <Users className="w-8 h-8 text-green-600 mr-3" />
-            <div>
-              <p className="text-sm text-gray-600">已完成人数</p>
-              <p className="text-2xl font-bold text-gray-900">{completedCount}</p>
-              <p className="text-xs text-green-600">完成率 {completionRate}%</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center">
-            <Clock className="w-8 h-8 text-orange-600 mr-3" />
-            <div>
-              <p className="text-sm text-gray-600">未完成人数</p>
-              <p className="text-2xl font-bold text-gray-900">{incompleteCount}</p>
-              <p className="text-xs text-orange-600">待完成 {100 - completionRate}%</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center">
-            <Play className="w-8 h-8 text-purple-600 mr-3" />
-            <div>
-              <p className="text-sm text-gray-600">总参与人数</p>
-              <p className="text-2xl font-bold text-gray-900">{progressData.length}</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
 
-      {/* 进度列表 */}
       <div className="bg-white rounded-lg shadow-md">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">学生实验进度详情</h2>
+          <h2 className="text-lg font-semibold text-gray-900">学生实验进度</h2>
         </div>
-
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学号</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实验进度</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">停留时间</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">开始时间</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                <th className="w-12 text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学生</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">完成进度</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最新节点</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">当前节点</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">完成步数</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredData.map((item) => (
-                <React.Fragment key={item.studentId}>
-                  <tr 
-                    className="hover:bg-gray-50 transition-colors duration-200"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {item.studentName}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.studentId}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="space-y-2">
-                        <div>
-                          {(() => {
-                            const latestInfo = getLatestCompletedNodeInfo(item.nodes);
-                            return (
-                              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getNodeColor(latestInfo.nodeName)}`}>
-                                {latestInfo.nodeName}
-                              </span>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div className="flex items-center">
-                        <Clock className="w-4 h-4 text-gray-400 mr-1" />
-                        {formatDuration(item.stayTime)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.startTime}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <button
-                        onClick={() => toggleRowExpansion(item.studentId)}
-                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition-all duration-200"
-                      >
-                        {expandedRows.includes(item.studentId) ? '收起详情' : '展开详情'}
-                      </button>
-                    </td>
-                  </tr>
-                  {expandedRows.includes(item.studentId) && (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-400">
-                        <div className="space-y-4">
-                          <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                            实验节点详情
-                          </h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {item.nodes.map((node, index) => (
-                              <div key={node.id} className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                                node.completed 
-                                  ? 'bg-green-50 border-green-200 shadow-md' 
-                                  : 'bg-white border-gray-200 shadow-sm'
-                              }`}>
-                                <div className="flex items-center space-x-3">
-                                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                                    node.completed 
-                                      ? 'bg-green-500 text-white' 
-                                      : 'bg-gray-100 text-gray-400'
-                                  }`}>
-                                    {node.completed ? (
-                                      <CheckCircle size={18} />
-                                    ) : (
-                                      <Circle size={18} />
-                                    )}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center space-x-2">
-                                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                                        node.completed 
-                                          ? 'bg-green-500 text-white' 
-                                          : 'bg-gray-100 text-gray-600'
-                                      }`}>
-                                        步骤 {index + 1}
-                                      </span>
-                                      <span className={`text-xs font-medium ${
-                                        node.completed ? 'text-green-700' : 'text-gray-500'
-                                      }`}>
-                                        {node.completed ? '已完成' : '未完成'}
-                                      </span>
-                                    </div>
-                                    <p className="text-sm font-medium text-gray-900 mt-1">
-                                      {node.name}
-                                    </p>
-                                    {node.completedAt && (
-                                      <p className="text-xs text-green-600 mt-1 font-medium">
-                                        完成时间: {node.completedAt}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
-            </tbody>
+            <tbody className="bg-white divide-y divide-gray-200">{renderProgressRows()}</tbody>
           </table>
         </div>
       </div>
     </div>
   );
 };
+
+function processStudentEvents(events: StepEvent[]): StepProgress[] {
+  const completedEvents = new Map<number, StepEvent>();
+  for (const event of events) {
+    if (event.event_type === "COMPLETED") {
+      completedEvents.set(event.step_order, event);
+    }
+  }
+
+  return STEP_DEFINITIONS.map((baseStep) => {
+    const completedEvent = completedEvents.get(baseStep.order);
+    return {
+      ...baseStep,
+      label: baseStep.label,
+      completed: !!completedEvent,
+      completedAt: completedEvent?.event_timestamp,
+    };
+  }).sort((a, b) => a.order - b.order);
+}
+
+function formatTime(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+}
 
 export default ExperimentProgress;

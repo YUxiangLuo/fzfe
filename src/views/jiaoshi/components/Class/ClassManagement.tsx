@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Users, Loader, AlertTriangle, Edit2, Trash2, User as UserIcon } from 'lucide-react';
-import { Class } from '../../types';
-import type { Assistant, Student } from '../../types';
+import type { Class, Assistant, Student } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
@@ -337,6 +336,7 @@ const ClassManagement: React.FC = () => {
               <p className="text-sm text-gray-600 mt-1">
                 班级代码: <span className="font-medium">{selectedClass.class_code || '未设置'}</span>
               </p>
+              <p className="text-sm text-gray-600 mt-1">学生总数：<span className="font-semibold text-gray-900">{students.length}</span></p>
             </div>
           )}
 

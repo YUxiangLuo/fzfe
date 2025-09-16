@@ -1,5 +1,5 @@
 import React from 'react';
-import { MenuItem } from '../../types';
+import type { MenuItem } from '../../types';
 import PersonalInfo from '../Account/PersonalInfo';
 import AssistantManagement from '../Account/AssistantManagement';
 import ClassManagement from '../Class/ClassManagement';

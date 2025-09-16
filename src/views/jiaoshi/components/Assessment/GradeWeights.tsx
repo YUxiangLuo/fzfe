@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Settings, Save, RotateCcw } from 'lucide-react';
-import { GradeWeights as Weights } from '../../types';
+import type { GradeWeights as Weights } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 

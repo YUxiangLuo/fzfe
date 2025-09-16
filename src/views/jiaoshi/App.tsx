@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Header from './components/Layout/Header';
 import Sidebar from './components/Layout/Sidebar';
 import MainContent from './components/Layout/MainContent';
-import { MenuItem } from './types';
+import type { MenuItem } from './types';
 
 function App() {
   const [activeMenuItem, setActiveMenuItem] = useState<MenuItem>('experiment-progress');

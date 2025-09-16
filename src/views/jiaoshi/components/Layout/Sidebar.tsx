@@ -19,7 +19,7 @@ import {
   Home,
   Sparkles
 } from 'lucide-react';
-import { MenuItem } from '../../types';
+import type { MenuItem } from '../../types';
 
 interface SidebarProps {
   activeMenuItem: MenuItem;

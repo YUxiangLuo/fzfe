@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Edit2, User, Phone, Mail, Calendar, Loader, AlertTriangle, BookCopy } from 'lucide-react';
 import Modal from '../Common/Modal';
 import { apiClient } from '../../../../utils/apiClient';
-import type { User as UserType, Class as ClassType } from '../../../types';
+import type { User as UserType, Class as ClassType } from '../../types';
 
 const PersonalInfo: React.FC = () => {
   const [user, setUser] = useState<UserType | null>(null);

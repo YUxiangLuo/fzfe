@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FileText, Download, Eye, Star, MessageCircle, Download as DownloadIcon } from 'lucide-react';
-import { ExperimentReport } from '../../types';
+import type { ExperimentReport } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 

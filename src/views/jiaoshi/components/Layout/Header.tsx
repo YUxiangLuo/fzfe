@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, LogOut } from 'lucide-react';
-import { decodeToken, DecodedToken } from '../../../../utils/auth';
+import { decodeToken, type DecodedToken } from '../../../../utils/auth';
 
 const Header: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);

@@ -266,6 +266,42 @@ components:
           minimum: 1
       required:
         - assistant_id
+    StepEvent:
+      type: object
+      properties:
+        event_id:
+          type: integer
+        experiment_id:
+          type: integer
+        student_id:
+          type: integer
+        step_order:
+          type: integer
+          minimum: 1
+        event_type:
+          type: string
+          enum: [STARTED, COMPLETED]
+        event_timestamp:
+          type: string
+          format: date-time
+      required:
+        - event_id
+        - experiment_id
+        - student_id
+        - step_order
+        - event_type
+        - event_timestamp
+    ClassStepEvent:
+      allOf:
+        - $ref: '#/components/schemas/StepEvent'
+        - type: object
+          properties:
+            class_id:
+              type: integer
+            username:
+              type: string
+            full_name:
+              type: string
     ManualUploadRequest:
       type: object
       properties:
@@ -1170,6 +1206,111 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/UserSummary'
+  /classes/{classId}/students:
+    get:
+      summary: List students in class (teacher or admin)
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClassIdParam'
+      responses:
+        '200':
+          description: Students enrolled in the class
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSummary'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Remove student from class
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClassIdParam'
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Student removed from class
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Enrollment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /classes/{classId}/step-events:
+    get:
+      summary: List experiment step events for all students in a class
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClassIdParam'
+      responses:
+        '200':
+          description: Step events for students in the class
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClassStepEvent'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /students/{studentId}/step-events:
+    get:
+      summary: List experiment step events for a student
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Experiment step events for the student
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StepEvent'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /classes/{classId}/assistants/{assistantId}:
     delete:
       summary: Remove assistant from class

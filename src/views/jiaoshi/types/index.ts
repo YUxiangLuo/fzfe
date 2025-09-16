@@ -20,12 +20,7 @@ export interface Class {
   created_at?: string;
 }
 
-export interface Student {
-  user_id: number;
-  username: string;
-  full_name: string;
-  email: string;
-}
+export interface Student extends User {}
 
 export interface Assistant {
   user_id: number;
@@ -46,3 +41,57 @@ export type MenuItem =
   | 'assessment-questions'
   | 'assessment-weights'
   | 'assessment-grades';
+
+export interface GradeWeights {
+  experimentProcess: number;
+  knowledgeTest: number;
+  modelSelection: number;
+  experimentReport: number;
+}
+
+export interface StudentGrade {
+  studentId: string;
+  studentName: string;
+  experimentProcess: number;
+  knowledgeTest: number;
+  modelSelection: number;
+  experimentReport: number;
+  totalScore: number;
+}
+
+export interface Question {
+  id: string;
+  content: string;
+  type: 'single' | 'multiple' | 'boolean';
+  knowledgePoint: string;
+  options?: string[];
+  correctAnswer: string | string[];
+}
+
+export interface ExperimentReport {
+  id: string;
+  studentId: string;
+  studentName: string;
+  fileName: string;
+  submittedAt: string;
+  status: 'unreviewed' | 'reviewed';
+  score?: number;
+  comments?: string;
+}
+
+// Represents a student's progress event, matching the backend API structure
+export interface StepEvent {
+  event_id: number;
+  experiment_id: number;
+  student_id: number;
+  step_order: number;
+  event_type: 'STARTED' | 'COMPLETED';
+  event_timestamp: string;
+}
+
+// Represents a step event within the context of a class, including student info
+export interface ClassStepEvent extends StepEvent {
+  class_id: number;
+  username: string;
+  full_name: string;
+}

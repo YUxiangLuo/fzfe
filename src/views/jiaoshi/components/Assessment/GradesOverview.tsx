@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Download, TrendingUp, Users, Award, BookOpen } from 'lucide-react';
-import { StudentGrade } from '../../types';
+import type { StudentGrade } from '../../types';
 import Button from '../Common/Button';
 
 const GradesOverview: React.FC = () => {

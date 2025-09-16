@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Eye, Edit2, Trash2, Search } from 'lucide-react';
-import { Question } from '../../types';
+import type { Question } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 
