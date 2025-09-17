@@ -61,11 +61,14 @@ export interface GradeWeights {
 export interface StudentGrade {
   studentId: string;
   studentName: string;
-  experimentProcess: number;
-  knowledgeTest: number;
-  modelSelection: number;
-  experimentReport: number;
-  totalScore: number;
+  exp_flow: number;
+  knowledge_test: number;
+  model_quality: number;
+  report_quality: number;
+  total_score: number;
+  created_at?: string;
+  experiment_id?: number;
+  grade_id?: number;
 }
 
 export type QuestionTypeApi = 'Single Choice' | 'Multiple Choice' | 'True/False';

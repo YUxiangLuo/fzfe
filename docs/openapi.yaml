@@ -619,6 +619,61 @@ components:
         - knowledge_test
         - model_quality
         - report_quality
+    ClassLatestExperimentGrade:
+      type: object
+      properties:
+        grade_id:
+          type: integer
+        experiment_id:
+          type: integer
+        student_id:
+          type: integer
+        student_username:
+          type: string
+        student_full_name:
+          type: string
+        grader_id:
+          type: integer
+          nullable: true
+        grader_name:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        exp_flow:
+          type: number
+        exp_flow_demand_data_preparation:
+          type: number
+        exp_flow_demand_descriptive_stats:
+          type: number
+        exp_flow_demand_model_selection:
+          type: number
+        exp_flow_demand_generate_results:
+          type: number
+        exp_flow_production_inventory_calc:
+          type: number
+        exp_flow_production_service_level:
+          type: number
+        exp_flow_production_variable_calc:
+          type: number
+        exp_flow_production_plan_creation:
+          type: number
+        exp_flow_report_submission:
+          type: number
+        knowledge_test:
+          type: number
+        model_quality:
+          type: number
+        report_quality:
+          type: number
+      required:
+        - grade_id
+        - experiment_id
+        - student_id
+        - student_username
+        - student_full_name
+        - created_at
     ManualUploadRequest:
       type: object
       properties:
@@ -1623,6 +1678,32 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ClassExperimentStatusResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /classes/{classId}/latest-grades:
+    get:
+      summary: List latest experiment grades for class students
+      description: Teachers and admins can view the most recent experiment grading record for each student in the class.
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClassIdParam'
+      responses:
+        '200':
+          description: Latest experiment grade per student
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClassLatestExperimentGrade'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
