@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppState } from '../App';
+import type { AppState } from '../App';
 import { TrendingUp, Target, Award } from 'lucide-react';
 
 interface Props {

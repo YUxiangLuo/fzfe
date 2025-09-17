@@ -40,6 +40,7 @@ const ExperimentProgress: React.FC = () => {
   >({});
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
   const [teacherId, setTeacherId] = useState<number | null>(null);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
@@ -70,11 +71,14 @@ const ExperimentProgress: React.FC = () => {
       setIsLoadingClasses(true);
       setError(null);
       try {
-        const response = await apiClient.get<Class[]>(`/teachers/${teacherId}/classes`);
-        const classList = Array.isArray(response) ? response : [];
+        const response = await apiClient.get(`/teachers/${teacherId}/classes`);
+        const classList = Array.isArray(response) ? (response as Class[]) : [];
         setClasses(classList);
-        if (classList.length > 0) {
-          setSelectedClassId(String(classList[0].class_id));
+        const firstClass = classList[0];
+        if (firstClass) {
+          setSelectedClassId(String(firstClass.class_id));
+        } else {
+          setSelectedClassId("");
         }
       } catch (err: any) {
         setError(err.message || "获取班级列表失败");
@@ -84,6 +88,16 @@ const ExperimentProgress: React.FC = () => {
     };
     fetchClasses();
   }, [teacherId]);
+
+  useEffect(() => {
+    const handler = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 300);
+
+    return () => {
+      window.clearTimeout(handler);
+    };
+  }, [searchTerm]);
 
   useEffect(() => {
     setExpandedRows([]);
@@ -101,20 +115,18 @@ const ExperimentProgress: React.FC = () => {
 
       try {
         const [studentsResponse, progressResponse] = await Promise.all([
-          apiClient.get<Student[]>(`/classes/${selectedClassId}/students`),
-          apiClient.get<ClassStepEvent[]>(`/classes/${selectedClassId}/step-events`)
+          apiClient.get(`/classes/${selectedClassId}/students`),
+          apiClient.get(`/classes/${selectedClassId}/step-events`)
         ]);
 
-        const studentList = Array.isArray(studentsResponse) ? studentsResponse : [];
+        const studentList = Array.isArray(studentsResponse) ? (studentsResponse as Student[]) : [];
         setStudents(studentList);
 
-        const allEvents = Array.isArray(progressResponse) ? progressResponse : [];
-        
+        const allEvents = Array.isArray(progressResponse) ? (progressResponse as ClassStepEvent[]) : [];
+
         const eventsByStudent = allEvents.reduce((acc, event) => {
-          if (!acc[event.student_id]) {
-            acc[event.student_id] = [];
-          }
-          acc[event.student_id].push(event);
+          const bucket = acc[event.student_id] ?? (acc[event.student_id] = []);
+          bucket.push(event);
           return acc;
         }, {} as Record<number, StepEvent[]>);
 
@@ -139,13 +151,13 @@ const ExperimentProgress: React.FC = () => {
   }, [selectedClassId]);
 
   const filteredStudents = useMemo(() => {
-    if (!searchTerm) return students;
-    const query = searchTerm.trim();
+    if (!debouncedSearchTerm) return students;
+    const query = debouncedSearchTerm.toLowerCase();
     return students.filter(
       (student) =>
-        student.username.includes(query) || student.full_name.includes(query),
+        student.username.toLowerCase().includes(query) || student.full_name.toLowerCase().includes(query),
     );
-  }, [students, searchTerm]);
+  }, [students, debouncedSearchTerm]);
 
   const currentClassName = useMemo(() => {
     return classes.find((cls) => String(cls.class_id) === selectedClassId)?.class_name ?? "—";

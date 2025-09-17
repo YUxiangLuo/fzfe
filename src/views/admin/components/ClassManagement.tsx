@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Eye, Loader, AlertTriangle } from 'lucide-react';
-import { Class } from '../../../types';
-import { apiClient } from '../../../utils/apiClient';
-import { ClassDetailsModal } from './ClassDetailsModal'; // 引入新的弹窗组件
+import React, { useState, useEffect } from "react";
+import { Search, Eye, Loader, AlertTriangle } from "lucide-react";
+import type { Class } from "../types";
+import { apiClient } from "../../../utils/apiClient";
+import { ClassDetailsModal } from "./ClassDetailsModal"; // 引入新的弹窗组件
 
 const ClassManagement: React.FC = () => {
   const [classes, setClasses] = useState<Class[]>([]);
   const [filteredClasses, setFilteredClasses] = useState<Class[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,11 +20,11 @@ const ClassManagement: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await apiClient.get('/classes');
+        const data = await apiClient.get("/classes");
         setClasses(data || []);
         setFilteredClasses(data || []);
       } catch (err: any) {
-        setError(err.message || '获取班级数据失败');
+        setError(err.message || "获取班级数据失败");
       } finally {
         setIsLoading(false);
       }
@@ -36,9 +36,10 @@ const ClassManagement: React.FC = () => {
   useEffect(() => {
     let filtered = classes;
     if (searchTerm) {
-      filtered = classes.filter(c =>
-        c.class_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.class_code.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = classes.filter(
+        (c) =>
+          c.class_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          c.class_code.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     }
     setFilteredClasses(filtered);
@@ -88,10 +89,19 @@ const ClassManagement: React.FC = () => {
     }
 
     return filteredClasses.map((classInfo) => (
-      <tr key={classInfo.class_id} className="hover:bg-blue-50/30 transition-colors duration-200">
-        <td className="px-6 py-4 text-sm text-gray-900 font-medium">{classInfo.class_code}</td>
-        <td className="px-6 py-4 text-sm text-gray-900">{classInfo.class_name}</td>
-        <td className="px-6 py-4 text-sm text-gray-600">{classInfo.teacher_name}</td>
+      <tr
+        key={classInfo.class_id}
+        className="hover:bg-blue-50/30 transition-colors duration-200"
+      >
+        <td className="px-6 py-4 text-sm text-gray-900 font-medium">
+          {classInfo.class_code}
+        </td>
+        <td className="px-6 py-4 text-sm text-gray-900">
+          {classInfo.class_name}
+        </td>
+        <td className="px-6 py-4 text-sm text-gray-600">
+          {classInfo.teacher_name}
+        </td>
         <td className="px-6 py-4">
           <button
             onClick={() => handleViewDetails(classInfo)}
@@ -113,9 +123,14 @@ const ClassManagement: React.FC = () => {
         <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-6 rounded-2xl border border-gray-200 mb-6">
           <div className="flex items-center space-x-4">
             <div className="flex-1">
-              <label className="block text-sm font-semibold text-gray-700 mb-3">班级名称/编号搜索</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-3">
+                班级名称/编号搜索
+              </label>
               <div className="relative">
-                <Search size={18} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Search
+                  size={18}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"
+                />
                 <input
                   type="text"
                   value={searchTerm}
@@ -133,10 +148,18 @@ const ClassManagement: React.FC = () => {
           <table className="w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">班级编号</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">班级名称</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">所属教师</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">操作</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  班级编号
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  班级名称
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  所属教师
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                  操作
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">

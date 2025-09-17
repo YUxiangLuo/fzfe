@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Download, Upload, Loader, AlertTriangle } from "lucide-react";
-import type { ExperimentManual } from "../../../types";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Download,
+  Upload,
+  Loader,
+  AlertTriangle,
+} from "lucide-react";
+import type { ExperimentManual } from "../types";
 import { apiClient } from "../../../utils/apiClient";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig"; // Import the new config value
 import Modal from "./Modal";
@@ -12,11 +20,13 @@ const ExperimentManualView: React.FC = () => {
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingManual, setEditingManual] = useState<ExperimentManual | null>(null);
-  
+  const [editingManual, setEditingManual] = useState<ExperimentManual | null>(
+    null,
+  );
+
   const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [manualName, setManualName] = useState('');
-  const [manualNotes, setManualNotes] = useState('');
+  const [manualName, setManualName] = useState("");
+  const [manualNotes, setManualNotes] = useState("");
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
@@ -24,10 +34,10 @@ const ExperimentManualView: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await apiClient.get('/manuals'); 
+        const data = await apiClient.get("/manuals");
         setManuals(data || []);
       } catch (err: any) {
-        setError(err.message || '获取实验手册失败');
+        setError(err.message || "获取实验手册失败");
       } finally {
         setIsLoading(false);
       }
@@ -38,18 +48,21 @@ const ExperimentManualView: React.FC = () => {
   const handleStatusToggle = async (manualToToggle: ExperimentManual) => {
     const newStatusBoolean = manualToToggle.is_active !== 1;
     try {
-      const updatedManual = await apiClient.put(`/manuals/${manualToToggle.manual_id}`, { is_active: newStatusBoolean });
-      
-      setManuals(prevManuals => {
+      const updatedManual = await apiClient.put(
+        `/manuals/${manualToToggle.manual_id}`,
+        { is_active: newStatusBoolean },
+      );
+
+      setManuals((prevManuals) => {
         if (updatedManual.is_active === 1) {
-          return prevManuals.map(m => 
-            m.manual_id === updatedManual.manual_id 
-              ? updatedManual 
-              : { ...m, is_active: 0 }
+          return prevManuals.map((m) =>
+            m.manual_id === updatedManual.manual_id
+              ? updatedManual
+              : { ...m, is_active: 0 },
           );
         } else {
-          return prevManuals.map(m => 
-            m.manual_id === updatedManual.manual_id ? updatedManual : m
+          return prevManuals.map((m) =>
+            m.manual_id === updatedManual.manual_id ? updatedManual : m,
           );
         }
       });
@@ -62,7 +75,7 @@ const ExperimentManualView: React.FC = () => {
     if (confirm("确定要删除此实验手册吗？")) {
       try {
         await apiClient.delete(`/manuals/${manualId}`);
-        setManuals(manuals.filter(m => m.manual_id !== manualId));
+        setManuals(manuals.filter((m) => m.manual_id !== manualId));
       } catch (err: any) {
         alert(`删除失败: ${err.message}`);
       }
@@ -74,7 +87,7 @@ const ExperimentManualView: React.FC = () => {
       alert("请填写手册名称并选择文件");
       return;
     }
-    
+
     setIsUploading(true);
     const formData = new FormData();
     formData.append("file", uploadFile);
@@ -82,8 +95,11 @@ const ExperimentManualView: React.FC = () => {
     formData.append("description", manualNotes);
 
     try {
-      const newManualFromServer = await apiClient.postFormData('/manuals', formData);
-      setManuals(prev => [newManualFromServer, ...prev]);
+      const newManualFromServer = await apiClient.postFormData(
+        "/manuals",
+        formData,
+      );
+      setManuals((prev) => [newManualFromServer, ...prev]);
       resetUploadModal();
     } catch (err: any) {
       alert(`上传失败: ${err.message}`);
@@ -95,11 +111,18 @@ const ExperimentManualView: React.FC = () => {
   const handleSaveEdit = async () => {
     if (!editingManual) return;
     try {
-      const updatedManual = await apiClient.put(`/manuals/${editingManual.manual_id}`, { 
-        file_name: editingManual.file_name, 
-        description: editingManual.description 
-      });
-      setManuals(manuals.map(m => m.manual_id === updatedManual.manual_id ? updatedManual : m));
+      const updatedManual = await apiClient.put(
+        `/manuals/${editingManual.manual_id}`,
+        {
+          file_name: editingManual.file_name,
+          description: editingManual.description,
+        },
+      );
+      setManuals(
+        manuals.map((m) =>
+          m.manual_id === updatedManual.manual_id ? updatedManual : m,
+        ),
+      );
       setIsEditModalOpen(false);
     } catch (err: any) {
       alert(`保存失败: ${err.message}`);
@@ -108,42 +131,105 @@ const ExperimentManualView: React.FC = () => {
 
   const handleDownload = (filePath: string) => {
     // Extract the filename from the full path (e.g., "/uploads/manuals/file.pdf" -> "file.pdf")
-    const filename = filePath.split('/').pop();
+    const filename = filePath.split("/").pop();
     // Use the configured base URL and the extracted filename to construct the link
-    const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/${filename}`;
-    window.open(fullUrl, '_blank');
+    const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/manuals/${filename}`;
+    window.open(fullUrl, "_blank");
   };
 
   const resetUploadModal = () => {
     setIsUploadModalOpen(false);
     setUploadFile(null);
-    setManualName('');
-    setManualNotes('');
+    setManualName("");
+    setManualNotes("");
   };
 
   const renderTableBody = () => {
-    if (isLoading) return <tr><td colSpan={6} className="text-center py-12"><Loader className="animate-spin mx-auto text-gray-400" /></td></tr>;
-    if (error) return <tr><td colSpan={6} className="text-center py-12 text-red-500"><AlertTriangle className="mx-auto" /><p className="mt-2">{error}</p></td></tr>;
-    if (manuals.length === 0) return <tr><td colSpan={6} className="text-center py-12 text-gray-500">暂无实验手册</td></tr>;
+    if (isLoading)
+      return (
+        <tr>
+          <td colSpan={6} className="text-center py-12">
+            <Loader className="animate-spin mx-auto text-gray-400" />
+          </td>
+        </tr>
+      );
+    if (error)
+      return (
+        <tr>
+          <td colSpan={6} className="text-center py-12 text-red-500">
+            <AlertTriangle className="mx-auto" />
+            <p className="mt-2">{error}</p>
+          </td>
+        </tr>
+      );
+    if (manuals.length === 0)
+      return (
+        <tr>
+          <td colSpan={6} className="text-center py-12 text-gray-500">
+            暂无实验手册
+          </td>
+        </tr>
+      );
 
     return manuals.map((manual) => (
-      <tr key={manual.manual_id} className="hover:bg-blue-50/30 transition-colors duration-200">
-        <td className="px-6 py-4 text-sm text-gray-900 font-medium">{manual.file_name}</td>
-        <td className="px-6 py-4 text-sm text-gray-600">{manual.description || '-'}</td>
-        <td className="px-6 py-4 text-sm text-gray-600">{manual.uploader_name}</td>
-        <td className="px-6 py-4 text-sm text-gray-600">{new Date(manual.uploaded_at).toLocaleString('zh-CN')}</td>
+      <tr
+        key={manual.manual_id}
+        className="hover:bg-blue-50/30 transition-colors duration-200"
+      >
+        <td className="px-6 py-4 text-sm text-gray-900 font-medium">
+          {manual.file_name}
+        </td>
+        <td className="px-6 py-4 text-sm text-gray-600">
+          {manual.description || "-"}
+        </td>
+        <td className="px-6 py-4 text-sm text-gray-600">
+          {manual.uploader_name}
+        </td>
+        <td className="px-6 py-4 text-sm text-gray-600">
+          {new Date(manual.uploaded_at).toLocaleString("zh-CN")}
+        </td>
         <td className="px-6 py-4">
           <label className="relative inline-flex items-center cursor-pointer">
-            <input type="checkbox" checked={manual.is_active === 1} onChange={() => handleStatusToggle(manual)} className="sr-only peer" />
+            <input
+              type="checkbox"
+              checked={manual.is_active === 1}
+              onChange={() => handleStatusToggle(manual)}
+              className="sr-only peer"
+            />
             <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            <span className={`ml-3 text-sm font-medium ${manual.is_active === 1 ? "text-blue-600" : "text-gray-500"}`}>{manual.is_active === 1 ? "启用" : "禁用"}</span>
+            <span
+              className={`ml-3 text-sm font-medium ${manual.is_active === 1 ? "text-blue-600" : "text-gray-500"}`}
+            >
+              {manual.is_active === 1 ? "启用" : "禁用"}
+            </span>
           </label>
         </td>
         <td className="px-6 py-4">
           <div className="flex items-center space-x-1">
-            <button onClick={() => { setEditingManual(manual); setIsEditModalOpen(true); }} className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-all duration-200 hover:scale-110" title="修改"><Edit size={16} /></button>
-            <button onClick={() => handleDelete(manual.manual_id)} className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-all duration-200 hover:scale-110" title="删除"><Trash2 size={16} /></button>
-            <button onClick={() => handleDownload(manual.file_path)} className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-all duration-200 hover:scale-110" title="下载"><Download size={16} /></button>
+            <button
+              onClick={() => {
+                setEditingManual(manual);
+                setIsEditModalOpen(true);
+              }}
+              className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-all duration-200 hover:scale-110"
+              title="修改"
+            >
+              <Edit size={16} />
+            </button>
+            <button
+              onClick={() => handleDelete(manual.manual_id)}
+              className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-all duration-200 hover:scale-110"
+              title="删除"
+            >
+              <Trash2 size={16} />
+            </button>
+            <button
+              onClick={() => handleDownload(manual.file_path)}
+              className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-all duration-200 hover:scale-110"
+              title="下载"
+            >
+              <Download size={16} />
+            </button>
           </div>
         </td>
       </tr>
@@ -155,10 +241,16 @@ const ExperimentManualView: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">实验手册管理</h1>
-          <p className="text-sm text-gray-500 mt-1">管理学生端显示的实验手册，支持上传、更新和启用/禁用操作</p>
+          <p className="text-sm text-gray-500 mt-1">
+            管理学生端显示的实验手册，支持上传、更新和启用/禁用操作
+          </p>
         </div>
-        <button onClick={() => setIsUploadModalOpen(true)} className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-          <Plus size={18} /><span>新增</span>
+        <button
+          onClick={() => setIsUploadModalOpen(true)}
+          className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+        >
+          <Plus size={18} />
+          <span>新增</span>
         </button>
       </div>
 
@@ -166,61 +258,165 @@ const ExperimentManualView: React.FC = () => {
         <table className="w-full">
           <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">手册名称</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">备注</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">上传者</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">上传时间</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">状态</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">操作</th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                手册名称
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                备注
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                上传者
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                上传时间
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                状态
+              </th>
+              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
+                操作
+              </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">{renderTableBody()}</tbody>
+          <tbody className="divide-y divide-gray-200">
+            {renderTableBody()}
+          </tbody>
         </table>
       </div>
 
-      <Modal isOpen={isUploadModalOpen} onClose={resetUploadModal} title="新增实验手册">
+      <Modal
+        isOpen={isUploadModalOpen}
+        onClose={resetUploadModal}
+        title="新增实验手册"
+      >
         <div className="space-y-6">
           <div>
-            <label htmlFor="manual-name" className="block text-sm font-medium text-gray-700 mb-2">手册名称</label>
-            <input type="text" id="manual-name" value={manualName} onChange={(e) => setManualName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="例如：生产决策仿真实验手册" />
+            <label
+              htmlFor="manual-name"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              手册名称
+            </label>
+            <input
+              type="text"
+              id="manual-name"
+              value={manualName}
+              onChange={(e) => setManualName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="例如：生产决策仿真实验手册"
+            />
           </div>
           <div>
-            <label htmlFor="manual-notes" className="block text-sm font-medium text-gray-700 mb-2">备注 (可选)</label>
-            <textarea id="manual-notes" value={manualNotes} onChange={(e) => setManualNotes(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="例如：适用于2025春季学期"></textarea>
+            <label
+              htmlFor="manual-notes"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              备注 (可选)
+            </label>
+            <textarea
+              id="manual-notes"
+              value={manualNotes}
+              onChange={(e) => setManualNotes(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="例如：适用于2025春季学期"
+            ></textarea>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">上传PDF文件</label>
-            <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              上传PDF文件
+            </label>
+            <label
+              htmlFor="file-upload"
+              className="cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors"
+            >
               <Upload size={48} className="mx-auto text-gray-400 mb-4" />
-              <input type="file" accept=".pdf" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} className="hidden" id="file-upload" />
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                className="hidden"
+                id="file-upload"
+              />
               <p className="text-blue-600 font-medium">点击或拖拽文件到此处</p>
-              {uploadFile && <p className="text-sm text-green-600 mt-2 font-semibold">已选择: {uploadFile.name}</p>}
+              {uploadFile && (
+                <p className="text-sm text-green-600 mt-2 font-semibold">
+                  已选择: {uploadFile.name}
+                </p>
+              )}
             </label>
           </div>
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <button onClick={resetUploadModal} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
-            <button onClick={handleUpload} disabled={!uploadFile || !manualName || isUploading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center">
-              {isUploading && <Loader className="animate-spin mr-2" size={16} />}
-              {isUploading ? '上传中...' : '确认上传'}
+            <button
+              onClick={resetUploadModal}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              取消
+            </button>
+            <button
+              onClick={handleUpload}
+              disabled={!uploadFile || !manualName || isUploading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
+            >
+              {isUploading && (
+                <Loader className="animate-spin mr-2" size={16} />
+              )}
+              {isUploading ? "上传中..." : "确认上传"}
             </button>
           </div>
         </div>
       </Modal>
 
-      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="修改实验手册">
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title="修改实验手册"
+      >
         {editingManual && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">手册名称</label>
-              <input type="text" value={editingManual.file_name} onChange={(e) => setEditingManual(prev => prev ? { ...prev, file_name: e.target.value } : null)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                手册名称
+              </label>
+              <input
+                type="text"
+                value={editingManual.file_name}
+                onChange={(e) =>
+                  setEditingManual((prev) =>
+                    prev ? { ...prev, file_name: e.target.value } : null,
+                  )
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">备注</label>
-              <textarea rows={3} value={editingManual.description || ''} onChange={(e) => setEditingManual(prev => prev ? { ...prev, description: e.target.value } : null)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                备注
+              </label>
+              <textarea
+                rows={3}
+                value={editingManual.description || ""}
+                onChange={(e) =>
+                  setEditingManual((prev) =>
+                    prev ? { ...prev, description: e.target.value } : null,
+                  )
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              ></textarea>
             </div>
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-              <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
-              <button onClick={handleSaveEdit} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">保存修改</button>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                保存修改
+              </button>
             </div>
           </div>
         )}

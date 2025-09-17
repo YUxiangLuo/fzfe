@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppState } from '../App';
+import type { AppState } from '../App';
 import { Factory, Smartphone, Car, Utensils, Droplets, Sparkles, SprayCan as Spray, Shirt, ArrowRight } from 'lucide-react';
 
 interface Props {

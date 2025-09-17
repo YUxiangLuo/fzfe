@@ -69,14 +69,37 @@ export interface Question {
 }
 
 export interface ExperimentReport {
-  id: string;
-  studentId: string;
-  studentName: string;
-  fileName: string;
-  submittedAt: string;
-  status: 'unreviewed' | 'reviewed';
-  score?: number;
-  comments?: string;
+  report_id: number;
+  experiment_id: number;
+  student_id: number;
+  student_username: string;
+  student_full_name: string;
+  report_content: string | null;
+  pdf_file_path: string | null;
+  submitted_at: string | null;
+  grade: number | null;
+  feedback: string | null;
+  graded_by: number | null;
+  graded_by_full_name: string | null;
+  experiment_status: string | null;
+  selected_industry: string | null;
+  selected_company: string | null;
+  selected_product: string | null;
+}
+
+export interface ClassExperimentStatus {
+  experiment_id: number;
+  student_id: number;
+  student_username: string;
+  student_full_name: string;
+  start_time: string | null;
+  completion_time: string | null;
+  last_activity_at: string | null;
+  status: 'Not Started' | 'In Progress' | 'Completed';
+  selected_industry: string | null;
+  selected_company: string | null;
+  selected_product: string | null;
+  best_model?: string | null;
 }
 
 // Represents a student's progress event, matching the backend API structure

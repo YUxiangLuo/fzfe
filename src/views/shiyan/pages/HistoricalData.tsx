@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppState } from '../App';
+import type { AppState } from '../App';
 import { BarChart3, Calendar, Info } from 'lucide-react';
 
 interface Props {
@@ -76,8 +76,12 @@ const HistoricalData: React.FC<Props> = ({ appState, completeStep }) => {
       }
     };
 
+    const industryKey = appState.selectedIndustry ?? '';
+    const companyKey = appState.selectedCompany ?? '';
+    const productKey = appState.selectedProduct ?? '';
+
     // 获取选定的产品信息
-    const selectedProduct = productMap[appState.selectedIndustry || '']?.[appState.selectedCompany || '']?.[appState.selectedProduct || ''];
+    const selectedProduct = productMap[industryKey]?.[companyKey]?.[productKey];
     
     if (selectedProduct) {
       return selectedProduct;
@@ -85,8 +89,8 @@ const HistoricalData: React.FC<Props> = ({ appState, completeStep }) => {
     
     // 如果没有找到具体产品信息，但有选择，则显示选择的产品ID
     if (appState.selectedProduct) {
-      const industryName = industryNames[appState.selectedIndustry] || appState.selectedIndustry;
-      const companyName = companyNames[appState.selectedIndustry]?.[appState.selectedCompany] || appState.selectedCompany;
+      const industryName = industryNames[industryKey] || industryKey || '未选择行业';
+      const companyName = companyNames[industryKey]?.[companyKey] || companyKey || '未选择企业';
       
       return {
         name: `${industryName}-${companyName}-${appState.selectedProduct}`,

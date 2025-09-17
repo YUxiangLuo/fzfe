@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import Modal from './Modal';
-import { Class, Student } from '../../../types';
-import type { User as AdminUser } from '../../../types';
-import { apiClient } from '../../../utils/apiClient';
-import { User as UserIcon, Loader, AlertTriangle, UserPlus } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import Modal from "./Modal";
+import type { Class, Student } from "../types";
+import type { User as AdminUser } from "../types";
+import { apiClient } from "../../../utils/apiClient";
+import {
+  User as UserIcon,
+  Loader,
+  AlertTriangle,
+  UserPlus,
+} from "lucide-react";
 
 interface ClassDetailsModalProps {
   isOpen: boolean;
@@ -11,7 +16,11 @@ interface ClassDetailsModalProps {
   classInfo: Class | null;
 }
 
-export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({ isOpen, onClose, classInfo }) => {
+export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({
+  isOpen,
+  onClose,
+  classInfo,
+}) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [assistants, setAssistants] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -23,11 +32,13 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({ isOpen, on
         setIsLoading(true);
         setError(null);
         try {
-          const response = await apiClient.get(`/classes/${classInfo.class_id}`) as Class;
+          const response = (await apiClient.get(
+            `/classes/${classInfo.class_id}`,
+          )) as Class;
           setStudents(response.students || []);
           setAssistants(response.assistants || []);
         } catch (err: any) {
-          setError(err.message || '获取班级详情失败');
+          setError(err.message || "获取班级详情失败");
         } finally {
           setIsLoading(false);
         }
@@ -62,7 +73,10 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({ isOpen, on
     return (
       <ul className="divide-y divide-gray-200">
         {students.map((student) => (
-          <li key={student.user_id} className="flex items-center p-3 hover:bg-gray-50">
+          <li
+            key={student.user_id}
+            className="flex items-center p-3 hover:bg-gray-50"
+          >
             <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center mr-4">
               <UserIcon size={16} className="text-white" />
             </div>
@@ -102,7 +116,10 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({ isOpen, on
     return (
       <ul className="divide-y divide-gray-200">
         {assistants.map((assistant) => (
-          <li key={assistant.user_id} className="flex items-center p-3 hover:bg-gray-50">
+          <li
+            key={assistant.user_id}
+            className="flex items-center p-3 hover:bg-gray-50"
+          >
             <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center mr-4">
               <UserPlus size={16} className="text-white" />
             </div>
@@ -122,12 +139,25 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({ isOpen, on
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="班级详情" maxWidth="max-w-2xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="班级详情"
+      maxWidth="max-w-2xl"
+    >
       <div className="space-y-6">
         <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-          <h3 className="text-lg font-bold text-gray-900">{classInfo.class_name}</h3>
-          <p className="text-sm text-gray-600 mt-1">班级编号: <span className="font-medium">{classInfo.class_code}</span></p>
-          <p className="text-sm text-gray-600">任课教师: <span className="font-medium">{classInfo.teacher_name}</span></p>
+          <h3 className="text-lg font-bold text-gray-900">
+            {classInfo.class_name}
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">
+            班级编号:{" "}
+            <span className="font-medium">{classInfo.class_code}</span>
+          </p>
+          <p className="text-sm text-gray-600">
+            任课教师:{" "}
+            <span className="font-medium">{classInfo.teacher_name}</span>
+          </p>
         </div>
 
         <div>
@@ -145,7 +175,12 @@ export const ClassDetailsModal: React.FC<ClassDetailsModalProps> = ({ isOpen, on
         </div>
 
         <div className="flex justify-end pt-4 border-t border-gray-200">
-          <button onClick={onClose} className="px-6 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg">关闭</button>
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg"
+          >
+            关闭
+          </button>
         </div>
       </div>
     </Modal>

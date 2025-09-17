@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
-import { AppState } from '../App';
+import type { AppState } from '../App';
 import { Brain, TrendingUp, BarChart3, ArrowRight } from 'lucide-react';
 import MovingAverageModel from './models/MovingAverageModel';
 import ExponentialSmoothingModel from './models/ExponentialSmoothingModel';

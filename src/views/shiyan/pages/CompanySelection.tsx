@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AppState } from '../App';
+import type { AppState } from '../App';
 import { Building, MapPin, Users, TrendingUp, ArrowRight } from 'lucide-react';
 
 interface Props {

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { AppState } from "../../App";
+import type { AppState } from "../../App";
 import {
   Brain,
   Settings,
@@ -166,8 +166,10 @@ const BoostingEnsembleModel: React.FC<Props> = ({ completeStep }) => {
                   </h3>
 
                   <div className="space-y-3">
-                    {predictions.map((pred, index) => (
-                      <div key={index} className="p-3 bg-white rounded-lg">
+                    {predictions.map((pred, index) => {
+                      const [modelTrend = 0, seasonalTrend = 0, promotionImpact = 0, otherFactors = 0] = pred.contribution ?? [];
+                      return (
+                        <div key={index} className="p-3 bg-white rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium">{pred.month}</span>
                           <div className="flex items-center space-x-2">
@@ -184,25 +186,25 @@ const BoostingEnsembleModel: React.FC<Props> = ({ completeStep }) => {
                             <div
                               className="bg-blue-500"
                               style={{
-                                width: `${pred.contribution[0] * 100}%`,
+                                width: `${modelTrend * 100}%`,
                               }}
                             ></div>
                             <div
                               className="bg-orange-500"
                               style={{
-                                width: `${pred.contribution[1] * 100}%`,
+                                width: `${seasonalTrend * 100}%`,
                               }}
                             ></div>
                             <div
                               className="bg-green-500"
                               style={{
-                                width: `${pred.contribution[2] * 100}%`,
+                                width: `${promotionImpact * 100}%`,
                               }}
                             ></div>
                             <div
                               className="bg-purple-500"
                               style={{
-                                width: `${pred.contribution[3] * 100}%`,
+                                width: `${otherFactors * 100}%`,
                               }}
                             ></div>
                           </div>
@@ -210,8 +212,9 @@ const BoostingEnsembleModel: React.FC<Props> = ({ completeStep }) => {
                         <div className="text-xs text-gray-500 mt-1">
                           模型贡献度分布
                         </div>
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 

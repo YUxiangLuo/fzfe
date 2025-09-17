@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { AppState } from "../../App";
+import type { AppState } from "../../App";
 import {
   BarChart3,
   Settings,

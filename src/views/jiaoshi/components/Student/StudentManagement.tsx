@@ -15,6 +15,7 @@ const StudentManagement: React.FC = () => {
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -80,6 +81,16 @@ const StudentManagement: React.FC = () => {
     fetchStudents();
   }, [selectedClassId]);
 
+  useEffect(() => {
+    const handler = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim());
+    }, 300);
+
+    return () => {
+      window.clearTimeout(handler);
+    };
+  }, [searchTerm]);
+
   const colorPalette = useMemo(() => [
     'from-blue-500 to-indigo-500',
     'from-emerald-500 to-teal-500',
@@ -95,12 +106,13 @@ const StudentManagement: React.FC = () => {
   };
 
   const filteredStudents = useMemo(() => {
-    if (!searchTerm) return students;
+    if (!debouncedSearchTerm) return students;
+    const query = debouncedSearchTerm.toLowerCase();
     return students.filter(student =>
-      student.username.includes(searchTerm.trim()) ||
-      student.full_name.includes(searchTerm.trim()),
+      student.username.toLowerCase().includes(query) ||
+      student.full_name.toLowerCase().includes(query),
     );
-  }, [students, searchTerm]);
+  }, [students, debouncedSearchTerm]);
 
   const currentClassName = useMemo(() => {
     if (!selectedClassId) return '—';

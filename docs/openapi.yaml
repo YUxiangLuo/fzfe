@@ -66,6 +66,14 @@ components:
         type: integer
         minimum: 1
       description: Numeric identifier of the experiment manual
+    ReportIdParam:
+      name: reportId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: Numeric identifier of the experiment report
   schemas:
     ErrorResponse:
       type: object
@@ -302,6 +310,115 @@ components:
               type: string
             full_name:
               type: string
+    ClassReportResponse:
+      type: object
+      properties:
+        report_id:
+          type: integer
+        experiment_id:
+          type: integer
+        student_id:
+          type: integer
+        student_username:
+          type: string
+        student_full_name:
+          type: string
+        report_content:
+          type: string
+          nullable: true
+        pdf_file_path:
+          type: string
+          nullable: true
+        submitted_at:
+          type: string
+          format: date-time
+          nullable: true
+        grade:
+          type: number
+          format: float
+          nullable: true
+        feedback:
+          type: string
+          nullable: true
+        graded_by:
+          type: integer
+          nullable: true
+        graded_by_full_name:
+          type: string
+          nullable: true
+        experiment_status:
+          type: string
+          nullable: true
+        selected_industry:
+          type: string
+          nullable: true
+        selected_company:
+          type: string
+          nullable: true
+        selected_product:
+          type: string
+          nullable: true
+      required:
+        - report_id
+        - experiment_id
+        - student_id
+        - student_username
+        - student_full_name
+    ClassExperimentStatusResponse:
+      type: object
+      properties:
+        experiment_id:
+          type: integer
+        student_id:
+          type: integer
+        student_username:
+          type: string
+        student_full_name:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+          nullable: true
+        completion_time:
+          type: string
+          format: date-time
+          nullable: true
+        last_activity_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [Not Started, In Progress, Completed]
+        selected_industry:
+          type: string
+          nullable: true
+        selected_company:
+          type: string
+          nullable: true
+        selected_product:
+          type: string
+          nullable: true
+        best_model:
+          type: string
+          nullable: true
+      required:
+        - experiment_id
+        - student_id
+        - student_username
+        - student_full_name
+        - status
+    ClassReportUpdateRequest:
+      type: object
+      properties:
+        grade:
+          type: number
+          minimum: 0
+          maximum: 100
+        feedback:
+          type: string
+          maxLength: 2000
+      description: At least one of `grade` or `feedback` must be supplied.
     ManualUploadRequest:
       type: object
       properties:
@@ -1262,6 +1379,94 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /classes/{classId}/reports:
+    get:
+      summary: List experiment reports for class students
+      description: Teachers and admins can view all experiment reports submitted by students enrolled in the class.
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClassIdParam'
+      responses:
+        '200':
+          description: Reports authored by students in the class
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClassReportResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /classes/{classId}/experiment-status:
+    get:
+      summary: List experiment status records for class students
+      description: Teachers and admins can review the experiment progress history for every student enrolled in the class.
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ClassIdParam'
+      responses:
+        '200':
+          description: Experiment status records for students in the class
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClassExperimentStatusResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /reports/{reportId}:
+    put:
+      summary: Grade experiment report
+      description: Teachers and admins can assign grades and feedback to a student's experiment report if the student belongs to one of their classes.
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ReportIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClassReportUpdateRequest'
+      responses:
+        '200':
+          description: Updated report details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassReportResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /classes/{classId}/step-events:
     get:
       summary: List experiment step events for all students in a class
@@ -1287,30 +1492,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  /students/{studentId}/step-events:
-    get:
-      summary: List experiment step events for a student
-      tags: [Classes]
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: studentId
-          in: path
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-      responses:
-        '200':
-          description: Experiment step events for the student
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/StepEvent'
-        '403':
-          $ref: '#/components/responses/Forbidden'
   /classes/{classId}/assistants/{assistantId}:
     delete:
       summary: Remove assistant from class

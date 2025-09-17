@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { LogOut, User } from "lucide-react";
-import { decodeToken, DecodedToken } from "../../../utils/auth";
+import { decodeToken } from "../../../utils/auth";
+import type { DecodedToken } from "../../../utils/auth";
 
 const Header: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
@@ -20,12 +21,12 @@ const Header: React.FC = () => {
 
   const getRoleDisplayName = (role: string) => {
     const roleMap: { [key: string]: string } = {
-      admin: '系统管理员',
-      teacher: '教师',
-      assistant: '助教',
-      student: '学生',
+      admin: "系统管理员",
+      teacher: "教师",
+      assistant: "助教",
+      student: "学生",
     };
-    return roleMap[role.toLowerCase()] || '未知角色';
+    return roleMap[role.toLowerCase()] || "未知角色";
   };
 
   return (
@@ -47,18 +48,22 @@ const Header: React.FC = () => {
                 <User size={14} className="text-white" />
               </div>
               <div className="text-sm">
-                <p className="font-medium text-gray-900">{currentUser.full_name || currentUser.username}</p>
-                <p className="text-xs text-gray-500">{getRoleDisplayName(currentUser.role)}</p>
+                <p className="font-medium text-gray-900">
+                  {currentUser.full_name || currentUser.username}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {getRoleDisplayName(currentUser.role)}
+                </p>
               </div>
             </div>
           ) : (
             // Token不存在或解码失败时的占位符
             <div className="flex items-center space-x-3 px-4 py-2 bg-gray-50 rounded-lg animate-pulse">
-               <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-               <div className="text-sm space-y-1">
-                 <div className="h-4 bg-gray-300 rounded w-20"></div>
-                 <div className="h-3 bg-gray-300 rounded w-16"></div>
-               </div>
+              <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
+              <div className="text-sm space-y-1">
+                <div className="h-4 bg-gray-300 rounded w-20"></div>
+                <div className="h-3 bg-gray-300 rounded w-16"></div>
+              </div>
             </div>
           )}
 
