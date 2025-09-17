@@ -43,10 +43,19 @@ export type MenuItem =
   | 'assessment-grades';
 
 export interface GradeWeights {
-  experimentProcess: number;
-  knowledgeTest: number;
-  modelSelection: number;
-  experimentReport: number;
+  exp_flow: number;
+  exp_flow_demand_data_preparation: number;
+  exp_flow_demand_descriptive_stats: number;
+  exp_flow_demand_model_selection: number;
+  exp_flow_demand_generate_results: number;
+  exp_flow_production_inventory_calc: number;
+  exp_flow_production_service_level: number;
+  exp_flow_production_variable_calc: number;
+  exp_flow_production_plan_creation: number;
+  exp_flow_report_submission: number;
+  knowledge_test: number;
+  model_quality: number;
+  report_quality: number;
 }
 
 export interface StudentGrade {

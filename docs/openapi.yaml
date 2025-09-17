@@ -82,6 +82,14 @@ components:
         type: integer
         minimum: 1
       description: Numeric identifier of the question
+    TeacherIdQuery:
+      name: teacherId
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+      description: Teacher identifier (admin only)
   schemas:
     ErrorResponse:
       type: object
@@ -516,6 +524,101 @@ components:
         - question_text
         - correct_answers
       description: For True/False questions, correct answers必须为 "正确" 或 "错误"，若未提供选项则使用默认的 ["正确","错误"]。
+    GradeWeightsRequest:
+      type: object
+      properties:
+        exp_flow:
+          type: number
+        exp_flow_demand_data_preparation:
+          type: number
+        exp_flow_demand_descriptive_stats:
+          type: number
+        exp_flow_demand_model_selection:
+          type: number
+        exp_flow_demand_generate_results:
+          type: number
+        exp_flow_production_inventory_calc:
+          type: number
+        exp_flow_production_service_level:
+          type: number
+        exp_flow_production_variable_calc:
+          type: number
+        exp_flow_production_plan_creation:
+          type: number
+        exp_flow_report_submission:
+          type: number
+        knowledge_test:
+          type: number
+        model_quality:
+          type: number
+        report_quality:
+          type: number
+        teacher_id:
+          type: integer
+          minimum: 1
+          description: Admin only
+          nullable: true
+      required:
+        - exp_flow
+        - exp_flow_demand_data_preparation
+        - exp_flow_demand_descriptive_stats
+        - exp_flow_demand_model_selection
+        - exp_flow_demand_generate_results
+        - exp_flow_production_inventory_calc
+        - exp_flow_production_service_level
+        - exp_flow_production_variable_calc
+        - exp_flow_production_plan_creation
+        - exp_flow_report_submission
+        - knowledge_test
+        - model_quality
+        - report_quality
+      description: 实验流程子项之和必须为 100，且 `exp_flow + knowledge_test + model_quality + report_quality = 100`。教师使用自身账号，管理员可指定 teacher_id。
+    GradeWeightsResponse:
+      type: object
+      properties:
+        teacher_id:
+          type: integer
+        exp_flow:
+          type: number
+        exp_flow_demand_data_preparation:
+          type: number
+        exp_flow_demand_descriptive_stats:
+          type: number
+        exp_flow_demand_model_selection:
+          type: number
+        exp_flow_demand_generate_results:
+          type: number
+        exp_flow_production_inventory_calc:
+          type: number
+        exp_flow_production_service_level:
+          type: number
+        exp_flow_production_variable_calc:
+          type: number
+        exp_flow_production_plan_creation:
+          type: number
+        exp_flow_report_submission:
+          type: number
+        knowledge_test:
+          type: number
+        model_quality:
+          type: number
+        report_quality:
+          type: number
+      required:
+        - teacher_id
+        - exp_flow
+        - exp_flow_demand_data_preparation
+        - exp_flow_demand_descriptive_stats
+        - exp_flow_demand_model_selection
+        - exp_flow_demand_generate_results
+        - exp_flow_production_inventory_calc
+        - exp_flow_production_service_level
+        - exp_flow_production_variable_calc
+        - exp_flow_production_plan_creation
+        - exp_flow_report_submission
+        - knowledge_test
+        - model_quality
+        - report_quality
     ManualUploadRequest:
       type: object
       properties:
@@ -1524,6 +1627,102 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /grade-weights:
+    get:
+      summary: Get grade weight plan
+      description: Teachers retrieve their own weighting plan; admins may specify `teacherId` to inspect others.
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TeacherIdQuery'
+      responses:
+        '200':
+          description: Grade weight configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeWeightsResponse'
+        '400':
+          description: Missing teacherId for admin requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Grade weights not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Create grade weight plan
+      description: Teachers create their own weighting plan; admins may create on behalf of a teacher.
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GradeWeightsRequest'
+      responses:
+        '201':
+          description: Grade weights created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeWeightsResponse'
+        '400':
+          description: Validation error or missing teacher_id for admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Grade weights already exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Update grade weight plan
+      description: Teachers update their weighting plan; admins may update on behalf of a teacher.
+      tags: [Classes]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GradeWeightsRequest'
+      responses:
+        '200':
+          description: Updated grade weights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeWeightsResponse'
+        '400':
+          description: Validation error or missing teacher_id for admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Grade weights not found
           content:
             application/json:
               schema:
