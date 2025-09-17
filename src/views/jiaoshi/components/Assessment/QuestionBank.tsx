@@ -1,205 +1,529 @@
-import React, { useState } from 'react';
-import { Plus, Eye, Edit2, Trash2, Search } from 'lucide-react';
-import type { Question } from '../../types';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Eye, Edit2, RefreshCcw, Search, AlertCircle, Plus } from 'lucide-react';
+import type { Question, QuestionTypeApi } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
+import { apiClient } from '../../../../utils/apiClient';
+
+type QuestionFormType = 'single' | 'multiple' | 'boolean';
+
+interface QuestionOption {
+  key: string;
+  value: string;
+}
+
+interface QuestionFormState {
+  questionText: string;
+  questionType: QuestionFormType;
+  knowledgePoint: string;
+  options: QuestionOption[];
+  correctAnswers: string[];
+}
+
+const KNOWLEDGE_POINTS = [
+  '需求预测基础',
+  '时间序列预处理',
+  '预测模型选择',
+  '模型融合与集成',
+  '生产计划',
+  '库存策略',
+  '优化调度',
+  '实验平台操作',
+  '结果评估指标',
+  '应急与风险管理',
+];
+
+const API_TYPE_TO_FORM_TYPE: Record<QuestionTypeApi, QuestionFormType> = {
+  'Single Choice': 'single',
+  'Multiple Choice': 'multiple',
+  'True/False': 'boolean',
+};
+
+const FORM_TYPE_TO_API_TYPE: Record<QuestionFormType, QuestionTypeApi> = {
+  single: 'Single Choice',
+  multiple: 'Multiple Choice',
+  boolean: 'True/False',
+};
+
+const DEFAULT_BOOLEAN_OPTIONS: QuestionOption[] = [
+  { key: 'true', value: '正确' },
+  { key: 'false', value: '错误' },
+];
+
+const DEFAULT_CHOICE_OPTIONS: QuestionOption[] = [
+  { key: 'A', value: '' },
+  { key: 'B', value: '' },
+  { key: 'C', value: '' },
+  { key: 'D', value: '' },
+];
+
+const getDefaultBooleanOptions = (): QuestionOption[] => DEFAULT_BOOLEAN_OPTIONS.map((option) => ({ ...option }));
+
+const getDefaultChoiceOptions = (): QuestionOption[] => DEFAULT_CHOICE_OPTIONS.map((option) => ({ ...option }));
 
 const QuestionBank: React.FC = () => {
-  const [questions, setQuestions] = useState<Question[]>([
-    {
-      id: '1',
-      content: '在生产计划决策中，哪个因素最重要？',
-      type: 'single',
-      knowledgePoint: '生产计划基础',
-      options: ['需求预测', '库存管理', '成本控制', '质量管理'],
-      correctAnswer: '需求预测'
-    },
-    {
-      id: '2',
-      content: '以下哪些属于生产计划的主要约束条件？',
-      type: 'multiple',
-      knowledgePoint: '约束理论',
-      options: ['产能限制', '原材料供应', '人力资源', '市场需求'],
-      correctAnswer: ['产能限制', '原材料供应', '人力资源']
-    },
-    {
-      id: '3',
-      content: '准时化生产(JIT)可以减少库存成本。',
-      type: 'boolean',
-      knowledgePoint: '生产模式',
-      correctAnswer: 'true'
-    }
-  ]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
-  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [formData, setFormData] = useState({
-    content: '',
-    type: 'single' as 'single' | 'multiple' | 'boolean',
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editorState, setEditorState] = useState<QuestionFormState>({
+    questionText: '',
+    questionType: 'single',
     knowledgePoint: '',
-    options: ['', '', '', ''],
-    correctAnswer: ''
+    options: getDefaultChoiceOptions(),
+    correctAnswers: [],
   });
+  const [isSaving, setIsSaving] = useState(false);
 
-  const knowledgePoints = [
-    '生产计划基础',
-    '约束理论',
-    '生产模式',
-    '需求预测',
-    '库存管理',
-    '成本控制'
-  ];
+  useEffect(() => {
+    const handler = window.setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm.trim().toLowerCase());
+    }, 250);
 
-  const filteredQuestions = questions.filter(q => 
-    q.content.includes(searchTerm) ||
-    q.knowledgePoint.includes(searchTerm)
-  );
+    return () => window.clearTimeout(handler);
+  }, [searchTerm]);
 
-  const handleCreate = () => {
-    const newQuestion: Question = {
-      id: Date.now().toString(),
-      content: formData.content,
-      type: formData.type,
-      knowledgePoint: formData.knowledgePoint,
-      options: formData.type === 'boolean' ? undefined : formData.options.filter(opt => opt.trim()),
-      correctAnswer: formData.type === 'multiple' ? formData.correctAnswer.split(',').map(s => s.trim()) : formData.correctAnswer
-    };
-    setQuestions(prev => [...prev, newQuestion]);
-    resetForm();
-  };
+  useEffect(() => {
+    fetchQuestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleEdit = (question: Question) => {
-    setEditingQuestion(question);
-    setFormData({
-      content: question.content,
-      type: question.type,
-      knowledgePoint: question.knowledgePoint,
-      options: question.options ? [...question.options, '', '', '', ''].slice(0, 4) : ['', '', '', ''],
-      correctAnswer: Array.isArray(question.correctAnswer) 
-        ? question.correctAnswer.join(', ') 
-        : question.correctAnswer.toString()
-    });
-    setShowCreateModal(true);
-  };
-
-  const handleUpdate = () => {
-    if (!editingQuestion) return;
-    
-    setQuestions(prev => prev.map(q => 
-      q.id === editingQuestion.id
-        ? {
-            ...q,
-            content: formData.content,
-            type: formData.type,
-            knowledgePoint: formData.knowledgePoint,
-            options: formData.type === 'boolean' ? undefined : formData.options.filter(opt => opt.trim()),
-            correctAnswer: formData.type === 'multiple' ? formData.correctAnswer.split(',').map(s => s.trim()) : formData.correctAnswer
-          }
-        : q
-    ));
-    resetForm();
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm('确定要删除这道题目吗？')) {
-      setQuestions(prev => prev.filter(q => q.id !== id));
+  const fetchQuestions = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    setError(null);
+    try {
+      const response = await apiClient.get('/question-bank');
+      if (Array.isArray(response)) {
+        setQuestions(response as Question[]);
+      } else {
+        setQuestions([]);
+      }
+    } catch (err: any) {
+      setError(err.message || '获取题库失败');
+      setQuestions([]);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  const handlePreview = (question: Question) => {
+  const filteredQuestions = useMemo(() => {
+    if (!debouncedSearchTerm) return questions;
+    return questions.filter((question) => {
+      const content = question.question_text.toLowerCase();
+      const knowledge = (question.knowledge_point || '').toLowerCase();
+      const creator = (question.creator_name || '').toLowerCase();
+      return (
+        content.includes(debouncedSearchTerm) ||
+        knowledge.includes(debouncedSearchTerm) ||
+        creator.includes(debouncedSearchTerm)
+      );
+    });
+  }, [questions, debouncedSearchTerm]);
+
+  const knowledgePointOptions = useMemo(() => {
+    const set = new Set(KNOWLEDGE_POINTS);
+    questions.forEach((question) => {
+      if (question.knowledge_point) {
+        set.add(question.knowledge_point);
+      }
+    });
+    return Array.from(set);
+  }, [questions]);
+
+  const statistics = useMemo(() => {
+    const total = questions.length;
+    const single = questions.filter((q) => q.question_type === 'Single Choice').length;
+    const multiple = questions.filter((q) => q.question_type === 'Multiple Choice').length;
+    const booleanCount = questions.filter((q) => q.question_type === 'True/False').length;
+    return { total, single, multiple, booleanCount };
+  }, [questions]);
+
+  const openPreview = (question: Question) => {
     setSelectedQuestion(question);
-    setShowPreviewModal(true);
+    setIsPreviewOpen(true);
   };
 
-  const resetForm = () => {
-    setShowCreateModal(false);
+  const closePreview = () => {
+    setSelectedQuestion(null);
+    setIsPreviewOpen(false);
+  };
+
+  const normalizeOptions = (question: Question, formType: QuestionFormType): QuestionOption[] => {
+    if (formType === 'boolean') {
+      if (Array.isArray(question.options) && question.options.length >= 2) {
+        return question.options.map((value, index) => ({
+          key: index === 0 ? 'true' : 'false',
+          value,
+        }));
+      }
+      return getDefaultBooleanOptions();
+    }
+
+    if (question.options && !Array.isArray(question.options)) {
+      const normalized = Object.entries(question.options).map(([key, value]) => ({ key, value }));
+      while (normalized.length < 2) {
+        const nextKey = String.fromCharCode(65 + normalized.length);
+        normalized.push({ key: nextKey, value: '' });
+      }
+      return normalized;
+    }
+
+    return getDefaultChoiceOptions();
+  };
+
+  const openEditor = (question: Question) => {
+    const formType = API_TYPE_TO_FORM_TYPE[question.question_type];
+    const options = normalizeOptions(question, formType);
+    const correctAnswers = question.correct_answers ?? [];
+
+    setEditingQuestion(question);
+    setEditorState({
+      questionText: question.question_text,
+      knowledgePoint: question.knowledge_point ?? '',
+      questionType: formType,
+      options,
+      correctAnswers,
+    });
+    setIsEditorOpen(true);
+  };
+
+  const closeEditor = () => {
     setEditingQuestion(null);
-    setFormData({
-      content: '',
-      type: 'single',
-      knowledgePoint: '',
-      options: ['', '', '', ''],
-      correctAnswer: ''
+    setIsEditorOpen(false);
+    setEditorState({
+      questionText: '',
+      questionType: 'single',
+      knowledgePoint: KNOWLEDGE_POINTS[0] || '',
+      options: getDefaultChoiceOptions(),
+      correctAnswers: [],
+    });
+    setIsSaving(false);
+  };
+
+  const openCreate = () => {
+    setEditingQuestion(null);
+    setEditorState({
+      questionText: '',
+      questionType: 'single',
+      knowledgePoint: KNOWLEDGE_POINTS[0] || '',
+      options: getDefaultChoiceOptions(),
+      correctAnswers: [],
+    });
+    setIsEditorOpen(true);
+  };
+
+  const handleTypeChange = (type: QuestionFormType) => {
+    setEditorState((prev) => ({
+      ...prev,
+      questionType: type,
+      options: type === 'boolean' ? getDefaultBooleanOptions() : getDefaultChoiceOptions(),
+      correctAnswers: [],
+    }));
+  };
+
+  const handleOptionChange = (index: number, value: string) => {
+    setEditorState((prev) => {
+      const options = [...prev.options];
+      const baseOption = options[index] ?? { key: String.fromCharCode(65 + index), value: '' };
+      options[index] = { ...baseOption, value };
+      return { ...prev, options };
     });
   };
 
-  const getTypeText = (type: string) => {
-    const typeMap = {
-      single: '单选题',
-      multiple: '多选题',
-      boolean: '判断题'
-    };
-    return typeMap[type as keyof typeof typeMap];
+  const handleAddOption = () => {
+    setEditorState((prev) => {
+      if (prev.questionType === 'boolean' || prev.options.length >= 6) return prev;
+      const existingKeys = prev.options.map((option) => option.key.charCodeAt(0));
+      const nextCharCode = existingKeys.length ? Math.max(...existingKeys) + 1 : 65;
+      const nextKey = String.fromCharCode(nextCharCode);
+      return {
+        ...prev,
+        options: [...prev.options, { key: nextKey, value: '' }],
+      };
+    });
   };
 
-  const getTypeColor = (type: string) => {
-    const colorMap = {
-      single: 'bg-blue-100 text-blue-800',
-      multiple: 'bg-green-100 text-green-800',
-      boolean: 'bg-orange-100 text-orange-800'
+  const handleRemoveOption = (index: number) => {
+    setEditorState((prev) => {
+      if (prev.questionType === 'boolean' || prev.options.length <= 2) return prev;
+      const removedOption = prev.options[index];
+      if (!removedOption) return prev;
+      const nextOptions = prev.options.filter((_, i) => i !== index);
+      const nextCorrect = prev.correctAnswers.filter((answer) => answer !== removedOption.key);
+      return {
+        ...prev,
+        options: nextOptions,
+        correctAnswers: nextCorrect,
+      };
+    });
+  };
+
+  const handleSingleChoiceSelect = (key: string) => {
+    setEditorState((prev) => ({
+      ...prev,
+      correctAnswers: [key],
+    }));
+  };
+
+  const handleMultipleChoiceToggle = (key: string) => {
+    setEditorState((prev) => {
+      const exists = prev.correctAnswers.includes(key);
+      return {
+        ...prev,
+        correctAnswers: exists
+          ? prev.correctAnswers.filter((answer) => answer !== key)
+          : [...prev.correctAnswers, key],
+      };
+    });
+  };
+
+  const handleBooleanSelect = (value: string) => {
+    setEditorState((prev) => ({
+      ...prev,
+      correctAnswers: [value],
+    }));
+  };
+
+  const buildPayload = () => {
+    const question_type = FORM_TYPE_TO_API_TYPE[editorState.questionType];
+    const question_text = editorState.questionText.trim();
+    const knowledge_point = editorState.knowledgePoint.trim() || null;
+
+    let options: Record<string, string> | string[] | undefined;
+    if (editorState.questionType === 'boolean') {
+      const cleaned = editorState.options.map((option) => option.value.trim()).filter(Boolean);
+      options = cleaned.length >= 2 ? cleaned : DEFAULT_BOOLEAN_OPTIONS.map((option) => option.value);
+    } else {
+      options = editorState.options
+        .filter((option) => option.value.trim())
+        .reduce<Record<string, string>>((acc, option, index) => {
+          const key = option.key || String.fromCharCode(65 + index);
+          acc[key] = option.value.trim();
+          return acc;
+        }, {});
+    }
+
+    const correct_answers = editorState.questionType === 'boolean'
+      ? editorState.correctAnswers.map((answer) => answer.trim()).filter((answer) => answer === '正确' || answer === '错误')
+      : editorState.correctAnswers.filter(Boolean);
+
+    return {
+      question_type,
+      question_text,
+      knowledge_point,
+      options,
+      correct_answers,
     };
-    return colorMap[type as keyof typeof colorMap];
+  };
+
+  const canSubmit = () => {
+    if (!editorState.questionText.trim()) return false;
+    if (!editorState.knowledgePoint.trim()) return false;
+    if (editorState.correctAnswers.length === 0) return false;
+    if (editorState.questionType !== 'boolean') {
+      const filledOptions = editorState.options.filter((option) => option.value.trim());
+      if (filledOptions.length < 2) return false;
+      const filledKeys = new Set(filledOptions.map((option) => option.key));
+      if (!editorState.correctAnswers.every((answer) => filledKeys.has(answer))) return false;
+      if (editorState.questionType === 'single' && editorState.correctAnswers.length !== 1) return false;
+    } else {
+      if (!editorState.correctAnswers.every((answer) => answer === '正确' || answer === '错误')) return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!canSubmit()) return;
+    const payload = buildPayload();
+
+    try {
+      setIsSaving(true);
+      if (editingQuestion) {
+        const updated = await apiClient.put(`/question-bank/${editingQuestion.question_id}`, payload);
+        setQuestions((prev) =>
+          prev.map((question) =>
+            question.question_id === editingQuestion.question_id
+              ? (updated as Question)
+              : question,
+          ),
+        );
+      } else {
+        const created = await apiClient.post('/question-bank', payload);
+        setQuestions((prev) => [...prev, created as Question]);
+      }
+      closeEditor();
+    } catch (err: any) {
+      alert(err.message || (editingQuestion ? '更新题目失败' : '创建题目失败'));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const renderCorrectAnswerEditor = () => {
+    if (editorState.questionType === 'single') {
+      return (
+        <div className="space-y-2">
+          {editorState.options.map((option, index) => {
+            const optionKey = option.key || String.fromCharCode(65 + index);
+            return (
+              <label key={optionKey} className="flex items-center space-x-2 text-sm">
+                <input
+                  type="radio"
+                  name="single-answer"
+                  className="text-blue-600 focus:ring-blue-500"
+                  value={optionKey}
+                  checked={editorState.correctAnswers.includes(optionKey)}
+                  onChange={() => handleSingleChoiceSelect(optionKey)}
+                  disabled={!option.value.trim()}
+                />
+                <span className="text-gray-700">{option.value || `选项${optionKey}`}</span>
+              </label>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (editorState.questionType === 'multiple') {
+      return (
+        <div className="space-y-2">
+          {editorState.options.map((option, index) => {
+            const optionKey = option.key || String.fromCharCode(65 + index);
+            return (
+              <label key={optionKey} className="flex items-center space-x-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="text-blue-600 focus:ring-blue-500"
+                  value={optionKey}
+                  checked={editorState.correctAnswers.includes(optionKey)}
+                  onChange={() => handleMultipleChoiceToggle(optionKey)}
+                  disabled={!option.value.trim()}
+                />
+                <span className="text-gray-700">{option.value || `选项${optionKey}`}</span>
+              </label>
+            );
+          })}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        {editorState.options.map((option) => (
+          <label key={option.key} className="flex items-center space-x-2 text-sm">
+            <input
+              type="radio"
+              name="boolean-answer"
+              className="text-blue-600 focus:ring-blue-500"
+              value={option.value}
+              checked={editorState.correctAnswers.includes(option.value)}
+              onChange={() => handleBooleanSelect(option.value)}
+            />
+            <span className="text-gray-700">{option.value}</span>
+          </label>
+        ))}
+      </div>
+    );
+  };
+
+  const getTypeBadge = (questionType: QuestionTypeApi) => {
+    const map: Record<QuestionTypeApi, { label: string; className: string }> = {
+      'Single Choice': { label: '单选题', className: 'bg-blue-100 text-blue-800' },
+      'Multiple Choice': { label: '多选题', className: 'bg-green-100 text-green-800' },
+      'True/False': { label: '判断题', className: 'bg-orange-100 text-orange-800' },
+    };
+    return map[questionType];
+  };
+
+  const formatCorrectAnswers = (question: Question) => {
+    if (question.question_type === 'True/False') {
+      return question.correct_answers.join('、');
+    }
+
+    if (question.options && !Array.isArray(question.options)) {
+      const optionMap = question.options as Record<string, string>;
+      return question.correct_answers
+        .map((key) => (optionMap[key] ? `${key}.${optionMap[key]}` : key))
+        .join('、');
+    }
+
+    return question.correct_answers.join('、');
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 space-y-3 md:space-y-0">
         <h1 className="text-2xl font-bold text-gray-900">题库管理</h1>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus size={16} className="mr-2" />
-          创建试题
+        <Button onClick={fetchQuestions} variant="outline" disabled={isRefreshing}>
+          <RefreshCcw size={16} className={isRefreshing ? 'mr-2 animate-spin' : 'mr-2'} />
+          刷新题库
         </Button>
       </div>
 
-      {/* 搜索栏 */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="搜索题目内容或知识点..."
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="搜索题目内容、知识点或创建者..."
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
+        {error && (
+          <div className="mt-4 flex items-center space-x-2 text-sm text-red-600">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
       </div>
 
-      {/* 统计信息 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-blue-600">{questions.length}</p>
+            <p className="text-3xl font-bold text-blue-600">{statistics.total}</p>
             <p className="text-sm text-gray-600">总题目数</p>
           </div>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-green-600">{questions.filter(q => q.type === 'single').length}</p>
+            <p className="text-3xl font-bold text-green-600">{statistics.single}</p>
             <p className="text-sm text-gray-600">单选题</p>
           </div>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-orange-600">{questions.filter(q => q.type === 'multiple').length}</p>
+            <p className="text-3xl font-bold text-orange-600">{statistics.multiple}</p>
             <p className="text-sm text-gray-600">多选题</p>
           </div>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-purple-600">{questions.filter(q => q.type === 'boolean').length}</p>
+            <p className="text-3xl font-bold text-purple-600">{statistics.booleanCount}</p>
             <p className="text-sm text-gray-600">判断题</p>
           </div>
         </div>
       </div>
 
-      {/* 题目列表 */}
       <div className="bg-white rounded-lg shadow-md">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">题目列表</h2>
+          <Button onClick={openCreate}>
+            <Plus size={16} className="mr-2" />
+            新建题目
+          </Button>
         </div>
 
         <div className="overflow-x-auto">
@@ -208,85 +532,136 @@ const QuestionBank: React.FC = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">题目内容</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">关联知识点</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">知识点</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建者</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredQuestions.map((question) => (
-                <tr key={question.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    <div className="max-w-md">
-                      <p className="truncate">{question.content}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${getTypeColor(question.type)}`}>
-                      {getTypeText(question.type)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">
-                      {question.knowledgePoint}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handlePreview(question)}
-                        className="text-blue-600 hover:text-blue-800"
-                        title="预览"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleEdit(question)}
-                        className="text-green-600 hover:text-green-800"
-                        title="修改"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(question.id)}
-                        className="text-red-600 hover:text-red-800"
-                        title="删除"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    正在加载题库...
                   </td>
                 </tr>
-              ))}
+              ) : filteredQuestions.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    {questions.length === 0 ? '题库暂无数据，请稍后重试。' : '未找到符合搜索条件的题目。'}
+                  </td>
+                </tr>
+              ) : (
+                filteredQuestions.map((question) => {
+                  const badge = getTypeBadge(question.question_type);
+                  return (
+                    <tr key={question.question_id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div className="max-w-xl">
+                          <p className="truncate">{question.question_text}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.className}`}>
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        {question.knowledge_point || '—'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        {question.creator_name || '—'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => openPreview(question)}
+                            className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center"
+                          >
+                            <Eye size={14} className="mr-1" />
+                            <span>预览</span>
+                          </button>
+                          <button
+                            onClick={() => openEditor(question)}
+                            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center"
+                          >
+                            <Edit2 size={14} className="mr-1" />
+                            <span>编辑</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* 创建/编辑题目模态框 */}
       <Modal
-        isOpen={showCreateModal}
-        onClose={resetForm}
+        isOpen={isPreviewOpen && !!selectedQuestion}
+        onClose={closePreview}
+        title="题目预览"
+        size="medium"
+      >
+        {selectedQuestion && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900">{selectedQuestion.question_text}</h2>
+
+            {selectedQuestion.question_type !== 'True/False' && selectedQuestion.options && !Array.isArray(selectedQuestion.options) && (
+              <div className="space-y-2">
+                {Object.entries(selectedQuestion.options).map(([key, value]) => (
+                  <div key={key} className="flex items-start space-x-2 text-sm text-gray-700">
+                    <span className="font-medium text-gray-900">{key}.</span>
+                    <span>{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {Array.isArray(selectedQuestion.options) && (
+              <div className="space-y-2">
+                {selectedQuestion.options.map((value, index) => (
+                  <div key={index} className="flex items-start space-x-2 text-sm text-gray-700">
+                    <span className="font-medium text-gray-900">选项{index + 1}.</span>
+                    <span>{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
+              <span className="font-semibold">正确答案：</span>
+              {formatCorrectAnswers(selectedQuestion)}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={isEditorOpen}
+        onClose={closeEditor}
         title={editingQuestion ? '编辑题目' : '创建题目'}
         size="large"
       >
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">题目内容</label>
             <textarea
-              value={formData.content}
-              onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
+              value={editorState.questionText}
+              onChange={(event) => setEditorState((prev) => ({ ...prev, questionText: event.target.value }))}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-              placeholder="请输入题目内容"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">题目类型</label>
               <select
-                value={formData.type}
-                onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as any }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={editorState.questionType}
+                onChange={(event) => handleTypeChange(event.target.value as QuestionFormType)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="single">单选题</option>
                 <option value="multiple">多选题</option>
@@ -294,125 +669,75 @@ const QuestionBank: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">知识点</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">关联知识点</label>
               <select
-                value={formData.knowledgePoint}
-                onChange={(e) => setFormData(prev => ({ ...prev, knowledgePoint: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={editorState.knowledgePoint}
+                onChange={(event) => setEditorState((prev) => ({ ...prev, knowledgePoint: event.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">请选择知识点</option>
-                {knowledgePoints.map((point) => (
-                  <option key={point} value={point}>{point}</option>
+                {knowledgePointOptions.map((point) => (
+                  <option key={point} value={point}>
+                    {point}
+                  </option>
                 ))}
               </select>
             </div>
           </div>
-          
-          {formData.type !== 'boolean' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">选项</label>
+
+          {editorState.questionType !== 'boolean' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-gray-700">选项设置</label>
+                <button
+                  type="button"
+                  className="text-sm text-blue-600 hover:text-blue-700"
+                  onClick={handleAddOption}
+                >
+                  添加选项
+                </button>
+              </div>
               <div className="space-y-2">
-                {formData.options.map((option, index) => (
-                  <input
-                    key={index}
-                    type="text"
-                    value={option}
-                    onChange={(e) => {
-                      const newOptions = [...formData.options];
-                      newOptions[index] = e.target.value;
-                      setFormData(prev => ({ ...prev, options: newOptions }));
-                    }}
-                    placeholder={`选项 ${String.fromCharCode(65 + index)}`}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                {editorState.options.map((option, index) => (
+                  <div key={option.key || index} className="flex items-center space-x-2">
+                    <span className="w-10 text-sm text-gray-500">{option.key || String.fromCharCode(65 + index)}</span>
+                    <input
+                      type="text"
+                      value={option.value}
+                      onChange={(event) => handleOptionChange(index, event.target.value)}
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    {editorState.options.length > 2 && (
+                      <button
+                        type="button"
+                        className="text-sm text-red-600 hover:text-red-700"
+                        onClick={() => handleRemoveOption(index)}
+                      >
+                        删除
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              正确答案
-              {formData.type === 'multiple' && <span className="text-sm text-gray-500 ml-1">(多个答案用逗号分隔)</span>}
-            </label>
-            {formData.type === 'boolean' ? (
-              <select
-                value={formData.correctAnswer}
-                onChange={(e) => setFormData(prev => ({ ...prev, correctAnswer: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">请选择</option>
-                <option value="true">正确</option>
-                <option value="false">错误</option>
-              </select>
-            ) : (
-              <input
-                type="text"
-                value={formData.correctAnswer}
-                onChange={(e) => setFormData(prev => ({ ...prev, correctAnswer: e.target.value }))}
-                placeholder={formData.type === 'multiple' ? "输入正确答案，多个答案用逗号分隔" : "输入正确答案"}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            )}
+            <label className="block text-sm font-medium text-gray-700 mb-2">正确答案</label>
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+              {renderCorrectAnswerEditor()}
+            </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
-            <Button variant="outline" onClick={resetForm}>
+          <div className="flex justify-end space-x-3">
+            <Button variant="outline" onClick={closeEditor}>
               取消
             </Button>
-            <Button onClick={editingQuestion ? handleUpdate : handleCreate}>
-              {editingQuestion ? '更新' : '创建'}
+            <Button onClick={handleSubmit} disabled={!canSubmit() || isSaving}>
+              {isSaving ? '保存中...' : '保存修改'}
             </Button>
           </div>
         </div>
-      </Modal>
-
-      {/* 预览模态框 */}
-      <Modal
-        isOpen={showPreviewModal}
-        onClose={() => setShowPreviewModal(false)}
-        title="题目预览"
-      >
-        {selectedQuestion && (
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center space-x-2 mb-3">
-                <span className={`px-2 py-1 text-xs rounded-full ${getTypeColor(selectedQuestion.type)}`}>
-                  {getTypeText(selectedQuestion.type)}
-                </span>
-                <span className="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">
-                  {selectedQuestion.knowledgePoint}
-                </span>
-              </div>
-              <p className="text-lg font-medium text-gray-900 mb-4">{selectedQuestion.content}</p>
-              
-              {selectedQuestion.type !== 'boolean' && selectedQuestion.options && (
-                <div className="space-y-2">
-                  {selectedQuestion.options.map((option, index) => (
-                    <div key={index} className="flex items-center space-x-3">
-                      <span className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-sm font-medium">
-                        {String.fromCharCode(65 + index)}
-                      </span>
-                      <span>{option}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <div className="mt-4 p-4 bg-green-50 rounded-lg">
-                <p className="text-sm font-medium text-green-800 mb-1">正确答案:</p>
-                <p className="text-green-700">
-                  {selectedQuestion.type === 'boolean' 
-                    ? (selectedQuestion.correctAnswer === 'true' ? '正确' : '错误')
-                    : Array.isArray(selectedQuestion.correctAnswer)
-                      ? selectedQuestion.correctAnswer.join(', ')
-                      : selectedQuestion.correctAnswer
-                  }
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </Modal>
     </div>
   );

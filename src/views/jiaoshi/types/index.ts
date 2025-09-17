@@ -59,13 +59,17 @@ export interface StudentGrade {
   totalScore: number;
 }
 
+export type QuestionTypeApi = 'Single Choice' | 'Multiple Choice' | 'True/False';
+
 export interface Question {
-  id: string;
-  content: string;
-  type: 'single' | 'multiple' | 'boolean';
-  knowledgePoint: string;
-  options?: string[];
-  correctAnswer: string | string[];
+  question_id: number;
+  knowledge_point: string | null;
+  question_type: QuestionTypeApi;
+  question_text: string;
+  options?: Record<string, string> | string[] | null;
+  correct_answers: string[];
+  creator_id?: number | null;
+  creator_name?: string | null;
 }
 
 export interface ExperimentReport {
