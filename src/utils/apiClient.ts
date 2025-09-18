@@ -1,48 +1,65 @@
-export const API_BASE_URL = "http://localhost:3001/api"; // 后端API的基础URL
+export const API_BASE_URL = "http://localhost:3001/api";
 
 const BASE_URL = API_BASE_URL;
 
-/**
- * 统一处理API响应。
- * 它会解析JSON，并在响应状态码不为 "ok" (200-299) 时抛出错误。
- * 特别地，它会处理401状态码，此时会清除token并重定向到登录页。
- * @param response - fetch返回的原始Response对象。
- * @returns 解析后的JSON数据。
- */
+const safeDecode = (value: string): string => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const buildUrl = (endpoint: string): string => {
+  const base = new URL(BASE_URL);
+  const [rawPath = "", ...queryParts] = endpoint.split("?");
+  const rawQuery = queryParts.length > 0 ? queryParts.join("?") : "";
+
+  const encodedPath = rawPath
+    .split("/")
+    .map((segment, index) => {
+      if (segment === "" && index === 0) return ""; // keep leading slash
+      const decoded = safeDecode(segment);
+      return decoded === "" ? "" : encodeURIComponent(decoded);
+    })
+    .join("/");
+
+  const normalizedPath = encodedPath.replace(/^\/+/, "");
+  if (normalizedPath.length > 0) {
+    const basePath = base.pathname.replace(/\/+$/, "");
+    base.pathname = `${basePath}/${normalizedPath}`;
+  } else {
+    base.pathname = base.pathname.replace(/\/+$/, "");
+  }
+
+  if (rawQuery) {
+    base.search = rawQuery.startsWith("?") ? rawQuery : `?${rawQuery}`;
+  } else {
+    base.search = "";
+  }
+
+  return base.toString();
+};
+
 const handleResponse = async (response: Response) => {
-  // 如果是401未授权，说明token无效或已过期
   if (response.status === 401) {
     localStorage.removeItem("token");
-    // 重定向到登录页，避免用户停留在需要授权的页面
     window.location.href = "/login";
-    // 抛出错误，中断后续的代码执行
     throw new Error("会话已过期，请重新登录");
   }
 
-  // 尝试解析JSON响应体
-  // 注意：即使是错误响应（如400, 500），也可能包含JSON格式的错误信息
-  const data = await response.json();
+  const data = await response.json().catch(() => null);
 
-  // 如果响应状态码不是 "ok"，则抛出错误
   if (!response.ok) {
-    // 优先使用后端返回的错误信息，否则使用HTTP状态文本
-    const error = (data && data.error) || response.statusText;
+    const error = (data && (data as { error?: string }).error) || response.statusText;
     throw new Error(error);
   }
 
   return data;
 };
 
-/**
- * 核心的API请求函数。
- * @param endpoint - API的端点路径 (例如, '/users')。
- * @param options - fetch请求的配置对象 (例如, method, body)。
- * @returns 返回一个Promise，解析为API的响应数据。
- */
 const request = async (endpoint: string, options: RequestInit = {}, isFormData = false) => {
   const token = localStorage.getItem("token");
-  
-  // Do not set Content-Type for FormData, browser does it automatically with boundary
   const headers: HeadersInit = isFormData ? {} : { "Content-Type": "application/json" };
 
   if (token) {
@@ -51,25 +68,27 @@ const request = async (endpoint: string, options: RequestInit = {}, isFormData =
 
   const config: RequestInit = {
     ...options,
-    headers,
+    headers: {
+      ...headers,
+      ...(options.headers ?? {}),
+    },
   };
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, config);
+  const response = await fetch(buildUrl(endpoint), config);
   return handleResponse(response);
 };
 
-// 导出一个包含常用HTTP方法的对象，方便在其他地方调用
 export const apiClient = {
   get: (endpoint: string, options?: RequestInit) =>
     request(endpoint, { ...options, method: "GET" }),
 
-  post: (endpoint: string, body: any, options?: RequestInit) =>
+  post: (endpoint: string, body: unknown, options?: RequestInit) =>
     request(endpoint, { ...options, method: "POST", body: JSON.stringify(body) }),
-  
+
   postFormData: (endpoint: string, formData: FormData, options?: RequestInit) =>
     request(endpoint, { ...options, method: "POST", body: formData }, true),
 
-  put: (endpoint: string, body: any, options?: RequestInit) =>
+  put: (endpoint: string, body: unknown, options?: RequestInit) =>
     request(endpoint, { ...options, method: "PUT", body: JSON.stringify(body) }),
 
   delete: (endpoint: string, options?: RequestInit) =>
