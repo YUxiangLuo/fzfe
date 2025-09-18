@@ -11,11 +11,7 @@ import {
   Check,
   Lock
 } from 'lucide-react';
-
-interface SidebarProps {
-  currentStep: number;
-  completedSteps: number[];
-}
+import { useExperiment } from '../contexts/ExperimentContext';
 
 const steps = [
   { id: 1, title: '选择行业', path: '/industry', icon: Building },
@@ -27,19 +23,21 @@ const steps = [
   { id: 7, title: '生产计划', path: '/production', icon: Calendar },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ currentStep, completedSteps }) => {
+const Sidebar: React.FC = () => {
   const location = useLocation();
+  const { state, isStepCompleted, isStepUnlocked } = useExperiment();
+  const { current_step } = state;
 
   const getStepStatus = (stepId: number) => {
-    if (completedSteps.includes(stepId)) return 'completed';
-    if (stepId === currentStep) return 'current';
-    if (stepId < currentStep) return 'available';
+    if (isStepCompleted(stepId)) return 'completed';
+    if (stepId === current_step) return 'current';
+    if (isStepUnlocked(stepId)) return 'available';
     return 'locked';
   };
 
   const getStepStyles = (stepId: number) => {
     const status = getStepStatus(stepId);
-    const isActive = location.pathname === steps.find(s => s.id === stepId)?.path;
+    const isActive = location.pathname.startsWith(steps.find(s => s.id === stepId)?.path || '---');
     
     switch (status) {
       case 'completed':
@@ -64,6 +62,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentStep, completedSteps }) => {
     
     return <IconComponent className="w-5 h-5" />;
   };
+  
+  const completedCount = state.highest_completed_step;
 
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
@@ -76,7 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentStep, completedSteps }) => {
           <div className="space-y-2">
             {steps.map((step) => {
               const status = getStepStatus(step.id);
-              const isLocked = status === 'locked';
+              const isLocked = !isStepUnlocked(step.id);
               
               const content = (
                 <div className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-all ${getStepStyles(step.id)}`}>
@@ -121,12 +121,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentStep, completedSteps }) => {
           <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600">进度</span>
-              <span className="text-sm font-medium text-gray-900">{completedSteps.length}/7</span>
+              <span className="text-sm font-medium text-gray-900">{completedCount}/7</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div 
                 className="bg-gradient-to-r from-blue-400 to-blue-600 h-2 rounded-full transition-all duration-500"
-                style={{ width: `${(completedSteps.length / 7) * 100}%` }}
+                style={{ width: `${(completedCount / 7) * 100}%` }}
               ></div>
             </div>
           </div>

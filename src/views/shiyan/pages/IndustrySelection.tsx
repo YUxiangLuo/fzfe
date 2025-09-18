@@ -1,104 +1,93 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { AppState } from '../App';
-import { Factory, Smartphone, Car, Utensils, Droplets, Sparkles, SprayCan as Spray, Shirt, ArrowRight } from 'lucide-react';
-
-interface Props {
-  appState: AppState;
-  updateAppState: (updates: Partial<AppState>) => void;
-  completeStep: (step: number) => void;
-}
+import { useExperiment } from '../contexts/ExperimentContext';
+import { ArrowRight, Building2, Zap, Leaf, Car, Utensils, Gem, Beaker, Shirt } from 'lucide-react';
 
 const industries = [
-  { id: 'automotive', name: '汽车制造业', icon: Car, description: '智能电动车、混合动力车及自动驾驶技术' },
-  { id: 'electronics', name: '电子产品制造业', icon: Smartphone, description: '智能家居、可穿戴设备、消费电子产品' },
-  { id: 'machinery', name: '重型机械与工业设备', icon: Factory, description: '建筑设备、采矿机械、工业自动化设备' },
-  { id: 'food', name: '食品制造业', icon: Utensils, description: '健康包装食品、方便食品、有机食品' },
-  { id: 'beverage', name: '饮料制造业', icon: Droplets, description: '功能饮料、健康饮品、茶饮料' },
-  { id: 'cosmetics', name: '化妆品制造业', icon: Sparkles, description: '护肤品、彩妆、天然美妆产品' },
-  { id: 'cleaning', name: '家用清洁产品', icon: Spray, description: '环保清洁产品、智能清洁解决方案' },
-  { id: 'apparel', name: '服装制造业', icon: Shirt, description: '快时尚、可持续面料、功能性服装' },
+    { id: 'electronics', name: '电子', icon: Zap, color: 'text-blue-500', bgColor: 'bg-blue-50' },
+    { id: 'automotive', name: '汽车', icon: Car, color: 'text-gray-500', bgColor: 'bg-gray-50' },
+    { id: 'machinery', name: '机械', icon: Building2, color: 'text-orange-500', bgColor: 'bg-orange-50' },
+    { id: 'food', name: '食品', icon: Utensils, color: 'text-red-500', bgColor: 'bg-red-50' },
+    { id: 'beverage', name: '饮料', icon: Beaker, color: 'text-green-500', bgColor: 'bg-green-50' },
+    { id: 'cosmetics', name: '美妆', icon: Gem, color: 'text-pink-500', bgColor: 'bg-pink-50' },
+    { id: 'cleaning', name: '洗护', icon: Leaf, color: 'text-teal-500', bgColor: 'bg-teal-50' },
+    { id: 'apparel', name: '服装', icon: Shirt, color: 'text-purple-500', bgColor: 'bg-purple-50' },
 ];
 
-const IndustrySelection: React.FC<Props> = ({ appState, updateAppState, completeStep }) => {
-  const [selectedIndustry, setSelectedIndustry] = useState<string | null>(appState.selectedIndustry);
-  const navigate = useNavigate();
+const IndustrySelection: React.FC = () => {
+    const navigate = useNavigate();
+    const { state, updateState } = useExperiment();
 
-  const handleSelectIndustry = (industryId: string) => {
-    setSelectedIndustry(industryId);
-  };
+    const handleSelectIndustry = (industryId: string) => {
+        // The reset logic is now handled automatically by the updateState function in the context
+        updateState({ selected_industry: industryId });
+    };
 
-  const handleNext = () => {
-    if (selectedIndustry) {
-      updateAppState({ selectedIndustry });
-      completeStep(1);
-      navigate('/company');
-    }
-  };
+    const handleNext = () => {
+        if (state.selected_industry) {
+            // Set highest completed step to 1 and current step to 2
+            updateState({ 
+                highest_completed_step: 1,
+                current_step: 2,
+            });
+            navigate('/company');
+        }
+    };
 
-  return (
-    <div className="p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">选择目标行业</h1>
-          <p className="text-lg text-gray-600">
-            请选择您想要进行需求预测分析的目标行业。不同行业的需求模式和影响因素各不相同，
-            系统将根据您的选择提供相应的企业和产品数据。
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {industries.map((industry) => {
-            const Icon = industry.icon;
-            const isSelected = selectedIndustry === industry.id;
-            
-            return (
-              <div
-                key={industry.id}
-                onClick={() => handleSelectIndustry(industry.id)}
-                className={`p-6 rounded-xl border-2 cursor-pointer transition-all hover:shadow-lg ${
-                  isSelected 
-                    ? 'border-blue-500 bg-blue-50 shadow-md' 
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                    isSelected ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900">{industry.name}</h3>
+    return (
+        <div className="p-8">
+            <div className="max-w-6xl mx-auto">
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900 mb-4">步骤 1: 选择行业</h1>
+                    <p className="text-lg text-gray-600">
+                        请选择您要进行需求预测和生产计划决策的目标行业。您的选择将决定后续可分析的企业和产品范围。
+                    </p>
                 </div>
-                <p className="text-gray-600">{industry.description}</p>
-                
-                {isSelected && (
-                  <div className="mt-4 flex items-center text-blue-600 font-medium">
-                    <span>已选择</span>
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
 
-        <div className="flex justify-end">
-          <button
-            onClick={handleNext}
-            disabled={!selectedIndustry}
-            className={`px-8 py-3 rounded-lg font-medium transition-all ${
-              selectedIndustry
-                ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-          >
-            下一步：选择企业
-          </button>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {industries.map((industry) => {
+                        const isSelected = state.selected_industry === industry.id;
+                        const Icon = industry.icon;
+                        return (
+                            <div
+                                key={industry.id}
+                                onClick={() => handleSelectIndustry(industry.id)}
+                                className={`p-6 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
+                                    isSelected
+                                        ? 'border-blue-500 bg-blue-50 shadow-lg'
+                                        : 'border-gray-200 bg-white hover:border-blue-400 hover:shadow-md'
+                                }`}
+                            >
+                                <div className="flex items-center space-x-4">
+                                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${industry.bgColor}`}>
+                                        <Icon className={`w-6 h-6 ${industry.color}`} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-900">{industry.name}</h3>
+                                        <p className="text-sm text-gray-500">{industry.id}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <div className="mt-12 flex justify-between items-center">
+                    <span className="text-sm text-gray-500">
+                        {state.selected_industry ? `已选择: ${industries.find(i => i.id === state.selected_industry)?.name}` : '请选择一个行业'}
+                    </span>
+                    <button
+                        onClick={handleNext}
+                        disabled={!state.selected_industry}
+                        className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all disabled:bg-gray-300 disabled:cursor-not-allowed disabled:shadow-none"
+                    >
+                        <span>下一步</span>
+                        <ArrowRight className="w-5 h-5" />
+                    </button>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default IndustrySelection;

@@ -698,6 +698,36 @@ components:
           nullable: true
         is_active:
           type: boolean
+    ManualResource:
+      type: object
+      properties:
+        manual_id:
+          type: integer
+          description: Manual identifier
+        file_name:
+          type: string
+        file_path:
+          type: string
+        description:
+          type: string
+          nullable: true
+        is_active:
+          type: boolean
+        uploader_id:
+          type: integer
+          nullable: true
+        uploader_name:
+          type: string
+          nullable: true
+        uploaded_at:
+          type: string
+          format: date-time
+      required:
+        - manual_id
+        - file_name
+        - file_path
+        - is_active
+        - uploaded_at
     DatasetUploadRequest:
       type: object
       properties:
@@ -2030,8 +2060,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/ManualResource'
         '404':
           description: No active manual
           content:

@@ -51,16 +51,23 @@ const handleResponse = async (response: Response) => {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const error = (data && (data as { error?: string }).error) || response.statusText;
+    const error =
+      (data && (data as { error?: string }).error) || response.statusText;
     throw new Error(error);
   }
 
   return data;
 };
 
-const request = async (endpoint: string, options: RequestInit = {}, isFormData = false) => {
+const request = async (
+  endpoint: string,
+  options: RequestInit = {},
+  isFormData = false,
+) => {
   const token = localStorage.getItem("token");
-  const headers: HeadersInit = isFormData ? {} : { "Content-Type": "application/json" };
+  const headers: HeadersInit = isFormData
+    ? {}
+    : { "Content-Type": "application/json" };
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
@@ -83,14 +90,107 @@ export const apiClient = {
     request(endpoint, { ...options, method: "GET" }),
 
   post: (endpoint: string, body: unknown, options?: RequestInit) =>
-    request(endpoint, { ...options, method: "POST", body: JSON.stringify(body) }),
+    request(endpoint, {
+      ...options,
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   postFormData: (endpoint: string, formData: FormData, options?: RequestInit) =>
     request(endpoint, { ...options, method: "POST", body: formData }, true),
 
   put: (endpoint: string, body: unknown, options?: RequestInit) =>
-    request(endpoint, { ...options, method: "PUT", body: JSON.stringify(body) }),
+    request(endpoint, {
+      ...options,
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
 
   delete: (endpoint: string, options?: RequestInit) =>
     request(endpoint, { ...options, method: "DELETE" }),
+};
+
+import { initialState } from "../views/shiyan/contexts/ExperimentContext";
+import type { ExperimentState } from "../views/shiyan/contexts/ExperimentContext";
+
+// --- NEW FUNCTIONS FOR EXPERIMENT STATE ---
+
+const EXPERIMENT_STATE_KEY = "experiment_state";
+
+/**
+ * Simulates fetching the current experiment state from the backend.
+ * For now, it uses localStorage to persist the state across reloads.
+ */
+export const getExperimentState = async (): Promise<ExperimentState> => {
+  console.log("API: Getting experiment state...");
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      try {
+        const savedState = localStorage.getItem(EXPERIMENT_STATE_KEY);
+        if (savedState) {
+          console.log("API: Found saved state in localStorage.");
+          resolve(JSON.parse(savedState));
+        } else {
+          console.log("API: No saved state found, returning initial state.");
+          // Return the new data structure
+          const newState = {
+            ...initialState,
+            student_id: 123,
+            experiment_id: 1,
+            // Example of a partially completed experiment for testing
+            // highest_completed_step: 1,
+            // current_step: 2,
+            // selected_industry: 'automotive',
+          };
+          resolve(newState);
+        }
+      } catch (error) {
+        console.error(
+          "API: Error getting state, returning initial state.",
+          error,
+        );
+        resolve({ ...initialState, student_id: 123, experiment_id: 1 });
+      }
+    }, 500); // Simulate network delay
+  });
+};
+
+/**
+ * Simulates updating the experiment state on the backend.
+ * For now, it saves the state to localStorage.
+ */
+export const updateExperimentState = async (
+  newState: ExperimentState,
+): Promise<void> => {
+  console.log("API: Updating experiment state...", newState);
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      try {
+        localStorage.setItem(EXPERIMENT_STATE_KEY, JSON.stringify(newState));
+        console.log("API: State successfully saved to localStorage.");
+      } catch (error) {
+        console.error("API: Error saving state.", error);
+      }
+      resolve();
+    }, 300); // Simulate network delay
+  });
+};
+
+/**
+ * Simulates resetting the experiment state on the backend.
+ * For now, it just removes the state from localStorage.
+ */
+export const resetExperimentState = async (): Promise<void> => {
+  console.log("API: Resetting experiment state...");
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      try {
+        localStorage.removeItem(EXPERIMENT_STATE_KEY);
+        console.log("API: State successfully removed from localStorage.");
+      } catch (error) {
+        console.error("API: Error removing state.", error);
+      }
+      resolve();
+    }, 200); // Simulate network delay
+  });
 };
