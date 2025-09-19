@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import type { AppState } from '../App';
+import { useLocation } from 'react-router-dom';
+import { useExperiment } from '../contexts/ExperimentContext';
 import { Calendar, CheckCircle, Factory, Truck, AlertTriangle, ArrowRight, Calculator, Target, TrendingUp, Package, FileText, BarChart3 } from 'lucide-react';
 
-interface Props {
-  appState: AppState;
-  updateAppState: (updates: Partial<AppState>) => void;
-  completeStep: (step: number) => void;
-}
-
-const ProductionPlan: React.FC<Props> = ({ completeStep }) => {
+const ProductionPlan: React.FC = () => {
   const location = useLocation();
+  const { updateState, state } = useExperiment();
   const [currentSubStep, setCurrentSubStep] = useState(1);
   const [completedSubSteps, setCompletedSubSteps] = useState<number[]>([]);
 
@@ -31,7 +26,10 @@ const ProductionPlan: React.FC<Props> = ({ completeStep }) => {
       setCurrentSubStep(stepId + 1);
     } else {
       // 完成所有子步骤，完成整个生产计划步骤
-      completeStep(7);
+      updateState({
+        highest_completed_step: Math.max(state.highest_completed_step, 7),
+        current_step: 7,
+      });
     }
   };
 

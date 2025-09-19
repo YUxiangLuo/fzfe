@@ -1,37 +1,117 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { 
-  getExperimentState, 
+import { createContext, useContext, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import {
+  getExperimentState,
   updateExperimentState as apiUpdateExperimentState,
-  resetExperimentState as apiResetExperimentState 
+  resetExperimentState as apiResetExperimentState,
 } from '../../../utils/apiClient';
 
-// --- 1. NEW STATE DEFINITION ---
-// This interface maps directly to the new `experiment_status` table schema.
-export interface ModelRun {
-  completed: boolean;
-  params: Record<string, any>;
-  metrics: Record<string, any> | null;
+type ExperimentStatus = 'Not Started' | 'In Progress' | 'Completed';
+
+export interface ModelMetrics {
+  rmse: number | null;
+  mae: number | null;
+  r2: number | null;
+}
+
+export interface AdfStationarityRow {
+  diff_order: number;
+  statistic: number;
+  p_value: number;
+  stationary: boolean;
+  critical_values: Record<string, number>;
+}
+
+export interface MovingAverageState {
+  completed: boolean | null;
+  window: number | null;
+  metrics: ModelMetrics;
+}
+
+export interface ExponentialSmoothingState {
+  completed: boolean | null;
+  alpha: number | null;
+  metrics: ModelMetrics;
+}
+
+export interface ArimaState {
+  completed: boolean | null;
+  p: number | null;
+  d: number | null;
+  q: number | null;
+  metrics: ModelMetrics;
+  adfStationarity: AdfStationarityRow[];
+}
+
+export interface LstmState {
+  completed: boolean | null;
+  normalization: 'minmax' | 'zscore' | null;
+  features: string[];
+  metrics: ModelMetrics;
+}
+
+export interface EnsembleState {
+  completed: boolean | null;
+  baseModels: string[];
+  metrics: ModelMetrics;
 }
 
 export interface ExperimentState {
   experiment_id: number | null;
   student_id: number | null;
-  status: 'Not Started' | 'In Progress' | 'Completed';
-  
+  status: ExperimentStatus;
   highest_completed_step: number;
   current_step: number;
-
   selected_industry: string | null;
   selected_company: string | null;
   selected_product: string | null;
-  
-  model_runs: Record<string, ModelRun>;
-  
+  movingAverage: MovingAverageState;
+  exponentialSmoothing: ExponentialSmoothingState;
+  arima: ArimaState;
+  lstm: LstmState;
+  ensembleWeighted: EnsembleState;
+  ensembleBoosting: EnsembleState;
+  ensembleStacking: EnsembleState;
   best_model: string | null;
 }
 
-// --- 2. NEW INITIAL STATE & RESET LOGIC ---
-export const initialState: ExperimentState = {
+const createEmptyMetrics = (): ModelMetrics => ({ rmse: null, mae: null, r2: null });
+
+const createInitialMovingAverage = (): MovingAverageState => ({
+  completed: null,
+  window: null,
+  metrics: createEmptyMetrics(),
+});
+
+const createInitialExponentialSmoothing = (): ExponentialSmoothingState => ({
+  completed: null,
+  alpha: null,
+  metrics: createEmptyMetrics(),
+});
+
+const createInitialArima = (): ArimaState => ({
+  completed: null,
+  p: null,
+  d: null,
+  q: null,
+  metrics: createEmptyMetrics(),
+  adfStationarity: [],
+});
+
+const createInitialLstm = (): LstmState => ({
+  completed: null,
+  normalization: null,
+  features: [],
+  metrics: createEmptyMetrics(),
+});
+
+const createInitialEnsemble = (): EnsembleState => ({
+  completed: null,
+  baseModels: [],
+  metrics: createEmptyMetrics(),
+});
+
+const buildInitialState = (): ExperimentState => ({
   experiment_id: null,
   student_id: null,
   status: 'Not Started',
@@ -40,24 +120,60 @@ export const initialState: ExperimentState = {
   selected_industry: null,
   selected_company: null,
   selected_product: null,
-  model_runs: {},
+  movingAverage: createInitialMovingAverage(),
+  exponentialSmoothing: createInitialExponentialSmoothing(),
+  arima: createInitialArima(),
+  lstm: createInitialLstm(),
+  ensembleWeighted: createInitialEnsemble(),
+  ensembleBoosting: createInitialEnsemble(),
+  ensembleStacking: createInitialEnsemble(),
   best_model: null,
-};
+});
 
-// Reset logic is now simpler and more declarative.
+export const initialState: ExperimentState = buildInitialState();
+
 const resetLogic: Partial<Record<keyof ExperimentState, (keyof ExperimentState)[]>> = {
   selected_industry: [
-    'selected_company', 'selected_product', 'highest_completed_step', 'current_step', 'model_runs', 'best_model'
+    'selected_company',
+    'selected_product',
+    'highest_completed_step',
+    'current_step',
+    'movingAverage',
+    'exponentialSmoothing',
+    'arima',
+    'lstm',
+    'ensembleWeighted',
+    'ensembleBoosting',
+    'ensembleStacking',
+    'best_model',
   ],
   selected_company: [
-    'selected_product', 'highest_completed_step', 'current_step', 'model_runs', 'best_model'
+    'selected_product',
+    'highest_completed_step',
+    'current_step',
+    'movingAverage',
+    'exponentialSmoothing',
+    'arima',
+    'lstm',
+    'ensembleWeighted',
+    'ensembleBoosting',
+    'ensembleStacking',
+    'best_model',
   ],
   selected_product: [
-    'highest_completed_step', 'current_step', 'model_runs', 'best_model'
+    'highest_completed_step',
+    'current_step',
+    'movingAverage',
+    'exponentialSmoothing',
+    'arima',
+    'lstm',
+    'ensembleWeighted',
+    'ensembleBoosting',
+    'ensembleStacking',
+    'best_model',
   ],
 };
 
-// --- 3. CONTEXT DEFINITION ---
 interface ExperimentContextType {
   state: ExperimentState;
   loading: boolean;
@@ -69,50 +185,70 @@ interface ExperimentContextType {
 
 const ExperimentContext = createContext<ExperimentContextType | undefined>(undefined);
 
-// --- 4. PROVIDER COMPONENT ---
 export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
-  const [state, setState] = useState<ExperimentState>(initialState);
+  const [state, setState] = useState<ExperimentState>(buildInitialState());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchState = async () => {
       setLoading(true);
       const fetchedState = await getExperimentState();
-      if (fetchedState) {
-        setState(fetchedState);
-      }
+      setState(fetchedState && typeof fetchedState === 'object' ? { ...buildInitialState(), ...fetchedState } : buildInitialState());
       setLoading(false);
     };
     fetchState();
   }, []);
 
   const updateState = async (updates: Partial<ExperimentState>) => {
-    let newState = { ...state, ...updates };
+    const newState: ExperimentState = { ...state, ...updates };
+    const freshDefaults = buildInitialState();
 
-    // Apply reset logic
-    for (const key in updates) {
-      const fieldsToReset = resetLogic[key as keyof ExperimentState];
-      if (fieldsToReset) {
-        fieldsToReset.forEach(field => {
-          // Special handling for step counters
-          if (field === 'highest_completed_step') {
+    for (const key of Object.keys(updates) as (keyof ExperimentState)[]) {
+      const fieldsToReset = resetLogic[key];
+      if (!fieldsToReset) continue;
+
+      for (const field of fieldsToReset) {
+        switch (field) {
+          case 'highest_completed_step':
             if (key === 'selected_industry') newState.highest_completed_step = 0;
             if (key === 'selected_company') newState.highest_completed_step = 1;
             if (key === 'selected_product') newState.highest_completed_step = 2;
-          } else if (field === 'current_step') {
+            break;
+          case 'current_step':
             if (key === 'selected_industry') newState.current_step = 1;
             if (key === 'selected_company') newState.current_step = 2;
             if (key === 'selected_product') newState.current_step = 3;
-          } else {
-            (newState as any)[field] = initialState[field as keyof ExperimentState];
-          }
-        });
+            break;
+          case 'movingAverage':
+            newState.movingAverage = createInitialMovingAverage();
+            break;
+          case 'exponentialSmoothing':
+            newState.exponentialSmoothing = createInitialExponentialSmoothing();
+            break;
+          case 'arima':
+            newState.arima = createInitialArima();
+            break;
+          case 'lstm':
+            newState.lstm = createInitialLstm();
+            break;
+          case 'ensembleWeighted':
+            newState.ensembleWeighted = createInitialEnsemble();
+            break;
+          case 'ensembleBoosting':
+            newState.ensembleBoosting = createInitialEnsemble();
+            break;
+          case 'ensembleStacking':
+            newState.ensembleStacking = createInitialEnsemble();
+            break;
+          default:
+            (newState as unknown as Record<string, unknown>)[field as string] =
+              (freshDefaults as unknown as Record<string, unknown>)[field as string];
+        }
       }
     }
-    
-    // Update overall status
+
     if (newState.status === 'Not Started' && Object.keys(updates).length > 0) {
-        newState.status = 'In Progress';
+      newState.status = 'In Progress';
     }
 
     setState(newState);
@@ -121,17 +257,15 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
 
   const resetExperiment = async () => {
     await apiResetExperimentState();
-    setState({ ...initialState, student_id: 123, experiment_id: 1 }); // Reset to a clean initial state
+    const resetState = buildInitialState();
+    resetState.experiment_id = 1;
+    resetState.student_id = 123;
+    setState(resetState);
   };
 
-  // Logic is now much simpler and more readable.
-  const isStepCompleted = (step: number): boolean => {
-    return state.highest_completed_step >= step;
-  };
+  const isStepCompleted = (step: number): boolean => state.highest_completed_step >= step;
 
-  const isStepUnlocked = (step: number): boolean => {
-    return step <= state.current_step;
-  };
+  const isStepUnlocked = (step: number): boolean => step <= state.current_step;
 
   return (
     <ExperimentContext.Provider value={{ state, loading, updateState, resetExperiment, isStepCompleted, isStepUnlocked }}>
@@ -140,10 +274,9 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// --- 5. HOOK for easy consumption ---
 export const useExperiment = () => {
   const context = useContext(ExperimentContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useExperiment must be used within an ExperimentProvider');
   }
   return context;

@@ -1,49 +1,183 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
 import { BarChart3, Calendar, Info, ArrowRight } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from 'recharts';
+
+type SelectionKey = string;
+
+interface MonthlySalesRecord {
+  month: string;
+  sales: number;
+}
+
+interface HistoricalDataset {
+  meta: {
+    industry: string;
+    company: string;
+    product: string;
+    name: string;
+    description: string;
+    unit: string;
+  };
+  monthlySales: MonthlySalesRecord[];
+}
+
+const formatKey = (
+  industry: string | null,
+  company: string | null,
+  product: string | null,
+): SelectionKey =>
+  [industry, company, product].filter((segment): segment is string => Boolean(segment)).join('|') || 'default';
+
+const createSeries = (baseYear: number, baseMonth: number, values: number[]): MonthlySalesRecord[] => {
+  let year = baseYear;
+  let month = baseMonth;
+  return values.map((sales) => {
+    const label = `${year}-${String(month).padStart(2, '0')}`;
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+    return { month: label, sales };
+  });
+};
+
+const MOCK_DATASETS: Record<SelectionKey, HistoricalDataset> = {
+  'apparel|yunshang|silkdress': {
+    meta: {
+      industry: 'apparel',
+      company: 'yunshang',
+      product: 'silkdress',
+      name: '云裳真丝连衣裙',
+      description: '融合传统刺绣工艺的高端真丝连衣裙，用于春夏换季主题活动。',
+      unit: '件',
+    },
+    monthlySales: createSeries(2023, 1, [
+      980, 1120, 1280, 1360, 1520, 1650,
+      1720, 1600, 1480, 1890, 2150, 2240,
+      1380, 1420, 1580, 1710, 1860, 2140,
+      2280, 2210, 2090, 2360, 2540, 2680,
+    ]),
+  },
+  'automotive|xunchi|e-stream': {
+    meta: {
+      industry: 'automotive',
+      company: 'xunchi',
+      product: 'e-stream',
+      name: '迅驰E-Stream电动SUV',
+      description: '主打城市通勤的电动SUV，配备 500 公里续航与车联网服务。',
+      unit: '台',
+    },
+    monthlySales: createSeries(2023, 1, [
+      620, 680, 790, 820, 910, 980,
+      1020, 980, 940, 1100, 1250, 1310,
+      890, 950, 1040, 1110, 1180, 1240,
+      1320, 1400, 1460, 1550, 1680, 1740,
+    ]),
+  },
+  'electronics|zhixin|smartlens': {
+    meta: {
+      industry: 'electronics',
+      company: 'zhixin',
+      product: 'smartlens',
+      name: '智芯SmartLens AR眼镜',
+      description: '定位远程协作与沉浸体验的 AR 智能眼镜，支持导航及虚拟会议。',
+      unit: '台',
+    },
+    monthlySales: createSeries(2023, 1, [
+      420, 460, 520, 580, 640, 720,
+      760, 810, 840, 920, 990, 1080,
+      930, 970, 1010, 1150, 1240, 1350,
+      1400, 1450, 1510, 1620, 1760, 1880,
+    ]),
+  },
+  default: {
+    meta: {
+      industry: 'general',
+      company: 'sample-co',
+      product: 'sample-product',
+      name: '选定产品',
+      description: '根据您的选择进行需求预测分析的目标产品。',
+      unit: '件',
+    },
+    monthlySales: createSeries(2023, 1, [
+      720, 680, 750, 810, 830, 890,
+      910, 870, 840, 900, 960, 980,
+      860, 880, 940, 990, 1050, 1090,
+      1130, 1180, 1210, 1260, 1320, 1380,
+    ]),
+  },
+};
 
 const HistoricalData: React.FC = () => {
   const navigate = useNavigate();
   const { state, updateState } = useExperiment();
   const [selectedPeriod, setSelectedPeriod] = useState('24months');
 
-  const getProductInfo = () => {
-    // This data should ideally come from a config or API, but is mocked here for simplicity.
-    const productMap: Record<string, any> = {
-      'apparel-yunshang-silkdress': { name: '云裳真丝连衣裙', description: '融入传统刺绣元素的真丝连衣裙。', unit: '件' },
-      'automotive-xunchi-e-stream': { name: '迅驰E-Stream电动SUV', description: '500公里续航的紧凑型电动SUV。', unit: '台' },
-      'electronics-zhixin-smartlens': { name: '智芯SmartLens AR眼镜', description: '支持导航和虚拟会议的AR智能眼镜。', unit: '台' },
-    };
-    const key = `${state.selected_industry}-${state.selected_company}-${state.selected_product}`;
-    return productMap[key] || { name: '选定产品', description: '根据您的选择进行需求预测分析的目标产品。', unit: '件' };
-  };
+  const datasetKey = useMemo(
+    () => formatKey(state.selected_industry, state.selected_company, state.selected_product),
+    [state.selected_company, state.selected_industry, state.selected_product],
+  );
 
-  const productInfo = getProductInfo();
+  const activeDataset = useMemo<HistoricalDataset>(() => {
+    const dataset = (MOCK_DATASETS as Record<string, HistoricalDataset | undefined>)[datasetKey];
+    return (dataset ?? MOCK_DATASETS.default) as HistoricalDataset;
+  }, [datasetKey]);
 
-  // Mock sales data
-  const salesData = [
-    { month: '2023-01', sales: 1250 }, { month: '2023-02', sales: 2180 }, { month: '2023-03', sales: 1680 },
-    { month: '2023-04', sales: 1420 }, { month: '2023-05', sales: 1890 }, { month: '2023-06', sales: 2340 },
-    { month: '2023-07', sales: 1560 }, { month: '2023-08', sales: 1380 }, { month: '2023-09', sales: 1720 },
-    { month: '2023-10', sales: 2100 }, { month: '2023-11', sales: 2850 }, { month: '2023-12', sales: 1980 },
-    { month: '2024-01', sales: 1380 }, { month: '2024-02', sales: 2450 }, { month: '2024-03', sales: 1820 },
-    { month: '2024-04', sales: 1650 }, { month: '2024-05', sales: 2120 }, { month: '2024-06', sales: 2680 },
-    { month: '2024-07', sales: 1720 }, { month: '2024-08', sales: 1580 }, { month: '2024-09', sales: 1950 },
-    { month: '2024-10', sales: 2380 }, { month: '2024-11', sales: 3150 }, { month: '2024-12', sales: 2180 },
-  ];
+  const productInfo = activeDataset.meta;
 
-  const getFilteredData = () => {
+  const filteredData = useMemo(() => {
     switch (selectedPeriod) {
-      case '6months': return salesData.slice(-6);
-      case '12months': return salesData.slice(-12);
-      default: return salesData;
+      case '6months':
+        return activeDataset.monthlySales.slice(-6);
+      case '12months':
+        return activeDataset.monthlySales.slice(-12);
+      default:
+        return activeDataset.monthlySales;
     }
-  };
+  }, [activeDataset.monthlySales, selectedPeriod]);
 
-  const filteredData = getFilteredData();
-  const maxSales = Math.max(...filteredData.map(d => d.sales));
-  const avgSales = Math.round(filteredData.reduce((sum, d) => sum + d.sales, 0) / filteredData.length);
+  const periodStats = useMemo(() => {
+    if (filteredData.length === 0) {
+      return {
+        average: 0,
+        peakMonth: '—',
+        peakValue: 0,
+        trendDelta: 0,
+      };
+    }
+
+    const firstRecord = filteredData[0]!;
+    let total = 0;
+    let peak: MonthlySalesRecord = firstRecord;
+
+    for (const record of filteredData) {
+      total += record.sales;
+      if (record.sales > peak.sales) {
+        peak = record;
+      }
+    }
+
+    const lastRecord = filteredData[filteredData.length - 1]!;
+    const trend = lastRecord.sales - firstRecord.sales;
+    return {
+      average: Math.round(total / filteredData.length),
+      peakMonth: peak?.month ?? '—',
+      peakValue: peak?.sales ?? 0,
+      trendDelta: trend ?? 0,
+    };
+  }, [filteredData]);
 
   const handleNext = () => {
     updateState({ 
@@ -83,21 +217,59 @@ const HistoricalData: React.FC = () => {
               <option value="6months">近6个月</option>
             </select>
           </div>
-          
-          <div className="h-80 bg-gray-50 rounded-lg p-4 relative flex items-end justify-around">
-            {filteredData.map((data, index) => (
-              <div key={index} className="h-full flex items-end" style={{ width: `${100 / filteredData.length}%`}}>
-                <div className="relative group w-3/4 mx-auto">
-                  <div
-                    className="w-full rounded-t-md bg-blue-500 hover:bg-blue-600 transition-all"
-                    style={{ height: `${(data.sales / maxSales) * 100}%` }}
-                  />
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-800 text-white text-xs rounded py-1 px-2">
-                    {data.month}: {data.sales.toLocaleString()}
-                  </div>
-                </div>
+          <div className="h-80 bg-gray-50 rounded-lg p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={filteredData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={50} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => value.toLocaleString()} />
+                <Tooltip
+                  formatter={(value: number) => [`${value.toLocaleString()} ${productInfo.unit}`, '销量']}
+                  labelFormatter={(label) => `${label} 月度销量`}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="sales"
+                  name={`${productInfo.name} 月销量`}
+                  stroke="#2563eb"
+                  strokeWidth={3}
+                  dot={{ r: 4 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">平均月销量</p>
+                <p className="text-2xl font-semibold text-gray-900 mt-1">{periodStats.average.toLocaleString()} {productInfo.unit}</p>
               </div>
-            ))}
+              <BarChart3 className="w-6 h-6 text-blue-500" />
+            </div>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div>
+              <p className="text-sm text-gray-500">峰值月份</p>
+              <p className="text-lg font-semibold text-gray-900 mt-1">{periodStats.peakMonth}</p>
+              <p className="text-sm text-gray-600">峰值销量：{periodStats.peakValue.toLocaleString()} {productInfo.unit}</p>
+            </div>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">周期趋势</p>
+                <p className={`text-lg font-semibold mt-1 ${periodStats.trendDelta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {periodStats.trendDelta >= 0 ? '+' : ''}{periodStats.trendDelta.toLocaleString()} {productInfo.unit}
+                </p>
+                <p className="text-sm text-gray-600">首月 vs. 末月</p>
+              </div>
+              <Calendar className="w-6 h-6 text-indigo-500" />
+            </div>
           </div>
         </div>
 

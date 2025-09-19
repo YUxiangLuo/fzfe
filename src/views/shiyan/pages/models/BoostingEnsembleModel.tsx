@@ -1,153 +1,313 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { CheckCircle, Layers, Loader2 } from "lucide-react";
 import { useExperiment } from "../../contexts/ExperimentContext";
-import { Brain, Play, CheckCircle, Layers } from "lucide-react";
 
-// Mock data for demonstration
-const MOCK_PREDICTIONS = [
-    { month: "2025-01", predicted: 1915 }, { month: "2025-02", predicted: 2320 },
-    { month: "2025-03", predicted: 1845 }, { month: "2025-04", predicted: 1775 },
-    { month: "2025-05", predicted: 2165 }, { month: "2025-06", predicted: 2485 },
-];
-const MOCK_METRICS = { mape: 6.9, rmse: 198, r2: 0.96 };
+const MOCK_METRICS = { rmse: 2.5, mae: 1.4, r2: 0.97 };
+
+const steps = [
+  { id: 1, title: "方法简介", description: "了解 Boosting 融合如何逐步提升模型表现。" },
+  { id: 2, title: "选择基础模型", description: "勾选已完成的基础模型作为训练序列。" },
+  { id: 3, title: "运行并查看指标", description: "执行 Boosting 流程，查看融合后的指标。" },
+] as const;
 
 const BoostingEnsembleModel: React.FC = () => {
   const { state, updateState } = useExperiment();
-  const modelRun = state.model_runs.boosting_ensemble || { completed: false, params: { base_models: [] }, metrics: null };
+  const modelState = state.ensembleBoosting;
 
-  const availableBaseModels = [
-    { id: 'moving_average', name: '移动平均法', completed: state.model_runs.moving_average?.completed },
-    { id: 'exponential_smoothing', name: '指数平滑法', completed: state.model_runs.exponential_smoothing?.completed },
-    { id: 'arima', name: 'ARIMA模型', completed: state.model_runs.arima?.completed },
-    { id: 'lstm', name: 'LSTM神经网络', completed: state.model_runs.lstm?.completed },
-  ].filter(model => model.completed);
+  const completionMap = useMemo(
+    () => ({
+      moving_average: Boolean(state.movingAverage.completed),
+      exponential_smoothing: Boolean(state.exponentialSmoothing.completed),
+      arima: Boolean(state.arima.completed),
+      lstm: Boolean(state.lstm.completed),
+    }),
+    [state.arima.completed, state.exponentialSmoothing.completed, state.lstm.completed, state.movingAverage.completed],
+  );
 
-  const [selectedModels, setSelectedModels] = useState<string[]>(modelRun.params.base_models);
+  const availableBaseModels = useMemo(
+    () =>
+      [
+        { id: 'moving_average', name: '移动平均法' },
+        { id: 'exponential_smoothing', name: '指数平滑法' },
+        { id: 'arima', name: 'ARIMA 模型' },
+        { id: 'lstm', name: 'LSTM 神经网络' },
+      ].filter((model) => completionMap[model.id as keyof typeof completionMap]),
+    [completionMap],
+  );
+
+  const derivedStep = useMemo(() => {
+    if (modelState.completed) return 3;
+    if (modelState.baseModels.length > 0) return 3;
+    return 1;
+  }, [modelState.completed, modelState.baseModels.length]);
+
+  const [activeStep, setActiveStep] = useState(derivedStep);
+  const [selectedModels, setSelectedModels] = useState<string[]>(modelState.baseModels);
   const [isTraining, setIsTraining] = useState(false);
 
+  useEffect(() => {
+    setActiveStep(derivedStep);
+  }, [derivedStep]);
+
+  useEffect(() => {
+    setSelectedModels(modelState.baseModels);
+  }, [modelState.baseModels]);
+
   const handleModelToggle = (modelId: string) => {
-    setSelectedModels(prev =>
-      prev.includes(modelId)
-        ? prev.filter(id => id !== modelId)
-        : [...prev, modelId]
+    setSelectedModels((prev) =>
+      prev.includes(modelId) ? prev.filter((id) => id !== modelId) : [...prev, modelId],
     );
   };
 
-  const handleTrainModel = () => {
-    setIsTraining(true);
-    setTimeout(() => {
-      const newModelRun = {
-        completed: true,
-        params: { base_models: selectedModels },
-        metrics: MOCK_METRICS,
-      };
-      updateState({
-        model_runs: {
-          ...state.model_runs,
-          boosting_ensemble: newModelRun,
-        }
+  const handleNext = async () => {
+    const currentState = state.ensembleBoosting;
+
+    if (activeStep === 1) {
+      setActiveStep(2);
+      return;
+    }
+
+    if (activeStep === 2) {
+      await updateState({
+        ensembleBoosting: {
+          ...currentState,
+          baseModels: selectedModels,
+          completed: false,
+        },
       });
-      setIsTraining(false);
-    }, 2000);
+      setActiveStep(3);
+      return;
+    }
+
+    if (activeStep === 3 && !currentState.completed && !isTraining) {
+      setIsTraining(true);
+      const baseline = state.ensembleBoosting;
+      setTimeout(async () => {
+        await updateState({
+          ensembleBoosting: {
+            ...baseline,
+            baseModels: selectedModels,
+            completed: true,
+            metrics: { ...MOCK_METRICS },
+          },
+        });
+        setIsTraining(false);
+      }, 1500);
+    }
   };
 
-  const renderConfigScreen = () => (
-    <div className="space-y-8">
-        <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Boosting融合模型</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">选择已完成的基础模型，系统将通过Boosting算法进行序列化训练，提升预测性能。</p>
+  const handleBack = () => {
+    if (activeStep === 1) return;
+    setActiveStep((prev) => Math.max(1, prev - 1));
+  };
+
+  const renderIntro = () => (
+    <div className="space-y-6">
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">Boosting 融合概览</h3>
+        <p className="text-sm text-gray-600 leading-relaxed">
+          Boosting 通过序列化训练多个弱学习器，每一轮聚焦上一轮的误差，逐步提高整体拟合能力。融合预测时，可对基础模型残差进行再学习，提升精度。
+        </p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="font-semibold text-red-700 mb-2">前提条件</p>
+          <p className="text-sm text-red-700">至少两种互补的基础模型已完成训练。</p>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 max-w-2xl mx-auto">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">选择用于融合的基础模型</h3>
-            <div className="space-y-4">
-                {availableBaseModels.map(model => (
-                    <div
-                        key={model.id}
-                        onClick={() => handleModelToggle(model.id)}
-                        className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${selectedModels.includes(model.id) ? "border-red-500 bg-red-50" : "border-gray-200 hover:border-gray-300"}`}
-                    >
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
-                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${selectedModels.includes(model.id) ? "border-red-500 bg-red-500" : "border-gray-300"}`}>
-                                    {selectedModels.includes(model.id) && <CheckCircle className="w-3 h-3 text-white" />}
-                                </div>
-                                <h4 className="font-semibold text-gray-900">{model.name}</h4>
-                            </div>
-                            <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">已完成</span>
-                        </div>
-                    </div>
-                ))}
-            </div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="font-semibold text-red-700 mb-2">优势</p>
+          <p className="text-sm text-red-700">能够逐步减小偏差，提升预测精度。</p>
         </div>
-        <div className="flex justify-center">
-            <button
-                onClick={handleTrainModel}
-                disabled={isTraining || selectedModels.length < 2}
-                className="flex items-center space-x-2 px-8 py-4 bg-red-600 text-white rounded-lg hover:bg-red-700 shadow-lg hover:shadow-xl transition-all text-lg font-semibold disabled:bg-gray-400"
-            >
-                {isTraining ? (
-                    <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>正在训练...</span>
-                    </>
-                ) : (
-                    <>
-                        <Brain className="w-6 h-6" />
-                        <span>运行Boosting模型</span>
-                    </>
-                )}
-            </button>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="font-semibold text-red-700 mb-2">注意事项</p>
+          <p className="text-sm text-red-700">需防止过拟合，合理控制迭代次数与学习率。</p>
         </div>
-        {selectedModels.length < 2 && <p className="text-center text-sm text-gray-500">请至少选择两个模型进行融合。</p>}
+      </div>
     </div>
   );
 
-  const renderResultScreen = () => (
+  const renderSelectionStep = () => (
     <div className="space-y-6">
-        <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Boosting融合 - 预测完成</h2>
-            <p className="text-xl text-gray-600">模型已成功运行并保存结果！</p>
-        </div>
-        <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-            <p className="text-green-800">
-                已完成Boosting融合模型训练 (融合模型: {modelRun.params.base_models?.length}个).
-            </p>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">未来6个月预测结果</h3>
-                <div className="space-y-2">
-                    {MOCK_PREDICTIONS.map((pred) => (
-                        <div key={pred.month} className="flex justify-between p-2 bg-gray-50 rounded">
-                            <span>{pred.month}</span>
-                            <span className="font-semibold text-red-600">{pred.predicted.toLocaleString()}件</span>
-                        </div>
-                    ))}
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">选择用于 Boosting 的基础模型</h3>
+        <p className="text-sm text-gray-600 mb-6">建议选择两个以上模型，系统将按序列进行训练。</p>
+        <div className="space-y-4">
+          {availableBaseModels.map((model) => {
+            const isSelected = selectedModels.includes(model.id);
+            return (
+              <div
+                key={model.id}
+                onClick={() => handleModelToggle(model.id)}
+                className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                  isSelected ? "border-red-500 bg-red-50" : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected ? "border-red-500 bg-red-500" : "border-gray-300"}`}>
+                      {isSelected && <CheckCircle className="w-3 h-3 text-white" />}
+                    </div>
+                    <h4 className="font-semibold text-gray-900">{model.name}</h4>
+                  </div>
+                  <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">已完成</span>
                 </div>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">模型评估指标</h3>
-                <div className="space-y-3">
-                    <div className="flex justify-between items-baseline">
-                        <span className="text-gray-600">MAPE</span>
-                        <span className="text-2xl font-bold text-red-600">{modelRun.metrics?.mape}%</span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                        <span className="text-gray-600">RMSE</span>
-                        <span className="text-2xl font-bold text-red-600">{modelRun.metrics?.rmse}</span>
-                    </div>
-                    <div className="flex justify-between items-baseline">
-                        <span className="text-gray-600">R²</span>
-                        <span className="text-2xl font-bold text-red-600">{modelRun.metrics?.r2}</span>
-                    </div>
-                </div>
-            </div>
+              </div>
+            );
+          })}
         </div>
+        {availableBaseModels.length === 0 && (
+          <p className="text-sm text-gray-500 text-center mt-4">暂无可用基础模型，请先完成至少两个基础模型。</p>
+        )}
+      </div>
     </div>
   );
+
+  const renderTrainingStep = () => (
+    <div className="space-y-6">
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">运行 Boosting 并查看结果</h3>
+        {!modelState.completed && !isTraining && (
+          <p className="text-sm text-gray-600">
+            点击“开始训练并保存结果”后，系统将按序列训练基础模型并调整残差，输出融合指标。
+          </p>
+        )}
+
+        {isTraining && (
+          <div className="flex items-center space-x-3 text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Boosting 训练中，请稍候...</span>
+          </div>
+        )}
+
+        {modelState.completed && !isTraining && (
+          <div className="space-y-4">
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <div>
+                <p className="text-green-800 font-semibold">Boosting 融合已完成并保存。</p>
+                <p className="text-sm text-green-700">参与模型：{modelState.baseModels.length} 个</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
+                <p className="text-2xl font-semibold text-red-700 mt-2">{modelState.metrics.rmse ?? '—'}</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
+                <p className="text-2xl font-semibold text-red-700 mt-2">{modelState.metrics.mae ?? '—'}</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
+                <p className="text-2xl font-semibold text-red-700 mt-2">{modelState.metrics.r2 ?? '—'}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderStepContent = () => {
+    switch (activeStep) {
+      case 1:
+        return renderIntro();
+      case 2:
+        return renderSelectionStep();
+      case 3:
+        return renderTrainingStep();
+      default:
+        return null;
+    }
+  };
+
+  const nextButtonLabel = (() => {
+    if (activeStep === 1) return "下一步：选择基础模型";
+    if (activeStep === 2) return "下一步：运行 Boosting";
+    if (modelState.completed) return "结果已保存";
+    if (isTraining) return "训练中...";
+    return "开始训练并保存结果";
+  })();
+
+  const isNextDisabled =
+    (activeStep === 2 && selectedModels.length < 2) ||
+    (activeStep === 3 && (isTraining || Boolean(modelState.completed)));
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-        {modelRun.completed ? renderResultScreen() : renderConfigScreen()}
+    <div className="bg-gray-50 rounded-xl border border-gray-200">
+      <div className="border-b border-gray-200 bg-white rounded-t-xl p-6">
+        <div className="flex items-center space-x-3 text-sm text-gray-500">
+          <Layers className="w-5 h-5 text-red-600" />
+          <span>Boosting 融合分步指导</span>
+        </div>
+        <h2 className="mt-2 text-2xl font-semibold text-gray-900">Boosting 融合模型</h2>
+        <p className="text-gray-600">按照向导依次完成方法了解、模型选择与融合训练。</p>
+      </div>
+
+      <div className="px-6 pt-6 pb-4 flex flex-col gap-6">
+        <div className="relative">
+          <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 hidden md:block">
+            <div className="h-1 rounded-full bg-gray-200">
+              <div
+                className="h-1 rounded-full bg-gradient-to-r from-red-500 to-green-500 transition-all duration-500"
+                style={{ width: `${((activeStep - 1) / (steps.length - 1)) * 100}%` }}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {steps.map((step) => {
+              const isActive = step.id === activeStep;
+              const isCompleted = step.id < activeStep || (step.id === steps.length && modelState.completed);
+              return (
+                <div
+                  key={step.id}
+                  className={`relative rounded-xl border p-5 transition-all shadow-sm ${
+                    isActive
+                      ? "border-red-500 bg-red-50"
+                      : isCompleted
+                      ? "border-green-500 bg-green-50"
+                      : "border-gray-200 bg-white"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-red-500 text-white" : "bg-gray-200 text-gray-700"}`}>
+                      {step.id}
+                    </div>
+                    {isCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{step.title}</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">{step.description}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {renderStepContent()}
+      </div>
+
+      <div className="bg-white border-t border-gray-200 rounded-b-xl px-6 py-4 flex justify-between items-center">
+        <button
+          onClick={handleBack}
+          disabled={activeStep === 1}
+          className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          上一步
+        </button>
+        <button
+          onClick={handleNext}
+          disabled={isNextDisabled}
+          className={`flex items-center space-x-2 px-6 py-2 rounded-lg text-white ${
+            isNextDisabled
+              ? "bg-gray-400 cursor-not-allowed"
+              : activeStep === 3
+              ? "bg-green-600 hover:bg-green-700"
+              : "bg-red-600 hover:bg-red-700"
+          }`}
+        >
+          <span>{nextButtonLabel}</span>
+        </button>
+      </div>
     </div>
   );
 };

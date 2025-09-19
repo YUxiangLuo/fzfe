@@ -1,12 +1,62 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { User, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
+import { apiClient, resetExperimentState } from "../../../utils/apiClient";
+import { getRoleByBackendValue } from "../../../config/roles";
+
+interface UserSummary {
+  user_id: number;
+  username: string;
+  full_name: string;
+  email: string;
+  role: string;
+  phone_number?: string | null;
+  created_at: string;
+}
 
 const Header: React.FC = () => {
-  const handleLogout = () => {
-    // Implement logout logic here
-    window.location.href = "/";
+  const [user, setUser] = useState<UserSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchProfile = async () => {
+      try {
+        const profile = await apiClient.get<UserSummary>("/users/me");
+        if (!active) return;
+        setUser(profile);
+      } catch (err) {
+        if (!active) return;
+        console.error("Failed to load user profile", err);
+        setError(err instanceof Error ? err.message : "获取用户信息失败");
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchProfile();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await resetExperimentState();
+    } finally {
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }
   };
+
+  const roleDisplay = user
+    ? getRoleByBackendValue(user.role)?.displayName ?? user.role
+    : null;
 
   return (
     <header className="w-full bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50">
@@ -38,8 +88,15 @@ const Header: React.FC = () => {
                 <User className="w-4 h-4 text-blue-600" />
               </div>
               <div className="text-sm">
-                <p className="font-medium text-gray-900">张同学</p>
-                <p className="text-gray-500">学生</p>
+                <p className="font-medium text-gray-900">
+                  {loading ? "正在加载..." : user?.full_name || user?.username || "未知用户"}
+                </p>
+                <p className="text-gray-500">
+                  {loading ? "" : roleDisplay || ""}
+                </p>
+                {error && !loading && (
+                  <p className="text-xs text-red-500 mt-1">{error}</p>
+                )}
               </div>
             </div>
 

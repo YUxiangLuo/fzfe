@@ -41,7 +41,7 @@ const buildUrl = (endpoint: string): string => {
   return base.toString();
 };
 
-const handleResponse = async (response: Response) => {
+const handleResponse = async <T = any>(response: Response): Promise<T> => {
   if (response.status === 401) {
     localStorage.removeItem("token");
     window.location.href = "/login";
@@ -56,14 +56,14 @@ const handleResponse = async (response: Response) => {
     throw new Error(error);
   }
 
-  return data;
+  return data as T;
 };
 
-const request = async (
+const request = async <T = any>(
   endpoint: string,
   options: RequestInit = {},
   isFormData = false,
-) => {
+): Promise<T> => {
   const token = localStorage.getItem("token");
   const headers: HeadersInit = isFormData
     ? {}
@@ -82,32 +82,35 @@ const request = async (
   };
 
   const response = await fetch(buildUrl(endpoint), config);
-  return handleResponse(response);
+  return handleResponse<T>(response);
 };
 
 export const apiClient = {
-  get: (endpoint: string, options?: RequestInit) =>
-    request(endpoint, { ...options, method: "GET" }),
+  get: <T = any>(endpoint: string, options?: RequestInit) =>
+    request<T>(endpoint, { ...options, method: "GET" }),
 
-  post: (endpoint: string, body: unknown, options?: RequestInit) =>
-    request(endpoint, {
+  post: <T = any>(endpoint: string, body: unknown, options?: RequestInit) =>
+    request<T>(endpoint, {
       ...options,
       method: "POST",
       body: JSON.stringify(body),
     }),
 
-  postFormData: (endpoint: string, formData: FormData, options?: RequestInit) =>
-    request(endpoint, { ...options, method: "POST", body: formData }, true),
+  postFormData: <T = any>(
+    endpoint: string,
+    formData: FormData,
+    options?: RequestInit,
+  ) => request<T>(endpoint, { ...options, method: "POST", body: formData }, true),
 
-  put: (endpoint: string, body: unknown, options?: RequestInit) =>
-    request(endpoint, {
+  put: <T = any>(endpoint: string, body: unknown, options?: RequestInit) =>
+    request<T>(endpoint, {
       ...options,
       method: "PUT",
       body: JSON.stringify(body),
     }),
 
-  delete: (endpoint: string, options?: RequestInit) =>
-    request(endpoint, { ...options, method: "DELETE" }),
+  delete: <T = any>(endpoint: string, options?: RequestInit) =>
+    request<T>(endpoint, { ...options, method: "DELETE" }),
 };
 
 import { initialState } from "../views/shiyan/contexts/ExperimentContext";

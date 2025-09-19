@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
 import { TrendingUp, Award, CheckCircle, Star } from 'lucide-react';
@@ -19,25 +19,79 @@ const ResultEvaluation: React.FC = () => {
     }
   };
 
-  const modelDisplayNames: Record<string, string> = {
-    moving_average: '移动平均法',
-    exponential_smoothing: '指数平滑法',
-    arima: 'ARIMA模型',
-    lstm: 'LSTM神经网络',
-    weighted_ensemble: '加权平均融合',
-    boosting_ensemble: 'Boosting融合',
-    stacking_ensemble: 'Stacking融合',
-  };
+  const completedModels = useMemo(() => {
+    const entries = [
+      {
+        id: 'moving_average',
+        name: '移动平均法',
+        completed: state.movingAverage.completed,
+        metrics: state.movingAverage.metrics,
+      },
+      {
+        id: 'exponential_smoothing',
+        name: '指数平滑法',
+        completed: state.exponentialSmoothing.completed,
+        metrics: state.exponentialSmoothing.metrics,
+      },
+      {
+        id: 'arima',
+        name: 'ARIMA模型',
+        completed: state.arima.completed,
+        metrics: state.arima.metrics,
+      },
+      {
+        id: 'lstm',
+        name: 'LSTM神经网络',
+        completed: state.lstm.completed,
+        metrics: state.lstm.metrics,
+      },
+      {
+        id: 'weighted_ensemble',
+        name: '加权平均融合',
+        completed: state.ensembleWeighted.completed,
+        metrics: state.ensembleWeighted.metrics,
+      },
+      {
+        id: 'boosting_ensemble',
+        name: 'Boosting融合',
+        completed: state.ensembleBoosting.completed,
+        metrics: state.ensembleBoosting.metrics,
+      },
+      {
+        id: 'stacking_ensemble',
+        name: 'Stacking融合',
+        completed: state.ensembleStacking.completed,
+        metrics: state.ensembleStacking.metrics,
+      },
+    ];
 
-  const completedModels = Object.entries(state.model_runs)
-    .filter(([, run]) => run.completed)
-    .map(([id, run]) => ({
-      id,
-      name: modelDisplayNames[id] || id,
-      metrics: run.metrics,
-    }));
+    return entries.filter((item) => item.completed);
+  }, [
+    state.movingAverage.completed,
+    state.movingAverage.metrics,
+    state.exponentialSmoothing.completed,
+    state.exponentialSmoothing.metrics,
+    state.arima.completed,
+    state.arima.metrics,
+    state.lstm.completed,
+    state.lstm.metrics,
+    state.ensembleWeighted.completed,
+    state.ensembleWeighted.metrics,
+    state.ensembleBoosting.completed,
+    state.ensembleBoosting.metrics,
+    state.ensembleStacking.completed,
+    state.ensembleStacking.metrics,
+  ]);
 
-  const sortedModels = [...completedModels].sort((a, b) => (a.metrics?.mape || 100) - (b.metrics?.mape || 100));
+  const sortedModels = useMemo(
+    () =>
+      [...completedModels].sort((a, b) => {
+        const aScore = a.metrics.rmse ?? Number.POSITIVE_INFINITY;
+        const bScore = b.metrics.rmse ?? Number.POSITIVE_INFINITY;
+        return aScore - bScore;
+      }),
+    [completedModels],
+  );
 
   return (
     <div className="p-8">
@@ -64,18 +118,18 @@ const ResultEvaluation: React.FC = () => {
                     <div className="flex justify-between items-start">
                         <div>
                             <h3 className="font-semibold text-gray-800 mb-2">{model.name}</h3>
-                            <div className="grid grid-cols-3 gap-4 text-sm">
-                                <div>
-                                <p className="text-gray-600">MAPE</p>
-                                <p className="font-bold text-blue-800">{model.metrics?.mape}%</p>
-                                </div>
+                            <div className="grid grid-cols-4 gap-4 text-sm">
                                 <div>
                                 <p className="text-gray-600">RMSE</p>
-                                <p className="font-bold text-blue-800">{model.metrics?.rmse}</p>
+                                <p className="font-bold text-blue-800">{model.metrics.rmse ?? '—'}</p>
                                 </div>
                                 <div>
                                 <p className="text-gray-600">R²</p>
-                                <p className="font-bold text-blue-800">{model.metrics?.r2}</p>
+                                <p className="font-bold text-blue-800">{model.metrics.r2 ?? '—'}</p>
+                                </div>
+                                <div>
+                                <p className="text-gray-600">MAE</p>
+                                <p className="font-bold text-blue-800">{model.metrics.mae ?? '—'}</p>
                                 </div>
                             </div>
                         </div>
@@ -94,12 +148,17 @@ const ResultEvaluation: React.FC = () => {
 
           {sortedModels.length > 0 && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-6">
-              <h4 className="font-semibold text-green-800 mb-3">🏆 模型性能排名 (按MAPE排序)</h4>
+              <h4 className="font-semibold text-green-800 mb-3">🏆 模型性能排名 (按RMSE排序)</h4>
               <ol className="space-y-2 text-sm text-green-700">
                 {sortedModels.map((model, index) => (
                   <li key={model.id} className="flex items-center space-x-3">
                     <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">{index + 1}</span>
-                    <span>{model.name} ({model.metrics?.mape}%)</span>
+                    <span>
+                      {model.name}
+                      {model.metrics.rmse !== null && (
+                        <span className="ml-2 text-green-600 font-semibold">RMSE: {model.metrics.rmse}</span>
+                      )}
+                    </span>
                     {index === 0 && <Award className="w-5 h-5 text-yellow-500" />}
                   </li>
                 ))}

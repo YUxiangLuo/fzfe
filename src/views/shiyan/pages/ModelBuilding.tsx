@@ -15,6 +15,16 @@ const ModelBuilding: React.FC = () => {
   const navigate = useNavigate();
   const { state, updateState } = useExperiment();
 
+  const completionMap: Record<string, boolean> = {
+    moving_average: Boolean(state.movingAverage.completed),
+    exponential_smoothing: Boolean(state.exponentialSmoothing.completed),
+    arima: Boolean(state.arima.completed),
+    lstm: Boolean(state.lstm.completed),
+    weighted_ensemble: Boolean(state.ensembleWeighted.completed),
+    boosting_ensemble: Boolean(state.ensembleBoosting.completed),
+    stacking_ensemble: Boolean(state.ensembleStacking.completed),
+  };
+
   const models = [
     { id: 'moving_average', name: '移动平均法', path: 'ma', icon: BarChart3, type: 'basic' },
     { id: 'exponential_smoothing', name: '指数平滑法', path: 'es', icon: TrendingUp, type: 'basic' },
@@ -25,15 +35,11 @@ const ModelBuilding: React.FC = () => {
     { id: 'stacking_ensemble', name: 'Stacking融合', path: 'stacking', icon: Brain, type: 'ensemble' },
   ];
 
-  const baseModelsCompletedCount = Object.entries(state.model_runs).filter(([id, run]) => {
-    const modelConfig = models.find(m => m.id === id);
-    return modelConfig && modelConfig.type === 'basic' && run.completed;
-  }).length;
+  const baseModelsCompletedCount = ['moving_average', 'exponential_smoothing', 'arima', 'lstm']
+    .filter((id) => completionMap[id]).length;
 
-  const ensembleModelsCompletedCount = Object.entries(state.model_runs).filter(([id, run]) => {
-    const modelConfig = models.find(m => m.id === id);
-    return modelConfig && modelConfig.type === 'ensemble' && run.completed;
-  }).length;
+  const ensembleModelsCompletedCount = ['weighted_ensemble', 'boosting_ensemble', 'stacking_ensemble']
+    .filter((id) => completionMap[id]).length;
 
   const canAccessEnsemble = baseModelsCompletedCount >= 2;
   const canAccessEvaluation = ensembleModelsCompletedCount >= 1;
