@@ -1,15 +1,15 @@
 openapi: 3.0.3
 info:
-  title: Fangzhen API
-  version: 1.0.0
+  title: Fangzhen Backend API
+  version: 1.1.0
   description: |
     REST API for the Fangzhen virtual experiment platform. All secured routes require
-    a JWT access token obtained from the `/auth/login` endpoint and delivered via the
+    a JWT access token obtained from `/auth/login` and provided through the
     `Authorization: Bearer <token>` header.
 servers:
   - url: https://api.example.com/api
-    description: Production server
-  - url: http://localhost:3000/api
+    description: Production
+  - url: http://localhost:3001/api
     description: Local development
 components:
   securitySchemes:
@@ -17,87 +17,19 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-  parameters:
-    TeacherIdParam:
-      name: teacherId
-      in: path
-      required: true
-      schema:
-        type: integer
-        minimum: 1
-      description: Numeric identifier of the teacher
-    UserIdParam:
-      name: userId
-      in: path
-      required: true
-      schema:
-        type: integer
-        minimum: 1
-      description: Numeric identifier of the user
-    ClassIdParam:
-      name: classId
-      in: path
-      required: true
-      schema:
-        type: integer
-        minimum: 1
-      description: Numeric identifier of the class
-    AssistantIdParam:
-      name: assistantId
-      in: path
-      required: true
-      schema:
-        type: integer
-        minimum: 1
-      description: Numeric identifier of the assistant user
-    DatasetIdParam:
-      name: datasetId
-      in: path
-      required: true
-      schema:
-        type: integer
-        minimum: 1
-      description: Numeric identifier of the dataset
-    ManualIdParam:
-      name: manualId
-      in: path
-      required: true
-      schema:
-        type: integer
-        minimum: 1
-      description: Numeric identifier of the experiment manual
-    ReportIdParam:
-      name: reportId
-      in: path
-      required: true
-      schema:
-        type: integer
-        minimum: 1
-      description: Numeric identifier of the experiment report
-    QuestionIdParam:
-      name: questionId
-      in: path
-      required: true
-      schema:
-        type: integer
-        minimum: 1
-      description: Numeric identifier of the question
-    TeacherIdQuery:
-      name: teacherId
-      in: query
-      required: false
-      schema:
-        type: integer
-        minimum: 1
-      description: Teacher identifier (admin only)
   schemas:
-    ErrorResponse:
+    Error:
       type: object
       properties:
         error:
           type: string
-      required:
-        - error
+      required: [error]
+    Message:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
     LoginRequest:
       type: object
       properties:
@@ -105,16 +37,33 @@ components:
           type: string
         password:
           type: string
-      required:
-        - username
-        - password
+      required: [username, password]
     LoginResponse:
       type: object
       properties:
         token:
           type: string
-      required:
-        - token
+      required: [token]
+    UserSummary:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        username:
+          type: string
+        full_name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        phone_number:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required: [user_id, username, full_name, email, role]
     RegisterUserRequest:
       type: object
       properties:
@@ -136,24 +85,30 @@ components:
         phone_number:
           type: string
           nullable: true
-      required:
-        - username
-        - password
-        - full_name
-        - email
+      required: [username, password, full_name, email]
     AssistantCreateRequest:
-      allOf:
-        - $ref: '#/components/schemas/RegisterUserRequest'
-        - type: object
-          properties:
-            class_ids:
-              type: array
-              items:
-                type: integer
-                minimum: 1
-              minItems: 1
-          required:
-            - class_ids
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          minLength: 6
+        full_name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone_number:
+          type: string
+          nullable: true
+        class_ids:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          minItems: 1
+      required: [username, password, full_name, email, class_ids]
     UpdateUserRequest:
       type: object
       properties:
@@ -173,17 +128,14 @@ components:
         newPassword:
           type: string
           minLength: 6
-      required:
-        - currentPassword
-        - newPassword
+      required: [currentPassword, newPassword]
     AdminResetPasswordRequest:
       type: object
       properties:
         newPassword:
           type: string
           minLength: 6
-      required:
-        - newPassword
+      required: [newPassword]
     PaginationResponse:
       type: object
       properties:
@@ -202,37 +154,25 @@ components:
               type: integer
             totalPages:
               type: integer
-          required:
-            - currentPage
-            - pageSize
-            - totalItems
-            - totalPages
-    UserSummary:
+          required: [currentPage, pageSize, totalItems, totalPages]
+    ClassCreateRequest:
       type: object
       properties:
-        user_id:
-          type: integer
-        username:
+        class_name:
           type: string
-        full_name:
-          type: string
-        email:
-          type: string
-        role:
-          type: string
-        phone_number:
+        class_code:
           type: string
           nullable: true
-        created_at:
+      required: [class_name]
+    ClassUpdateRequest:
+      type: object
+      properties:
+        class_name:
           type: string
-          format: date-time
-      required:
-        - user_id
-        - username
-        - full_name
-        - email
-        - role
-        - created_at
+        class_code:
+          type: string
+          nullable: true
+      description: At least one field must be provided.
     ClassResponse:
       type: object
       properties:
@@ -247,86 +187,65 @@ components:
           type: integer
         teacher_name:
           type: string
-          nullable: true
         created_at:
           type: string
           format: date-time
-      required:
-        - class_id
-        - class_name
-        - teacher_id
-        - created_at
-    ClassCreateRequest:
-      type: object
-      properties:
-        class_name:
-          type: string
-        class_code:
-          type: string
-          nullable: true
-      required:
-        - class_name
-    ClassUpdateRequest:
-      type: object
-      properties:
-        class_name:
-          type: string
-        class_code:
-          type: string
-          nullable: true
-      description: At least one field must be provided.
-    ClassEnrollRequest:
+      required: [class_id, class_name, teacher_id]
+    EnrollClassRequest:
       type: object
       properties:
         class_code:
           type: string
-      required:
-        - class_code
+      required: [class_code]
     AddAssistantRequest:
       type: object
       properties:
         assistant_id:
           type: integer
           minimum: 1
-      required:
-        - assistant_id
-    StepEvent:
+      required: [assistant_id]
+    GradeWeights:
       type: object
       properties:
-        event_id:
+        teacher_id:
           type: integer
-        experiment_id:
-          type: integer
-        student_id:
-          type: integer
-        step_order:
-          type: integer
-          minimum: 1
-        event_type:
-          type: string
-          enum: [STARTED, COMPLETED]
-        event_timestamp:
-          type: string
-          format: date-time
-      required:
-        - event_id
-        - experiment_id
-        - student_id
-        - step_order
-        - event_type
-        - event_timestamp
-    ClassStepEvent:
+        exp_flow:
+          type: number
+        exp_flow_demand_data_preparation:
+          type: number
+        exp_flow_demand_descriptive_stats:
+          type: number
+        exp_flow_demand_model_selection:
+          type: number
+        exp_flow_demand_generate_results:
+          type: number
+        exp_flow_production_inventory_calc:
+          type: number
+        exp_flow_production_service_level:
+          type: number
+        exp_flow_production_variable_calc:
+          type: number
+        exp_flow_production_plan_creation:
+          type: number
+        exp_flow_report_submission:
+          type: number
+        knowledge_test:
+          type: number
+        model_quality:
+          type: number
+        report_quality:
+          type: number
+      additionalProperties: false
+    GradeWeightsRequest:
       allOf:
-        - $ref: '#/components/schemas/StepEvent'
+        - $ref: '#/components/schemas/GradeWeights'
         - type: object
           properties:
-            class_id:
+            teacher_id:
               type: integer
-            username:
-              type: string
-            full_name:
-              type: string
-    ClassReportResponse:
+              minimum: 1
+          required: []
+    ExperimentReport:
       type: object
       properties:
         report_id:
@@ -351,7 +270,6 @@ components:
           nullable: true
         grade:
           type: number
-          format: float
           nullable: true
         feedback:
           type: string
@@ -374,13 +292,7 @@ components:
         selected_product:
           type: string
           nullable: true
-      required:
-        - report_id
-        - experiment_id
-        - student_id
-        - student_username
-        - student_full_name
-    ClassExperimentStatusResponse:
+    ExperimentStatus:
       type: object
       properties:
         experiment_id:
@@ -405,7 +317,6 @@ components:
           nullable: true
         status:
           type: string
-          enum: [Not Started, In Progress, Completed]
         selected_industry:
           type: string
           nullable: true
@@ -418,292 +329,33 @@ components:
         best_model:
           type: string
           nullable: true
-      required:
-        - experiment_id
-        - student_id
-        - student_username
-        - student_full_name
-        - status
-    ClassReportUpdateRequest:
+    ExperimentStepEvent:
       type: object
       properties:
-        grade:
-          type: number
-          minimum: 0
-          maximum: 100
-        feedback:
-          type: string
-          maxLength: 2000
-      description: At least one of `grade` or `feedback` must be supplied.
-    QuestionBankItem:
-      type: object
-      properties:
-        question_id:
-          type: integer
-        knowledge_point:
-          type: string
-          nullable: true
-        question_type:
-          type: string
-          enum: ["Single Choice", "Multiple Choice", "True/False"]
-        question_text:
-          type: string
-        options:
-          oneOf:
-            - type: object
-              additionalProperties:
-                type: string
-            - type: array
-              items:
-                type: string
-          nullable: true
-        correct_answers:
-          type: array
-          items:
-            type: string
-        creator_id:
-          type: integer
-          nullable: true
-        creator_name:
-          type: string
-          nullable: true
-      required:
-        - question_id
-        - question_type
-        - question_text
-        - correct_answers
-    QuestionBankUpdateRequest:
-      type: object
-      properties:
-        knowledge_point:
-          type: string
-        question_type:
-          type: string
-          enum: ["Single Choice", "Multiple Choice", "True/False"]
-        question_text:
-          type: string
-        options:
-          oneOf:
-            - type: object
-              additionalProperties:
-                type: string
-            - type: array
-              items:
-                type: string
-          nullable: true
-        correct_answers:
-          type: array
-          items:
-            type: string
-      description: At least one field must be provided. For True/False questions, answers must be "正确" 或 "错误"。
-    QuestionBankCreateRequest:
-      type: object
-      properties:
-        knowledge_point:
-          type: string
-        question_type:
-          type: string
-          enum: ["Single Choice", "Multiple Choice", "True/False"]
-        question_text:
-          type: string
-        options:
-          oneOf:
-            - type: object
-              additionalProperties:
-                type: string
-            - type: array
-              items:
-                type: string
-          nullable: true
-        correct_answers:
-          type: array
-          items:
-            type: string
-      required:
-        - question_type
-        - question_text
-        - correct_answers
-      description: For True/False questions, correct answers必须为 "正确" 或 "错误"，若未提供选项则使用默认的 ["正确","错误"]。
-    GradeWeightsRequest:
-      type: object
-      properties:
-        exp_flow:
-          type: number
-        exp_flow_demand_data_preparation:
-          type: number
-        exp_flow_demand_descriptive_stats:
-          type: number
-        exp_flow_demand_model_selection:
-          type: number
-        exp_flow_demand_generate_results:
-          type: number
-        exp_flow_production_inventory_calc:
-          type: number
-        exp_flow_production_service_level:
-          type: number
-        exp_flow_production_variable_calc:
-          type: number
-        exp_flow_production_plan_creation:
-          type: number
-        exp_flow_report_submission:
-          type: number
-        knowledge_test:
-          type: number
-        model_quality:
-          type: number
-        report_quality:
-          type: number
-        teacher_id:
-          type: integer
-          minimum: 1
-          description: Admin only
-          nullable: true
-      required:
-        - exp_flow
-        - exp_flow_demand_data_preparation
-        - exp_flow_demand_descriptive_stats
-        - exp_flow_demand_model_selection
-        - exp_flow_demand_generate_results
-        - exp_flow_production_inventory_calc
-        - exp_flow_production_service_level
-        - exp_flow_production_variable_calc
-        - exp_flow_production_plan_creation
-        - exp_flow_report_submission
-        - knowledge_test
-        - model_quality
-        - report_quality
-      description: 实验流程子项之和必须为 100，且 `exp_flow + knowledge_test + model_quality + report_quality = 100`。教师使用自身账号，管理员可指定 teacher_id。
-    GradeWeightsResponse:
-      type: object
-      properties:
-        teacher_id:
-          type: integer
-        exp_flow:
-          type: number
-        exp_flow_demand_data_preparation:
-          type: number
-        exp_flow_demand_descriptive_stats:
-          type: number
-        exp_flow_demand_model_selection:
-          type: number
-        exp_flow_demand_generate_results:
-          type: number
-        exp_flow_production_inventory_calc:
-          type: number
-        exp_flow_production_service_level:
-          type: number
-        exp_flow_production_variable_calc:
-          type: number
-        exp_flow_production_plan_creation:
-          type: number
-        exp_flow_report_submission:
-          type: number
-        knowledge_test:
-          type: number
-        model_quality:
-          type: number
-        report_quality:
-          type: number
-      required:
-        - teacher_id
-        - exp_flow
-        - exp_flow_demand_data_preparation
-        - exp_flow_demand_descriptive_stats
-        - exp_flow_demand_model_selection
-        - exp_flow_demand_generate_results
-        - exp_flow_production_inventory_calc
-        - exp_flow_production_service_level
-        - exp_flow_production_variable_calc
-        - exp_flow_production_plan_creation
-        - exp_flow_report_submission
-        - knowledge_test
-        - model_quality
-        - report_quality
-    ClassLatestExperimentGrade:
-      type: object
-      properties:
-        grade_id:
+        event_id:
           type: integer
         experiment_id:
           type: integer
         student_id:
           type: integer
-        student_username:
-          type: string
-        student_full_name:
-          type: string
-        grader_id:
+        class_id:
           type: integer
-          nullable: true
-        grader_name:
+        step_order:
+          type: integer
+        event_type:
           type: string
-          nullable: true
-        created_at:
+        event_timestamp:
           type: string
           format: date-time
-        exp_flow:
-          type: number
-        exp_flow_demand_data_preparation:
-          type: number
-        exp_flow_demand_descriptive_stats:
-          type: number
-        exp_flow_demand_model_selection:
-          type: number
-        exp_flow_demand_generate_results:
-          type: number
-        exp_flow_production_inventory_calc:
-          type: number
-        exp_flow_production_service_level:
-          type: number
-        exp_flow_production_variable_calc:
-          type: number
-        exp_flow_production_plan_creation:
-          type: number
-        exp_flow_report_submission:
-          type: number
-        knowledge_test:
-          type: number
-        model_quality:
-          type: number
-        report_quality:
-          type: number
-      required:
-        - grade_id
-        - experiment_id
-        - student_id
-        - student_username
-        - student_full_name
-        - created_at
-    ManualUploadRequest:
-      type: object
-      properties:
-        file:
+        username:
           type: string
-          format: binary
-        file_name:
+        full_name:
           type: string
-        description:
-          type: string
-          nullable: true
-      required:
-        - file
-        - file_name
-    ManualUpdateRequest:
-      type: object
-      properties:
-        file_name:
-          type: string
-        description:
-          type: string
-          nullable: true
-        is_active:
-          type: boolean
-    ManualResource:
+    Manual:
       type: object
       properties:
         manual_id:
           type: integer
-          description: Manual identifier
         file_name:
           type: string
         file_path:
@@ -722,26 +374,34 @@ components:
         uploaded_at:
           type: string
           format: date-time
-      required:
-        - manual_id
-        - file_name
-        - file_path
-        - is_active
-        - uploaded_at
-    DatasetUploadRequest:
+      required: [manual_id, file_name, file_path, is_active, uploaded_at]
+    ManualUpdateRequest:
       type: object
       properties:
-        file:
-          type: string
-          format: binary
-        data_name:
+        file_name:
           type: string
         description:
           type: string
           nullable: true
-      required:
-        - file
-        - data_name
+        is_active:
+          type: boolean
+      description: At least one field must be provided.
+    Dataset:
+      type: object
+      properties:
+        dataset_id:
+          type: integer
+        data_name:
+          type: string
+        file_path:
+          type: string
+        description:
+          type: string
+          nullable: true
+        uploaded_at:
+          type: string
+          format: date-time
+      required: [dataset_id, data_name, file_path, uploaded_at]
     DatasetUpdateRequest:
       type: object
       properties:
@@ -750,295 +410,116 @@ components:
         description:
           type: string
           nullable: true
-    ForecastRequest:
-      description: Discriminated union over forecasting methods.
-      oneOf:
-        - $ref: '#/components/schemas/ForecastMovingAverageRequest'
-        - $ref: '#/components/schemas/ForecastExponentialSmoothingRequest'
-        - $ref: '#/components/schemas/ForecastArimaRequest'
-        - $ref: '#/components/schemas/ForecastLstmRequest'
-      discriminator:
-        propertyName: method
-    ForecastMovingAverageRequest:
+      description: At least one field must be provided.
+    QuestionBankItem:
       type: object
       properties:
-        method:
-          type: string
-          enum: [moving_average]
-        product_id:
-          oneOf:
-            - type: string
-            - type: integer
-        forecast_periods:
+        question_id:
           type: integer
-          minimum: 1
-        time_unit:
+        knowledge_point:
           type: string
-        historical_data:
-          type: array
-          items:
-            type: number
-          minItems: 3
-        window_size:
-          type: integer
-          minimum: 1
-      required:
-        - method
-        - forecast_periods
-        - historical_data
-        - window_size
-    ForecastExponentialSmoothingRequest:
-      type: object
-      properties:
-        method:
-          type: string
-          enum: [exponential_smoothing]
-        product_id:
-          oneOf:
-            - type: string
-            - type: integer
-        forecast_periods:
-          type: integer
-          minimum: 1
-        time_unit:
-          type: string
-        historical_data:
-          type: array
-          items:
-            type: number
-          minItems: 3
-        alpha:
-          type: number
-          minimum: 0
-          exclusiveMinimum: true
-          maximum: 1
-      required:
-        - method
-        - forecast_periods
-        - historical_data
-        - alpha
-    ForecastArimaRequest:
-      type: object
-      properties:
-        method:
-          type: string
-          enum: [arima]
-        product_id:
-          oneOf:
-            - type: string
-            - type: integer
-        forecast_periods:
-          type: integer
-          minimum: 1
-        time_unit:
-          type: string
-        historical_data:
-          type: array
-          items:
-            type: number
-          minItems: 8
-        d:
-          type: integer
-          enum: [0, 1, 2]
-      required:
-        - method
-        - forecast_periods
-        - historical_data
-        - d
-    ForecastLstmRequest:
-      type: object
-      properties:
-        method:
-          type: string
-          enum: [lstm]
-        product_id:
-          oneOf:
-            - type: string
-            - type: integer
           nullable: true
-        forecast_periods:
-          type: integer
-          minimum: 1
-        time_unit:
+        question_type:
           type: string
-        data:
-          type: object
-          properties:
-            rows:
-              type: array
-              items:
-                type: object
-                additionalProperties: true
-              minItems: 50
-          required:
-            - rows
-        feature_config:
-          type: object
-          properties:
-            time_column:
-              type: string
-            target:
-              type: string
-            feature_columns:
-              type: array
+        question_text:
+          type: string
+        options:
+          oneOf:
+            - type: array
               items:
                 type: string
-              minItems: 1
-            normalization:
-              type: object
-              properties:
-                method:
-                  type: string
-                  enum: [minmax, zscore]
-              required:
-                - method
-            missing:
-              type: object
-              properties:
-                strategy:
-                  type: string
-                  enum: [ffill, bfill, interpolate, drop]
-            time_features:
-              type: object
-              properties:
-                enable:
-                  type: boolean
-                components:
-                  type: array
-                  items:
-                    type: string
-                    enum: [dow, month, dom, doy]
-                cyclic:
-                  type: boolean
-            categorical:
-              type: object
-              properties:
-                columns:
-                  type: array
-                  items:
-                    type: string
-                encoding:
-                  type: string
-                  enum: [onehot, target]
-          required:
-            - time_column
-            - target
-            - feature_columns
-            - normalization
-      required:
-        - method
-        - data
-        - feature_config
-        - forecast_periods
-    ForecastResponse:
-      type: object
-      properties:
-        product_id:
-          oneOf:
-            - type: string
-            - type: integer
+            - type: object
+              additionalProperties:
+                type: string
             - type: 'null'
-        method:
-          type: string
-        params:
-          type: object
-          nullable: true
-        forecast:
-          type: object
-          properties:
-            horizon:
-              type: integer
-            values:
-              type: array
-              items:
-                type: number
-      required:
-        - method
-        - forecast
-    AdfTestRequest:
-      type: object
-      properties:
-        product_id:
-          oneOf:
-            - type: string
-            - type: integer
-          nullable: true
-        time_series:
-          type: array
-          items:
-            type: number
-          minItems: 8
-        significance_level:
-          type: number
-          default: 0.05
-        max_difference_order:
-          type: integer
-          default: 2
-      required:
-        - time_series
-    DifferenceTestRequest:
-      type: object
-      properties:
-        product_id:
-          oneOf:
-            - type: string
-            - type: integer
-          nullable: true
-        time_series:
-          type: array
-          items:
-            type: number
-          minItems: 8
-        difference_order:
-          type: integer
-          enum: [0, 1, 2]
-        significance_level:
-          type: number
-          default: 0.05
-      required:
-        - time_series
-        - difference_order
-    MetricsRequest:
-      type: object
-      properties:
-        y_true:
-          type: array
-          items:
-            type: number
-          minItems: 1
-        y_pred:
-          type: array
-          items:
-            type: number
-          minItems: 1
-        metrics:
+        correct_answers:
           type: array
           items:
             type: string
-            enum: [rmse, mae, r2]
-        sample_weight:
+        creator_id:
+          type: integer
+          nullable: true
+        creator_name:
+          type: string
+          nullable: true
+      required: [question_id, question_type, question_text, correct_answers]
+    QuestionWithoutAnswers:
+      type: object
+      description: Question payload returned to students without the answer key.
+      properties:
+        question_id:
+          type: integer
+        knowledge_point:
+          type: string
+          nullable: true
+        question_type:
+          type: string
+        question_text:
+          type: string
+        options:
+          oneOf:
+            - type: array
+              items:
+                type: string
+            - type: object
+              additionalProperties:
+                type: string
+            - type: 'null'
+        creator_id:
+          type: integer
+          nullable: true
+        creator_name:
+          type: string
+          nullable: true
+      required: [question_id, question_type, question_text]
+    QuestionCreateRequest:
+      type: object
+      properties:
+        knowledge_point:
+          type: string
+          nullable: true
+        question_type:
+          type: string
+          enum: [Single Choice, Multiple Choice, True/False]
+        question_text:
+          type: string
+        options:
+          oneOf:
+            - type: array
+              items:
+                type: string
+            - type: object
+              additionalProperties:
+                type: string
+        correct_answers:
           type: array
           items:
-            type: number
-        nan_policy:
+            type: string
+          minItems: 1
+      required: [question_type, question_text, correct_answers]
+    QuestionUpdateRequest:
+      type: object
+      properties:
+        knowledge_point:
           type: string
-          enum: [omit, raise]
-          default: omit
-        decimal_places:
-          type: integer
-          minimum: 0
-          maximum: 10
-          default: 4
-      required:
-        - y_true
-        - y_pred
-  responses:
-    Forbidden:
-      description: Access forbidden
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
+        question_type:
+          type: string
+          enum: [Single Choice, Multiple Choice, True/False]
+        question_text:
+          type: string
+        options:
+          oneOf:
+            - type: array
+              items:
+                type: string
+            - type: object
+              additionalProperties:
+                type: string
+        correct_answers:
+          type: array
+          items:
+            type: string
+      description: At least one field must be provided.
 paths:
   /auth/login:
     post:
@@ -1062,70 +543,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /assistants:
-    post:
-      summary: Create an assistant and assign to classes
-      tags: [Assistants]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AssistantCreateRequest'
-      responses:
-        '201':
-          description: Assistant created
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-    get:
-      summary: List assistants
-      tags: [Assistants]
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Assistants list
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UserSummary'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-  /teachers/{teacherId}/assistants:
-    get:
-      summary: List assistants assigned to a teacher's classes
-      tags: [Assistants]
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/TeacherIdParam'
-      responses:
-        '200':
-          description: Assistants linked to teacher
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UserSummary'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: '#/components/schemas/Error'
   /users:
     post:
       summary: Register a new user
@@ -1148,12 +566,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
     get:
-      summary: List users
-      tags: [Users]
+      summary: List users (admin only)
       security:
         - bearerAuth: []
+      tags: [Users]
       parameters:
         - name: page
           in: query
@@ -1170,22 +588,105 @@ paths:
           required: false
       responses:
         '200':
-          description: Paginated users
+          description: Paginated list of users
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginationResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /assistants:
+    post:
+      summary: Create assistant and assign classes
+      security:
+        - bearerAuth: []
+      tags: [Assistants]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssistantCreateRequest'
+      responses:
+        '201':
+          description: Assistant created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        '400':
+          description: Invalid class IDs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List assistants (admin/teacher)
+      security:
+        - bearerAuth: []
+      tags: [Assistants]
+      responses:
+        '200':
+          description: Assistants list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSummary'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /teachers/{teacherId}/assistants:
+    get:
+      summary: Assistants assigned to a teacher's classes
+      security:
+        - bearerAuth: []
+      tags: [Assistants]
+      parameters:
+        - name: teacherId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Assistants linked to teacher
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSummary'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /users/me:
     get:
       summary: Get current user profile
-      tags: [Users]
       security:
         - bearerAuth: []
+      tags: [Users]
       responses:
         '200':
-          description: User information
+          description: Profile information
           content:
             application/json:
               schema:
@@ -1195,12 +696,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
     put:
       summary: Update current user profile
-      tags: [Users]
       security:
         - bearerAuth: []
+      tags: [Users]
       requestBody:
         required: true
         content:
@@ -1209,29 +710,23 @@ paths:
               $ref: '#/components/schemas/UpdateUserRequest'
       responses:
         '200':
-          description: Updated user profile
+          description: Updated profile
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserSummary'
-        '400':
-          description: No fields provided
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: Email already exists
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
   /users/me/password:
     put:
-      summary: Change own password
-      tags: [Users]
+      summary: Change current user password
       security:
         - bearerAuth: []
+      tags: [Users]
       requestBody:
         required: true
         content:
@@ -1244,24 +739,26 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+                $ref: '#/components/schemas/Message'
         '401':
           description: Invalid current password
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
   /users/{userId}:
     get:
       summary: Get user by ID
-      tags: [Users]
       security:
         - bearerAuth: []
+      tags: [Users]
       parameters:
-        - $ref: '#/components/parameters/UserIdParam'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
           description: User information
@@ -1270,23 +767,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserSummary'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: User not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
     delete:
-      summary: Delete user by ID
-      tags: [Users]
+      summary: Delete user by ID (admin)
       security:
         - bearerAuth: []
+      tags: [Users]
       parameters:
-        - $ref: '#/components/parameters/UserIdParam'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
-          description: User deleted
+          description: User deleted with cleanup summary
           content:
             application/json:
               schema:
@@ -1294,28 +800,40 @@ paths:
                 properties:
                   message:
                     type: string
+                  cleanup:
+                    type: object
+                    additionalProperties: true
         '400':
-          description: Cannot delete self
+          description: Invalid operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: User not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
   /users/{userId}/password:
     put:
       summary: Force reset user password (admin)
-      tags: [Users]
       security:
         - bearerAuth: []
+      tags: [Users]
       parameters:
-        - $ref: '#/components/parameters/UserIdParam'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       requestBody:
         required: true
         content:
@@ -1328,30 +846,25 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        '400':
-          description: Invalid request (self-reset)
+                $ref: '#/components/schemas/Message'
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: '#/components/schemas/Error'
         '404':
           description: User not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
   /classes:
     post:
-      summary: Create class
-      tags: [Classes]
+      summary: Create class (teacher/admin)
       security:
         - bearerAuth: []
+      tags: [Classes]
       requestBody:
         required: true
         content:
@@ -1366,21 +879,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/ClassResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          description: Duplicate class code
+          description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Class code already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     get:
-      summary: List all classes (admin only)
-      tags: [Classes]
+      summary: List all classes (admin)
       security:
         - bearerAuth: []
+      tags: [Classes]
       responses:
         '200':
-          description: Classes list
+          description: Classes
           content:
             application/json:
               schema:
@@ -1388,74 +905,87 @@ paths:
                 items:
                   $ref: '#/components/schemas/ClassResponse'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /classes/enroll:
     post:
-      summary: Enroll student into class using code
-      tags: [Classes]
+      summary: Student enrolls using class code
       security:
         - bearerAuth: []
+      tags: [Classes]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ClassEnrollRequest'
+              $ref: '#/components/schemas/EnrollClassRequest'
       responses:
         '200':
-          description: Enrollment created
+          description: Enrollment success
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: '#/components/schemas/Message'
         '404':
           description: Class not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
         '409':
           description: Already enrolled
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
   /classes/{classId}:
     get:
-      summary: Get class details
-      tags: [Classes]
+      summary: Get class detail (role aware)
       security:
         - bearerAuth: []
+      tags: [Classes]
       parameters:
-        - $ref: '#/components/parameters/ClassIdParam'
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
-          description: Class with enrolled students
+          description: Class with members
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: true
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Class not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
     put:
-      summary: Update class information
-      tags: [Classes]
+      summary: Update class
       security:
         - bearerAuth: []
+      tags: [Classes]
       parameters:
-        - $ref: '#/components/parameters/ClassIdParam'
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       requestBody:
         required: true
         content:
@@ -1470,92 +1000,95 @@ paths:
               schema:
                 $ref: '#/components/schemas/ClassResponse'
         '400':
-          description: No fields to update
+          description: No fields provided
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Class not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Duplicate class code
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
     delete:
-      summary: Delete class (teacher or admin)
-      tags: [Classes]
+      summary: Delete class
       security:
         - bearerAuth: []
+      tags: [Classes]
       parameters:
-        - $ref: '#/components/parameters/ClassIdParam'
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
-          description: Class deleted with cleanup summary
+          description: Deletion summary
           content:
             application/json:
               schema:
                 type: object
-                properties:
-                  message:
-                    type: string
-                  cleanup:
-                    type: object
-                    properties:
-                      removedAssistants:
-                        type: integer
-                      removedEnrollments:
-                        type: integer
-                      removedGradeWeights:
-                        type: integer
+                additionalProperties: true
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Class not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /teachers/{teacherId}/classes:
+                $ref: '#/components/schemas/Error'
+  /classes/{classId}/assistants:
     get:
-      summary: List classes created by teacher
-      tags: [Classes]
+      summary: List assistants for class
       security:
         - bearerAuth: []
+      tags: [Classes]
       parameters:
-        - $ref: '#/components/parameters/TeacherIdParam'
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
-          description: Teacher classes
+          description: Assistants list
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ClassResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                  $ref: '#/components/schemas/UserSummary'
         '404':
-          description: Target user not a teacher
+          description: Class not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /classes/{classId}/assistants:
+                $ref: '#/components/schemas/Error'
     post:
-      summary: Assign assistant to class
-      tags: [Classes]
+      summary: Add assistant to class
       security:
         - bearerAuth: []
+      tags: [Classes]
       parameters:
-        - $ref: '#/components/parameters/ClassIdParam'
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       requestBody:
         required: true
         content:
@@ -1568,57 +1101,73 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+                $ref: '#/components/schemas/Message'
         '400':
           description: Not an assistant
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Class not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Assistant already assigned
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      summary: List assistants assigned to class
-      tags: [Classes]
+                $ref: '#/components/schemas/Error'
+  /classes/{classId}/assistants/{assistantId}:
+    delete:
+      summary: Remove assistant from class
       security:
         - bearerAuth: []
+      tags: [Classes]
       parameters:
-        - $ref: '#/components/parameters/ClassIdParam'
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: assistantId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
-          description: Assistants
+          description: Removed
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UserSummary'
+                $ref: '#/components/schemas/Message'
+        '404':
+          description: Assignment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /classes/{classId}/students:
     get:
-      summary: List students in class (teacher or admin)
-      tags: [Classes]
+      summary: List students in class
       security:
         - bearerAuth: []
+      tags: [Classes]
       parameters:
-        - $ref: '#/components/parameters/ClassIdParam'
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
-          description: Students enrolled in the class
+          description: Students list
           content:
             application/json:
               schema:
@@ -1626,20 +1175,30 @@ paths:
                 items:
                   $ref: '#/components/schemas/UserSummary'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Class not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
+  /classes/{classId}/students/{studentId}:
     delete:
       summary: Remove student from class
-      tags: [Classes]
       security:
         - bearerAuth: []
+      tags: [Classes]
       parameters:
-        - $ref: '#/components/parameters/ClassIdParam'
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
         - name: studentId
           in: path
           required: true
@@ -1648,399 +1207,101 @@ paths:
             minimum: 1
       responses:
         '200':
-          description: Student removed from class
+          description: Student removed
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        '403':
-          $ref: '#/components/responses/Forbidden'
+                $ref: '#/components/schemas/Message'
         '404':
           description: Enrollment not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
   /classes/{classId}/reports:
     get:
-      summary: List experiment reports for class students
-      description: Teachers and admins can view all experiment reports submitted by students enrolled in the class.
-      tags: [Classes]
+      summary: List experiment reports for class
       security:
         - bearerAuth: []
+      tags: [Reports]
       parameters:
-        - $ref: '#/components/parameters/ClassIdParam'
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
-          description: Reports authored by students in the class
+          description: Reports
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ClassReportResponse'
+                  $ref: '#/components/schemas/ExperimentReport'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Class not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
   /classes/{classId}/experiment-status:
     get:
-      summary: List experiment status records for class students
-      description: Teachers and admins can review the experiment progress history for every student enrolled in the class.
-      tags: [Classes]
+      summary: Experiment status for class
       security:
         - bearerAuth: []
+      tags: [Experiments]
       parameters:
-        - $ref: '#/components/parameters/ClassIdParam'
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
-          description: Experiment status records for students in the class
+          description: Experiment status list
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ClassExperimentStatusResponse'
+                  $ref: '#/components/schemas/ExperimentStatus'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Class not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
   /classes/{classId}/latest-grades:
     get:
-      summary: List latest experiment grades for class students
-      description: Teachers and admins can view the most recent experiment grading record for each student in the class.
-      tags: [Classes]
+      summary: Latest experiment grades for class
       security:
         - bearerAuth: []
+      tags: [Grades]
       parameters:
-        - $ref: '#/components/parameters/ClassIdParam'
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
-          description: Latest experiment grade per student
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ClassLatestExperimentGrade'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Class not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /grade-weights:
-    get:
-      summary: Get grade weight plan
-      description: Teachers retrieve their own weighting plan; admins may specify `teacherId` to inspect others.
-      tags: [Classes]
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/TeacherIdQuery'
-      responses:
-        '200':
-          description: Grade weight configuration
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GradeWeightsResponse'
-        '400':
-          description: Missing teacherId for admin requests
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Grade weights not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    post:
-      summary: Create grade weight plan
-      description: Teachers create their own weighting plan; admins may create on behalf of a teacher.
-      tags: [Classes]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GradeWeightsRequest'
-      responses:
-        '201':
-          description: Grade weights created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GradeWeightsResponse'
-        '400':
-          description: Validation error or missing teacher_id for admin
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '409':
-          description: Grade weights already exist
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    put:
-      summary: Update grade weight plan
-      description: Teachers update their weighting plan; admins may update on behalf of a teacher.
-      tags: [Classes]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GradeWeightsRequest'
-      responses:
-        '200':
-          description: Updated grade weights
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GradeWeightsResponse'
-        '400':
-          description: Validation error or missing teacher_id for admin
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Grade weights not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /question-bank:
-    get:
-      summary: List all questions in the question bank
-      description: Teachers and admins can fetch the complete question bank, including correct answers and creator info.
-      tags: [Classes]
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Question bank list
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/QuestionBankItem'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-    post:
-      summary: Create question bank item
-      description: Teachers and admins can add new questions to the bank. The creator is recorded automatically.
-      tags: [Classes]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/QuestionBankCreateRequest'
-      responses:
-        '201':
-          description: Question created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QuestionBankItem'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-  /question-bank/{questionId}:
-    put:
-      summary: Update question bank item
-      description: Teachers and admins can modify question text, options, answers, or metadata.
-      tags: [Classes]
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/QuestionIdParam'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/QuestionBankUpdateRequest'
-      responses:
-        '200':
-          description: Updated question
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QuestionBankItem'
-        '400':
-          description: Validation error or no fields provided
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Question not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /reports/{reportId}:
-    put:
-      summary: Grade experiment report
-      description: Teachers and admins can assign grades and feedback to a student's experiment report if the student belongs to one of their classes.
-      tags: [Classes]
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ReportIdParam'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ClassReportUpdateRequest'
-      responses:
-        '200':
-          description: Updated report details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ClassReportResponse'
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Report not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /classes/{classId}/step-events:
-    get:
-      summary: List experiment step events for all students in a class
-      tags: [Classes]
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ClassIdParam'
-      responses:
-        '200':
-          description: Step events for students in the class
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ClassStepEvent'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Class not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /classes/{classId}/assistants/{assistantId}:
-    delete:
-      summary: Remove assistant from class
-      tags: [Classes]
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ClassIdParam'
-        - $ref: '#/components/parameters/AssistantIdParam'
-      responses:
-        '200':
-          description: Assistant removed
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          description: Assignment not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /manuals:
-    post:
-      summary: Upload experiment manual
-      tags: [Manuals]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/ManualUploadRequest'
-      responses:
-        '201':
-          description: Manual created
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-    get:
-      summary: List manuals
-      tags: [Manuals]
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Manuals list
+          description: List of latest grades
           content:
             application/json:
               schema:
@@ -2049,7 +1310,287 @@ paths:
                   type: object
                   additionalProperties: true
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /classes/{classId}/step-events:
+    get:
+      summary: Experiment step events for class
+      security:
+        - bearerAuth: []
+      tags: [Experiments]
+      parameters:
+        - name: classId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Event history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExperimentStepEvent'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /teachers/{teacherId}/classes:
+    get:
+      summary: Classes created by teacher
+      security:
+        - bearerAuth: []
+      tags: [Classes]
+      parameters:
+        - name: teacherId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Class list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClassResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /grade-weights:
+    get:
+      summary: Retrieve grade weights
+      security:
+        - bearerAuth: []
+      tags: [Grades]
+      parameters:
+        - name: teacherId
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Grade weights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeWeights'
+        '400':
+          description: teacherId required for admin
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Create grade weights
+      security:
+        - bearerAuth: []
+      tags: [Grades]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GradeWeightsRequest'
+      responses:
+        '201':
+          description: Created weights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeWeights'
+        '400':
+          description: Missing teacher ID or invalid sums
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update grade weights
+      security:
+        - bearerAuth: []
+      tags: [Grades]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GradeWeightsRequest'
+      responses:
+        '200':
+          description: Updated weights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeWeights'
+        '400':
+          description: Missing teacher ID or invalid sums
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /reports/{reportId}:
+    put:
+      summary: Update experiment report grade/feedback
+      security:
+        - bearerAuth: []
+      tags: [Reports]
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                grade:
+                  type: number
+                feedback:
+                  type: string
+              description: Provide at least one field.
+      responses:
+        '200':
+          description: Updated report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentReport'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /manuals:
+    post:
+      summary: Upload manual (admin)
+      security:
+        - bearerAuth: []
+      tags: [Manuals]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                file_name:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+              required: [file, file_name]
+      responses:
+        '201':
+          description: Manual uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Manual'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      summary: List manuals (admin)
+      security:
+        - bearerAuth: []
+      tags: [Manuals]
+      responses:
+        '200':
+          description: Manual list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Manual'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /manuals/active:
     get:
       summary: Get active manual
@@ -2060,21 +1601,26 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ManualResource'
+                $ref: '#/components/schemas/Manual'
         '404':
           description: No active manual
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
   /manuals/{manualId}:
     put:
-      summary: Update manual metadata
-      tags: [Manuals]
+      summary: Update manual metadata (admin)
       security:
         - bearerAuth: []
+      tags: [Manuals]
       parameters:
-        - $ref: '#/components/parameters/ManualIdParam'
+        - name: manualId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       requestBody:
         required: true
         content:
@@ -2083,121 +1629,159 @@ paths:
               $ref: '#/components/schemas/ManualUpdateRequest'
       responses:
         '200':
-          description: Manual updated
+          description: Updated manual
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/Manual'
         '400':
           description: No fields provided
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Manual not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
     delete:
-      summary: Delete manual
-      tags: [Manuals]
+      summary: Delete manual (admin)
       security:
         - bearerAuth: []
+      tags: [Manuals]
       parameters:
-        - $ref: '#/components/parameters/ManualIdParam'
+        - name: manualId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
           description: Manual deleted
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+                $ref: '#/components/schemas/Message'
         '403':
-          $ref: '#/components/responses/Forbidden'
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Manual not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
   /datasets:
     post:
-      summary: Upload dataset
-      tags: [Datasets]
+      summary: Upload dataset (admin)
       security:
         - bearerAuth: []
+      tags: [Datasets]
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/DatasetUploadRequest'
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                data_name:
+                  type: string
+                description:
+                  type: string
+                  nullable: true
+              required: [file, data_name]
       responses:
         '201':
           description: Dataset created
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/Dataset'
         '400':
-          description: Validation error
+          description: Invalid payload
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Duplicate dataset segments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     get:
       summary: List datasets
-      tags: [Datasets]
       security:
         - bearerAuth: []
+      tags: [Datasets]
       responses:
         '200':
-          description: Datasets list
+          description: Dataset list
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  type: object
-                  additionalProperties: true
+                  $ref: '#/components/schemas/Dataset'
   /datasets/{datasetId}:
     get:
-      summary: Get dataset metadata
-      tags: [Datasets]
+      summary: Get dataset by ID
       security:
         - bearerAuth: []
+      tags: [Datasets]
       parameters:
-        - $ref: '#/components/parameters/DatasetIdParam'
+        - name: datasetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
           description: Dataset
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/Dataset'
         '404':
-          description: Dataset not found
+          description: Not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
     put:
-      summary: Update dataset metadata
-      tags: [Datasets]
+      summary: Update dataset metadata (admin)
       security:
         - bearerAuth: []
+      tags: [Datasets]
       parameters:
-        - $ref: '#/components/parameters/DatasetIdParam'
+        - name: datasetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       requestBody:
         required: true
         content:
@@ -2206,123 +1790,246 @@ paths:
               $ref: '#/components/schemas/DatasetUpdateRequest'
       responses:
         '200':
-          description: Dataset updated
+          description: Updated dataset
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/Dataset'
         '400':
           description: No fields provided
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Dataset not found
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     delete:
-      summary: Delete dataset
+      summary: Delete dataset (admin)
+      security:
+        - bearerAuth: []
       tags: [Datasets]
-      security:
-        - bearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/DatasetIdParam'
+        - name: datasetId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       responses:
         '200':
-          description: Dataset deleted
+          description: Deleted
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
+                $ref: '#/components/schemas/Message'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: Dataset not found
+          description: Not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-  /forecast:
-    post:
-      summary: Generate demand forecast (mocked response)
-      tags: [Forecasting]
+                $ref: '#/components/schemas/Error'
+  /datasets/industries:
+    get:
+      summary: List industries
       security:
         - bearerAuth: []
+      tags: [Datasets]
+      responses:
+        '200':
+          description: Industry names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  /datasets/industries/{industry}/companies:
+    get:
+      summary: List companies by industry
+      security:
+        - bearerAuth: []
+      tags: [Datasets]
+      parameters:
+        - name: industry
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Companies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  /datasets/industries/{industry}/companies/{company}/products:
+    get:
+      summary: List products by industry and company
+      security:
+        - bearerAuth: []
+      tags: [Datasets]
+      parameters:
+        - name: industry
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: company
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  /question-bank:
+    get:
+      summary: List question bank items (admin/teacher)
+      security:
+        - bearerAuth: []
+      tags: [Grades]
+      responses:
+        '200':
+          description: Questions with answers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuestionBankItem'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Create question
+      security:
+        - bearerAuth: []
+      tags: [Grades]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ForecastRequest'
+              $ref: '#/components/schemas/QuestionCreateRequest'
       responses:
-        '200':
-          description: Forecast result
+        '201':
+          description: Question created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ForecastResponse'
-  /tools/adf-test:
-    post:
-      summary: Stationarity test (ADF)
-      tags: [Forecasting]
+                $ref: '#/components/schemas/QuestionBankItem'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /question-bank/random:
+    get:
+      summary: Fetch random question for student (without answers)
       security:
         - bearerAuth: []
+      tags: [Grades]
+      responses:
+        '200':
+          description: Random question
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionWithoutAnswers'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: No questions available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /question-bank/{questionId}:
+    put:
+      summary: Update question bank item
+      security:
+        - bearerAuth: []
+      tags: [Grades]
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AdfTestRequest'
+              $ref: '#/components/schemas/QuestionUpdateRequest'
       responses:
         '200':
-          description: Test outcome
+          description: Updated question
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-  /tools/difference-test:
-    post:
-      summary: Difference order recommendation
-      tags: [Forecasting]
+                $ref: '#/components/schemas/QuestionBankItem'
+        '400':
+          description: No fields provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /model/hello:
+    get:
+      summary: Model service health check
       security:
         - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DifferenceTestRequest'
+      tags: [Models]
       responses:
         '200':
-          description: Difference test
+          description: Placeholder message
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
-  /tools/metrics:
-    post:
-      summary: Evaluate prediction metrics
-      tags: [Forecasting]
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MetricsRequest'
-      responses:
-        '200':
-          description: Metrics output
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/Message'

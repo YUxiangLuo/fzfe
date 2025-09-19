@@ -56,6 +56,13 @@ export interface EnsembleState {
   metrics: ModelMetrics;
 }
 
+export interface DataWindowSelection {
+  trainStartIndex: number | null;
+  trainEndIndex: number | null;
+  predictStartIndex: number | null;
+  predictEndIndex: number | null;
+}
+
 export interface ExperimentState {
   experiment_id: number | null;
   student_id: number | null;
@@ -73,6 +80,7 @@ export interface ExperimentState {
   ensembleBoosting: EnsembleState;
   ensembleStacking: EnsembleState;
   best_model: string | null;
+  dataWindow: DataWindowSelection;
 }
 
 const createEmptyMetrics = (): ModelMetrics => ({ rmse: null, mae: null, r2: null });
@@ -111,6 +119,13 @@ const createInitialEnsemble = (): EnsembleState => ({
   metrics: createEmptyMetrics(),
 });
 
+const createInitialDataWindowSelection = (): DataWindowSelection => ({
+  trainStartIndex: null,
+  trainEndIndex: null,
+  predictStartIndex: null,
+  predictEndIndex: null,
+});
+
 const buildInitialState = (): ExperimentState => ({
   experiment_id: null,
   student_id: null,
@@ -128,6 +143,7 @@ const buildInitialState = (): ExperimentState => ({
   ensembleBoosting: createInitialEnsemble(),
   ensembleStacking: createInitialEnsemble(),
   best_model: null,
+  dataWindow: createInitialDataWindowSelection(),
 });
 
 export const initialState: ExperimentState = buildInitialState();
@@ -146,6 +162,7 @@ const resetLogic: Partial<Record<keyof ExperimentState, (keyof ExperimentState)[
     'ensembleBoosting',
     'ensembleStacking',
     'best_model',
+    'dataWindow',
   ],
   selected_company: [
     'selected_product',
@@ -159,6 +176,7 @@ const resetLogic: Partial<Record<keyof ExperimentState, (keyof ExperimentState)[
     'ensembleBoosting',
     'ensembleStacking',
     'best_model',
+    'dataWindow',
   ],
   selected_product: [
     'highest_completed_step',
@@ -171,6 +189,7 @@ const resetLogic: Partial<Record<keyof ExperimentState, (keyof ExperimentState)[
     'ensembleBoosting',
     'ensembleStacking',
     'best_model',
+    'dataWindow',
   ],
 };
 
@@ -239,6 +258,9 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
             break;
           case 'ensembleStacking':
             newState.ensembleStacking = createInitialEnsemble();
+            break;
+          case 'dataWindow':
+            newState.dataWindow = createInitialDataWindowSelection();
             break;
           default:
             (newState as unknown as Record<string, unknown>)[field as string] =

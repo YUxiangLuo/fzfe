@@ -132,7 +132,6 @@ const ExperimentManualView: React.FC = () => {
   const handleDownload = (filePath: string) => {
     // Extract the filename from the full path (e.g., "/uploads/manuals/file.pdf" -> "file.pdf")
     const filename = filePath.split("/").pop();
-    // Use the configured base URL and the extracted filename to construct the link
     const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/manuals/${filename}`;
     window.open(fullUrl, "_blank");
   };

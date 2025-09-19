@@ -40,6 +40,22 @@ const ARIMAModel: React.FC = () => {
   const { state, updateState } = useExperiment();
   const arimaState = state.arima;
 
+  const baseModelsCompletedCount = [
+    state.movingAverage.completed,
+    state.exponentialSmoothing.completed,
+    state.arima.completed,
+    state.lstm.completed,
+  ].filter(Boolean).length;
+
+  const hasAnyEnsembleCompleted = [
+    state.ensembleWeighted.completed,
+    state.ensembleBoosting.completed,
+    state.ensembleStacking.completed,
+  ].some(Boolean);
+
+  const shouldShowFusionUnlockedNotice =
+    baseModelsCompletedCount >= 2 && !hasAnyEnsembleCompleted;
+
   const adfResults = arimaState.adfStationarity.length > 0 ? arimaState.adfStationarity : MOCK_ADF_RESULTS;
 
   const recommendedD = useMemo(() => {
@@ -270,6 +286,11 @@ const ARIMAModel: React.FC = () => {
                 <p className="text-2xl font-semibold text-blue-700 mt-2">{arimaState.metrics.r2 ?? '—'}</p>
               </div>
             </div>
+            {shouldShowFusionUnlockedNotice && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-800">
+                🎉 已完成至少两个基础模型，融合模型现已解锁！尝试组合不同算法，进一步提升预测表现。
+              </div>
+            )}
           </div>
         )}
       </div>

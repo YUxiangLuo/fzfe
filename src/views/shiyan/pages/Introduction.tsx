@@ -71,7 +71,7 @@ const Introduction: React.FC = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      navigate('/industry');
+      navigate("/industry");
     }
   };
 
@@ -87,11 +87,8 @@ const Introduction: React.FC = () => {
 
   const getDownloadUrl = () => {
     if (!manual || !manual.file_path) return null;
-    // Construct the URL correctly, handling potential double slashes
-    const pathSegment = manual.file_path.substring(
-      manual.file_path.indexOf("/manuals"),
-    );
-    return `${DOWNLOAD_SERVER_BASE_URL.replace(/\/$/, "")}${pathSegment}`;
+    const filename = manual.file_path.split("/").pop();
+    return `${DOWNLOAD_SERVER_BASE_URL}/manuals/${filename}`;
   };
 
   const handleDownloadPDF = () => {

@@ -99,8 +99,8 @@ const ExperimentDataView: React.FC = () => {
   };
 
   const handleDownload = (filePath: string) => {
-    const filename = filePath.split(/[\\/]/).pop();
-    // Corrected: The server is configured to serve the file directly at the root.
+    console.log(filePath);
+    const filename = filePath.split("/").pop();
     const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/datasets/${filename}`;
     window.open(fullUrl, "_blank");
   };

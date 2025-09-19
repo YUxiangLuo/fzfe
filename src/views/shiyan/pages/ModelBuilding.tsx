@@ -1,7 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
-import { Brain, TrendingUp, BarChart3, ArrowRight, Lock } from 'lucide-react';
+import {
+  Brain,
+  TrendingUp,
+  BarChart3,
+  Lock,
+  CalendarRange,
+} from 'lucide-react';
 import MovingAverageModel from './models/MovingAverageModel';
 import ExponentialSmoothingModel from './models/ExponentialSmoothingModel';
 import WeightedEnsembleModel from './models/WeightedEnsembleModel';
@@ -9,6 +15,8 @@ import BoostingEnsembleModel from './models/BoostingEnsembleModel';
 import StackingEnsembleModel from './models/StackingEnsembleModel';
 import LSTMModel from './models/LSTMModel';
 import ARIMAModel from './models/ARIMAModel';
+import { DOWNLOAD_SERVER_BASE_URL } from '../../../config/appConfig';
+import DataWindowSelection from './models/DataWindowSelection';
 
 const ModelBuilding: React.FC = () => {
   const location = useLocation();
@@ -25,6 +33,15 @@ const ModelBuilding: React.FC = () => {
     stacking_ensemble: Boolean(state.ensembleStacking.completed),
   };
 
+  const dataPreparationRoutes = [
+    {
+      id: 'data_window',
+      name: '选择数据时段',
+      path: 'window',
+      icon: CalendarRange,
+    },
+  ] as const;
+
   const models = [
     { id: 'moving_average', name: '移动平均法', path: 'ma', icon: BarChart3, type: 'basic' },
     { id: 'exponential_smoothing', name: '指数平滑法', path: 'es', icon: TrendingUp, type: 'basic' },
@@ -34,6 +51,12 @@ const ModelBuilding: React.FC = () => {
     { id: 'boosting_ensemble', name: 'Boosting融合', path: 'boosting', icon: Brain, type: 'ensemble' },
     { id: 'stacking_ensemble', name: 'Stacking融合', path: 'stacking', icon: Brain, type: 'ensemble' },
   ];
+
+  const hasDataWindowSelection =
+    state.dataWindow.trainStartIndex !== null &&
+    state.dataWindow.trainEndIndex !== null &&
+    state.dataWindow.predictStartIndex !== null &&
+    state.dataWindow.predictEndIndex !== null;
 
   const baseModelsCompletedCount = ['moving_average', 'exponential_smoothing', 'arima', 'lstm']
     .filter((id) => completionMap[id]).length;
@@ -54,20 +77,69 @@ const ModelBuilding: React.FC = () => {
     }
   };
 
+  const RoleIntroPanel = () => (
+    <div className="h-full flex items-center justify-center">
+      <div className="relative w-full max-w-4xl">
+        <img
+          src={`${DOWNLOAD_SERVER_BASE_URL}/images/yuceqingjing.png`}
+          alt="角色扮演情境提示"
+          className="w-full h-auto rounded-2xl shadow-xl object-contain"
+        />
+        <button
+          onClick={() => navigate('/model/window')}
+          className="absolute top-4 right-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md transition-colors"
+        >
+          我已了解，选择数据时段
+        </button>
+      </div>
+    </div>
+  );
+
   const DefaultModelContent = () => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
         <h2 className="text-2xl font-semibold text-gray-900 mb-2">预测模型中心</h2>
-        <p className="text-gray-600 mb-6">请从左侧导航栏中选择一个预测模型开始。您需要先完成至少两个基础模型，才能解锁融合模型。</p>
+        <p className="text-gray-600 mb-6">
+          请先在“选择数据时段”中配置训练与评估区间，随后完成基础模型以解锁融合模型。
+        </p>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-blue-800 mb-3">🎯 您的任务</h3>
           <div className="text-blue-700 space-y-2">
             <p>• <strong>分析市场需求</strong>：基于历史销售数据，预测未来6个月的市场需求。</p>
-            <p>• <strong>选择预测方法</strong>：从多种预测算法中选择最适合的方法，确保预测准确性。</p>
-            <p>• <strong>解锁高级模型</strong>：完成基础模型以解锁更强大的融合模型技术。</p>
+            <p>• <strong>准备数据区间</strong>：先划分训练与评估所需的历史区间，构建可信的测试集。</p>
+            <p>• <strong>选择预测方法</strong>：完成基础模型后解锁更强大的融合模型技术。</p>
           </div>
         </div>
     </div>
   );
+
+  const sanitizedPath = location.pathname.replace(/\/+$/, '');
+  const shouldShowRoleIntro = sanitizedPath === '/model';
+
+  useEffect(() => {
+    if (!hasDataWindowSelection) {
+      const isSetupRoute = sanitizedPath === '/model' || sanitizedPath === '/model/window';
+      if (!isSetupRoute) {
+        navigate('/model/window', { replace: true });
+      }
+    }
+  }, [hasDataWindowSelection, sanitizedPath, navigate]);
+
+  if (shouldShowRoleIntro) {
+    return (
+      <div className="p-8">
+        <div className="w-full">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">步骤 5: 预测模型建立</h1>
+            <p className="text-lg text-gray-600">
+              进入预测模型之前，请先了解您在企业中的角色定位与任务背景。
+            </p>
+          </div>
+
+          <RoleIntroPanel />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -80,31 +152,99 @@ const ModelBuilding: React.FC = () => {
         </div>
 
         <div className="flex gap-8">
-          <div className="w-80 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">基础模型</h2>
-            <p className="text-sm text-gray-500 mb-4">已完成: {baseModelsCompletedCount} / 4</p>
-            <nav className="space-y-2">
-              {models.filter(m => m.type === 'basic').map(model => (
-                <Link key={model.id} to={`/model/${model.path}`} className={`flex items-center space-x-3 p-3 rounded-lg transition-all ${location.pathname.endsWith('/' + model.path) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}>
-                  <model.icon className="w-5 h-5" />
-                  <span>{model.name}</span>
-                </Link>
-              ))}
-            </nav>
+          <div className="w-80 bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">数据准备</h2>
+              <nav className="space-y-2">
+                {dataPreparationRoutes.map((route) => {
+                  const isActive = location.pathname.endsWith('/' + route.path);
+                  const Icon = route.icon;
+                  return (
+                    <Link
+                      key={route.id}
+                      to={`/model/${route.path}`}
+                      className={`flex items-center space-x-3 p-3 rounded-lg transition-all ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span>{route.name}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
 
-            <h2 className="text-lg font-semibold text-gray-900 mb-2 mt-6">融合模型</h2>
-            <p className="text-sm text-gray-500 mb-4">{canAccessEnsemble ? `已完成: ${ensembleModelsCompletedCount} / 3` : '完成2个基础模型后解锁'}</p>
-            <nav className="space-y-2">
-              {models.filter(m => m.type === 'ensemble').map(model => (
-                <Link key={model.id} to={canAccessEnsemble ? `/model/${model.path}` : '#'} className={`flex items-center space-x-3 p-3 rounded-lg transition-all ${!canAccessEnsemble ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : location.pathname.endsWith('/' + model.path) ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}>
-                  <model.icon className="w-5 h-5" />
-                  <span>{model.name}</span>
-                  {!canAccessEnsemble && <Lock className="w-4 h-4 ml-auto" />}
-                </Link>
-              ))}
-            </nav>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">基础模型</h2>
+              <p className="text-sm text-gray-500 mb-4">已完成: {baseModelsCompletedCount} / 4</p>
+              <nav className="space-y-2">
+                {models
+                  .filter((model) => model.type === 'basic')
+                  .map((model) => {
+                    const isActive = location.pathname.endsWith('/' + model.path);
+                    const isDisabled = !hasDataWindowSelection;
+                    const Icon = model.icon;
+                    return isDisabled ? (
+                      <div
+                        key={model.id}
+                        className="flex items-center space-x-3 p-3 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span>{model.name}</span>
+                        <Lock className="w-4 h-4 ml-auto" />
+                      </div>
+                    ) : (
+                      <Link
+                        key={model.id}
+                        to={`/model/${model.path}`}
+                        className={`flex items-center space-x-3 p-3 rounded-lg transition-all ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span>{model.name}</span>
+                      </Link>
+                    );
+                  })}
+              </nav>
+              {!hasDataWindowSelection && (
+                <p className="mt-2 text-xs text-gray-500">
+                  完成数据时段配置后即可解锁基础模型。
+                </p>
+              )}
+            </div>
 
-            <div className="mt-8 pt-6 border-t border-gray-200">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">融合模型</h2>
+              <p className="text-sm text-gray-500 mb-4">{canAccessEnsemble ? `已完成: ${ensembleModelsCompletedCount} / 3` : '完成2个基础模型后解锁'}</p>
+              <nav className="space-y-2">
+                {models
+                  .filter((model) => model.type === 'ensemble')
+                  .map((model) => {
+                    const isActive = location.pathname.endsWith('/' + model.path);
+                    const isDisabled = !canAccessEnsemble;
+                    const Icon = model.icon;
+                    return isDisabled ? (
+                      <div
+                        key={model.id}
+                        className="flex items-center space-x-3 p-3 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span>{model.name}</span>
+                        <Lock className="w-4 h-4 ml-auto" />
+                      </div>
+                    ) : (
+                      <Link
+                        key={model.id}
+                        to={`/model/${model.path}`}
+                        className={`flex items-center space-x-3 p-3 rounded-lg transition-all ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span>{model.name}</span>
+                      </Link>
+                    );
+                  })}
+              </nav>
+            </div>
+
+            <div className="pt-4 border-t border-gray-200">
               <button
                 onClick={handleEvaluationClick}
                 disabled={!canAccessEvaluation}
@@ -121,6 +261,7 @@ const ModelBuilding: React.FC = () => {
 
           <div className="flex-1 min-h-0">
             <Routes>
+              <Route path="window" element={<DataWindowSelection />} />
               <Route index element={<DefaultModelContent />} />
               <Route path="ma" element={<MovingAverageModel />} />
               <Route path="es" element={<ExponentialSmoothingModel />} />

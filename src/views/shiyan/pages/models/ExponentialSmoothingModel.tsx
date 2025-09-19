@@ -14,6 +14,22 @@ const ExponentialSmoothingModel: React.FC = () => {
   const { state, updateState } = useExperiment();
   const modelState = state.exponentialSmoothing;
 
+  const baseModelsCompletedCount = [
+    state.movingAverage.completed,
+    state.exponentialSmoothing.completed,
+    state.arima.completed,
+    state.lstm.completed,
+  ].filter(Boolean).length;
+
+  const hasAnyEnsembleCompleted = [
+    state.ensembleWeighted.completed,
+    state.ensembleBoosting.completed,
+    state.ensembleStacking.completed,
+  ].some(Boolean);
+
+  const shouldShowFusionUnlockedNotice =
+    baseModelsCompletedCount >= 2 && !hasAnyEnsembleCompleted;
+
   const derivedStep = useMemo(() => {
     if (modelState.completed) return 3;
     if (modelState.alpha !== null && modelState.alpha !== undefined) return 3;
@@ -162,6 +178,11 @@ const ExponentialSmoothingModel: React.FC = () => {
                 <p className="text-2xl font-semibold text-orange-700 mt-2">{modelState.metrics.r2 ?? '—'}</p>
               </div>
             </div>
+            {shouldShowFusionUnlockedNotice && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-800">
+                🎉 已完成至少两个基础模型，融合模型现已解锁！尝试组合不同算法，进一步提升预测表现。
+              </div>
+            )}
           </div>
         )}
       </div>
