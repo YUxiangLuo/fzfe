@@ -5,6 +5,7 @@ import {
   updateExperimentState as apiUpdateExperimentState,
   resetExperimentState as apiResetExperimentState,
 } from '../../../utils/apiClient';
+import { apiClient } from '../../../utils/apiClient';
 
 type ExperimentStatus = 'Not Started' | 'In Progress' | 'Completed';
 
@@ -12,6 +13,21 @@ export interface ModelMetrics {
   rmse: number | null;
   mae: number | null;
   r2: number | null;
+}
+
+export interface ProductSalesData {
+  meta: {
+    industry: string;
+    company: string;
+    product: string;
+    name: string;
+    description: string;
+    unit: string;
+  };
+  monthlySales: {
+    month: string;
+    sales: number;
+  }[];
 }
 
 export interface AdfStationarityRow {
@@ -200,6 +216,11 @@ interface ExperimentContextType {
   resetExperiment: () => Promise<void>;
   isStepCompleted: (step: number) => boolean;
   isStepUnlocked: (step: number) => boolean;
+  // New additions for in-memory sales data
+  productSalesData: ProductSalesData | null;
+  isLoadingSales: boolean;
+  salesDataError: string | null;
+  loadProductSalesData: (industry: string, company: string, product: string) => Promise<boolean>;
 }
 
 const ExperimentContext = createContext<ExperimentContextType | undefined>(undefined);
@@ -207,6 +228,11 @@ const ExperimentContext = createContext<ExperimentContextType | undefined>(undef
 export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<ExperimentState>(buildInitialState());
   const [loading, setLoading] = useState(true);
+
+  // In-memory state for sales data, not persisted with the main experiment state
+  const [productSalesData, setProductSalesData] = useState<ProductSalesData | null>(null);
+  const [isLoadingSales, setIsLoadingSales] = useState(false);
+  const [salesDataError, setSalesDataError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchState = async () => {
@@ -225,6 +251,12 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     for (const key of Object.keys(updates) as (keyof ExperimentState)[]) {
       const fieldsToReset = resetLogic[key];
       if (!fieldsToReset) continue;
+
+      // When a selection changes that invalidates sales data, clear it.
+      if (key === 'selected_industry' || key === 'selected_company' || key === 'selected_product') {
+        setProductSalesData(null);
+        setSalesDataError(null);
+      }
 
       for (const field of fieldsToReset) {
         switch (field) {
@@ -283,14 +315,46 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     resetState.experiment_id = 1;
     resetState.student_id = 123;
     setState(resetState);
+    setProductSalesData(null); // Also clear in-memory data on full reset
+    setSalesDataError(null);
   };
 
   const isStepCompleted = (step: number): boolean => state.highest_completed_step >= step;
 
   const isStepUnlocked = (step: number): boolean => step <= state.current_step;
 
+  const loadProductSalesData = async (industry: string, company: string, product: string): Promise<boolean> => {
+    setIsLoadingSales(true);
+    setSalesDataError(null);
+    try {
+      const endpoint = `/datasets/industries/${industry}/companies/${company}/products/${product}/sales`;
+      const data = await apiClient.get<ProductSalesData>(endpoint);
+      setProductSalesData(data);
+      return true;
+    } catch (err: any) {
+      setSalesDataError(err.message || '获取产品销量数据失败');
+      setProductSalesData(null);
+      return false;
+    } finally {
+      setIsLoadingSales(false);
+    }
+  };
+
   return (
-    <ExperimentContext.Provider value={{ state, loading, updateState, resetExperiment, isStepCompleted, isStepUnlocked }}>
+    <ExperimentContext.Provider
+      value={{
+        state,
+        loading,
+        updateState,
+        resetExperiment,
+        isStepCompleted,
+        isStepUnlocked,
+        productSalesData,
+        isLoadingSales,
+        salesDataError,
+        loadProductSalesData,
+      }}
+    >
       {children}
     </ExperimentContext.Provider>
   );

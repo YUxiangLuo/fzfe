@@ -1,15 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext';
-import {
-  getHistoricalDataset,
-  MonthlySalesRecord,
-} from '../../data/historicalDatasets';
 import { AlertTriangle, CalendarRange, CheckCircle2 } from 'lucide-react';
 
 interface RangeSelection {
   startIndex: number | null;
   endIndex: number | null;
+}
+
+interface MonthlySalesRecord {
+  month: string;
+  sales: number;
 }
 
 const isValidRange = (range: RangeSelection) => {
@@ -21,37 +22,33 @@ const buildDefaultRanges = (
   data: MonthlySalesRecord[],
 ): { training: RangeSelection; predict: RangeSelection } | null => {
   const total = data.length;
-  if (total <= 1) {
+  if (total < 2) { // Need at least 2 points to split
     return null;
   }
 
-  let trainingEnd: number;
-  let predictStart: number;
-
-  if (total >= 8) {
-    trainingEnd = Math.max(total - 7, 0);
-    predictStart = trainingEnd + 1;
-  } else if (total >= 4) {
-    const splitIndex = Math.floor(total / 2);
-    trainingEnd = Math.max(splitIndex - 1, 0);
-    predictStart = splitIndex;
-  } else {
-    trainingEnd = 0;
-    predictStart = 1;
-  }
+  // Default to ~70-80% for training, rest for prediction, with a max of 6 for prediction
+  const predictSize = Math.min(6, Math.max(1, Math.floor(total * 0.25)));
+  const trainingEndIndex = total - predictSize - 1;
 
   const training: RangeSelection = {
     startIndex: 0,
-    endIndex: Math.min(trainingEnd, total - 2),
+    endIndex: trainingEndIndex,
   };
 
   const predict: RangeSelection = {
-    startIndex: Math.max(predictStart, training.endIndex! + 1),
+    startIndex: trainingEndIndex + 1,
     endIndex: total - 1,
   };
 
-  if (predict.startIndex > predict.endIndex) {
-    return null;
+  if (!isValidRange(training) || !isValidRange(predict) || training.endIndex < training.startIndex) {
+     // Fallback for very small datasets
+     if (total >= 2) {
+       return {
+         training: { startIndex: 0, endIndex: 0 },
+         predict: { startIndex: 1, endIndex: total - 1 }
+       };
+     }
+     return null;
   }
 
   return { training, predict };
@@ -59,32 +56,40 @@ const buildDefaultRanges = (
 
 const DataWindowSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState } = useExperiment();
+  const { state, updateState, productSalesData } = useExperiment();
 
-  const dataset = useMemo(
-    () =>
-      getHistoricalDataset(
-        state.selected_industry,
-        state.selected_company,
-        state.selected_product,
-      ),
-    [state.selected_company, state.selected_industry, state.selected_product],
-  );
+  const points = productSalesData?.monthlySales ?? [];
+  const meta = productSalesData?.meta;
 
-  const points = dataset.monthlySales;
+  const defaultRanges = useMemo(() => buildDefaultRanges(points), [points]);
+
+  const [trainingRange, setTrainingRange] = useState<RangeSelection>({ startIndex: null, endIndex: null });
+  const [predictRange, setPredictRange] = useState<RangeSelection>({ startIndex: null, endIndex: null });
+
+  useEffect(() => {
+    if (defaultRanges) {
+      setTrainingRange({
+        startIndex: state.dataWindow.trainStartIndex ?? defaultRanges.training.startIndex,
+        endIndex: state.dataWindow.trainEndIndex ?? defaultRanges.training.endIndex,
+      });
+      setPredictRange({
+        startIndex: state.dataWindow.predictStartIndex ?? defaultRanges.predict.startIndex,
+        endIndex: state.dataWindow.predictEndIndex ?? defaultRanges.predict.endIndex,
+      });
+    }
+  }, [defaultRanges, state.dataWindow]);
+
 
   if (points.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">暂无历史销量数据</h2>
         <p className="text-gray-600">
-          当前选定的行业、企业或产品缺少历史销量记录，暂时无法配置训练与评估区间。
+          当前选定的行业、企业或产品缺少历史销量记录，暂时无法配置训练与评估区间。请返回上一步重新选择。
         </p>
       </div>
     );
   }
-
-  const defaultRanges = useMemo(() => buildDefaultRanges(points), [points]);
 
   if (!defaultRanges) {
     return (
@@ -97,21 +102,8 @@ const DataWindowSelection: React.FC = () => {
     );
   }
 
-  const [trainingRange, setTrainingRange] = useState<RangeSelection>(() => ({
-    startIndex:
-      state.dataWindow.trainStartIndex ?? defaultRanges.training.startIndex,
-    endIndex: state.dataWindow.trainEndIndex ?? defaultRanges.training.endIndex,
-  }));
-
-  const [predictRange, setPredictRange] = useState<RangeSelection>(() => ({
-    startIndex:
-      state.dataWindow.predictStartIndex ?? defaultRanges.predict.startIndex,
-    endIndex:
-      state.dataWindow.predictEndIndex ?? defaultRanges.predict.endIndex,
-  }));
-
   const trainingOptions = points.map((record, index) => ({
-    label: `${record.month} (${record.sales.toLocaleString()} ${dataset.meta.unit})`,
+    label: `${record.month} (${record.sales.toLocaleString()} ${meta?.unit ?? ''})`,
     value: index,
   }));
 
@@ -162,7 +154,7 @@ const DataWindowSelection: React.FC = () => {
       <section className="bg-blue-50 border border-blue-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-blue-900 mb-2">当前产品</h3>
         <p className="text-blue-700">
-          {dataset.meta.name} · 单位：{dataset.meta.unit}
+          {meta?.name ?? 'N/A'} · 单位：{meta?.unit ?? 'N/A'}
         </p>
         <p className="text-sm text-blue-600 mt-2">
           数据包含 {points.length} 个月的销量记录，从 {points[0]?.month ?? '—'} 到{' '}
@@ -259,7 +251,7 @@ const DataWindowSelection: React.FC = () => {
           )}
         </div>
 
-        {!isSeparated && (
+        {!isSeparated && isTrainingValid && isPredictValid && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-sm text-yellow-700 flex items-center space-x-2">
             <AlertTriangle className="w-4 h-4" />
             <span>评估区间应当晚于训练区间，以便使用未参与训练的数据验证模型表现。</span>
@@ -269,7 +261,7 @@ const DataWindowSelection: React.FC = () => {
 
       <footer className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 space-y-3 md:space-y-0">
         <div className="text-sm text-gray-500 flex items-center space-x-2">
-          {canSave ? (
+          {canSave && trainingRange.startIndex !== null && predictRange.startIndex !== null ? (
             <>
               <CheckCircle2 className="w-4 h-4 text-green-600" />
               <span>

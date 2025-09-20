@@ -1,117 +1,76 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
-import { Package, Star, TrendingUp, DollarSign, ArrowRight } from 'lucide-react';
-
-const getProductsForCompany = (industry: string | null, company: string | null) => {
-    const productsMap: Record<string, Record<string, any[]>> = {
-      automotive: {
-        xunchi: [
-          { id: 'e-stream', name: '迅驰E-Stream电动SUV', category: '电动SUV', price: '¥28-35万', growth: '+18.5%', rating: 4.7 },
-          { id: 'voltx', name: '迅驰VoltX电动跑车', category: '电动跑车', price: '¥65-80万', growth: '+12.3%', rating: 4.9 },
-          { id: 'ecovan', name: '迅驰EcoVan电动货车', category: '电动货车', price: '¥18-25万', growth: '+25.8%', rating: 4.5 },
-        ],
-        leinuo: [
-          { id: 'hybridstar', name: '雷诺HybridStar混合动力轿车', category: '混合动力轿车', price: '€35-45万', growth: '+15.2%', rating: 4.6 },
-          { id: 'citymate', name: '雷诺CityMate紧凑型电动车', category: '紧凑型电动车', price: '€25-32万', growth: '+20.8%', rating: 4.4 },
-        ],
-      },
-      electronics: {
-        zhixin: [
-          { id: 'smartlens', name: '智芯SmartLens AR眼镜', category: 'AR眼镜', price: '¥3,999', growth: '+35.2%', rating: 4.5 },
-          { id: 'homehub', name: '智芯HomeHub智能家居中心', category: '智能家居', price: '¥1,299', growth: '+28.7%', rating: 4.7 },
-          { id: 'fitband', name: '智芯FitBand Pro健康手环', category: '健康手环', price: '¥399', growth: '+42.1%', rating: 4.6 },
-        ],
-      },
-      apparel: {
-        yunshang: [
-            { id: 'silkdress', name: '云裳真丝连衣裙', category: '连衣裙', price: '¥800-1500', growth: '+19.6%', rating: 4.8 },
-            { id: 'casualtee', name: '云裳竹纤维T恤', category: 'T恤', price: '¥120-200', growth: '+26.4%', rating: 4.5 },
-            { id: 'windcoat', name: '云裳轻薄防风外套', category: '外套', price: '¥300-500', growth: '+22.8%', rating: 4.6 },
-        ]
-      },
-      machinery: {
-        taili: [
-          { id: 'ecodigger', name: '泰力EcoDigger电动挖掘机', category: '挖掘机', price: '€180-250万', growth: '+15.8%', rating: 4.6 },
-          { id: 'smartcrane', name: '泰力SmartCrane智能塔吊', category: '起重机', price: '€320-450万', growth: '+12.3%', rating: 4.7 },
-        ],
-        juyan: [
-          { id: 'megaloader', name: '巨岩MegaLoader重型装载机', category: '装载机', price: '¥280-380万', growth: '+19.2%', rating: 4.5 },
-        ],
-        tiefeng: [
-          { id: 'powerturbine', name: '铁峰PowerTurbine风力发电机', category: '发电机', price: '$80-120万', growth: '+26.7%', rating: 4.5 },
-        ],
-      },
-      food: {
-        lutian: [
-          { id: 'nutribar', name: '绿田NutriBar能量棒', category: '能量棒', price: 'CHF8-12', growth: '+15.3%', rating: 4.6 },
-        ],
-        fenghe: [
-          { id: 'spicynoodle', name: '丰禾SpicyNoodle速食面', category: '速食面', price: '¥8-15', growth: '+28.3%', rating: 4.5 },
-        ],
-        chunwei: [
-          { id: 'veggiechips', name: '纯味VeggieChips蔬菜脆片', category: '脆片', price: 'A$8-12', growth: '+21.5%', rating: 4.5 },
-        ],
-      },
-      beverage: {
-        qingquan: [
-          { id: 'energyspark', name: '清泉EnergySpark功能饮料', category: '功能饮料', price: '¥8-12', growth: '+25.4%', rating: 4.5 },
-        ],
-        bilang: [
-          { id: 'powerboost', name: '碧浪PowerBoost运动饮料', category: '运动饮料', price: '$3-5', growth: '+28.9%', rating: 4.6 },
-        ],
-        yunxi: [
-          { id: 'matchaglow', name: '云溪MatchaGlow抹茶饮料', category: '抹茶饮料', price: '¥12-18', growth: '+26.7%', rating: 4.6 },
-        ],
-      },
-      cleaning: {
-        jingxin: [
-          { id: 'bioclean', name: '净新BioClean清洁喷雾', category: '清洁喷雾', price: '¥25-40', growth: '+23.7%', rating: 4.5 },
-        ],
-        lujie: [
-          { id: 'smartspray', name: '绿洁SmartSpray智能喷雾', category: '智能喷雾', price: '£35-60', growth: '+31.2%', rating: 4.6 },
-        ],
-        qingxin: [
-          { id: 'multiclean', name: '清新MultiClean多用途清洁剂', category: '清洁剂', price: '¥18-30', growth: '+20.6%', rating: 4.5 },
-        ],
-      },
-      cosmetics: {
-        liran: [
-          { id: 'glowserum', name: '丽然GlowSerum精华', category: '精华', price: '€45-80', growth: '+22.5%', rating: 4.7 },
-          { id: 'ecolips', name: '丽然EcoLips唇膏', category: '唇膏', price: '€15-25', growth: '+28.3%', rating: 4.5 },
-          { id: 'puremask', name: '丽然PureMask面膜', category: '面膜', price: '€8-15', growth: '+31.7%', rating: 4.6 },
-        ],
-        qingyan: [
-          { id: 'hydracream', name: '清颜HydraCream保湿霜', category: '保湿霜', price: '¥120-200', growth: '+26.4%', rating: 4.6 },
-          { id: 'silkpowder', name: '清颜SilkPowder散粉', category: '散粉', price: '¥80-120', growth: '+21.7%', rating: 4.5 },
-          { id: 'liptint', name: '清颜LipTint染唇液', category: '染唇液', price: '¥45-80', growth: '+29.3%', rating: 4.7 },
-        ],
-        guangcai: [
-          { id: 'shinecushion', name: '光彩ShineCushion气垫', category: '气垫', price: '₩80-120만', growth: '+32.1%', rating: 4.6 },
-          { id: 'colorpop', name: '光彩ColorPop眼影盘', category: '眼影盘', price: '₩60-100만', growth: '+27.8%', rating: 4.5 },
-        ]
-      }
-    };
-    return productsMap[industry || '']?.[company || ''] || [];
-};
+import { Package, ArrowRight, Loader2 } from 'lucide-react';
+import { apiClient } from '../../../utils/apiClient';
 
 const ProductSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState } = useExperiment();
+  const { state, updateState, loadProductSalesData, isLoadingSales, salesDataError } = useExperiment();
+  const [products, setProducts] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const products = getProductsForCompany(state.selected_industry, state.selected_company);
+  useEffect(() => {
+    let isActive = true;
+
+    const loadProducts = async () => {
+      if (!state.selected_industry || !state.selected_company) {
+        setProducts([]);
+        setError(null);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+      try {
+        const start = performance.now();
+        const response = await apiClient.get<string[]>(
+          `/datasets/industries/${state.selected_industry}/companies/${state.selected_company}/products`,
+        );
+        const end = performance.now();
+        const elapsed = end - start;
+        const remaining = Math.max(0, 1500 - elapsed);
+        await new Promise((resolve) => setTimeout(resolve, remaining));
+        if (isActive) {
+          setProducts(Array.isArray(response) ? response : []);
+        }
+      } catch (err: any) {
+        if (isActive) {
+          setError(err.message || '加载产品列表失败');
+          setProducts([]);
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadProducts();
+    return () => {
+      isActive = false;
+    };
+  }, [state.selected_industry, state.selected_company]);
 
   const handleSelectProduct = (productId: string) => {
     updateState({ selected_product: productId });
   };
 
-  const handleNext = () => {
-    if (state.selected_product) {
-      updateState({ 
+  const handleNext = async () => {
+    if (state.selected_product && state.selected_industry && state.selected_company) {
+      const success = await loadProductSalesData(
+        state.selected_industry,
+        state.selected_company,
+        state.selected_product,
+      );
+      if (success) {
+        updateState({
           highest_completed_step: 3,
           current_step: 4,
-      });
-      navigate('/data');
+        });
+        navigate('/data');
+      }
     }
   };
 
@@ -125,46 +84,67 @@ const ProductSelection: React.FC = () => {
           </p>
         </div>
 
-        <div className="space-y-4 mb-8">
-          {products.map((product) => {
-            const isSelected = state.selected_product === product.id;
-            return (
-              <div
-                key={product.id}
-                onClick={() => handleSelectProduct(product.id)}
-                className={`p-6 rounded-xl border-2 cursor-pointer transition-all hover:shadow-lg ${
-                  isSelected 
-                    ? 'border-blue-500 bg-blue-50 shadow-md' 
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center justify-between">
+        {(!state.selected_industry || !state.selected_company) && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg mb-8">
+            请先完成前两个步骤的选择。
+          </div>
+        )}
+
+        {state.selected_industry && state.selected_company && (
+          <div className="space-y-4 mb-8">
+            {isLoading && (
+              <div className="flex justify-center py-12 text-gray-500">
+                正在加载产品列表...
+              </div>
+            )}
+
+            {!isLoading && error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                {error}
+              </div>
+            )}
+
+            {!isLoading && !error && products.length === 0 && (
+              <div className="col-span-full text-center py-12 border border-dashed border-gray-200 rounded-xl">
+                <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">暂无产品数据</h3>
+                <p className="text-gray-600">该企业的产品信息正在完善中，请稍后再试或选择其他企业。</p>
+              </div>
+            )}
+
+            {!isLoading && !error && products.map((productName) => {
+              const isSelected = state.selected_product === productName;
+              return (
+                <div
+                  key={productName}
+                  onClick={() => handleSelectProduct(productName)}
+                  className={`p-6 rounded-xl border-2 cursor-pointer transition-all hover:shadow-lg ${
+                    isSelected
+                      ? 'border-blue-500 bg-blue-50 shadow-md'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${isSelected ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                            <Package className={`w-6 h-6 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`} />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-semibold text-gray-900">{product.name}</h3>
-                            <div className="flex items-center space-x-4 text-sm text-gray-600 mt-2">
-                                <span>品类: {product.category}</span>
-                                <div className="flex items-center"><Star className="w-4 h-4 text-yellow-400 mr-1" /> {product.rating}</div>
-                                <div className="flex items-center"><DollarSign className="w-4 h-4 text-green-500 mr-1" /> {product.price}</div>
-                                <div className="flex items-center"><TrendingUp className="w-4 h-4 text-blue-500 mr-1" /> {product.growth}</div>
-                            </div>
-                        </div>
+                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${isSelected ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                        <Package className={`w-6 h-6 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`} />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-900">{productName}</h3>
+                        <p className="text-sm text-gray-600 mt-1">点击选择该产品</p>
+                      </div>
                     </div>
                     {isSelected && <ArrowRight className="w-5 h-5 text-blue-600" />}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
-        {products.length === 0 && (
-          <div className="text-center py-12">
-            <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">暂无产品数据</h3>
-            <p className="text-gray-600">该企业的产品信息正在完善中，请选择其他企业。</p>
+        {salesDataError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            {salesDataError}
           </div>
         )}
 
@@ -177,11 +157,17 @@ const ProductSelection: React.FC = () => {
           </button>
           <button
             onClick={handleNext}
-            disabled={!state.selected_product}
-            className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
+            disabled={!state.selected_product || isLoading || !!error || isLoadingSales}
+            className="flex items-center justify-center space-x-2 w-48 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
-            <span>下一步</span>
-            <ArrowRight className="w-5 h-5" />
+            {isLoadingSales ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                <span>下一步</span>
+                <ArrowRight className="w-5 h-5" />
+              </>
+            )}
           </button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
-import { BarChart3, Calendar, Info, ArrowRight } from 'lucide-react';
+import { BarChart3, Calendar, Info, ArrowRight, Loader2, AlertTriangle } from 'lucide-react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -12,25 +12,19 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
-import {
-  getHistoricalDataset,
-  HistoricalDataset,
-  MonthlySalesRecord,
-} from '../data/historicalDatasets';
+import type { MonthlySalesRecord } from '../data/historicalDatasets';
 
 const HistoricalData: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState } = useExperiment();
-  const [selectedPeriod, setSelectedPeriod] = useState('24months');
+  const { state, updateState, productSalesData, isLoadingSales, salesDataError } = useExperiment();
+  const [selectedPeriod, setSelectedPeriod] = useState('all');
 
-  const activeDataset: HistoricalDataset = useMemo(
-    () => getHistoricalDataset(state.selected_industry, state.selected_company, state.selected_product),
-    [state.selected_company, state.selected_industry, state.selected_product],
-  );
-
-  const productInfo = activeDataset.meta;
+  const activeDataset = productSalesData;
+  const monthlySales = activeDataset?.monthlySales ?? [];
+  const totalMonths = monthlySales.length;
 
   const filteredData = useMemo(() => {
+    if (!activeDataset) return [];
     switch (selectedPeriod) {
       case '6months':
         return activeDataset.monthlySales.slice(-6);
@@ -39,7 +33,7 @@ const HistoricalData: React.FC = () => {
       default:
         return activeDataset.monthlySales;
     }
-  }, [activeDataset.monthlySales, selectedPeriod]);
+  }, [activeDataset, selectedPeriod]);
 
   const periodStats = useMemo(() => {
     if (filteredData.length === 0) {
@@ -73,12 +67,47 @@ const HistoricalData: React.FC = () => {
   }, [filteredData]);
 
   const handleNext = () => {
-    updateState({ 
-        highest_completed_step: 4,
-        current_step: 5,
+    updateState({
+      highest_completed_step: 4,
+      current_step: 5,
     });
     navigate('/model');
   };
+
+  if (isLoadingSales) {
+    return (
+      <div className="p-8 flex justify-center items-center h-96">
+        <div className="text-center text-gray-500">
+          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" />
+          <p>正在加载历史销量数据...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (salesDataError) {
+    return (
+      <div className="p-8 max-w-2xl mx-auto">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-center">
+          <h3 className="font-bold">数据加载失败</h3>
+          <p>{salesDataError}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!activeDataset || monthlySales.length === 0) {
+    return (
+      <div className="p-8 max-w-2xl mx-auto">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg text-center">
+          <h3 className="font-bold">暂无数据</h3>
+          <p>未找到该产品的历史销量数据。</p>
+        </div>
+      </div>
+    );
+  }
+
+  const productInfo = activeDataset.meta;
 
   return (
     <div className="p-8">
@@ -94,20 +123,29 @@ const HistoricalData: React.FC = () => {
           </div>
         </div>
 
+        {totalMonths < 24 && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8 flex items-center space-x-3">
+            <AlertTriangle className="w-5 h-5 text-yellow-600" />
+            <p className="text-yellow-800">
+              注意：当前产品数据量为 {totalMonths} 个月，不足 24 个月。数据量较少可能影响长期趋势分析的准确性。
+            </p>
+          </div>
+        )}
+
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-semibold text-gray-900 flex items-center">
               <BarChart3 className="w-6 h-6 mr-3 text-blue-600" />
               月度销量趋势图
             </h2>
-            <select 
+            <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
               className="border border-gray-300 rounded-lg px-4 py-2 bg-white"
             >
-              <option value="24months">近24个月</option>
-              <option value="12months">近12个月</option>
-              <option value="6months">近6个月</option>
+              <option value="all">全部 ({totalMonths}个月)</option>
+              {totalMonths >= 12 && <option value="12months">近12个月</option>}
+              {totalMonths >= 6 && <option value="6months">近6个月</option>}
             </select>
           </div>
           <div className="h-80 bg-gray-50 rounded-lg p-4">

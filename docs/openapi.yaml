@@ -411,6 +411,37 @@ components:
           type: string
           nullable: true
       description: At least one field must be provided.
+    ProductSalesResponse:
+      type: object
+      properties:
+        meta:
+          type: object
+          properties:
+            industry:
+              type: string
+            company:
+              type: string
+            product:
+              type: string
+            name:
+              type: string
+            description:
+              type: string
+            unit:
+              type: string
+          required: [industry, company, product, name, description, unit]
+        monthlySales:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+                description: Year-month in YYYY-MM format
+              sales:
+                type: number
+            required: [month, sales]
+      required: [meta, monthlySales]
     QuestionBankItem:
       type: object
       properties:
@@ -1906,6 +1937,41 @@ paths:
                 type: array
                 items:
                   type: string
+  /datasets/industries/{industry}/companies/{company}/products/{product}/sales:
+    get:
+      summary: Get product sales series from CSV segment
+      security:
+        - bearerAuth: []
+      tags: [Datasets]
+      parameters:
+        - name: industry
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: company
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: product
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product sales series
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductSalesResponse'
+        '404':
+          description: Product segment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /question-bank:
     get:
       summary: List question bank items (admin/teacher)

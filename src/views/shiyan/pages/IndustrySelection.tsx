@@ -1,22 +1,88 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
-import { ArrowRight, Building2, Zap, Leaf, Car, Utensils, Gem, Beaker, Shirt } from 'lucide-react';
+import {
+    ArrowRight,
+    Building2,
+    Zap,
+    Leaf,
+    Car,
+    Utensils,
+    Gem,
+    Beaker,
+    Shirt,
+    Boxes,
+    Factory,
+} from 'lucide-react';
+import { apiClient } from '../../../utils/apiClient';
 
-const industries = [
-    { id: 'electronics', name: '电子', icon: Zap, color: 'text-blue-500', bgColor: 'bg-blue-50' },
-    { id: 'automotive', name: '汽车', icon: Car, color: 'text-gray-500', bgColor: 'bg-gray-50' },
-    { id: 'machinery', name: '机械', icon: Building2, color: 'text-orange-500', bgColor: 'bg-orange-50' },
-    { id: 'food', name: '食品', icon: Utensils, color: 'text-red-500', bgColor: 'bg-red-50' },
-    { id: 'beverage', name: '饮料', icon: Beaker, color: 'text-green-500', bgColor: 'bg-green-50' },
-    { id: 'cosmetics', name: '美妆', icon: Gem, color: 'text-pink-500', bgColor: 'bg-pink-50' },
-    { id: 'cleaning', name: '洗护', icon: Leaf, color: 'text-teal-500', bgColor: 'bg-teal-50' },
-    { id: 'apparel', name: '服装', icon: Shirt, color: 'text-purple-500', bgColor: 'bg-purple-50' },
-];
+// Create a mapping from industry names to specific icons
+const INDUSTRY_ICON_MAP: { [key: string]: React.ElementType } = {
+    '服装': Shirt,
+    '汽车': Car,
+    '电子': Zap,
+    '餐饮': Utensils,
+    '化工': Beaker,
+    '珠宝': Gem,
+    '农业': Leaf,
+    '零售': Boxes,
+    '建筑': Building2,
+    '制造': Factory, // Using a more generic term
+};
+
+// Define a default icon for any industry not in the map
+const DefaultIcon = Factory;
+
+// Helper function to find the correct icon based on keywords
+const getIndustryIcon = (industryName: string): React.ElementType => {
+    for (const keyword in INDUSTRY_ICON_MAP) {
+        if (industryName.includes(keyword)) {
+            return INDUSTRY_ICON_MAP[keyword];
+        }
+    }
+    return DefaultIcon;
+};
+
 
 const IndustrySelection: React.FC = () => {
     const navigate = useNavigate();
     const { state, updateState } = useExperiment();
+    const [industries, setIndustries] = useState<string[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let isActive = true;
+        const fetchIndustries = async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+        const start = performance.now();
+        const result = await apiClient.get<string[]>('/datasets/industries');
+        const end = performance.now();
+        const elapsed = end - start;
+        const remaining = Math.max(0, 1500 - elapsed);
+        await new Promise((resolve) => setTimeout(resolve, remaining));
+        if (isActive) {
+            setIndustries(Array.isArray(result) ? result : []);
+        }
+            } catch (err: any) {
+                if (isActive) {
+                    setError(err.message || '加载行业列表失败');
+                    setIndustries([]);
+                }
+            } finally {
+                if (isActive) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        fetchIndustries();
+        return () => {
+            isActive = false;
+        };
+    }, []);
 
     const handleSelectIndustry = (industryId: string) => {
         // The reset logic is now handled automatically by the updateState function in the context
@@ -45,13 +111,31 @@ const IndustrySelection: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {industries.map((industry) => {
-                        const isSelected = state.selected_industry === industry.id;
-                        const Icon = industry.icon;
+                    {isLoading && (
+                        <div className="col-span-full flex justify-center py-16 text-gray-500">
+                            正在加载行业列表...
+                        </div>
+                    )}
+
+                    {!isLoading && error && (
+                        <div className="col-span-full bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                            {error}
+                        </div>
+                    )}
+
+                    {!isLoading && !error && industries.length === 0 && (
+                        <div className="col-span-full bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg">
+                            暂无行业信息，请稍后重试或联系管理员。
+                        </div>
+                    )}
+
+                    {!isLoading && !error && industries.map((industryName) => {
+                        const isSelected = state.selected_industry === industryName;
+                        const Icon = getIndustryIcon(industryName);
                         return (
                             <div
-                                key={industry.id}
-                                onClick={() => handleSelectIndustry(industry.id)}
+                                key={industryName}
+                                onClick={() => handleSelectIndustry(industryName)}
                                 className={`p-6 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
                                     isSelected
                                         ? 'border-blue-500 bg-blue-50 shadow-lg'
@@ -59,12 +143,12 @@ const IndustrySelection: React.FC = () => {
                                 }`}
                             >
                                 <div className="flex items-center space-x-4">
-                                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${industry.bgColor}`}>
-                                        <Icon className={`w-6 h-6 ${industry.color}`} />
+                                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center bg-blue-50`}>
+                                        <Icon className={`w-6 h-6 text-blue-500`} />
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-semibold text-gray-900">{industry.name}</h3>
-                                        <p className="text-sm text-gray-500">{industry.id}</p>
+                                        <h3 className="text-lg font-semibold text-gray-900">{industryName}</h3>
+                                        <p className="text-sm text-gray-500">点击选择该行业</p>
                                     </div>
                                 </div>
                             </div>
@@ -74,11 +158,13 @@ const IndustrySelection: React.FC = () => {
 
                 <div className="mt-12 flex justify-between items-center">
                     <span className="text-sm text-gray-500">
-                        {state.selected_industry ? `已选择: ${industries.find(i => i.id === state.selected_industry)?.name}` : '请选择一个行业'}
+                        {state.selected_industry
+                            ? `已选择: ${state.selected_industry}`
+                            : '请选择一个行业'}
                     </span>
                     <button
                         onClick={handleNext}
-                        disabled={!state.selected_industry}
+                        disabled={!state.selected_industry || isLoading || !!error}
                         className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all disabled:bg-gray-300 disabled:cursor-not-allowed disabled:shadow-none"
                     >
                         <span>下一步</span>
