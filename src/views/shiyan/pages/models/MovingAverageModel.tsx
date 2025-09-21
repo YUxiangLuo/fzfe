@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { BarChart3, CheckCircle, Loader2 } from "lucide-react";
+import { BarChart3, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
 import { useExperiment } from "../../contexts/ExperimentContext";
-
-const MOCK_METRICS = { rmse: 4.6, mae: 2.9, r2: 0.88 };
+import { apiClient } from "../../../../utils/apiClient";
 
 const steps = [
   { id: 1, title: "方法简介", description: "了解移动平均法的基本概念及其适用场景。" },
@@ -13,6 +12,17 @@ const steps = [
 const MovingAverageModel: React.FC = () => {
   const { state, updateState } = useExperiment();
   const modelState = state.movingAverage;
+
+  const getInitialStep = () => {
+    if (modelState.completed) return 3;
+    if (modelState.window !== null) return 2;
+    return 1;
+  };
+
+  const [activeStep, setActiveStep] = useState(getInitialStep);
+  const [windowSize, setWindowSize] = useState(modelState.window ?? 3);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const baseModelsCompletedCount = [
     state.movingAverage.completed,
@@ -30,65 +40,98 @@ const MovingAverageModel: React.FC = () => {
   const shouldShowFusionUnlockedNotice =
     baseModelsCompletedCount >= 2 && !hasAnyEnsembleCompleted;
 
-  const derivedStep = useMemo(() => {
-    if (modelState.completed) return 3;
-    if (modelState.window !== null && modelState.window !== undefined) return 3;
-    return 1;
-  }, [modelState.completed, modelState.window]);
-
-  const [activeStep, setActiveStep] = useState(derivedStep);
-  const [windowSize, setWindowSize] = useState(modelState.window ?? 3);
-  const [isCalculating, setIsCalculating] = useState(false);
-
   useEffect(() => {
-    setActiveStep(derivedStep);
-  }, [derivedStep]);
-
-  useEffect(() => {
-    if (modelState.window !== null && modelState.window !== undefined) {
+    if (modelState.window !== null) {
       setWindowSize(modelState.window);
     }
   }, [modelState.window]);
 
-  const handleNext = async () => {
-    if (activeStep === 1) {
-      setActiveStep(2);
-      return;
+  const handleWindowChange = (newWindowSize: number) => {
+    setWindowSize(newWindowSize);
+    if (modelState.completed) {
+      updateState({
+        movingAverage: {
+          ...modelState,
+          window: newWindowSize, // also update window here
+          completed: false,
+          metrics: { rmse: null, mae: null, r2: null },
+        },
+      });
     }
+  };
 
-    if (activeStep === 2) {
+  const handleCalculate = async () => {
+    if (isCalculating) return;
+
+    setIsCalculating(true);
+    setError(null);
+
+    try {
+      // Ensure the latest window size from local state is in global state
       await updateState({
         movingAverage: {
           ...modelState,
-          completed: false,
           window: windowSize,
-          metrics: modelState.metrics,
+          completed: false,
+        },
+      });
+
+      const requestBody = {
+        selected_industry: state.selected_industry,
+        selected_company: state.selected_company,
+        selected_product: state.selected_product,
+        movingAverage: {
+          window: windowSize,
+        },
+        data_window: state.dataWindow,
+      };
+
+      const response = await apiClient.post<{
+        status: string;
+        results: { metrics: { rmse: number; mae: number; r2: number } };
+      }>("/model/moving-average/train", requestBody);
+
+      if (response.status === "success") {
+        await updateState({
+          movingAverage: {
+            ...state.movingAverage,
+            window: windowSize,
+            metrics: response.results.metrics,
+            completed: true,
+          },
+        });
+      } else {
+        throw new Error("模型计算返回失败状态");
+      }
+    } catch (err: any) {
+      setError(err.message || "计算过程中发生未知错误");
+      // No need to rollback state here, as completed was already set to false
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
+  const handleNext = async () => {
+    if (activeStep === 1) {
+      setActiveStep(2);
+    } else if (activeStep === 2) {
+      // Save the current window size to global state and move to the next step
+      await updateState({
+        movingAverage: {
+          ...modelState,
+          window: windowSize,
         },
       });
       setActiveStep(3);
-      return;
-    }
-
-    if (activeStep === 3 && !modelState.completed && !isCalculating) {
-      setIsCalculating(true);
-      const baseline = state.movingAverage;
-      setTimeout(async () => {
-        await updateState({
-          movingAverage: {
-            ...baseline,
-            completed: true,
-            window: windowSize,
-            metrics: { ...MOCK_METRICS },
-          },
-        });
-        setIsCalculating(false);
-      }, 1200);
+    } else if (activeStep === 3) {
+      handleCalculate();
     }
   };
 
   const handleBack = () => {
-    if (activeStep === 1) return;
-    setActiveStep((prev) => Math.max(1, prev - 1));
+    if (activeStep > 1) {
+      setActiveStep((prev) => prev - 1);
+    }
   };
 
   const renderIntro = () => (
@@ -129,7 +172,7 @@ const MovingAverageModel: React.FC = () => {
           min="2"
           max="12"
           value={windowSize}
-          onChange={(e) => setWindowSize(Number(e.target.value))}
+          onChange={(e) => handleWindowChange(Number(e.target.value))}
           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
         />
         <p className="text-xs text-gray-500 mt-2">提示：窗口越大，结果越平滑，但对最新变化的响应更慢。</p>
@@ -143,7 +186,7 @@ const MovingAverageModel: React.FC = () => {
         <h3 className="text-xl font-semibold text-gray-900 mb-4">运行模型并查看结果</h3>
         {!modelState.completed && !isCalculating && (
           <p className="text-sm text-gray-600">
-            点击“开始计算并保存结果”后，系统将使用窗口大小 {windowSize} 个月的移动平均，输出误差指标帮助你评估模型效果。
+            点击“开始计算”后，系统将使用窗口大小 {modelState.window ?? windowSize} 个月的移动平均，输出误差指标帮助你评估模型效果。
           </p>
         )}
 
@@ -154,7 +197,17 @@ const MovingAverageModel: React.FC = () => {
           </div>
         )}
 
-        {modelState.completed && !isCalculating && (
+        {error && !isCalculating && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <div>
+              <p className="text-red-800 font-semibold">计算失败</p>
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {modelState.completed && !isCalculating && !error && (
           <div className="space-y-4">
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3">
               <CheckCircle className="w-5 h-5 text-green-600" />
@@ -204,14 +257,12 @@ const MovingAverageModel: React.FC = () => {
   const nextButtonLabel = (() => {
     if (activeStep === 1) return "下一步：设置窗口";
     if (activeStep === 2) return "下一步：运行模型";
-    if (modelState.completed) return "结果已保存";
+    if (modelState.completed) return "重新计算";
     if (isCalculating) return "计算中...";
-    return "开始计算并保存结果";
+    return "开始计算";
   })();
 
-  const isNextDisabled =
-    (activeStep === 2 && windowSize < 2) ||
-    (activeStep === 3 && (isCalculating || Boolean(modelState.completed)));
+  const isNextDisabled = isCalculating;
 
   return (
     <div className="bg-gray-50 rounded-xl border border-gray-200">
@@ -277,14 +328,15 @@ const MovingAverageModel: React.FC = () => {
         <button
           onClick={handleNext}
           disabled={isNextDisabled}
-          className={`flex items-center space-x-2 px-6 py-2 rounded-lg text-white ${
+          className={`flex items-center justify-center w-40 space-x-2 px-6 py-2 rounded-lg text-white ${
             isNextDisabled
               ? "bg-gray-400 cursor-not-allowed"
-              : activeStep === 3
-              ? "bg-green-600 hover:bg-green-700"
-              : "bg-blue-600 hover:bg-blue-700"
+              : modelState.completed
+              ? "bg-blue-600 hover:bg-blue-700"
+              : "bg-green-600 hover:bg-green-700"
           }`}
         >
+          {isCalculating && <Loader2 className="w-5 h-5 animate-spin" />}
           <span>{nextButtonLabel}</span>
         </button>
       </div>
