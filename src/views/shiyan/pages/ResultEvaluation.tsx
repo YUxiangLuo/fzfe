@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
-import { TrendingUp, Award, CheckCircle, Star } from 'lucide-react';
+import { TrendingUp, Award, CheckCircle, Star, BookOpenCheck } from 'lucide-react';
 
 const ResultEvaluation: React.FC = () => {
   const navigate = useNavigate();
@@ -9,13 +9,17 @@ const ResultEvaluation: React.FC = () => {
   const [selectedBestModel, setSelectedBestModel] = useState<string | null>(state.best_model);
 
   const handleNext = () => {
-    if (selectedBestModel) {
+    if (!selectedBestModel) return;
+
+    if (state.quiz_about_model_completed) {
+      navigate('/production');
+    } else {
       updateState({ 
           highest_completed_step: 6,
           current_step: 7,
           best_model: selectedBestModel,
       });
-      navigate('/production');
+      navigate('/quiz');
     }
   };
 
@@ -179,8 +183,17 @@ const ResultEvaluation: React.FC = () => {
             disabled={!selectedBestModel}
             className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md transition-all disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            <span>下一步：制定生产计划</span>
-            <CheckCircle className="w-5 h-5" />
+            {state.quiz_about_model_completed ? (
+              <>
+                <span>下一步：制定生产计划</span>
+                <CheckCircle className="w-5 h-5" />
+              </>
+            ) : (
+              <>
+                <span>选定最佳模型，进入测验</span>
+                <BookOpenCheck className="w-5 h-5" />
+              </>
+            )}
           </button>
         </div>
       </div>

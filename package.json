@@ -9,6 +9,8 @@
     "build": "bun run build.ts"
   },
   "dependencies": {
+    "@tiptap/react": "^3.4.6",
+    "@tiptap/starter-kit": "^3.4.6",
     "bun-plugin-tailwind": "^0.0.15",
     "lucide-react": "^0.541.0",
     "react": "^19",

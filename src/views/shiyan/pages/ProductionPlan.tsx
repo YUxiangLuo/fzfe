@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
 import { Calendar, CheckCircle, Factory, Truck, AlertTriangle, ArrowRight, Calculator, Target, TrendingUp, Package, FileText, BarChart3 } from 'lucide-react';
 
 const ProductionPlan: React.FC = () => {
+  const navigate = useNavigate();
   const location = useLocation();
   const { updateState, state } = useExperiment();
   const [currentSubStep, setCurrentSubStep] = useState(1);
@@ -25,11 +26,16 @@ const ProductionPlan: React.FC = () => {
     if (stepId < 6) {
       setCurrentSubStep(stepId + 1);
     } else {
-      // 完成所有子步骤，完成整个生产计划步骤
-      updateState({
-        highest_completed_step: Math.max(state.highest_completed_step, 7),
-        current_step: 7,
-      });
+      // Last sub-step completed, check for quiz
+      if (state.quiz_about_plan_completed) {
+        navigate('/report');
+      } else {
+        updateState({
+          highest_completed_step: 7, // Mark step 7 (production plan) as completed
+          current_step: 8, // Unlock step 8 (report)
+        });
+        navigate('/quiz-plan');
+      }
     }
   };
 
@@ -63,63 +69,54 @@ const ProductionPlan: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center space-x-4 mb-6">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                <FileText className="w-8 h-8 text-blue-600" />
+                <Factory className="w-8 h-8 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-semibold text-gray-900">生产计划制定总概述</h2>
-                <p className="text-blue-600 font-medium">了解生产计划制定的整体流程和关键要素</p>
+                <h2 className="text-2xl font-semibold text-gray-900">企业大脑：主生产计划 (MPS)</h2>
+                <p className="text-blue-600 font-medium">探索企业如何平衡客户需求与生产能力</p>
               </div>
             </div>
             
             <div className="space-y-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-blue-800 mb-4">生产计划制定流程</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-medium text-blue-700 mb-3">核心步骤</h4>
-                    <ul className="space-y-2 text-blue-600 text-sm">
-                      <li>• 分析需求预测结果</li>
-                      <li>• 确定生产变量参数</li>
-                      <li>• 计算目标服务水平</li>
-                      <li>• 制定生产数量计划</li>
-                      <li>• 优化资源投入配置</li>
-                      <li>• 生成完整执行方案</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-blue-700 mb-3">关键考虑因素</h4>
-                    <ul className="space-y-2 text-blue-600 text-sm">
-                      <li>• 生产能力约束</li>
-                      <li>• 库存成本控制</li>
-                      <li>• 客户服务水平</li>
-                      <li>• 原材料供应</li>
-                      <li>• 季节性需求波动</li>
-                      <li>• 市场不确定性</li>
-                    </ul>
-                  </div>
-                </div>
+                <h3 className="text-lg font-semibold text-blue-800 mb-3">🎯 什么是主生产计划 (Master Production Schedule)？</h3>
+                <p className="text-blue-700">
+                  主生产计划 (MPS) 是连接企业战略目标与生产执行的桥梁。它是一个详细的计划，明确说明了在特定时间段内，<strong>需要生产哪些最终产品</strong>、<strong>生产多少</strong>以及<strong>何时生产</strong>。MPS 不是一个简单的销售预测，而是一个综合考虑了市场需求、现有订单、库存水平和生产能力的切实可行的生产指令。
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-green-800 mb-2">预测输入</h4>
-                  <p className="text-green-700 text-sm">基于LSTM模型的需求预测结果，为生产计划提供数据基础</p>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-800 mb-2">核心输入1：需求预测</h4>
+                  <p className="text-gray-700 text-sm">基于您选择的最佳模型（如LSTM）预测的未来市场需求量。</p>
                 </div>
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-orange-800 mb-2">约束条件</h4>
-                  <p className="text-orange-700 text-sm">生产能力、库存限制、成本预算等现实约束条件</p>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-800 mb-2">核心输入2：生产能力</h4>
+                  <p className="text-gray-700 text-sm">包括设备产能、人力资源和原材料供应等现实约束条件。</p>
                 </div>
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-purple-800 mb-2">优化目标</h4>
-                  <p className="text-purple-700 text-sm">最小化总成本，同时满足客户需求和服务水平要求</p>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-800 mb-2">核心输入3：库存策略</h4>
+                  <p className="text-gray-700 text-sm">期望的期末库存水平、安全库存量以及库存持有成本。</p>
                 </div>
+              </div>
+
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-green-800 mb-3">💡 为什么 MPS 至关重要？</h3>
+                <ul className="space-y-2 text-green-700 text-sm list-disc list-inside">
+                  <li><strong>稳定生产</strong>：避免因需求波动导致生产线频繁启停，提高生产效率。</li>
+                  <li><strong>控制库存</strong>：防止库存积压或缺货，优化现金流，降低仓储成本。</li>
+  
+                <li><strong>提升客户满意度</strong>：确保按时交付订单，提高企业信誉。</li>
+                  <li><strong>指导物料采购</strong>：为物料需求计划 (MRP) 提供准确的输入，确保原材料及时到位。</li>
+                </ul>
               </div>
 
               <button
                 onClick={() => handleCompleteSubStep(1)}
-                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all font-medium"
+                className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all font-medium"
               >
-                开始制定生产计划
+                <span>下一步：计算生产变量</span>
+                <ArrowRight className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -134,89 +131,67 @@ const ProductionPlan: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-semibold text-gray-900">计算生产变量</h2>
-                <p className="text-green-600 font-medium">确定生产计划中的关键变量参数</p>
+                <p className="text-green-600 font-medium">理解生产计划的核心平衡公式</p>
               </div>
             </div>
             
             <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="space-y-6">
-                  <div className="bg-gray-50 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">生产能力参数</h3>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">日产能力</span>
-                        <span className="font-semibold text-gray-900">800台/天</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">月工作日</span>
-                        <span className="font-semibold text-gray-900">22天</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">产能利用率</span>
-                        <span className="font-semibold text-green-600">85%</span>
-                      </div>
-                      <div className="flex justify-between items-center border-t pt-2">
-                        <span className="text-gray-600 font-medium">月最大产能</span>
-                        <span className="font-bold text-gray-900">14,960台</span>
-                      </div>
-                    </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-green-800 mb-3">四大核心生产变量</h3>
+                <p className="text-green-700 mb-4">
+                  一个成功的生产计划，本质上是在以下四个关键变量之间寻求最佳平衡。
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white p-4 rounded-lg border border-green-200">
+                    <h4 className="font-semibold text-green-900">① 预测需求量 (Demand)</h4>
+                    <p className="text-sm text-green-800">您通过数据模型预测出的、未来市场可能需要的产品数量。</p>
                   </div>
-
-                  <div className="bg-gray-50 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">成本参数</h3>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">单位生产成本</span>
-                        <span className="font-semibold text-gray-900">¥850/台</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">库存持有成本</span>
-                        <span className="font-semibold text-gray-900">¥25/台/月</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">缺货成本</span>
-                        <span className="font-semibold text-red-600">¥120/台</span>
-                      </div>
-                    </div>
+                  <div className="bg-white p-4 rounded-lg border border-green-200">
+                    <h4 className="font-semibold text-green-900">② 计划产出量 (Production)</h4>
+                    <p className="text-sm text-green-800">我们根据需求和产能，主动决定要生产的产品数量。</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-green-200">
+                    <h4 className="font-semibold text-green-900">③ 库存量 (Inventory)</h4>
+                    <p className="text-sm text-green-800">仓库中现有的产品数量，是连接生产与销售的缓冲带。</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-green-200">
+                    <h4 className="font-semibold text-green-900">④ 缺货量 (Shortage)</h4>
+                    <p className="text-sm text-green-800">当库存和产出无法满足需求时，产生的供应缺口。</p>
                   </div>
                 </div>
+              </div>
 
-                <div className="space-y-6">
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-green-800 mb-4">变量计算结果</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="font-medium text-green-700 mb-2">生产弹性系数</h4>
-                        <div className="bg-white rounded p-3">
-                          <div className="text-2xl font-bold text-green-600">1.15</div>
-                          <p className="text-sm text-green-600">考虑需求波动的安全系数</p>
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-green-700 mb-2">最优批量大小</h4>
-                        <div className="bg-white rounded p-3">
-                          <div className="text-2xl font-bold text-green-600">2,400台</div>
-                          <p className="text-sm text-green-600">基于EOQ模型计算</p>
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-green-700 mb-2">提前期</h4>
-                        <div className="bg-white rounded p-3">
-                          <div className="text-2xl font-bold text-green-600">15天</div>
-                          <p className="text-sm text-green-600">从原料到成品的总时间</p>
-                        </div>
-                      </div>
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">库存平衡公式</h3>
+                <p className="text-gray-600 mb-4">
+                  这四个变量通过一个基础的库存平衡公式紧密联系在一起，这是制定任何生产计划的基石：
+                </p>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-lg font-mono text-gray-800">
+                    <span className="font-bold text-blue-600">期末库存</span> = 
+                    <span className="text-gray-600"> 期初库存</span> + 
+                    <span className="font-bold text-green-600"> 计划产出</span> - 
+                    <span className="font-bold text-red-600"> 预测需求</span>
+                  </p>
+                </div>
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                        <p className="font-semibold text-blue-800">如果 <strong>期末库存 ≥ 0</strong></p>
+                        <p className="text-blue-700">恭喜，库存足以满足需求，没有缺货。期末库存值就是月底仓库里剩余的产品数量。</p>
                     </div>
-                  </div>
+                    <div className="bg-red-50 p-3 rounded-lg">
+                        <p className="font-semibold text-red-800">如果 <strong>期末库存 &lt; 0</strong></p>
+                        <p className="text-red-700">注意，产生了缺货！缺货量就是期末库存的绝对值。例如，-50就代表缺货50件。</p>
+                    </div>
                 </div>
               </div>
 
               <button
                 onClick={() => handleCompleteSubStep(2)}
-                className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md hover:shadow-lg transition-all font-medium"
+                className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md hover:shadow-lg transition-all font-medium"
               >
-                确认生产变量，进入下一步
+                <span>我已理解，开始计算服务水平</span>
+                <ArrowRight className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -226,89 +201,62 @@ const ProductionPlan: React.FC = () => {
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center space-x-4 mb-6">
-              <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
-                <Target className="w-8 h-8 text-orange-600" />
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                <Target className="w-8 h-8 text-blue-600" />
               </div>
               <div>
                 <h2 className="text-2xl font-semibold text-gray-900">计算服务水平</h2>
-                <p className="text-orange-600 font-medium">确定客户服务水平和安全库存</p>
+                <p className="text-blue-600 font-medium">量化我们满足客户需求的能力</p>
               </div>
             </div>
             
             <div className="space-y-6">
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-orange-800 mb-4">服务水平目标设定</h3>
-                <p className="text-orange-700 mb-4">
-                  服务水平是指在给定时间内能够满足客户需求的概率。较高的服务水平意味着更好的客户满意度，
-                  但也需要更多的安全库存投入。
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-blue-800 mb-3">🎯 什么是服务水平 (Service Level)？</h3>
+                <p className="text-blue-700">
+                  服务水平是一个关键绩效指标 (KPI)，它衡量的是在客户需要时，我们能多大程度上成功满足他们的需求。简单来说，它就是“有货率”或“订单满足率”的量化体现。服务水平越高，客户满意度越高，但通常也意味着更高的库存成本。
                 </p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-white rounded-lg p-4 border border-orange-200">
-                    <h4 className="font-semibold text-orange-800 mb-2">保守型</h4>
-                    <div className="text-2xl font-bold text-orange-600 mb-2">95%</div>
-                    <p className="text-sm text-orange-600">高安全库存，低缺货风险</p>
-                  </div>
-                  <div className="bg-orange-100 rounded-lg p-4 border-2 border-orange-400">
-                    <h4 className="font-semibold text-orange-800 mb-2">平衡型 ✓</h4>
-                    <div className="text-2xl font-bold text-orange-600 mb-2">92%</div>
-                    <p className="text-sm text-orange-600">成本与服务的最佳平衡</p>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 border border-orange-200">
-                    <h4 className="font-semibold text-orange-800 mb-2">激进型</h4>
-                    <div className="text-2xl font-bold text-orange-600 mb-2">88%</div>
-                    <p className="text-sm text-orange-600">低库存成本，较高缺货风险</p>
-                  </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">服务水平计算公式</h3>
+                <p className="text-gray-600 mb-4">
+                  计算服务水平的核心在于“缺货率”，即需求中有多少比例我们没能满足。公式如下：
+                </p>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-lg font-mono text-gray-800">
+                    <span className="font-bold text-blue-600">服务水平</span> = 
+                    <span className="text-gray-600"> 1</span> - 
+                    <span className="font-bold text-red-600"> (缺货量 / 实际需求量)</span>
+                  </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">安全库存计算</h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">需求标准差</span>
-                      <span className="font-semibold text-gray-900">285台</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">提前期</span>
-                      <span className="font-semibold text-gray-900">15天</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">安全系数(Z值)</span>
-                      <span className="font-semibold text-orange-600">1.41</span>
-                    </div>
-                    <div className="flex justify-between items-center border-t pt-2">
-                      <span className="text-gray-600 font-medium">安全库存</span>
-                      <span className="font-bold text-orange-600">1,650台</span>
-                    </div>
-                  </div>
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">举个例子</h3>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 text-sm">
+                  <p>• 假设某月，市场对您的产品总需求为 <strong>1,000</strong> 件。</p>
+                  <p>• 由于生产或库存原因，您最终只交付了 <strong>920</strong> 件，产生了 <strong>80</strong> 件的缺货。</p>
+                  <p>• <strong>缺货率</strong> = 80 / 1,000 = 0.08 (或 8%)</p>
+                  <p className="border-t border-gray-200 pt-3 mt-3 font-semibold">
+                    • <strong>服务水平</strong> = 1 - 0.08 = 0.92，即 <span className="text-xl text-blue-600">92%</span>。
+                  </p>
                 </div>
+              </div>
 
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">服务水平影响分析</h3>
-                  <div className="space-y-4">
-                    <div className="bg-green-100 rounded p-3">
-                      <h4 className="font-medium text-green-800">客户满意度</h4>
-                      <p className="text-sm text-green-700">92%的订单能够及时交付</p>
-                    </div>
-                    <div className="bg-blue-100 rounded p-3">
-                      <h4 className="font-medium text-blue-800">库存成本</h4>
-                      <p className="text-sm text-blue-700">月均库存成本约¥41,250</p>
-                    </div>
-                    <div className="bg-red-100 rounded p-3">
-                      <h4 className="font-medium text-red-800">缺货风险</h4>
-                      <p className="text-sm text-red-700">8%的概率出现缺货情况</p>
-                    </div>
-                  </div>
-                </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-green-800 mb-3">💡 关键权衡：成本 vs 满意度</h3>
+                <p className="text-green-700 text-sm">
+                  追求100%的服务水平在现实中几乎是不可能的，且成本极高。企业的目标是在<strong>库存持有成本</strong>（为维持高服务水平而预备的安全库存）和<strong>缺货成本</strong>（因缺货导致的销售损失和客户流失）之间找到最佳平衡点。
+                </p>
               </div>
 
               <button
                 onClick={() => handleCompleteSubStep(3)}
-                className="w-full px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 shadow-md hover:shadow-lg transition-all font-medium"
+                className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all font-medium"
               >
-                确认服务水平，继续计算预测量
+                <span>我已理解，开始计算预测量</span>
+                <ArrowRight className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -318,105 +266,64 @@ const ProductionPlan: React.FC = () => {
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center space-x-4 mb-6">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
-                <TrendingUp className="w-8 h-8 text-purple-600" />
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                <TrendingUp className="w-8 h-8 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-semibold text-gray-900">计算预测量</h2>
-                <p className="text-purple-600 font-medium">基于需求预测结果计算生产数量</p>
+                <h2 className="text-2xl font-semibold text-gray-900">计算计划生产量</h2>
+                <p className="text-blue-600 font-medium">为不确定性做好准备</p>
               </div>
             </div>
             
             <div className="space-y-6">
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-purple-800 mb-4">LSTM预测结果回顾</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {[
-                    { month: '2025-01', demand: 1920 },
-                    { month: '2025-02', demand: 2350 },
-                    { month: '2025-03', demand: 1850 },
-                    { month: '2025-04', demand: 1780 },
-                    { month: '2025-05', demand: 2180 },
-                    { month: '2025-06', demand: 2520 },
-                  ].map((item, index) => (
-                    <div key={index} className="bg-white rounded p-3 text-center">
-                      <div className="text-sm text-purple-600">{item.month}</div>
-                      <div className="text-lg font-bold text-purple-800">{item.demand.toLocaleString()}台</div>
-                    </div>
-                  ))}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-blue-800 mb-3">🎯 什么是计划生产量 (Planned Production)？</h3>
+                <p className="text-blue-700">
+                  计划生产量并不是简单地等于你的需求预测量。为了应对预测不准确或供应延迟等突发状况，我们需要在预测的基础上增加一个缓冲，这个缓冲就是“安全库存”。因此，计划生产量是预测需求与安全库存的总和，是下达给生产线的最终指令。
+                </p>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">计划生产量计算公式</h3>
+                <p className="text-gray-600 mb-4">
+                  这个公式帮助我们将风险管理融入生产计划中：
+                </p>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-lg font-mono text-gray-800">
+                    <span className="font-bold text-blue-600">计划生产量</span> = 
+                    <span className="font-bold text-green-600"> 需求预测结果</span> + 
+                    <span className="font-bold text-orange-600"> 安全库存</span>
+                  </p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">生产数量计算</h3>
-                  <div className="space-y-4">
-                    {[
-                      { month: '2025-01', demand: 1920, safety: 1650, production: 1950 },
-                      { month: '2025-02', demand: 2350, safety: 1650, production: 2380 },
-                      { month: '2025-03', demand: 1850, safety: 1650, production: 1880 },
-                      { month: '2025-04', demand: 1780, safety: 1650, production: 1810 },
-                      { month: '2025-05', demand: 2180, safety: 1650, production: 2210 },
-                      { month: '2025-06', demand: 2520, safety: 1650, production: 2550 },
-                    ].map((item, index) => (
-                      <div key={index} className="bg-white rounded p-3">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium">{item.month}</span>
-                          <span className="text-purple-600 font-bold">{item.production.toLocaleString()}台</span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          需求: {item.demand.toLocaleString()} + 安全库存调整: {item.production - item.demand}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">举个例子</h3>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 text-sm">
+                  <p>• 您的模型预测下个月的需求是 <strong>2,000</strong> 件。</p>
+                  <p>• 根据您设定的服务水平目标，计算出需要 <strong>150</strong> 件的安全库存来应对潜在的需求波动。</p>
+                  <p className="border-t border-gray-200 pt-3 mt-3 font-semibold">
+                    • <strong>计划生产量</strong> = 2,000 + 150 = <span className="text-xl text-blue-600">2,150</span> 件。
+                  </p>
+                   <p className="text-xs text-gray-500 pt-2">
+                    这意味着您将向工厂下达生产2,150件的指令，即使预测需求只有2,000件。多出的150件就是为了保障服务水平。
+                  </p>
                 </div>
+              </div>
 
-                <div className="space-y-6">
-                  <div className="bg-purple-100 border border-purple-200 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold text-purple-800 mb-4">预测量汇总</h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-purple-700">总预测需求</span>
-                        <span className="font-bold text-purple-900">12,600台</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-purple-700">总生产计划</span>
-                        <span className="font-bold text-purple-900">12,780台</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-purple-700">安全库存缓冲</span>
-                        <span className="font-bold text-purple-900">180台</span>
-                      </div>
-                      <div className="flex justify-between items-center border-t pt-2">
-                        <span className="text-purple-700 font-medium">平均月产量</span>
-                        <span className="font-bold text-purple-900">2,130台</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-green-800 mb-2">产能验证</h4>
-                    <div className="flex justify-between items-center">
-                      <span className="text-green-700">月最大产能</span>
-                      <span className="font-bold text-green-800">14,960台</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-green-700">最高月需求</span>
-                      <span className="font-bold text-green-800">2,550台</span>
-                    </div>
-                    <div className="text-sm text-green-600 mt-2">
-                      ✓ 产能充足，可以满足所有预测需求
-                    </div>
-                  </div>
-                </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-green-800 mb-3">💡 安全库存：应对不确定性的保险</h3>
+                <p className="text-green-700 text-sm">
+                  安全库存是生产计划中的“保险丝”。它的大小直接关联到您设定的服务水平。越高的服务水平目标，就需要越多的安全库存来保障，这也会相应增加库存持有成本。
+                </p>
               </div>
 
               <button
                 onClick={() => handleCompleteSubStep(4)}
-                className="w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 shadow-md hover:shadow-lg transition-all font-medium"
+                className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all font-medium"
               >
-                确认预测量，计算投入量
+                <span>我已理解，开始计算投入量</span>
+                <ArrowRight className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -426,150 +333,66 @@ const ProductionPlan: React.FC = () => {
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center space-x-4 mb-6">
-              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
-                <Package className="w-8 h-8 text-indigo-600" />
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                <Package className="w-8 h-8 text-blue-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-semibold text-gray-900">计算投入量</h2>
-                <p className="text-indigo-600 font-medium">确定原材料、人力和设备资源需求</p>
+                <h2 className="text-2xl font-semibold text-gray-900">计算生产投入量</h2>
+                <p className="text-blue-600 font-medium">连接过去、现在与未来的生产决策</p>
               </div>
             </div>
             
             <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-indigo-800 mb-4">原材料需求</h3>
-                  <div className="space-y-3">
-                    <div className="bg-white rounded p-3">
-                      <div className="text-sm text-indigo-600">钢材</div>
-                      <div className="text-lg font-bold text-indigo-800">2,556吨</div>
-                      <div className="text-xs text-indigo-500">每台需2kg</div>
-                    </div>
-                    <div className="bg-white rounded p-3">
-                      <div className="text-sm text-indigo-600">电子元件</div>
-                      <div className="text-lg font-bold text-indigo-800">38,340套</div>
-                      <div className="text-xs text-indigo-500">每台需3套</div>
-                    </div>
-                    <div className="bg-white rounded p-3">
-                      <div className="text-sm text-indigo-600">包装材料</div>
-                      <div className="text-lg font-bold text-indigo-800">12,780套</div>
-                      <div className="text-xs text-indigo-500">每台需1套</div>
-                    </div>
-                  </div>
-                </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-blue-800 mb-3">🎯 什么是生产投入量 (Production Input)？</h3>
+                <p className="text-blue-700">
+                  “生产投入量”指的是您在当前生产周期（例如本月）需要实际安排生产的产品数量。它不是简单地等于您的“计划生产量”，而是动态调整后的结果，因为它必须考虑上个周期的“遗产”——即剩余的库存和未满足的缺货。
+                </p>
+              </div>
 
-                <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-green-800 mb-4">人力资源</h3>
-                  <div className="space-y-3">
-                    <div className="bg-white rounded p-3">
-                      <div className="text-sm text-green-600">生产工人</div>
-                      <div className="text-lg font-bold text-green-800">120人</div>
-                      <div className="text-xs text-green-500">标准班次配置</div>
-                    </div>
-                    <div className="bg-white rounded p-3">
-                      <div className="text-sm text-green-600">技术人员</div>
-                      <div className="text-lg font-bold text-green-800">15人</div>
-                      <div className="text-xs text-green-500">质量控制和维护</div>
-                    </div>
-                    <div className="bg-white rounded p-3">
-                      <div className="text-sm text-green-600">管理人员</div>
-                      <div className="text-lg font-bold text-green-800">8人</div>
-                      <div className="text-xs text-green-500">生产调度和协调</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-orange-800 mb-4">设备资源</h3>
-                  <div className="space-y-3">
-                    <div className="bg-white rounded p-3">
-                      <div className="text-sm text-orange-600">生产线</div>
-                      <div className="text-lg font-bold text-orange-800">4条</div>
-                      <div className="text-xs text-orange-500">每条200台/天</div>
-                    </div>
-                    <div className="bg-white rounded p-3">
-                      <div className="text-sm text-orange-600">检测设备</div>
-                      <div className="text-lg font-bold text-orange-800">8台</div>
-                      <div className="text-xs text-orange-500">质量检测</div>
-                    </div>
-                    <div className="bg-white rounded p-3">
-                      <div className="text-sm text-orange-600">包装设备</div>
-                      <div className="text-lg font-bold text-orange-800">2台</div>
-                      <div className="text-xs text-orange-500">自动包装线</div>
-                    </div>
-                  </div>
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">生产投入量计算公式</h3>
+                <p className="text-gray-600 mb-4">
+                  这个公式确保了生产的连续性和对历史情况的修正：
+                </p>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-lg font-mono text-gray-800">
+                    <span className="font-bold text-blue-600">生产投入量</span> = 
+                    <span className="font-bold text-green-600"> 计划生产量</span> - 
+                    <span className="font-bold text-orange-600"> 上期期末库存</span> +
+                    <span className="font-bold text-red-600"> 上期缺货量</span>
+                  </p>
                 </div>
               </div>
 
               <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">投入成本分析</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-gray-800">月度投入成本</h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">原材料成本</span>
-                        <span className="font-semibold text-gray-900">¥1,278万</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">人工成本</span>
-                        <span className="font-semibold text-gray-900">¥86万</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">设备折旧</span>
-                        <span className="font-semibold text-gray-900">¥45万</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">能源消耗</span>
-                        <span className="font-semibold text-gray-900">¥32万</span>
-                      </div>
-                      <div className="flex justify-between items-center border-t pt-2">
-                        <span className="text-gray-700 font-medium">总投入成本</span>
-                        <span className="font-bold text-gray-900">¥1,441万</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="font-medium text-gray-800">资源利用率</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between mb-1">
-                          <span className="text-gray-600">生产线利用率</span>
-                          <span className="font-semibold text-gray-900">85%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div className="bg-green-600 h-2 rounded-full" style={{ width: '85%' }}></div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex justify-between mb-1">
-                          <span className="text-gray-600">人员利用率</span>
-                          <span className="font-semibold text-gray-900">92%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: '92%' }}></div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex justify-between mb-1">
-                          <span className="text-gray-600">设备利用率</span>
-                          <span className="font-semibold text-gray-900">78%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div className="bg-orange-600 h-2 rounded-full" style={{ width: '78%' }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">举个例子</h3>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3 text-sm">
+                  <p>• 根据上一步，您本月的<strong>计划生产量</strong>（含安全库存）为 <strong>2,150</strong> 件。</p>
+                  <p>• 假设上月底盘点，仓库里还剩下 <strong>200</strong> 件产品 (<strong>上期期末库存</strong>)。</p>
+                  <p>• 同时，上月有 <strong>50</strong> 件的订单因缺货未能满足 (<strong>上期缺货量</strong>)。</p>
+                  <p className="border-t border-gray-200 pt-3 mt-3 font-semibold">
+                    • <strong>生产投入量</strong> = 2,150 - 200 + 50 = <span className="text-xl text-blue-600">2,000</span> 件。
+                  </p>
+                   <p className="text-xs text-gray-500 pt-2">
+                    这意味着，您本月实际需要下达生产2,000件的指令。这个数量既满足了本月的计划，又利用了现有库存并补上了上月的缺口。
+                  </p>
                 </div>
+              </div>
+
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-green-800 mb-3">💡 为什么不能只看预测？</h3>
+                <p className="text-green-700 text-sm">
+                  只看预测会导致生产与实际脱节。不考虑现有库存会造成积压和资金浪费；不理会上期缺货则会损害客户关系和市场信誉。这个公式确保了生产计划的平稳和可持续性。
+                </p>
               </div>
 
               <button
                 onClick={() => handleCompleteSubStep(5)}
-                className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md hover:shadow-lg transition-all font-medium"
+                className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all font-medium"
               >
-                确认投入量，生成完整计划表
+                <span>我已理解，生成完整计划表</span>
+                <ArrowRight className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -579,131 +402,55 @@ const ProductionPlan: React.FC = () => {
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center space-x-4 mb-6">
-              <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center">
-                <BarChart3 className="w-8 h-8 text-teal-600" />
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                <BarChart3 className="w-8 h-8 text-blue-600" />
               </div>
               <div>
                 <h2 className="text-2xl font-semibold text-gray-900">完整计划表生成</h2>
-                <p className="text-teal-600 font-medium">生成详细的生产执行计划</p>
+                <p className="text-blue-600 font-medium">总览您的生产决策全景</p>
               </div>
             </div>
             
             <div className="space-y-6">
-              <div className="bg-green-50 border border-green-200 rounded-xl p-6">
-                <div className="flex items-center space-x-3 mb-4">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                  <h3 className="text-xl font-semibold text-green-800">生产计划制定完成</h3>
-                </div>
-                <p className="text-green-700">
-                  恭喜！您已成功完成整个需求预测与生产计划决策流程。
-                  系统已基于LSTM模型的预测结果生成了详细的生产计划。
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-blue-800 mb-3">📊 您将看到什么？</h3>
+                <p className="text-blue-700 mb-4">
+                  您将看到一张完整的生产计划表，其中展示了整个预测时段内的各项关键数据。这张表格将包括：
                 </p>
+                <ul className="space-y-2 text-sm text-blue-600 list-disc list-inside">
+                  <li><strong>计划生产量</strong>：每个月基于需求预测和安全库存的生产计划目标。</li>
+                  <li><strong>投入量</strong>：根据计划和历史数据，每个月计划投入生产的实际数量。</li>
+                  <li><strong>产出量</strong>：根据投入量推导出的每个月的产出数量。</li>
+                  <li><strong>库存量</strong>：产出量减去实际需求量后的剩余产品数量。</li>
+                  <li><strong>缺货量</strong>：当产出量不足以满足需求时的缺货情况。</li>
+                  <li><strong>服务水平</strong>：衡量企业满足市场需求能力的指标。</li>
+                </ul>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6">未来6个月生产计划</h3>
-                  
-                  <div className="space-y-4">
-                    {[
-                      { month: '2025年1月', demand: '1,920台', production: '1,950台', status: 'safe' },
-                      { month: '2025年2月', demand: '2,350台', production: '2,380台', status: 'safe' },
-                      { month: '2025年3月', demand: '1,850台', production: '1,880台', status: 'safe' },
-                      { month: '2025年4月', demand: '1,780台', production: '1,810台', status: 'safe' },
-                      { month: '2025年5月', demand: '2,180台', production: '2,210台', status: 'safe' },
-                      { month: '2025年6月', demand: '2,520台', production: '2,550台', status: 'warning' },
-                    ].map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <Calendar className="w-4 h-4 text-gray-600" />
-                          <span className="font-medium">{item.month}</span>
-                        </div>
-                        <div className="flex items-center space-x-6 text-sm">
-                          <div>
-                            <span className="text-gray-600">需求: </span>
-                            <span className="font-medium">{item.demand}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-600">计划: </span>
-                            <span className="font-medium">{item.production}</span>
-                          </div>
-                          {item.status === 'safe' ? (
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                          ) : (
-                            <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-green-800 mb-3">💡 观察与分析</h3>
+                <p className="text-green-700 mb-4">
+                  看到这张完整的生产计划表后，希望你能够通过观察每个月的数据变化，进一步理解生产计划制定的逻辑与关联。你们可以看到：
+                </p>
+                <ul className="space-y-2 text-sm text-green-600 list-disc list-inside">
+                    <li><strong>需求变化如何影响投入量</strong>：随着需求的变化，投入量将如何相应调整。</li>
+                    <li><strong>服务水平的动态变化</strong>：通过不同月份的服务水平，了解生产计划的有效性。</li>
+                    <li><strong>库存与缺货的管理</strong>：观察每个月的库存和缺货情况，分析这些量如何影响企业的整体运营。</li>
+                </ul>
+              </div>
 
-                <div className="space-y-6">
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">关键指标</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">总产量计划</span>
-                        <span className="font-semibold text-gray-900">12,780台</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">预计库存成本</span>
-                        <span className="font-semibold text-gray-900">¥41万/月</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">生产线利用率</span>
-                        <span className="font-semibold text-green-600">85%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">服务水平</span>
-                        <span className="font-semibold text-green-600">92%</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      <Truck className="inline w-5 h-5 mr-2" />
-                      执行时间表
-                    </h3>
-                    <div className="space-y-3 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">原材料采购周期</span>
-                        <span className="font-medium">15天</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">生产周期</span>
-                        <span className="font-medium">7天</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">质检与包装</span>
-                        <span className="font-medium">2天</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">配送时间</span>
-                        <span className="font-medium">3天</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-blue-800 mb-3">实验总结</h3>
-                    <div className="text-sm text-blue-700 space-y-2">
-                      <p>• 通过7个步骤完成了完整的需求预测流程</p>
-                      <p>• 学习了多种预测算法及其适用场景</p>
-                      <p>• 掌握了评估预测模型质量的关键指标</p>
-                      <p>• 体验了从预测到生产计划的决策过程</p>
-                      <p>• 完成了详细的生产计划制定全流程</p>
-                    </div>
-                  </div>
-                </div>
+              {/* This is a placeholder for the actual data table that would be generated */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                 <h4 className="text-center font-semibold text-gray-700">生产计划表示例</h4>
+                 <p className="text-center text-sm text-gray-500 mt-2">（此处将根据您的计算生成实际数据表格）</p>
               </div>
 
               <button
                 onClick={() => handleCompleteSubStep(6)}
-                className="w-full px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-md hover:shadow-lg transition-all font-medium"
+                className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-md hover:shadow-lg transition-all font-medium"
               >
-                完成生产计划制定
+                <CheckCircle className="w-5 h-5" />
+                <span>完成生产计划制定</span>
               </button>
             </div>
           </div>

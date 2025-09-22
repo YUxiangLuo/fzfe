@@ -55,8 +55,8 @@ const ModelBuilding: React.FC = () => {
   const hasDataWindowSelection =
     state.dataWindow.trainStartIndex !== null &&
     state.dataWindow.trainEndIndex !== null &&
-    state.dataWindow.predictStartIndex !== null &&
-    state.dataWindow.predictEndIndex !== null;
+    state.dataWindow.evaluateStartIndex !== null &&
+    state.dataWindow.evaluateEndIndex !== null;
 
   const baseModelsCompletedCount = ['moving_average', 'exponential_smoothing', 'arima', 'lstm']
     .filter((id) => completionMap[id]).length;

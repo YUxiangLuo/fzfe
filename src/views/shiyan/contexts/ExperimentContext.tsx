@@ -75,8 +75,8 @@ export interface EnsembleState {
 export interface DataWindowSelection {
   trainStartIndex: number | null;
   trainEndIndex: number | null;
-  predictStartIndex: number | null;
-  predictEndIndex: number | null;
+  evaluateStartIndex: number | null;
+  evaluateEndIndex: number | null;
 }
 
 export interface ExperimentState {
@@ -97,6 +97,8 @@ export interface ExperimentState {
   ensembleStacking: EnsembleState;
   best_model: string | null;
   dataWindow: DataWindowSelection;
+  quiz_about_model_completed: boolean;
+  quiz_about_plan_completed: boolean;
 }
 
 const createEmptyMetrics = (): ModelMetrics => ({ rmse: null, mae: null, r2: null });
@@ -138,8 +140,8 @@ const createInitialEnsemble = (): EnsembleState => ({
 const createInitialDataWindowSelection = (): DataWindowSelection => ({
   trainStartIndex: null,
   trainEndIndex: null,
-  predictStartIndex: null,
-  predictEndIndex: null,
+  evaluateStartIndex: null,
+  evaluateEndIndex: null,
 });
 
 const buildInitialState = (): ExperimentState => ({
@@ -160,6 +162,8 @@ const buildInitialState = (): ExperimentState => ({
   ensembleStacking: createInitialEnsemble(),
   best_model: null,
   dataWindow: createInitialDataWindowSelection(),
+  quiz_about_model_completed: false,
+  quiz_about_plan_completed: false,
 });
 
 export const initialState: ExperimentState = buildInitialState();
@@ -206,6 +210,8 @@ const resetLogic: Partial<Record<keyof ExperimentState, (keyof ExperimentState)[
     'ensembleStacking',
     'best_model',
     'dataWindow',
+    'quiz_about_model_completed',
+    'quiz_about_plan_completed',
   ],
 };
 

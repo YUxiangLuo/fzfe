@@ -20,38 +20,38 @@ const isValidRange = (range: RangeSelection) => {
 
 const buildDefaultRanges = (
   data: MonthlySalesRecord[],
-): { training: RangeSelection; predict: RangeSelection } | null => {
+): { training: RangeSelection; evaluate: RangeSelection } | null => {
   const total = data.length;
   if (total < 2) { // Need at least 2 points to split
     return null;
   }
 
-  // Default to ~70-80% for training, rest for prediction, with a max of 6 for prediction
-  const predictSize = Math.min(6, Math.max(1, Math.floor(total * 0.25)));
-  const trainingEndIndex = total - predictSize - 1;
+  // Default to ~70-80% for training, rest for evaluation, with a max of 6 for evaluation
+  const evaluateSize = Math.min(6, Math.max(1, Math.floor(total * 0.25)));
+  const trainingEndIndex = total - evaluateSize - 1;
 
   const training: RangeSelection = {
     startIndex: 0,
     endIndex: trainingEndIndex,
   };
 
-  const predict: RangeSelection = {
+  const evaluate: RangeSelection = {
     startIndex: trainingEndIndex + 1,
     endIndex: total - 1,
   };
 
-  if (!isValidRange(training) || !isValidRange(predict) || training.endIndex < training.startIndex) {
+  if (!isValidRange(training) || !isValidRange(evaluate) || training.endIndex < training.startIndex) {
      // Fallback for very small datasets
      if (total >= 2) {
        return {
          training: { startIndex: 0, endIndex: 0 },
-         predict: { startIndex: 1, endIndex: total - 1 }
+         evaluate: { startIndex: 1, endIndex: total - 1 }
        };
      }
      return null;
   }
 
-  return { training, predict };
+  return { training, evaluate };
 };
 
 const DataWindowSelection: React.FC = () => {
@@ -64,7 +64,7 @@ const DataWindowSelection: React.FC = () => {
   const defaultRanges = useMemo(() => buildDefaultRanges(points), [points]);
 
   const [trainingRange, setTrainingRange] = useState<RangeSelection>({ startIndex: null, endIndex: null });
-  const [predictRange, setPredictRange] = useState<RangeSelection>({ startIndex: null, endIndex: null });
+  const [evaluateRange, setEvaluateRange] = useState<RangeSelection>({ startIndex: null, endIndex: null });
 
   useEffect(() => {
     if (defaultRanges) {
@@ -72,9 +72,9 @@ const DataWindowSelection: React.FC = () => {
         startIndex: state.dataWindow.trainStartIndex ?? defaultRanges.training.startIndex,
         endIndex: state.dataWindow.trainEndIndex ?? defaultRanges.training.endIndex,
       });
-      setPredictRange({
-        startIndex: state.dataWindow.predictStartIndex ?? defaultRanges.predict.startIndex,
-        endIndex: state.dataWindow.predictEndIndex ?? defaultRanges.predict.endIndex,
+      setEvaluateRange({
+        startIndex: state.dataWindow.evaluateStartIndex ?? defaultRanges.evaluate.startIndex,
+        endIndex: state.dataWindow.evaluateEndIndex ?? defaultRanges.evaluate.endIndex,
       });
     }
   }, [defaultRanges, state.dataWindow]);
@@ -107,24 +107,24 @@ const DataWindowSelection: React.FC = () => {
     value: index,
   }));
 
-  const predictOptions = trainingOptions;
+  const evaluateOptions = trainingOptions;
 
   const handleTrainingChange = (key: keyof RangeSelection, value: number) => {
     setTrainingRange((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handlePredictChange = (key: keyof RangeSelection, value: number) => {
-    setPredictRange((prev) => ({ ...prev, [key]: value }));
+  const handleEvaluateChange = (key: keyof RangeSelection, value: number) => {
+    setEvaluateRange((prev) => ({ ...prev, [key]: value }));
   };
 
   const isTrainingValid = isValidRange(trainingRange);
-  const isPredictValid = isValidRange(predictRange);
+  const isEvaluateValid = isValidRange(evaluateRange);
   const isSeparated =
     isTrainingValid &&
-    isPredictValid &&
-    trainingRange.endIndex! < predictRange.startIndex!;
+    isEvaluateValid &&
+    trainingRange.endIndex! < evaluateRange.startIndex!;
 
-  const canSave = isTrainingValid && isPredictValid && isSeparated;
+  const canSave = isTrainingValid && isEvaluateValid && isSeparated;
 
   const handleSave = async () => {
     if (!canSave) return;
@@ -132,8 +132,8 @@ const DataWindowSelection: React.FC = () => {
       dataWindow: {
         trainStartIndex: trainingRange.startIndex,
         trainEndIndex: trainingRange.endIndex,
-        predictStartIndex: predictRange.startIndex,
-        predictEndIndex: predictRange.endIndex,
+        evaluateStartIndex: evaluateRange.startIndex,
+        evaluateEndIndex: evaluateRange.endIndex,
       },
     });
     navigate('/model/ma');
@@ -214,13 +214,13 @@ const DataWindowSelection: React.FC = () => {
               <span className="text-sm text-gray-600">开始月份</span>
               <select
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2"
-                value={predictRange.startIndex ?? ''}
+                value={evaluateRange.startIndex ?? ''}
                 onChange={(event) =>
-                  handlePredictChange('startIndex', Number(event.target.value))
+                  handleEvaluateChange('startIndex', Number(event.target.value))
                 }
               >
-                {predictOptions.map((option) => (
-                  <option key={`predict-start-${option.value}`} value={option.value}>
+                {evaluateOptions.map((option) => (
+                  <option key={`evaluate-start-${option.value}`} value={option.value}>
                     {option.label}
                   </option>
                 ))}
@@ -230,20 +230,20 @@ const DataWindowSelection: React.FC = () => {
               <span className="text-sm text-gray-600">结束月份</span>
               <select
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2"
-                value={predictRange.endIndex ?? ''}
+                value={evaluateRange.endIndex ?? ''}
                 onChange={(event) =>
-                  handlePredictChange('endIndex', Number(event.target.value))
+                  handleEvaluateChange('endIndex', Number(event.target.value))
                 }
               >
-                {predictOptions.map((option) => (
-                  <option key={`predict-end-${option.value}`} value={option.value}>
+                {evaluateOptions.map((option) => (
+                  <option key={`evaluate-end-${option.value}`} value={option.value}>
                     {option.label}
                   </option>
                 ))}
               </select>
             </label>
           </div>
-          {!isPredictValid && (
+          {!isEvaluateValid && (
             <p className="mt-2 text-sm text-red-600 flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4" />
               <span>结束月份必须晚于或等于开始月份。</span>
@@ -251,7 +251,7 @@ const DataWindowSelection: React.FC = () => {
           )}
         </div>
 
-        {!isSeparated && isTrainingValid && isPredictValid && (
+        {!isSeparated && isTrainingValid && isEvaluateValid && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-sm text-yellow-700 flex items-center space-x-2">
             <AlertTriangle className="w-4 h-4" />
             <span>评估区间应当晚于训练区间，以便使用未参与训练的数据验证模型表现。</span>
@@ -261,14 +261,14 @@ const DataWindowSelection: React.FC = () => {
 
       <footer className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 space-y-3 md:space-y-0">
         <div className="text-sm text-gray-500 flex items-center space-x-2">
-          {canSave && trainingRange.startIndex !== null && predictRange.startIndex !== null ? (
+          {canSave && trainingRange.startIndex !== null && evaluateRange.startIndex !== null ? (
             <>
               <CheckCircle2 className="w-4 h-4 text-green-600" />
               <span>
                 已选择训练区间 {trainingOptions[trainingRange.startIndex!]?.label} 至{' '}
                 {trainingOptions[trainingRange.endIndex!]?.label}，评估区间{' '}
-                {predictOptions[predictRange.startIndex!]?.label} 至{' '}
-                {predictOptions[predictRange.endIndex!]?.label}。
+                {evaluateOptions[evaluateRange.startIndex!]?.label} 至{' '}
+                {evaluateOptions[evaluateRange.endIndex!]?.label}。
               </span>
             </>
           ) : (

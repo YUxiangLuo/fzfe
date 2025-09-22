@@ -12,6 +12,9 @@ import ResultEvaluation from './pages/ResultEvaluation';
 import ProductionPlan from './pages/ProductionPlan';
 import Introduction from './pages/Introduction';
 import Profile from './pages/Profile';
+import ModelQuiz from './pages/ModelQuiz';
+import PlanQuiz from './pages/PlanQuiz';
+import ExperimentReport from './pages/ExperimentReport';
 
 // A component to protect routes based on experiment step completion
 const ProtectedRoute = ({ step, children }: { step: number, children: React.ReactElement }) => {
@@ -48,7 +51,10 @@ const MainLayout = () => {
             <Route path="/data" element={<ProtectedRoute step={4}><HistoricalData /></ProtectedRoute>} />
             <Route path="/model/*" element={<ProtectedRoute step={5}><ModelBuilding /></ProtectedRoute>} />
             <Route path="/evaluation" element={<ProtectedRoute step={6}><ResultEvaluation /></ProtectedRoute>} />
+            <Route path="/quiz" element={<ProtectedRoute step={7}><ModelQuiz /></ProtectedRoute>} />
             <Route path="/production" element={<ProtectedRoute step={7}><ProductionPlan /></ProtectedRoute>} />
+            <Route path="/quiz-plan" element={<ProtectedRoute step={7}><PlanQuiz /></ProtectedRoute>} />
+            <Route path="/report" element={<ProtectedRoute step={8}><ExperimentReport /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>
