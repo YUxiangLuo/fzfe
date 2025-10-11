@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Brain, CheckCircle, Loader2, TrendingUp } from "lucide-react";
-import { useExperiment, type ModelMetrics, type AdfStationarityRow } from "../../contexts/ExperimentContext";
+import { Brain, CheckCircle, Loader2 } from "lucide-react";
+import { useExperiment, type AdfStationarityRow, type ModelMetrics } from "../../contexts/ExperimentContext";
 
-const MOCK_ADF_RESULTS = [
+const ADF_SIMULATION_DELAY = 1000;
+const TRAINING_SIMULATION_DELAY = 1500;
+
+const MOCK_ADF_RESULTS: AdfStationarityRow[] = [
   {
     diff_order: 0,
     statistic: -1.876,
@@ -24,32 +27,29 @@ const MOCK_ADF_RESULTS = [
     stationary: true,
     critical_values: { "1%": -3.5, "5%": -2.89, "10%": -2.58 },
   },
+];
+
+const MOCK_TRAINING_RESULT: { pq: { p: number; q: number }; metrics: ModelMetrics } = {
+  pq: { p: 2, q: 1 },
+  metrics: { rmse: 2.9, mae: 1.7, r2: 0.93 },
+};
+
+const STEPS = [
+  { id: 1, title: "方法简介", description: "了解 ARIMA 模型的结构与适用场景。" },
+  { id: 2, title: "ADF 平稳性检验", description: "通过模拟的 ADF 检验判断序列是否平稳。" },
+  { id: 3, title: "设定差分阶数 d", description: "根据检验结果选择合适的差分阶数。" },
+  { id: 4, title: "训练模型并自动寻优", description: "模拟训练过程，得到推荐的 p、q 与误差指标。" },
 ] as const;
 
-const MOCK_METRICS = { rmse: 2.9, mae: 1.7, r2: 0.93 };
-const AUTO_TUNED_PQ = { p: 2, q: 1 };
-
-const steps = [
-  { id: 1, title: "方法简介", description: "了解 ARIMA 模型的组成元素与适用场景。" },
-  { id: 2, title: "ADF 平稳性检验", description: "查看不同差分阶数下的 ADF 检验结果，判断序列是否平稳。" },
-  { id: 3, title: "设定差分阶数 d", description: "根据平稳性检验选择合适的差分阶数。" },
-  { id: 4, title: "训练模型并自动寻优", description: "运行模型，系统自动搜索最优 p、q，并输出误差指标。" },
-] as const;
+const formatNumber = (value: number | null | undefined, fractionDigits = 3) =>
+  typeof value === "number" ? value.toFixed(fractionDigits) : "—";
 
 const ARIMAModel: React.FC = () => {
   const { state, updateState } = useExperiment();
-  const arimaState = {
-    completed: state.arima_completed,
-    p: state.arima_p,
-    d: state.arima_d,
-    q: state.arima_q,
-    metrics: {
-      rmse: state.arima_metrics_rmse,
-      mae: state.arima_metrics_mae,
-      r2: state.arima_metrics_r2,
-    } as ModelMetrics,
-    adfStationarity: state.arima_adf_stationarity,
-  };
+
+  const adfResults = state.arima_adf_stationarity;
+  const storedD = state.arima_d;
+  const trainingCompleted = state.arima_completed;
 
   const baseModelsCompletedCount = [
     state.moving_average_completed,
@@ -67,238 +67,340 @@ const ARIMAModel: React.FC = () => {
   const shouldShowFusionUnlockedNotice =
     baseModelsCompletedCount >= 2 && !hasAnyEnsembleCompleted;
 
-  const adfResults: readonly AdfStationarityRow[] =
-    arimaState.adfStationarity.length > 0 ? arimaState.adfStationarity : MOCK_ADF_RESULTS;
+  const initialStep = useMemo(() => {
+    if (trainingCompleted) return 4;
+    if (storedD !== null && storedD !== undefined) return 4;
+    if (adfResults.length > 0) return 3;
+    return 1;
+  }, [trainingCompleted, storedD, adfResults.length]);
+
+  const [activeStep, setActiveStep] = useState<number>(initialStep);
+  const [isRunningAdf, setIsRunningAdf] = useState(false);
+  const [adfError, setAdfError] = useState<string | null>(null);
+  const [dError, setDError] = useState<string | null>(null);
+  const [isTraining, setIsTraining] = useState(false);
 
   const recommendedD = useMemo(() => {
     const firstStationary = adfResults.find((row) => row.stationary);
     return firstStationary?.diff_order ?? 0;
   }, [adfResults]);
 
-  const derivedStep = useMemo(() => {
-    if (arimaState.completed) return 4;
-    if (arimaState.d !== null && arimaState.d !== undefined) return 4;
-    if (arimaState.adfStationarity.length > 0) return 3;
-    return 1;
-  }, [arimaState.completed, arimaState.d, arimaState.adfStationarity.length]);
-
-  const [activeStep, setActiveStep] = useState(derivedStep);
-  const [selectedD, setSelectedD] = useState<number>(arimaState.d ?? recommendedD);
-  const [isTraining, setIsTraining] = useState(false);
+  const [selectedD, setSelectedD] = useState<number | null>(
+    storedD ?? (adfResults.length > 0 ? recommendedD : null),
+  );
 
   useEffect(() => {
-    setActiveStep(derivedStep);
-  }, [derivedStep]);
-
-  useEffect(() => {
-    if (arimaState.d !== null && arimaState.d !== undefined) {
-      setSelectedD(arimaState.d);
+    if (adfResults.length > 0 && (selectedD === null || selectedD === undefined)) {
+      setSelectedD(recommendedD);
     }
-  }, [arimaState.d]);
+  }, [adfResults, recommendedD, selectedD]);
+
+  useEffect(() => {
+    if (storedD !== null && storedD !== undefined) {
+      setSelectedD(storedD);
+    }
+  }, [storedD]);
+
+  const handleRunAdf = async () => {
+    if (isRunningAdf) return;
+    setAdfError(null);
+    setIsRunningAdf(true);
+
+    await new Promise((resolve) => setTimeout(resolve, ADF_SIMULATION_DELAY));
+
+    const nextRecommended = MOCK_ADF_RESULTS.find((row) => row.stationary)?.diff_order ?? 0;
+
+    await updateState({
+      arima_adf_stationarity: [...MOCK_ADF_RESULTS],
+      arima_d: null,
+      arima_completed: false,
+      arima_metrics_rmse: null,
+      arima_metrics_mae: null,
+      arima_metrics_r2: null,
+    });
+
+    setIsRunningAdf(false);
+    setSelectedD(nextRecommended);
+  };
+
+  const handleStartTraining = async () => {
+    if (isTraining || trainingCompleted) return;
+    setIsTraining(true);
+
+    await new Promise((resolve) => setTimeout(resolve, TRAINING_SIMULATION_DELAY));
+
+    const { pq, metrics } = MOCK_TRAINING_RESULT;
+    await updateState({
+      arima_p: pq.p,
+      arima_q: pq.q,
+      arima_completed: true,
+      arima_metrics_rmse: metrics.rmse,
+      arima_metrics_mae: metrics.mae,
+      arima_metrics_r2: metrics.r2,
+    });
+
+    setIsTraining(false);
+  };
 
   const handleNext = async () => {
-    if (activeStep === 1) {
-      setActiveStep(2);
-      return;
-    }
-
-    if (activeStep === 2) {
-      if (state.arima_adf_stationarity.length === 0) {
-        await updateState({
-          arima_adf_stationarity: [...MOCK_ADF_RESULTS],
-        });
+    switch (activeStep) {
+      case 1: {
+        setActiveStep(2);
+        break;
       }
-      setActiveStep(3);
-      return;
-    }
-
-    if (activeStep === 3) {
-      const nextAdf =
-        state.arima_adf_stationarity.length > 0 ? [...state.arima_adf_stationarity] : [...MOCK_ADF_RESULTS];
-      await updateState({
-        arima_adf_stationarity: nextAdf,
-        arima_d: selectedD,
-        arima_completed: false,
-        arima_metrics_rmse: null,
-        arima_metrics_mae: null,
-        arima_metrics_r2: null,
-      });
-      setActiveStep(4);
-      return;
-    }
-
-    if (activeStep === 4 && !arimaState.completed && !isTraining) {
-      setIsTraining(true);
-      const payload =
-        state.arima_adf_stationarity.length > 0 ? [...state.arima_adf_stationarity] : [...adfResults];
-      setTimeout(async () => {
+      case 2: {
+        if (isRunningAdf) {
+          return;
+        }
+        if (adfResults.length === 0) {
+          setAdfError("请先执行 ADF 检验以生成检验结果。");
+          return;
+        }
+        setAdfError(null);
+        setActiveStep(3);
+        break;
+      }
+      case 3: {
+        if (selectedD === null || selectedD === undefined) {
+          setDError("请选择差分阶数 d。");
+          return;
+        }
+        setDError(null);
         await updateState({
-          arima_adf_stationarity: payload,
           arima_d: selectedD,
-          arima_p: AUTO_TUNED_PQ.p,
-          arima_q: AUTO_TUNED_PQ.q,
-          arima_completed: true,
-          arima_metrics_rmse: MOCK_METRICS.rmse,
-          arima_metrics_mae: MOCK_METRICS.mae,
-          arima_metrics_r2: MOCK_METRICS.r2,
+          arima_completed: false,
+          arima_metrics_rmse: null,
+          arima_metrics_mae: null,
+          arima_metrics_r2: null,
         });
-        setIsTraining(false);
-      }, 1500);
+        setActiveStep(4);
+        break;
+      }
+      case 4: {
+        if (!trainingCompleted && !isTraining) {
+          await handleStartTraining();
+        }
+        break;
+      }
+      default:
+        break;
     }
   };
 
   const handleBack = () => {
     if (activeStep === 1) return;
+    setAdfError(null);
+    setDError(null);
     setActiveStep((prev) => Math.max(1, prev - 1));
   };
 
-  const renderIntro = () => (
-    <div className="space-y-6">
+  const nextLabel = (() => {
+    if (activeStep === 1) return "下一步：ADF 平稳性检验";
+    if (activeStep === 2) return "下一步：设定差分阶数 d";
+    if (activeStep === 3) return "下一步：训练模型";
+    if (trainingCompleted) return "模型已保存";
+    if (isTraining) return "模型训练中...";
+    return "开始训练并保存结果";
+  })();
+
+  const isNextDisabled =
+    (activeStep === 2 && (isRunningAdf || adfResults.length === 0)) ||
+    (activeStep === 3 && (selectedD === null || selectedD === undefined)) ||
+    (activeStep === 4 && (isTraining || trainingCompleted));
+
+  const renderIntroStep = () => (
+    <div className="space-y-4">
       <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">ARIMA 模型概览</h3>
+        <h3 className="text-xl font-semibold text-gray-900 mb-3">ARIMA 模型概览</h3>
         <p className="text-sm text-gray-600 leading-relaxed">
-          ARIMA 模型由自回归 (AR)、差分 (I) 与移动平均 (MA) 三部分组成，能够处理非平稳时间序列。通过差分得到平稳序列，并利用 AR 与 MA 项建模序列自身的相关性与噪声。
+          ARIMA（AutoRegressive Integrated Moving Average）模型由自回归 (AR)、差分 (I) 与移动平均 (MA)
+          三个部分组成，适用于具有趋势或季节性但经过差分后可转化为平稳序列的时间序列预测任务。
         </p>
+        <ul className="mt-4 space-y-2 text-sm text-gray-700 list-disc list-inside">
+          <li>AR：利用过去的观察值预测当前值。</li>
+          <li>I：通过差分消除趋势，使序列更加平稳。</li>
+          <li>MA：利用过去的误差项提升模型拟合能力。</li>
+        </ul>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="font-semibold text-blue-700 mb-2">适用场景</p>
-          <p className="text-sm text-blue-700">需求序列具备趋势或季节成分，数据量充足且连续。</p>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="font-semibold text-blue-700 mb-2">优势</p>
-          <p className="text-sm text-blue-700">模型严谨、解释性强，可结合 AIC/ BIC 等准则自动寻优。</p>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="font-semibold text-blue-700 mb-2">注意事项</p>
-          <p className="text-sm text-blue-700">须保证序列平稳，需结合 ADF 等检验确定差分阶数。</p>
-        </div>
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 text-sm text-blue-800">
+        请按照向导依次完成平稳性检验、差分设定与训练过程，最终得到推荐的参数与指标。
       </div>
     </div>
   );
 
   const renderAdfStep = () => (
     <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">ADF 平稳性检验结果</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          ADF（Augmented Dickey-Fuller）检验用于判断序列是否存在单位根，p 值越小越倾向于平稳。
+      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+        <h3 className="text-xl font-semibold text-gray-900">ADF 平稳性检验</h3>
+        <p className="text-sm text-gray-600">
+          ADF（Augmented Dickey-Fuller）检验用于检测序列是否存在单位根。p 值越小，越倾向于接受“序列平稳”的结论。
         </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleRunAdf}
+            disabled={isRunningAdf}
+            className={`inline-flex items-center space-x-2 px-5 py-2 rounded-lg text-white transition-colors ${
+              isRunningAdf ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+            }`}
+            type="button"
+          >
+            {isRunningAdf && <Loader2 className="w-4 h-4 animate-spin" />}
+            <span>{isRunningAdf ? "正在执行 ADF 检验..." : adfResults.length > 0 ? "重新执行 ADF 检验" : "执行 ADF 检验"}</span>
+          </button>
+          {!isRunningAdf && adfResults.length > 0 && (
+            <span className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-1">
+              检验结果已生成，可继续下一步。
+            </span>
+          )}
+        </div>
+
+        {adfError && (
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-2 text-sm text-yellow-700">
+            {adfError}
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">差分阶数</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">ADF 值</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">差分阶数 d</th>
+                <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">ADF 统计量</th>
                 <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">p 值</th>
                 <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">是否平稳</th>
                 <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">临界值 (1% / 5% / 10%)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {adfResults.map((row) => (
-                <tr key={row.diff_order} className={row.stationary ? "bg-green-50" : "bg-white"}>
-                  <td className="px-4 py-3 text-gray-900 font-medium">d = {row.diff_order}</td>
-                  <td className="px-4 py-3 text-gray-700">{row.statistic.toFixed(3)}</td>
-                  <td className="px-4 py-3 text-gray-700">{row.p_value.toFixed(3)}</td>
-                  <td className="px-4 py-3">
-                    {row.stationary ? (
-                      <span className="inline-flex items-center space-x-1 text-green-700">
-                        <CheckCircle className="w-4 h-4" />
-                        <span>平稳</span>
-                      </span>
-                    ) : (
-                      <span className="text-gray-500">不平稳</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {`${row.critical_values["1%"].toFixed(3)} / ${row.critical_values["5%"].toFixed(3)} / ${row.critical_values["10%"].toFixed(3)}`}
+            <tbody className="divide-y divide-gray-200">
+              {isRunningAdf ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-blue-600">
+                    <div className="inline-flex items-center space-x-3">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>正在模拟 ADF 检验，请稍候...</span>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              ) : adfResults.length > 0 ? (
+                adfResults.map((row) => (
+                  <tr key={row.diff_order} className={row.stationary ? "bg-green-50" : "bg-white"}>
+                    <td className="px-4 py-3 text-gray-900 font-semibold">d = {row.diff_order}</td>
+                    <td className="px-4 py-3 text-gray-700">{formatNumber(row.statistic)}</td>
+                    <td className="px-4 py-3 text-gray-700">{formatNumber(row.p_value)}</td>
+                    <td className="px-4 py-3">
+                      {row.stationary ? (
+                        <span className="inline-flex items-center space-x-1 text-green-700">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>平稳</span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">不平稳</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {`${formatNumber(row.critical_values["1%"])} / ${formatNumber(row.critical_values["5%"])} / ${formatNumber(row.critical_values["10%"])}`}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
+                    尚未生成检验结果，请点击上方按钮执行模拟。
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 text-sm text-blue-800">
-        建议选择第一个判断为“平稳”的差分阶数作为 d 的初始值。本数据的推荐差分阶数：
-        <span className="font-semibold text-blue-900"> d = {recommendedD}</span>。
-      </div>
     </div>
   );
 
-  const renderDifferenceStep = () => (
+  const renderDiffStep = () => (
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-xl font-semibold text-gray-900 mb-4">选择差分阶数 d</h3>
-        <p className="text-sm text-gray-600 mb-6">根据平稳性检验，差分阶数 d 控制序列平稳化程度。通常选择第一个使序列平稳的阶数。</p>
-        <div className="flex items-center space-x-4">
-          {[0, 1, 2].map((option) => (
-            <button
-              key={option}
-              onClick={() => setSelectedD(option)}
-              className={`px-6 py-3 rounded-lg border-2 transition-all ${
-                selectedD === option
-                  ? "border-blue-500 bg-blue-50 text-blue-700"
-                  : "border-gray-200 text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              d = {option}
-            </button>
-          ))}
+        <p className="text-sm text-gray-600">请选择使序列平稳的差分阶数，必要时可多次尝试比较模型表现。</p>
+        <div className="flex items-center gap-4 mt-6">
+          {[0, 1, 2].map((option) => {
+            const isActive = selectedD === option;
+            return (
+              <button
+                key={option}
+                onClick={() => {
+                  setSelectedD(option);
+                  setDError(null);
+                }}
+                className={`px-6 py-3 rounded-lg border-2 transition-all ${
+                  isActive ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-700 hover:border-gray-300"
+                }`}
+                type="button"
+              >
+                d = {option}
+              </button>
+            );
+          })}
         </div>
-        <p className="text-xs text-gray-500 mt-4">
-          推荐值：<span className="font-semibold text-blue-600">d = {recommendedD}</span>。你也可以尝试不同的差分阶数比较模型表现。
-        </p>
+        {dError && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
+            {dError}
+          </div>
+        )}
       </div>
     </div>
   );
 
   const renderTrainingStep = () => (
     <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">训练模型并自动寻优</h3>
-        {!arimaState.completed && !isTraining && (
-          <p className="text-sm text-gray-600">
-            点击“开始训练并保存结果”后，系统会基于差分阶数 d = {selectedD} 自动搜索最优的 p、q 参数，并输出误差指标。
-          </p>
-        )}
+      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+        <h3 className="text-xl font-semibold text-gray-900">自动寻优与指标预览</h3>
+        <p className="text-sm text-gray-600">点击“开始训练并保存结果”将模拟模型训练过程，训练完成后会展示误差指标。</p>
 
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          当前差分阶数 d：<span className="font-semibold text-blue-900">{storedD ?? "未设置"}</span>
+        </div>
+
+        {!trainingCompleted && !isTraining && (
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+            点击下方按钮开始训练，预计耗时约 {TRAINING_SIMULATION_DELAY / 1000} 秒。
+          </div>
+        )}
         {isTraining && (
           <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span>模型训练中，大约需要 1-2 秒...</span>
+            <span>正在训练模型...</span>
+          </div>
+        )}
+        {trainingCompleted && (
+          <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center space-x-3">
+            <CheckCircle className="w-5 h-5 text-green-600" />
+            <div>
+              <p className="text-green-900 font-semibold">模型已计算完成并保存。</p>
+              <p className="text-sm text-green-700">当前 (p, d, q) = ({state.arima_p ?? "?"}, {storedD ?? "?"}, {state.arima_q ?? "?"})</p>
+            </div>
           </div>
         )}
 
-        {arimaState.completed && !isTraining && (
-          <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              <div>
-                <p className="text-green-800 font-semibold">模型已训练完成并保存。</p>
-                <p className="text-sm text-green-700">最优参数：ARIMA({arimaState.p}, {arimaState.d}, {arimaState.q})</p>
-              </div>
+        {trainingCompleted && (
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
+              <p className="text-2xl font-semibold text-blue-700 mt-2">{formatNumber(state.arima_metrics_rmse)}</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
-                <p className="text-2xl font-semibold text-blue-700 mt-2">{arimaState.metrics.rmse ?? '—'}</p>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
-                <p className="text-2xl font-semibold text-blue-700 mt-2">{arimaState.metrics.mae ?? '—'}</p>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
-                <p className="text-2xl font-semibold text-blue-700 mt-2">{arimaState.metrics.r2 ?? '—'}</p>
-              </div>
+            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
+              <p className="text-2xl font-semibold text-blue-700 mt-2">{formatNumber(state.arima_metrics_mae)}</p>
             </div>
-            {shouldShowFusionUnlockedNotice && (
-              <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-800">
-                🎉 已完成至少两个基础模型，融合模型现已解锁！尝试组合不同算法，进一步提升预测表现。
-              </div>
-            )}
+            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
+              <p className="text-2xl font-semibold text-blue-700 mt-2">{formatNumber(state.arima_metrics_r2, 2)}</p>
+            </div>
+          </div>
+        )}
+
+        {trainingCompleted && shouldShowFusionUnlockedNotice && (
+          <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-800">
+            🎉 已完成至少两个基础模型，融合模型现已解锁！尝试组合不同算法，进一步提升预测表现。
           </div>
         )}
       </div>
@@ -308,11 +410,11 @@ const ARIMAModel: React.FC = () => {
   const renderStepContent = () => {
     switch (activeStep) {
       case 1:
-        return renderIntro();
+        return renderIntroStep();
       case 2:
         return renderAdfStep();
       case 3:
-        return renderDifferenceStep();
+        return renderDiffStep();
       case 4:
         return renderTrainingStep();
       default:
@@ -320,93 +422,83 @@ const ARIMAModel: React.FC = () => {
     }
   };
 
-  const nextButtonLabel = (() => {
-    if (activeStep === 1) return "下一步：查看 ADF 检验";
-    if (activeStep === 2) return "下一步：设定 d";
-    if (activeStep === 3) return "下一步：训练模型";
-    if (arimaState.completed) return "模型已保存";
-    if (isTraining) return "模型训练中...";
-    return "开始训练并保存结果";
-  })();
-
-  const isNextDisabled =
-    (activeStep === 3 && selectedD === undefined) ||
-    (activeStep === 4 && (isTraining || Boolean(arimaState.completed)));
-
   return (
-    <div className="bg-gray-50 rounded-xl border border-gray-200">
-      <div className="border-b border-gray-200 bg-white rounded-t-xl p-6">
+    <div className="space-y-6">
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
         <div className="flex items-center space-x-3 text-sm text-gray-500">
           <Brain className="w-5 h-5 text-blue-600" />
-          <span>ARIMA 模型分步指导</span>
+          <span>ARIMA 模型分步向导</span>
         </div>
         <h2 className="mt-2 text-2xl font-semibold text-gray-900">ARIMA 模型</h2>
-        <p className="text-gray-600">按照向导依次完成方法了解、平稳性检验、差分设定与模型训练。</p>
+        <p className="text-gray-600">依次完成以下步骤，构建并评估 ARIMA 预测模型。</p>
       </div>
 
-      <div className="px-6 pt-6 pb-4 flex flex-col gap-6">
-        <div className="relative">
-          <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 hidden md:block">
-            <div className="h-1 rounded-full bg-gray-200">
-              <div
-                className="h-1 rounded-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
-                style={{ width: `${((activeStep - 1) / (steps.length - 1)) * 100}%` }}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {steps.map((step) => {
-              const isActive = step.id === activeStep;
-              const isCompleted = step.id < activeStep || (step.id === steps.length && arimaState.completed);
-              return (
-                <div
-                  key={step.id}
-                  className={`relative rounded-xl border p-5 transition-all shadow-sm ${
-                    isActive
-                      ? "border-blue-500 bg-blue-50"
-                      : isCompleted
-                      ? "border-green-500 bg-green-50"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}>
-                      {step.id}
-                    </div>
-                    {isCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{step.title}</h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">{step.description}</p>
-                </div>
-              );
-            })}
+      <div className="relative">
+        <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 hidden md:block">
+          <div className="h-1 rounded-full bg-gray-200">
+            <div
+              className="h-1 rounded-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
+              style={{ width: `${((activeStep - 1) / (STEPS.length - 1)) * 100}%` }}
+            />
           </div>
         </div>
-
-        {renderStepContent()}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          {STEPS.map((step) => {
+            const isActive = step.id === activeStep;
+            const isCompleted = step.id < activeStep || (step.id === 4 && trainingCompleted);
+            return (
+              <div
+                key={step.id}
+                className={`relative rounded-xl border p-5 transition-all shadow-sm ${
+                  isActive
+                    ? "border-blue-500 bg-blue-50"
+                    : isCompleted
+                    ? "border-green-500 bg-green-50"
+                    : "border-gray-200 bg-white"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                      isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"
+                    }`}
+                  >
+                    {step.id}
+                  </div>
+                  {isCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{step.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{step.description}</p>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="bg-white border-t border-gray-200 rounded-b-xl px-6 py-4 flex justify-between items-center">
+      {renderStepContent()}
+
+      <div className="bg-white border border-gray-200 rounded-xl px-6 py-4 flex justify-between items-center">
         <button
           onClick={handleBack}
           disabled={activeStep === 1}
-          className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
         >
           上一步
         </button>
         <button
           onClick={handleNext}
           disabled={isNextDisabled}
-          className={`flex items-center space-x-2 px-6 py-2 rounded-lg text-white ${
+          className={`px-6 py-2 rounded-lg text-white whitespace-nowrap transition-colors ${
             isNextDisabled
               ? "bg-gray-400 cursor-not-allowed"
               : activeStep === 4
               ? "bg-green-600 hover:bg-green-700"
               : "bg-blue-600 hover:bg-blue-700"
           }`}
+          type="button"
         >
-          {activeStep === 4 ? <TrendingUp className="w-4 h-4" /> : <Brain className="w-4 h-4" />}
-          <span>{nextButtonLabel}</span>
+          {nextLabel}
         </button>
       </div>
     </div>

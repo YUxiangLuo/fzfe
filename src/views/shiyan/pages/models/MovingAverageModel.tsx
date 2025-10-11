@@ -68,7 +68,7 @@ const MovingAverageModel: React.FC = () => {
   };
 
   const handleCalculate = async () => {
-    if (isCalculating) return;
+    if (isCalculating || modelState.completed) return;
 
     setIsCalculating(true);
     setError(null);
@@ -260,12 +260,13 @@ const MovingAverageModel: React.FC = () => {
   const nextButtonLabel = (() => {
     if (activeStep === 1) return "下一步：设置窗口";
     if (activeStep === 2) return "下一步：运行模型";
-    if (modelState.completed) return "重新计算";
     if (isCalculating) return "计算中...";
-    return "开始计算";
+    if (modelState.completed) return "结果已保存";
+    return "开始计算并保存结果";
   })();
 
-  const isNextDisabled = isCalculating;
+  const isNextDisabled =
+    isCalculating || (activeStep === 3 && Boolean(modelState.completed));
 
   return (
     <div className="bg-gray-50 rounded-xl border border-gray-200">
@@ -324,14 +325,14 @@ const MovingAverageModel: React.FC = () => {
         <button
           onClick={handleBack}
           disabled={activeStep === 1}
-          className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
         >
           上一步
         </button>
         <button
           onClick={handleNext}
           disabled={isNextDisabled}
-          className={`flex items-center justify-center w-40 space-x-2 px-6 py-2 rounded-lg text-white ${
+          className={`flex items-center justify-center w-52 space-x-2 px-6 py-2 rounded-lg text-white whitespace-nowrap ${
             isNextDisabled
               ? "bg-gray-400 cursor-not-allowed"
               : modelState.completed

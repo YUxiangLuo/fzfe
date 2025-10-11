@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Brain, CheckCircle, Loader2, SlidersHorizontal } from "lucide-react";
+import { Brain, CheckCircle, Loader2 } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
 const MOCK_METRICS = { rmse: 3.2, mae: 1.6, r2: 0.95 };
@@ -401,7 +401,7 @@ const LSTMModel: React.FC = () => {
         <button
           onClick={handleNext}
           disabled={isNextDisabled}
-          className={`flex items-center space-x-2 px-6 py-2 rounded-lg text-white ${
+          className={`px-6 py-2 rounded-lg text-white whitespace-nowrap ${
             isNextDisabled
               ? "bg-gray-400 cursor-not-allowed"
               : activeStep === 4
@@ -409,8 +409,7 @@ const LSTMModel: React.FC = () => {
               : "bg-purple-600 hover:bg-purple-700"
           }`}
         >
-          <SlidersHorizontal className="w-4 h-4" />
-          <span>{nextButtonLabel}</span>
+          {nextButtonLabel}
         </button>
       </div>
     </div>

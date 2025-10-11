@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { CheckCircle, Layers } from "lucide-react";
+import { CheckCircle, Layers, Loader2 } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
 const MOCK_METRICS = { rmse: 2.3, mae: 1.3, r2: 0.98 };
@@ -56,6 +56,7 @@ const StackingEnsembleModel: React.FC = () => {
 
   const [activeStep, setActiveStep] = useState(derivedStep);
   const [selectedModels, setSelectedModels] = useState<string[]>(modelState.baseModels);
+  const [isTraining, setIsTraining] = useState(false);
 
   useEffect(() => {
     setActiveStep(derivedStep);
@@ -90,13 +91,18 @@ const StackingEnsembleModel: React.FC = () => {
     }
 
     if (activeStep === 3 && !modelState.completed) {
-      await updateState({
-        ensemble_stacking_base_models: selectedModels,
-        ensemble_stacking_completed: true,
-        ensemble_stacking_metrics_rmse: MOCK_METRICS.rmse,
-        ensemble_stacking_metrics_mae: MOCK_METRICS.mae,
-        ensemble_stacking_metrics_r2: MOCK_METRICS.r2,
-      });
+      setIsTraining(true);
+      const payload = [...selectedModels];
+      setTimeout(async () => {
+        await updateState({
+          ensemble_stacking_base_models: payload,
+          ensemble_stacking_completed: true,
+          ensemble_stacking_metrics_rmse: MOCK_METRICS.rmse,
+          ensemble_stacking_metrics_mae: MOCK_METRICS.mae,
+          ensemble_stacking_metrics_r2: MOCK_METRICS.r2,
+        });
+        setIsTraining(false);
+      }, 1500);
     }
   };
 
@@ -170,10 +176,17 @@ const StackingEnsembleModel: React.FC = () => {
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-xl font-semibold text-gray-900 mb-4">训练 Stacking 元学习器</h3>
-        {!modelState.completed && (
+        {!modelState.completed && !isTraining && (
           <p className="text-sm text-gray-600">
-            点击“保存融合结果”后，系统将使用元学习器对基础模型输出进行训练并保存指标。
+            点击“开始训练并保存结果”后，系统将使用元学习器对基础模型输出进行训练并保存指标。
           </p>
+        )}
+
+        {isTraining && (
+          <div className="flex items-center space-x-3 text-teal-600 bg-teal-50 border border-teal-200 rounded-lg px-4 py-3">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>正在训练 Stacking 元学习器...</span>
+          </div>
         )}
 
         {modelState.completed && (
@@ -218,16 +231,17 @@ const StackingEnsembleModel: React.FC = () => {
     }
   };
 
-  const nextButtonLabel = (() => {
-    if (activeStep === 1) return "下一步：选择基础模型";
-    if (activeStep === 2) return "下一步：保存融合";
-    if (modelState.completed) return "结果已保存";
-    return "保存融合结果";
-  })();
+const nextButtonLabel = (() => {
+  if (activeStep === 1) return "下一步：选择基础模型";
+  if (activeStep === 2) return "下一步：开始训练";
+  if (modelState.completed) return "结果已保存";
+  if (isTraining) return "训练中...";
+  return "开始训练并保存结果";
+})();
 
-  const isNextDisabled =
-    (activeStep === 2 && selectedModels.length < 2) ||
-    (activeStep === 3 && Boolean(modelState.completed));
+const isNextDisabled =
+  (activeStep === 2 && selectedModels.length < 2) ||
+  (activeStep === 3 && (isTraining || Boolean(modelState.completed)));
 
   return (
     <div className="bg-gray-50 rounded-xl border border-gray-200">
@@ -293,7 +307,7 @@ const StackingEnsembleModel: React.FC = () => {
         <button
           onClick={handleNext}
           disabled={isNextDisabled}
-          className={`flex items-center space-x-2 px-6 py-2 rounded-lg text-white ${
+          className={`px-6 py-2 rounded-lg text-white whitespace-nowrap ${
             isNextDisabled
               ? "bg-gray-400 cursor-not-allowed"
               : activeStep === 3
@@ -301,7 +315,7 @@ const StackingEnsembleModel: React.FC = () => {
               : "bg-teal-600 hover:bg-teal-700"
           }`}
         >
-          <span>{nextButtonLabel}</span>
+          {nextButtonLabel}
         </button>
       </div>
     </div>
