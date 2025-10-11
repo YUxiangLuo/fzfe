@@ -30,7 +30,7 @@ const ProductSelection: React.FC = () => {
         );
         const end = performance.now();
         const elapsed = end - start;
-        const remaining = Math.max(0, 1500 - elapsed);
+        const remaining = Math.max(0, 600 - elapsed);
         await new Promise((resolve) => setTimeout(resolve, remaining));
         if (isActive) {
           setProducts(Array.isArray(response) ? response : []);

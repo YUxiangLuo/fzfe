@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useExperiment } from "../contexts/ExperimentContext";
 import { apiClient } from "../../../utils/apiClient";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig";
@@ -31,8 +31,9 @@ interface Manual {
 }
 
 const Introduction: React.FC = () => {
+  const location = useLocation();
   const navigate = useNavigate();
-  const { resetExperiment } = useExperiment();
+  const { state: experimentState } = useExperiment();
   const [currentStep, setCurrentStep] = useState(0);
   const [manual, setManual] = useState<Manual | null>(null);
   const [loadingManual, setLoadingManual] = useState(true);
@@ -67,11 +68,22 @@ const Introduction: React.FC = () => {
     { id: 2, title: "实验手册", icon: FileText },
   ];
 
-  const handleNext = async () => {
+  const fromState = location.state as { from?: string } | null;
+  const rawFromPath = fromState?.from;
+  const sanitizedFromPath =
+    rawFromPath && !rawFromPath.startsWith("/introduction") ? rawFromPath : null;
+  const returnPath = sanitizedFromPath ?? "/industry";
+  const shouldReplaceOnReturn = Boolean(sanitizedFromPath);
+  const isExperimentOngoing =
+    experimentState.status !== "Not Started" ||
+    experimentState.highest_completed_step > 0 ||
+    experimentState.current_step > 1;
+
+  const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      navigate("/industry");
+      navigate(returnPath, { replace: shouldReplaceOnReturn });
     }
   };
 
@@ -82,7 +94,7 @@ const Introduction: React.FC = () => {
   };
 
   const handleExit = () => {
-    navigate("/industry");
+    navigate(returnPath, { replace: shouldReplaceOnReturn });
   };
 
   const getDownloadUrl = () => {
@@ -327,10 +339,18 @@ const Introduction: React.FC = () => {
               className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md transition-all font-medium"
             >
               <span>
-                {currentStep === steps.length - 1 ? "开始实验" : "下一步"}
+                {currentStep === steps.length - 1
+                  ? isExperimentOngoing
+                    ? "返回实验"
+                    : "开始实验"
+                  : "下一步"}
               </span>
               {currentStep === steps.length - 1 ? (
-                <Play className="w-5 h-5" />
+                isExperimentOngoing ? (
+                  <ArrowLeft className="w-5 h-5" />
+                ) : (
+                  <Play className="w-5 h-5" />
+                )
               ) : (
                 <ArrowRight className="w-5 h-5" />
               )}

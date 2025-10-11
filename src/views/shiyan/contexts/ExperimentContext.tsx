@@ -147,7 +147,7 @@ const buildInitialState = (): ExperimentState => ({
 
   arima_completed: false,
   arima_p: null,
-  arima_d: 0,
+  arima_d: null,
   arima_q: null,
   arima_metrics_rmse: null,
   arima_metrics_mae: null,
@@ -206,7 +206,7 @@ const resetModelingFields = (target: ExperimentState, { resetQuizzes }: { resetQ
 
   target.arima_completed = false;
   target.arima_p = null;
-  target.arima_d = 0;
+  target.arima_d = null;
   target.arima_q = null;
   target.arima_metrics_rmse = null;
   target.arima_metrics_mae = null;

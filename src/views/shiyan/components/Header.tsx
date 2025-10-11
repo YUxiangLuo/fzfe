@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { User, LogOut } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { apiClient, resetExperimentState } from "../../../utils/apiClient";
 import { getRoleByBackendValue } from "../../../config/roles";
 
@@ -15,6 +15,13 @@ interface UserSummary {
 }
 
 const Header: React.FC = () => {
+  const location = useLocation();
+  const currentPath =
+    location.pathname + (location.search || "") + (location.hash || "");
+  const introductionState =
+    location.pathname === "/introduction" ? undefined : { from: currentPath };
+  const profileState =
+    location.pathname === "/profile" ? undefined : { from: currentPath };
   const [user, setUser] = useState<UserSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +77,7 @@ const Header: React.FC = () => {
         <div className="flex items-center space-x-4">
           <Link
             to="/introduction"
+            state={introductionState}
             className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium"
           >
             实验介绍
@@ -77,6 +85,7 @@ const Header: React.FC = () => {
 
           <Link
             to="/profile"
+            state={profileState}
             className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium"
           >
             个人信息

@@ -1,17 +1,110 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { User, Mail, Calendar, BookOpen, Award, Clock, TrendingUp, X, CheckCircle } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useExperiment } from "../contexts/ExperimentContext";
+import { apiClient } from "../../../utils/apiClient";
+import {
+  User,
+  Mail,
+  Phone,
+  Calendar,
+  GraduationCap,
+  School,
+  Loader2,
+  X,
+  MapPin,
+  ArrowLeft,
+  ArrowRight,
+} from "lucide-react";
+import { getRoleByBackendValue } from "../../../config/roles";
+
+interface UserClassInfo {
+  class_id: number;
+  class_name: string;
+  class_code: string;
+  teacher_id: number;
+  teacher_name: string;
+}
+
+interface UserProfileResponse {
+  user_id: number;
+  username: string;
+  full_name: string;
+  email: string;
+  phone_number: string | null;
+  role: string;
+  created_at: string;
+  class?: UserClassInfo | null;
+}
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { state: experimentState } = useExperiment();
+
+  const [profile, setProfile] = useState<UserProfileResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchProfile = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await apiClient.get<UserProfileResponse>("/users/me");
+        if (!active) return;
+        setProfile(data);
+      } catch (err) {
+        if (!active) return;
+        setError(err instanceof Error ? err.message : "获取个人信息失败");
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchProfile();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const fromState = location.state as { from?: string } | null;
+  const rawFromPath = fromState?.from;
+  const sanitizedFromPath =
+    rawFromPath && !rawFromPath.startsWith("/profile") ? rawFromPath : null;
+  const returnPath = sanitizedFromPath ?? "/industry";
+  const shouldReplaceOnReturn = Boolean(sanitizedFromPath);
+
+  const isExperimentOngoing =
+    experimentState.status !== "Not Started" ||
+    experimentState.highest_completed_step > 0 ||
+    experimentState.current_step > 1;
 
   const handleExit = () => {
-    navigate('/industry');
+    navigate(returnPath, { replace: shouldReplaceOnReturn });
   };
+
+  const roleLabel =
+    profile?.role && getRoleByBackendValue(profile.role)?.displayName
+      ? getRoleByBackendValue(profile.role)!.displayName
+      : profile?.role ?? "—";
+
+  const createdDate = profile
+    ? new Date(profile.created_at).toLocaleString("zh-CN", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : "—";
+
+  const primaryActionLabel = isExperimentOngoing ? "返回实验" : "进入实验";
+  const PrimaryIcon = isExperimentOngoing ? ArrowLeft : ArrowRight;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      {/* 退出按钮 */}
       <button
         onClick={handleExit}
         className="absolute top-6 right-6 p-2 text-gray-600 hover:text-gray-900 hover:bg-white hover:shadow-md rounded-lg transition-all z-10"
@@ -20,236 +113,208 @@ const Profile: React.FC = () => {
       </button>
 
       <div className="min-h-screen flex flex-col">
-        {/* 标题区域 */}
-        <div className="bg-white border-b border-gray-200 px-8 pt-12 pb-8">
+        <div className="bg-white border-b border-gray-200 px-8 pt-10 pb-6">
           <div className="max-w-6xl mx-auto text-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              个人学习档案
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+              个人信息
             </h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              查看您的学习进度、成就记录和个人资料信息
-            </p>
           </div>
         </div>
 
-        {/* 内容区域 */}
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="max-w-6xl mx-auto w-full">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* 个人资料卡片 */}
-              <div className="lg:col-span-1">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                  <div className="text-center mb-8">
-                    <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                      <User className="w-12 h-12 text-white" />
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-24 text-gray-500">
+                <Loader2 className="w-10 h-10 animate-spin mb-4" />
+                正在加载个人信息...
+              </div>
+            ) : error ? (
+              <div className="bg-white border border-red-200 rounded-2xl p-8 text-center text-red-600 shadow-sm">
+                <p className="text-lg font-semibold mb-2">信息获取失败</p>
+                <p>{error}</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                    <div className="text-center mb-8">
+                      <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <User className="w-12 h-12 text-white" />
+                      </div>
+                      <h2 className="text-2xl font-semibold text-gray-900 mb-1">
+                        {profile?.full_name ?? "—"}
+                      </h2>
+                      <p className="text-gray-600 text-lg">{roleLabel}</p>
                     </div>
-                    <h2 className="text-2xl font-semibold text-gray-900 mb-2">张同学</h2>
-                    <p className="text-gray-600 text-lg">学生</p>
-                  </div>
 
-                  <div className="space-y-6">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                        <Mail className="w-5 h-5 text-blue-600" />
+                    <div className="space-y-5">
+                      <div className="flex items-start space-x-4">
+                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <Mail className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm text-gray-500">邮箱</div>
+                          <div className="font-medium text-gray-900 break-all">
+                            {profile?.email ?? "—"}
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-sm text-gray-500">邮箱地址</div>
-                        <div className="font-medium text-gray-900">zhang.student@university.edu.cn</div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <BookOpen className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-500">专业</div>
-                        <div className="font-medium text-gray-900">工商管理专业</div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                        <Calendar className="w-5 h-5 text-purple-600" />
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-500">入学时间</div>
-                        <div className="font-medium text-gray-900">2024年</div>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="mt-8 pt-8 border-t border-gray-200">
-                    <button className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg font-medium">
-                      编辑个人资料
-                    </button>
+                      <div className="flex items-start space-x-4">
+                        <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                          <Phone className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm text-gray-500">联系电话</div>
+                          <div className="font-medium text-gray-900">
+                            {profile?.phone_number ?? "—"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start space-x-4">
+                        <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                          <Calendar className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm text-gray-500">
+                            账号创建时间
+                          </div>
+                          <div className="font-medium text-gray-900">
+                            {createdDate}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start space-x-4">
+                        <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                          <GraduationCap className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm text-gray-500">用户名</div>
+                          <div className="font-medium text-gray-900">
+                            {profile?.username ?? "—"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* 学习进度和成就 */}
-              <div className="lg:col-span-2 space-y-8">
-                {/* 学习进度卡片 */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                  <div className="flex items-center space-x-4 mb-8">
-                    <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                      <TrendingUp className="w-6 h-6 text-green-600" />
+                <div className="lg:col-span-2 space-y-8">
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                    <div className="flex items-center space-x-4 mb-6">
+                      <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                        <School className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-semibold text-gray-900">
+                          班级信息
+                        </h3>
+                        <p className="text-gray-500">
+                          查看当前所属班级与指导教师信息
+                        </p>
+                      </div>
                     </div>
-                    <h3 className="text-2xl font-semibold text-gray-900">学习进度</h3>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
-                      <div className="text-3xl font-bold text-blue-600 mb-2">0/7</div>
-                      <div className="text-blue-700 font-medium">已完成步骤</div>
-                    </div>
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
-                      <div className="text-3xl font-bold text-green-600 mb-2">0%</div>
-                      <div className="text-green-700 font-medium">总体进度</div>
-                    </div>
-                    <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-6 border border-orange-200">
-                      <div className="text-3xl font-bold text-orange-600 mb-2">0分钟</div>
-                      <div className="text-orange-700 font-medium">学习时长</div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-gray-900">实验步骤完成情况</h4>
-                    {[
-                      { step: 1, title: '选择行业', completed: false },
-                      { step: 2, title: '选择企业', completed: false },
-                      { step: 3, title: '选择产品', completed: false },
-                      { step: 4, title: '历史数据分析', completed: false },
-                      { step: 5, title: '预测模型建立', completed: false },
-                      { step: 6, title: '结果评估', completed: false },
-                      { step: 7, title: '生产计划制定', completed: false },
-                    ].map((item) => (
-                      <div key={item.step} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                            item.completed 
-                              ? 'bg-green-600 text-white' 
-                              : 'bg-gray-300 text-gray-600'
-                          }`}>
-                            {item.completed ? <CheckCircle className="w-4 h-4" /> : item.step}
+                    {profile?.class ? (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                            <div className="text-sm text-gray-500 mb-1">
+                              班级名称
+                            </div>
+                            <div className="font-semibold text-gray-900">
+                              {profile.class.class_name}
+                            </div>
                           </div>
-                          <span className="text-gray-900 font-medium">{item.title}</span>
+                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                            <div className="text-sm text-gray-500 mb-1">
+                              班级编码
+                            </div>
+                            <div className="font-semibold text-gray-900">
+                              {profile.class.class_code}
+                            </div>
+                          </div>
                         </div>
-                        <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-                          item.completed 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {item.completed ? '已完成' : '未开始'}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                            <div className="text-sm text-gray-500 mb-1">
+                              指导教师
+                            </div>
+                            <div className="font-semibold text-gray-900 flex items-center space-x-2">
+                              <User className="w-4 h-4 text-blue-600" />
+                              <span>{profile.class.teacher_name}</span>
+                            </div>
+                          </div>
+                          <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                            <div className="text-sm text-gray-500 mb-1">
+                              教师编号
+                            </div>
+                            <div className="font-semibold text-gray-900">
+                              {profile.class.teacher_id}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 flex items-center space-x-3">
+                          <MapPin className="w-5 h-5 text-blue-600" />
+                          <p className="text-sm text-blue-800">
+                            若班级信息有误，请联系指导教师及时更新。
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-yellow-800">
+                        暂未关联班级信息，请联系管理员或指导教师确认。
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-semibold text-gray-900">
+                        实验进度概览
+                      </h3>
+                      <span className="text-sm text-gray-500">
+                        当前解锁步骤：{experimentState.current_step} / 7
+                      </span>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">最高完成步骤</span>
+                        <span className="font-medium text-gray-900">
+                          {experimentState.highest_completed_step}
                         </span>
                       </div>
-                    ))}
-                  </div>
-
-                  {/* 进度条 */}
-                  <div className="mt-8 pt-8 border-t border-gray-200">
-                    <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-gray-600 font-medium">总体进度</span>
-                        <span className="text-lg font-bold text-gray-900">0/7</span>
-                      </div>
                       <div className="w-full bg-gray-200 rounded-full h-3">
-                        <div 
+                        <div
                           className="bg-gradient-to-r from-blue-400 to-blue-600 h-3 rounded-full transition-all duration-500"
-                          style={{ width: '0%' }}
-                        ></div>
+                          style={{
+                            width: `${Math.min(experimentState.highest_completed_step / 7, 1) * 100}%`,
+                          }}
+                        />
                       </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 学习成就卡片 */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                  <div className="flex items-center space-x-4 mb-8">
-                    <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-                      <Award className="w-6 h-6 text-yellow-600" />
-                    </div>
-                    <h3 className="text-2xl font-semibold text-gray-900">学习成就</h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {[
-                      { 
-                        icon: BookOpen, 
-                        title: '初学者', 
-                        desc: '完成第一个实验步骤',
-                        color: 'bg-blue-100 text-blue-600'
-                      },
-                      { 
-                        icon: TrendingUp, 
-                        title: '数据分析师', 
-                        desc: '完成历史数据分析',
-                        color: 'bg-green-100 text-green-600'
-                      },
-                      { 
-                        icon: Award, 
-                        title: '预测专家', 
-                        desc: '成功建立预测模型',
-                        color: 'bg-purple-100 text-purple-600'
-                      },
-                      { 
-                        icon: Clock, 
-                        title: '决策制定者', 
-                        desc: '完成生产计划制定',
-                        color: 'bg-orange-100 text-orange-600'
-                      },
-                    ].map((achievement, index) => {
-                      const IconComponent = achievement.icon;
-                      return (
-                        <div key={index} className="p-6 bg-gray-50 rounded-xl border border-gray-200 opacity-50 hover:opacity-75 transition-opacity">
-                          <div className="flex items-center space-x-4 mb-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${achievement.color}`}>
-                              <IconComponent className="w-5 h-5" />
-                            </div>
-                            <span className="font-semibold text-gray-700">{achievement.title}</span>
-                          </div>
-                          <p className="text-gray-500 text-sm">{achievement.desc}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 学习建议 */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-8">
-                  <h4 className="text-xl font-semibold text-blue-800 mb-6">💡 学习建议</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h5 className="font-medium text-blue-700 mb-3">实验流程建议：</h5>
-                      <ul className="space-y-2 text-blue-600 text-sm">
-                        <li>• 建议按照步骤顺序完成实验，每个步骤都有重要的学习价值</li>
-                        <li>• 在进行预测模型选择时，可以尝试不同的算法并比较效果</li>
-                        <li>• 注意观察数据的特征和模式，这对选择合适的预测方法很重要</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <h5 className="font-medium text-blue-700 mb-3">学习方法建议：</h5>
-                      <ul className="space-y-2 text-blue-600 text-sm">
-                        <li>• 完成实验后，可以思考如何将所学知识应用到实际商业场景中</li>
-                        <li>• 建议记录每个步骤的关键发现和思考</li>
-                        <li>• 可以尝试不同的参数配置，观察对预测结果的影响</li>
-                      </ul>
+                      <p className="text-xs text-gray-500">
+                        进度统计基于当前会话。实际完成情况以后台记录为准。
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* 底部导航区域 */}
         <div className="bg-white border-t border-gray-200 px-8 py-6">
           <div className="max-w-6xl mx-auto flex justify-center">
             <button
               onClick={handleExit}
               className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-md hover:shadow-lg transition-all font-medium"
             >
-              <span>返回实验</span>
+              <PrimaryIcon className="w-5 h-5" />
+              <span>{primaryActionLabel}</span>
             </button>
           </div>
         </div>

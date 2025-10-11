@@ -61,7 +61,7 @@ const IndustrySelection: React.FC = () => {
         const result = await apiClient.get<string[]>('/datasets/industries');
         const end = performance.now();
         const elapsed = end - start;
-        const remaining = Math.max(0, 1500 - elapsed);
+        const remaining = Math.max(0, 600 - elapsed);
         await new Promise((resolve) => setTimeout(resolve, remaining));
         if (isActive) {
             setIndustries(Array.isArray(result) ? result : []);
