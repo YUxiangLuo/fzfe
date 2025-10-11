@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext';
 import { AlertTriangle, CalendarRange, CheckCircle2 } from 'lucide-react';
@@ -56,10 +56,40 @@ const buildDefaultRanges = (
 
 const DataWindowSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState, productSalesData } = useExperiment();
+  const {
+    state,
+    updateState,
+    productSalesData,
+    loadProductSalesData,
+    isLoadingSales,
+    salesDataError,
+  } = useExperiment();
 
   const points = productSalesData?.monthlySales ?? [];
   const meta = productSalesData?.meta;
+  const { selected_industry, selected_company, selected_product } = state;
+
+  useEffect(() => {
+    if (
+      productSalesData ||
+      isLoadingSales ||
+      salesDataError ||
+      !selected_industry ||
+      !selected_company ||
+      !selected_product
+    ) {
+      return;
+    }
+    void loadProductSalesData(selected_industry, selected_company, selected_product);
+  }, [
+    productSalesData,
+    isLoadingSales,
+    salesDataError,
+    loadProductSalesData,
+    selected_industry,
+    selected_company,
+    selected_product,
+  ]);
 
   const defaultRanges = useMemo(() => buildDefaultRanges(points), [points]);
   const trainingRange: RangeSelection = {
@@ -70,6 +100,24 @@ const DataWindowSelection: React.FC = () => {
     startIndex: state.data_window_evaluate_start_index,
     endIndex: state.data_window_evaluate_end_index,
   };
+
+  if (isLoadingSales) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 flex flex-col items-center justify-center space-y-3">
+        <CalendarRange className="w-8 h-8 text-blue-500 animate-pulse" />
+        <p className="text-gray-600">正在加载历史销量数据...</p>
+      </div>
+    );
+  }
+
+  if (salesDataError) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 space-y-4">
+        <h2 className="text-xl font-semibold text-red-600">数据加载失败</h2>
+        <p className="text-red-500">{salesDataError}</p>
+      </div>
+    );
+  }
 
   if (points.length === 0) {
     return (

@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import {
   getExperimentState,
   updateExperimentState as apiUpdateExperimentState,
-  resetExperimentState as apiResetExperimentState,
 } from '../../../utils/apiClient';
 import { apiClient } from '../../../utils/apiClient';
 
@@ -250,7 +249,6 @@ interface ExperimentContextType {
   state: ExperimentState;
   loading: boolean;
   updateState: (updates: Partial<ExperimentState>) => Promise<void>;
-  resetExperiment: () => Promise<void>;
   isStepCompleted: (step: number) => boolean;
   isStepUnlocked: (step: number) => boolean;
   productSalesData: ProductSalesData | null;
@@ -272,29 +270,32 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const fetchState = async () => {
       setLoading(true);
-      const fetchedState = await getExperimentState();
-      setState(
-        fetchedState && typeof fetchedState === 'object'
-          ? { ...buildInitialState(), ...fetchedState }
-          : buildInitialState(),
-      );
-      setLoading(false);
+      try {
+        const fetchedState = await getExperimentState();
+        setState(fetchedState);
+      } catch (error) {
+        console.error("Failed to initialize experiment state.", error);
+        setState(buildInitialState());
+      } finally {
+        setLoading(false);
+      }
     };
-    fetchState();
+    void fetchState();
   }, []);
 
   const updateState = async (updates: Partial<ExperimentState>) => {
+    const previousState = state;
     const nextState: ExperimentState = { ...state, ...updates };
 
     const industryChanged =
       Object.prototype.hasOwnProperty.call(updates, 'selected_industry') &&
-      updates.selected_industry !== state.selected_industry;
+      updates.selected_industry !== previousState.selected_industry;
     const companyChanged =
       Object.prototype.hasOwnProperty.call(updates, 'selected_company') &&
-      updates.selected_company !== state.selected_company;
+      updates.selected_company !== previousState.selected_company;
     const productChanged =
       Object.prototype.hasOwnProperty.call(updates, 'selected_product') &&
-      updates.selected_product !== state.selected_product;
+      updates.selected_product !== previousState.selected_product;
 
     if (industryChanged) {
       nextState.selected_company = null;
@@ -327,17 +328,25 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     nextState.last_activity_at = new Date().toISOString();
 
     setState(nextState);
-    await apiUpdateExperimentState(nextState);
-  };
 
-  const resetExperiment = async () => {
-    await apiResetExperimentState();
-    const resetState = buildInitialState();
-    resetState.experiment_id = 1;
-    resetState.student_id = 123;
-    setState(resetState);
-    setProductSalesData(null);
-    setSalesDataError(null);
+    try {
+      const serverState = await apiUpdateExperimentState(nextState);
+      if (serverState && typeof serverState === 'object') {
+        setState(serverState);
+
+        const productChangedRemote =
+          serverState.selected_industry !== previousState.selected_industry ||
+          serverState.selected_company !== previousState.selected_company ||
+          serverState.selected_product !== previousState.selected_product;
+
+        if (productChangedRemote) {
+          setProductSalesData(null);
+          setSalesDataError(null);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to persist experiment state.", error);
+    }
   };
 
   const isStepCompleted = (step: number): boolean => state.highest_completed_step >= step;
@@ -366,7 +375,6 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
         state,
         loading,
         updateState,
-        resetExperiment,
         isStepCompleted,
         isStepUnlocked,
         productSalesData,

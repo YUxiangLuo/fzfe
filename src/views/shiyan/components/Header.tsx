@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { User, LogOut } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import { apiClient, resetExperimentState } from "../../../utils/apiClient";
+import { apiClient } from "../../../utils/apiClient";
 import { getRoleByBackendValue } from "../../../config/roles";
 
 interface UserSummary {
@@ -53,12 +53,8 @@ const Header: React.FC = () => {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await resetExperimentState();
-    } finally {
-      localStorage.removeItem("token");
-      window.location.href = "/login";
-    }
+    localStorage.removeItem("token");
+    window.location.href = "/login";
   };
 
   const roleDisplay = user

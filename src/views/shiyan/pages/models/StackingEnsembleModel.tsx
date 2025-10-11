@@ -94,14 +94,19 @@ const StackingEnsembleModel: React.FC = () => {
       setIsTraining(true);
       const payload = [...selectedModels];
       setTimeout(async () => {
-        await updateState({
-          ensemble_stacking_base_models: payload,
-          ensemble_stacking_completed: true,
-          ensemble_stacking_metrics_rmse: MOCK_METRICS.rmse,
-          ensemble_stacking_metrics_mae: MOCK_METRICS.mae,
-          ensemble_stacking_metrics_r2: MOCK_METRICS.r2,
-        });
-        setIsTraining(false);
+        try {
+          await updateState({
+            ensemble_stacking_base_models: payload,
+            ensemble_stacking_completed: true,
+            ensemble_stacking_metrics_rmse: MOCK_METRICS.rmse,
+            ensemble_stacking_metrics_mae: MOCK_METRICS.mae,
+            ensemble_stacking_metrics_r2: MOCK_METRICS.r2,
+          });
+        } catch (error) {
+          console.error("Failed to save stacking fusion results.", error);
+        } finally {
+          setIsTraining(false);
+        }
       }, 1500);
     }
   };

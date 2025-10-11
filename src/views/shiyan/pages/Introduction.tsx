@@ -72,7 +72,26 @@ const Introduction: React.FC = () => {
   const rawFromPath = fromState?.from;
   const sanitizedFromPath =
     rawFromPath && !rawFromPath.startsWith("/introduction") ? rawFromPath : null;
-  const returnPath = sanitizedFromPath ?? "/industry";
+  const stepToRoute: Record<number, string> = {
+    1: "/industry",
+    2: "/company",
+    3: "/product",
+    4: "/data",
+    5: "/model",
+    6: "/evaluation",
+    7: "/production",
+    8: "/report",
+  };
+
+  const deriveRouteByStep = (step: number): string => {
+    if (Number.isFinite(step) && stepToRoute[step]) {
+      return stepToRoute[step];
+    }
+    return "/industry";
+  };
+
+  const fallbackRoute = deriveRouteByStep(experimentState.current_step);
+  const returnPath = sanitizedFromPath ?? fallbackRoute;
   const shouldReplaceOnReturn = Boolean(sanitizedFromPath);
   const isExperimentOngoing =
     experimentState.status !== "Not Started" ||
@@ -341,7 +360,7 @@ const Introduction: React.FC = () => {
               <span>
                 {currentStep === steps.length - 1
                   ? isExperimentOngoing
-                    ? "返回实验"
+                    ? "继续实验"
                     : "开始实验"
                   : "下一步"}
               </span>

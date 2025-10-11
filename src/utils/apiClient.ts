@@ -116,84 +116,36 @@ export const apiClient = {
 import { initialState } from "../views/shiyan/contexts/ExperimentContext";
 import type { ExperimentState } from "../views/shiyan/contexts/ExperimentContext";
 
-// --- NEW FUNCTIONS FOR EXPERIMENT STATE ---
+const cloneInitialState = (): ExperimentState =>
+  JSON.parse(JSON.stringify(initialState)) as ExperimentState;
 
-const EXPERIMENT_STATE_KEY = "experiment_state";
+const mergeWithInitial = (state: Partial<ExperimentState>): ExperimentState => ({
+  ...cloneInitialState(),
+  ...state,
+});
 
-/**
- * Simulates fetching the current experiment state from the backend.
- * For now, it uses localStorage to persist the state across reloads.
- */
+const createExperimentState = async (): Promise<ExperimentState> => {
+  const created = await apiClient.post<ExperimentState>("/experiment-status", {});
+  return mergeWithInitial(created);
+};
+
 export const getExperimentState = async (): Promise<ExperimentState> => {
-  console.log("API: Getting experiment state...");
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        const savedState = localStorage.getItem(EXPERIMENT_STATE_KEY);
-        if (savedState) {
-          console.log("API: Found saved state in localStorage.");
-          resolve(JSON.parse(savedState));
-        } else {
-          console.log("API: No saved state found, returning initial state.");
-          // Return the new data structure
-          const newState = {
-            ...initialState,
-            student_id: 123,
-            experiment_id: 1,
-            // Example of a partially completed experiment for testing
-            // highest_completed_step: 1,
-            // current_step: 2,
-            // selected_industry: 'automotive',
-          };
-          resolve(newState);
-        }
-      } catch (error) {
-        console.error(
-          "API: Error getting state, returning initial state.",
-          error,
-        );
-        resolve({ ...initialState, student_id: 123, experiment_id: 1 });
-      }
-    }, 500); // Simulate network delay
-  });
+  try {
+    const existing = await apiClient.get<ExperimentState>("/experiment-status/me");
+    if (existing?.status === "Completed") {
+      return await createExperimentState();
+    }
+    return mergeWithInitial(existing);
+  } catch (error) {
+    console.error("Failed to fetch experiment state; falling back to initial state.", error);
+    return mergeWithInitial(initialState);
+  }
 };
 
-/**
- * Simulates updating the experiment state on the backend.
- * For now, it saves the state to localStorage.
- */
-export const updateExperimentState = async (
-  newState: ExperimentState,
-): Promise<void> => {
-  console.log("API: Updating experiment state...", newState);
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        localStorage.setItem(EXPERIMENT_STATE_KEY, JSON.stringify(newState));
-        console.log("API: State successfully saved to localStorage.");
-      } catch (error) {
-        console.error("API: Error saving state.", error);
-      }
-      resolve();
-    }, 300); // Simulate network delay
-  });
-};
-
-/**
- * Simulates resetting the experiment state on the backend.
- * For now, it just removes the state from localStorage.
- */
-export const resetExperimentState = async (): Promise<void> => {
-  console.log("API: Resetting experiment state...");
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        localStorage.removeItem(EXPERIMENT_STATE_KEY);
-        console.log("API: State successfully removed from localStorage.");
-      } catch (error) {
-        console.error("API: Error removing state.", error);
-      }
-      resolve();
-    }, 200); // Simulate network delay
-  });
+export const updateExperimentState = async (state: ExperimentState): Promise<ExperimentState> => {
+  if (!state.experiment_id) {
+    throw new Error("Experiment ID is required to update experiment status.");
+  }
+  const updated = await apiClient.put<ExperimentState>(`/experiment-status/${state.experiment_id}`, state);
+  return mergeWithInitial(updated);
 };

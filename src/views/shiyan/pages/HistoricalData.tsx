@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
 import { BarChart3, Calendar, Info, ArrowRight, Loader2, AlertTriangle } from 'lucide-react';
@@ -16,8 +16,38 @@ import type { MonthlySalesRecord } from '../data/historicalDatasets';
 
 const HistoricalData: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState, productSalesData, isLoadingSales, salesDataError } = useExperiment();
+  const {
+    state,
+    updateState,
+    productSalesData,
+    isLoadingSales,
+    salesDataError,
+    loadProductSalesData,
+  } = useExperiment();
   const [selectedPeriod, setSelectedPeriod] = useState('all');
+  const { selected_industry, selected_company, selected_product } = state;
+
+  useEffect(() => {
+    if (
+      productSalesData ||
+      isLoadingSales ||
+      salesDataError ||
+      !selected_industry ||
+      !selected_company ||
+      !selected_product
+    ) {
+      return;
+    }
+    void loadProductSalesData(selected_industry, selected_company, selected_product);
+  }, [
+    productSalesData,
+    isLoadingSales,
+    salesDataError,
+    loadProductSalesData,
+    selected_industry,
+    selected_company,
+    selected_product,
+  ]);
 
   const activeDataset = productSalesData;
   const monthlySales = activeDataset?.monthlySales ?? [];
