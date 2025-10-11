@@ -191,6 +191,11 @@ const buildInitialState = (): ExperimentState => ({
 export const initialState: ExperimentState = buildInitialState();
 
 const resetModelingFields = (target: ExperimentState, { resetQuizzes }: { resetQuizzes: boolean }) => {
+  target.data_window_train_start_index = null;
+  target.data_window_train_end_index = null;
+  target.data_window_evaluate_start_index = null;
+  target.data_window_evaluate_end_index = null;
+
   target.moving_average_completed = false;
   target.moving_average_window = null;
   target.moving_average_metrics_rmse = null;
