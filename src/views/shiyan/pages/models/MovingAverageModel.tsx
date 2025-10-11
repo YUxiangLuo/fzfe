@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 import { apiClient } from "../../../../utils/apiClient";
@@ -31,6 +31,7 @@ const MovingAverageModel: React.FC = () => {
   const [windowSize, setWindowSize] = useState(modelState.window ?? 3);
   const [isCalculating, setIsCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const windowUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const baseModelsCompletedCount = [
     state.moving_average_completed,
@@ -54,17 +55,62 @@ const MovingAverageModel: React.FC = () => {
     }
   }, [modelState.window]);
 
+  useEffect(() => {
+    return () => {
+      if (windowUpdateTimer.current) {
+        clearTimeout(windowUpdateTimer.current);
+      }
+    };
+  }, []);
+
+  const buildEnsembleReset = () => ({
+    ensemble_weighted_completed: false,
+    ensemble_weighted_base_models: [],
+    ensemble_weighted_metrics_rmse: null,
+    ensemble_weighted_metrics_mae: null,
+    ensemble_weighted_metrics_r2: null,
+    ensemble_boosting_completed: false,
+    ensemble_boosting_base_models: [],
+    ensemble_boosting_metrics_rmse: null,
+    ensemble_boosting_metrics_mae: null,
+    ensemble_boosting_metrics_r2: null,
+    ensemble_stacking_completed: false,
+    ensemble_stacking_base_models: [],
+    ensemble_stacking_metrics_rmse: null,
+    ensemble_stacking_metrics_mae: null,
+    ensemble_stacking_metrics_r2: null,
+  });
+
+  const commitWindowUpdate = async (value: number) => {
+    const storedWindow = state.moving_average_window;
+    const changed =
+      storedWindow === null || storedWindow === undefined || storedWindow !== value;
+
+    if (!changed) {
+      return;
+    }
+
+    await updateState({
+      moving_average_window: value,
+      moving_average_completed: false,
+      moving_average_metrics_rmse: null,
+      moving_average_metrics_mae: null,
+      moving_average_metrics_r2: null,
+      ...buildEnsembleReset(),
+    });
+  };
+
   const handleWindowChange = (newWindowSize: number) => {
     setWindowSize(newWindowSize);
-    if (modelState.completed) {
-      updateState({
-        moving_average_window: newWindowSize,
-        moving_average_completed: false,
-        moving_average_metrics_rmse: null,
-        moving_average_metrics_mae: null,
-        moving_average_metrics_r2: null,
-      });
+
+    if (windowUpdateTimer.current) {
+      clearTimeout(windowUpdateTimer.current);
     }
+
+    windowUpdateTimer.current = setTimeout(() => {
+      windowUpdateTimer.current = null;
+      void commitWindowUpdate(newWindowSize);
+    }, 300);
   };
 
   const handleCalculate = async () => {
@@ -120,11 +166,13 @@ const MovingAverageModel: React.FC = () => {
     if (activeStep === 1) {
       setActiveStep(2);
     } else if (activeStep === 2) {
-      // Save the current window size to global state and move to the next step
-      await updateState({
-        moving_average_window: windowSize,
-        moving_average_completed: false,
-      });
+      if (windowUpdateTimer.current) {
+        clearTimeout(windowUpdateTimer.current);
+        windowUpdateTimer.current = null;
+        await commitWindowUpdate(windowSize);
+      } else {
+        await commitWindowUpdate(windowSize);
+      }
       setActiveStep(3);
     } else if (activeStep === 3) {
       handleCalculate();

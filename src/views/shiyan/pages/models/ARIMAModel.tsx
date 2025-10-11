@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Brain, CheckCircle, Loader2 } from "lucide-react";
 import { useExperiment, type AdfStationarityRow, type ModelMetrics } from "../../contexts/ExperimentContext";
 
@@ -47,6 +47,7 @@ const formatNumber = (value: number | null | undefined, fractionDigits = 3) =>
 const ARIMAModel: React.FC = () => {
   const { state, updateState } = useExperiment();
 
+  const dUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const adfResults = state.arima_adf_stationarity;
   const storedD = state.arima_d;
   const trainingCompleted = state.arima_completed;
@@ -80,6 +81,24 @@ const ARIMAModel: React.FC = () => {
   const [dError, setDError] = useState<string | null>(null);
   const [isTraining, setIsTraining] = useState(false);
 
+  const buildEnsembleReset = () => ({
+    ensemble_weighted_completed: false,
+    ensemble_weighted_base_models: [],
+    ensemble_weighted_metrics_rmse: null,
+    ensemble_weighted_metrics_mae: null,
+    ensemble_weighted_metrics_r2: null,
+    ensemble_boosting_completed: false,
+    ensemble_boosting_base_models: [],
+    ensemble_boosting_metrics_rmse: null,
+    ensemble_boosting_metrics_mae: null,
+    ensemble_boosting_metrics_r2: null,
+    ensemble_stacking_completed: false,
+    ensemble_stacking_base_models: [],
+    ensemble_stacking_metrics_rmse: null,
+    ensemble_stacking_metrics_mae: null,
+    ensemble_stacking_metrics_r2: null,
+  });
+
   const recommendedD = useMemo(() => {
     const firstStationary = adfResults.find((row) => row.stationary);
     return firstStationary?.diff_order ?? 0;
@@ -100,6 +119,47 @@ const ARIMAModel: React.FC = () => {
       setSelectedD(storedD);
     }
   }, [storedD]);
+
+  useEffect(() => {
+    return () => {
+      if (dUpdateTimer.current) {
+        clearTimeout(dUpdateTimer.current);
+      }
+    };
+  }, []);
+
+
+  const commitDiffOrderUpdate = async (value: number) => {
+    const storedDiff = state.arima_d;
+    const changed = storedDiff === null || storedDiff === undefined || storedDiff !== value;
+
+    if (!changed) {
+      return;
+    }
+
+    await updateState({
+      arima_d: value,
+      arima_completed: false,
+      arima_metrics_rmse: null,
+      arima_metrics_mae: null,
+      arima_metrics_r2: null,
+      ...buildEnsembleReset(),
+    });
+  };
+
+  const handleSelectD = (value: number) => {
+    setSelectedD(value);
+    setDError(null);
+
+    if (dUpdateTimer.current) {
+      clearTimeout(dUpdateTimer.current);
+    }
+
+    dUpdateTimer.current = setTimeout(() => {
+      dUpdateTimer.current = null;
+      void commitDiffOrderUpdate(value);
+    }, 300);
+  };
 
   const handleRunAdf = async () => {
     if (isRunningAdf) return;
@@ -166,13 +226,13 @@ const ARIMAModel: React.FC = () => {
           return;
         }
         setDError(null);
-        await updateState({
-          arima_d: selectedD,
-          arima_completed: false,
-          arima_metrics_rmse: null,
-          arima_metrics_mae: null,
-          arima_metrics_r2: null,
-        });
+        if (dUpdateTimer.current) {
+          clearTimeout(dUpdateTimer.current);
+          dUpdateTimer.current = null;
+          await commitDiffOrderUpdate(selectedD);
+        } else {
+          await commitDiffOrderUpdate(selectedD);
+        }
         setActiveStep(4);
         break;
       }
@@ -327,10 +387,7 @@ const ARIMAModel: React.FC = () => {
             return (
               <button
                 key={option}
-                onClick={() => {
-                  setSelectedD(option);
-                  setDError(null);
-                }}
+                onClick={() => handleSelectD(option)}
                 className={`px-6 py-3 rounded-lg border-2 transition-all ${
                   isActive ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-700 hover:border-gray-300"
                 }`}
@@ -362,7 +419,7 @@ const ARIMAModel: React.FC = () => {
 
         {!trainingCompleted && !isTraining && (
           <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-            点击下方按钮开始训练，预计耗时约 {TRAINING_SIMULATION_DELAY / 1000} 秒。
+            点击下方按钮开始训练并保存结果。
           </div>
         )}
         {isTraining && (

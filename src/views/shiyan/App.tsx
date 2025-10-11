@@ -54,7 +54,7 @@ const MainLayout = () => {
             <Route path="/quiz" element={<ProtectedRoute step={7}><ModelQuiz /></ProtectedRoute>} />
             <Route path="/production" element={<ProtectedRoute step={7}><ProductionPlan /></ProtectedRoute>} />
             <Route path="/quiz-plan" element={<ProtectedRoute step={7}><PlanQuiz /></ProtectedRoute>} />
-            <Route path="/report" element={<ProtectedRoute step={8}><ExperimentReport /></ProtectedRoute>} />
+            <Route path="/report" element={<ProtectedRoute step={7}><ExperimentReport /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>

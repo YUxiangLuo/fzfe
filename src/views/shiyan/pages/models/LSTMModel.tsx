@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Brain, CheckCircle, Loader2 } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
@@ -62,6 +62,26 @@ const LSTMModel: React.FC = () => {
     lstmState.features.length > 0 ? lstmState.features : ["sales_quantity"],
   );
   const [isTraining, setIsTraining] = useState(false);
+  const normalizationUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const featuresUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const buildEnsembleReset = () => ({
+    ensemble_weighted_completed: false,
+    ensemble_weighted_base_models: [],
+    ensemble_weighted_metrics_rmse: null,
+    ensemble_weighted_metrics_mae: null,
+    ensemble_weighted_metrics_r2: null,
+    ensemble_boosting_completed: false,
+    ensemble_boosting_base_models: [],
+    ensemble_boosting_metrics_rmse: null,
+    ensemble_boosting_metrics_mae: null,
+    ensemble_boosting_metrics_r2: null,
+    ensemble_stacking_completed: false,
+    ensemble_stacking_base_models: [],
+    ensemble_stacking_metrics_rmse: null,
+    ensemble_stacking_metrics_mae: null,
+    ensemble_stacking_metrics_r2: null,
+  });
 
   useEffect(() => {
     setActiveStep(derivedStep);
@@ -76,14 +96,96 @@ const LSTMModel: React.FC = () => {
     }
   }, [lstmState.features, lstmState.normalization]);
 
+  useEffect(() => {
+    return () => {
+      if (normalizationUpdateTimer.current) {
+        clearTimeout(normalizationUpdateTimer.current);
+      }
+      if (featuresUpdateTimer.current) {
+        clearTimeout(featuresUpdateTimer.current);
+      }
+    };
+  }, []);
+
   const recommendedNormalization = useMemo(() => "minmax", []);
+
+  const arraysEqual = (a: string[], b: string[]): boolean => {
+    if (a.length !== b.length) return false;
+    const sortedA = [...a].sort();
+    const sortedB = [...b].sort();
+    return sortedA.every((value, index) => value === sortedB[index]);
+  };
+
+  const commitNormalizationUpdate = async (value: "minmax" | "zscore") => {
+    const storedNormalization = state.lstm_normalization;
+    if (storedNormalization === value) {
+      return;
+    }
+    await updateState({
+      lstm_normalization: value,
+      lstm_completed: false,
+      lstm_metrics_rmse: null,
+      lstm_metrics_mae: null,
+      lstm_metrics_r2: null,
+      ...buildEnsembleReset(),
+    });
+  };
+
+  const commitFeaturesUpdate = async (features: string[]) => {
+    const normalized = ensureSalesFeature(features);
+    const storedFeatures = ensureSalesFeature(state.lstm_features ?? []);
+
+    if (arraysEqual(normalized, storedFeatures)) {
+      return;
+    }
+
+    await updateState({
+      lstm_features: normalized,
+      lstm_completed: false,
+      lstm_metrics_rmse: null,
+      lstm_metrics_mae: null,
+      lstm_metrics_r2: null,
+      ...buildEnsembleReset(),
+    });
+  };
+
+  const scheduleNormalizationUpdate = (value: "minmax" | "zscore") => {
+    if (normalizationUpdateTimer.current) {
+      clearTimeout(normalizationUpdateTimer.current);
+    }
+    normalizationUpdateTimer.current = setTimeout(() => {
+      normalizationUpdateTimer.current = null;
+      void commitNormalizationUpdate(value);
+    }, 300);
+  };
+
+  const scheduleFeaturesUpdate = (features: string[]) => {
+    if (featuresUpdateTimer.current) {
+      clearTimeout(featuresUpdateTimer.current);
+    }
+    featuresUpdateTimer.current = setTimeout(() => {
+      featuresUpdateTimer.current = null;
+      void commitFeaturesUpdate(features);
+    }, 300);
+  };
+
+  const handleNormalizationSelect = (value: "minmax" | "zscore") => {
+    if (value === selectedNormalization) return;
+    setSelectedNormalization(value);
+    scheduleNormalizationUpdate(value);
+  };
 
   const handleFeatureToggle = (featureId: string) => {
     const target = AVAILABLE_FEATURES.find((f) => f.id === featureId);
     if (target?.required) return;
-    setSelectedFeatures((prev) =>
-      prev.includes(featureId) ? prev.filter((id) => id !== featureId) : [...prev, featureId],
-    );
+    setSelectedFeatures((prev) => {
+      const next = prev.includes(featureId)
+        ? prev.filter((id) => id !== featureId)
+        : [...prev, featureId];
+      const ensured = ensureSalesFeature(next);
+      scheduleFeaturesUpdate(ensured);
+      return ensured;
+    });
   };
 
   const ensureSalesFeature = (features: string[]): string[] =>
@@ -96,10 +198,13 @@ const LSTMModel: React.FC = () => {
     }
 
     if (activeStep === 2) {
-      await updateState({
-        lstm_normalization: selectedNormalization,
-        lstm_completed: false,
-      });
+      if (normalizationUpdateTimer.current) {
+        clearTimeout(normalizationUpdateTimer.current);
+        normalizationUpdateTimer.current = null;
+        await commitNormalizationUpdate(selectedNormalization);
+      } else {
+        await commitNormalizationUpdate(selectedNormalization);
+      }
       setActiveStep(3);
       return;
     }
@@ -107,21 +212,33 @@ const LSTMModel: React.FC = () => {
     if (activeStep === 3) {
       const featuresToSave = ensureSalesFeature(selectedFeatures);
       setSelectedFeatures(featuresToSave);
-      await updateState({
-        lstm_normalization: selectedNormalization,
-        lstm_features: featuresToSave,
-        lstm_completed: false,
-        lstm_metrics_rmse: null,
-        lstm_metrics_mae: null,
-        lstm_metrics_r2: null,
-      });
+      if (featuresUpdateTimer.current) {
+        clearTimeout(featuresUpdateTimer.current);
+        featuresUpdateTimer.current = null;
+        await commitFeaturesUpdate(featuresToSave);
+      } else {
+        await commitFeaturesUpdate(featuresToSave);
+      }
       setActiveStep(4);
       return;
     }
 
     if (activeStep === 4 && !lstmState.completed && !isTraining) {
+      if (normalizationUpdateTimer.current) {
+        clearTimeout(normalizationUpdateTimer.current);
+        normalizationUpdateTimer.current = null;
+        await commitNormalizationUpdate(selectedNormalization);
+      }
       const featuresToSave = ensureSalesFeature(selectedFeatures);
       setSelectedFeatures(featuresToSave);
+      if (featuresUpdateTimer.current) {
+        clearTimeout(featuresUpdateTimer.current);
+        featuresUpdateTimer.current = null;
+        await commitFeaturesUpdate(featuresToSave);
+      } else {
+        await commitFeaturesUpdate(featuresToSave);
+      }
+
       setIsTraining(true);
       setTimeout(async () => {
         await updateState({
@@ -192,7 +309,7 @@ const LSTMModel: React.FC = () => {
       </div>
       <div className="flex flex-wrap gap-4">
         <button
-          onClick={() => setSelectedNormalization("minmax")}
+          onClick={() => handleNormalizationSelect("minmax")}
           className={`px-6 py-3 rounded-lg border-2 transition-all ${
             selectedNormalization === "minmax"
               ? "border-purple-500 bg-purple-50 text-purple-700"
@@ -202,7 +319,7 @@ const LSTMModel: React.FC = () => {
           选择 Min-Max 归一化
         </button>
         <button
-          onClick={() => setSelectedNormalization("zscore")}
+          onClick={() => handleNormalizationSelect("zscore")}
           className={`px-6 py-3 rounded-lg border-2 transition-all ${
             selectedNormalization === "zscore"
               ? "border-purple-500 bg-purple-50 text-purple-700"

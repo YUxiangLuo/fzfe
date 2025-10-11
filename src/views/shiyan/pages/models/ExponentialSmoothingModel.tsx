@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { TrendingUp, CheckCircle, Loader2 } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
@@ -47,6 +47,25 @@ const ExponentialSmoothingModel: React.FC = () => {
   const [activeStep, setActiveStep] = useState(derivedStep);
   const [alpha, setAlpha] = useState(modelState.alpha ?? 0.5);
   const [isTraining, setIsTraining] = useState(false);
+  const alphaUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const buildEnsembleReset = () => ({
+    ensemble_weighted_completed: false,
+    ensemble_weighted_base_models: [],
+    ensemble_weighted_metrics_rmse: null,
+    ensemble_weighted_metrics_mae: null,
+    ensemble_weighted_metrics_r2: null,
+    ensemble_boosting_completed: false,
+    ensemble_boosting_base_models: [],
+    ensemble_boosting_metrics_rmse: null,
+    ensemble_boosting_metrics_mae: null,
+    ensemble_boosting_metrics_r2: null,
+    ensemble_stacking_completed: false,
+    ensemble_stacking_base_models: [],
+    ensemble_stacking_metrics_rmse: null,
+    ensemble_stacking_metrics_mae: null,
+    ensemble_stacking_metrics_r2: null,
+  });
 
   useEffect(() => {
     setActiveStep(derivedStep);
@@ -58,6 +77,55 @@ const ExponentialSmoothingModel: React.FC = () => {
     }
   }, [modelState.alpha]);
 
+  useEffect(() => {
+    return () => {
+      if (alphaUpdateTimer.current) {
+        clearTimeout(alphaUpdateTimer.current);
+      }
+    };
+  }, []);
+
+  const commitAlphaUpdate = async (value: number) => {
+    const storedAlpha = state.exponential_smoothing_alpha;
+    const changed =
+      storedAlpha === null || storedAlpha === undefined || Math.abs(storedAlpha - value) > Number.EPSILON;
+
+    if (!changed && !modelState.completed) {
+      return;
+    }
+
+    if (!changed && modelState.completed) {
+      // Keep completed state as-is if alpha unchanged
+      return;
+    }
+
+    try {
+      await updateState({
+        exponential_smoothing_alpha: value,
+        exponential_smoothing_completed: false,
+        exponential_smoothing_metrics_rmse: null,
+        exponential_smoothing_metrics_mae: null,
+        exponential_smoothing_metrics_r2: null,
+        ...buildEnsembleReset(),
+      });
+    } catch (error) {
+      console.error("Failed to update smoothing alpha.", error);
+    }
+  };
+
+  const handleAlphaChange = (value: number) => {
+    setAlpha(value);
+
+    if (alphaUpdateTimer.current) {
+      clearTimeout(alphaUpdateTimer.current);
+    }
+
+    alphaUpdateTimer.current = setTimeout(async () => {
+      alphaUpdateTimer.current = null;
+      await commitAlphaUpdate(value);
+    }, 300);
+  };
+
   const handleNext = async () => {
     if (activeStep === 1) {
       setActiveStep(2);
@@ -65,10 +133,13 @@ const ExponentialSmoothingModel: React.FC = () => {
     }
 
     if (activeStep === 2) {
-      await updateState({
-        exponential_smoothing_alpha: alpha,
-        exponential_smoothing_completed: false,
-      });
+      if (alphaUpdateTimer.current) {
+        clearTimeout(alphaUpdateTimer.current);
+        alphaUpdateTimer.current = null;
+        await commitAlphaUpdate(alpha);
+      } else {
+        await commitAlphaUpdate(alpha);
+      }
       setActiveStep(3);
       return;
     }
@@ -132,7 +203,7 @@ const ExponentialSmoothingModel: React.FC = () => {
           max="1"
           step="0.01"
           value={alpha}
-          onChange={(e) => setAlpha(Number(e.target.value))}
+          onChange={(e) => handleAlphaChange(Number(e.target.value))}
           className="w-full"
         />
         <p className="text-xs text-gray-500 mt-2">提示：α=0.1-0.3 适合平稳趋势，α&gt;0.5 适合快速变化场景。</p>

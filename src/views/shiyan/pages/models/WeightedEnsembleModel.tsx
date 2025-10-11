@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {useEffect, useMemo, useState, useRef} from "react";
 import { CheckCircle, Layers, Loader2 } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
@@ -50,26 +50,84 @@ const WeightedEnsembleModel: React.FC = () => {
 
   const derivedStep = useMemo(() => {
     if (modelState.completed) return 3;
-    if (modelState.baseModels.length > 0) return 3;
+    if (modelState.baseModels.length > 0) return 2;
     return 1;
   }, [modelState.completed, modelState.baseModels.length]);
 
   const [activeStep, setActiveStep] = useState(derivedStep);
   const [selectedModels, setSelectedModels] = useState<string[]>(modelState.baseModels);
   const [isTraining, setIsTraining] = useState(false);
+  const selectionUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetMetrics = () => ({
+    ensemble_weighted_completed: false,
+    ensemble_weighted_metrics_rmse: null,
+    ensemble_weighted_metrics_mae: null,
+    ensemble_weighted_metrics_r2: null,
+  });
+
+
+  const hasMountedRef = useRef(false);
 
   useEffect(() => {
-    setActiveStep(derivedStep);
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      setActiveStep(derivedStep);
+      return;
+    }
+
+    if (derivedStep > 1) {
+      setActiveStep(derivedStep);
+    }
   }, [derivedStep]);
+
 
   useEffect(() => {
     setSelectedModels(modelState.baseModels);
   }, [modelState.baseModels]);
 
+  const commitSelectionUpdate = async (models: string[]) => {
+    const storedModels = state.ensemble_weighted_base_models ?? [];
+    const changed =
+      models.length !== storedModels.length ||
+      models.some((model) => !storedModels.includes(model));
+
+    if (!changed) {
+      return;
+    }
+
+    await updateState({
+      ensemble_weighted_base_models: models,
+      ...resetMetrics(),
+    });
+  };
+
+  const scheduleSelectionUpdate = (models: string[]) => {
+    if (selectionUpdateTimer.current) {
+      clearTimeout(selectionUpdateTimer.current);
+    }
+    selectionUpdateTimer.current = setTimeout(() => {
+      selectionUpdateTimer.current = null;
+      void commitSelectionUpdate(models);
+    }, 300);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (selectionUpdateTimer.current) {
+        clearTimeout(selectionUpdateTimer.current);
+      }
+    };
+  }, []);
+
   const handleModelToggle = (modelId: string) => {
-    setSelectedModels((prev) =>
-      prev.includes(modelId) ? prev.filter((id) => id !== modelId) : [...prev, modelId],
-    );
+    setSelectedModels((prev) => {
+      const next = prev.includes(modelId)
+        ? prev.filter((id) => id !== modelId)
+        : [...prev, modelId];
+      scheduleSelectionUpdate(next);
+      return next;
+    });
   };
 
   const handleNext = async () => {
@@ -79,13 +137,13 @@ const WeightedEnsembleModel: React.FC = () => {
     }
 
     if (activeStep === 2) {
-      await updateState({
-        ensemble_weighted_base_models: selectedModels,
-        ensemble_weighted_completed: false,
-        ensemble_weighted_metrics_rmse: null,
-        ensemble_weighted_metrics_mae: null,
-        ensemble_weighted_metrics_r2: null,
-      });
+      if (selectionUpdateTimer.current) {
+        clearTimeout(selectionUpdateTimer.current);
+        selectionUpdateTimer.current = null;
+        await commitSelectionUpdate(selectedModels);
+      } else {
+        await commitSelectionUpdate(selectedModels);
+      }
       setActiveStep(3);
       return;
     }

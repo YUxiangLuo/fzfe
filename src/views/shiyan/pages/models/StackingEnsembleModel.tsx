@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle, Layers, Loader2 } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
@@ -50,16 +50,67 @@ const StackingEnsembleModel: React.FC = () => {
 
   const derivedStep = useMemo(() => {
     if (modelState.completed) return 3;
-    if (modelState.baseModels.length > 0) return 3;
+    if (modelState.baseModels.length > 0) return 2;
     return 1;
   }, [modelState.completed, modelState.baseModels.length]);
 
   const [activeStep, setActiveStep] = useState(derivedStep);
   const [selectedModels, setSelectedModels] = useState<string[]>(modelState.baseModels);
   const [isTraining, setIsTraining] = useState(false);
+  const selectionUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasMountedRef = useRef(false);
+
+  const resetMetrics = () => ({
+    ensemble_stacking_completed: false,
+    ensemble_stacking_metrics_rmse: null,
+    ensemble_stacking_metrics_mae: null,
+    ensemble_stacking_metrics_r2: null,
+  });
+
+  const commitSelectionUpdate = async (models: string[]) => {
+    const storedModels = state.ensemble_stacking_base_models ?? [];
+    const changed =
+      models.length !== storedModels.length ||
+      models.some((model) => !storedModels.includes(model));
+
+    if (!changed) {
+      return;
+    }
+
+    await updateState({
+      ensemble_stacking_base_models: models,
+      ...resetMetrics(),
+    });
+  };
+
+  const scheduleSelectionUpdate = (models: string[]) => {
+    if (selectionUpdateTimer.current) {
+      clearTimeout(selectionUpdateTimer.current);
+    }
+    selectionUpdateTimer.current = setTimeout(() => {
+      selectionUpdateTimer.current = null;
+      void commitSelectionUpdate(models);
+    }, 300);
+  };
 
   useEffect(() => {
-    setActiveStep(derivedStep);
+    return () => {
+      if (selectionUpdateTimer.current) {
+        clearTimeout(selectionUpdateTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      setActiveStep(derivedStep);
+      return;
+    }
+
+    if (derivedStep > 1) {
+      setActiveStep(derivedStep);
+    }
   }, [derivedStep]);
 
   useEffect(() => {
@@ -67,9 +118,13 @@ const StackingEnsembleModel: React.FC = () => {
   }, [modelState.baseModels]);
 
   const handleModelToggle = (modelId: string) => {
-    setSelectedModels((prev) =>
-      prev.includes(modelId) ? prev.filter((id) => id !== modelId) : [...prev, modelId],
-    );
+    setSelectedModels((prev) => {
+      const next = prev.includes(modelId)
+        ? prev.filter((id) => id !== modelId)
+        : [...prev, modelId];
+      scheduleSelectionUpdate(next);
+      return next;
+    });
   };
 
   const handleNext = async () => {
@@ -79,13 +134,13 @@ const StackingEnsembleModel: React.FC = () => {
     }
 
     if (activeStep === 2) {
-      await updateState({
-        ensemble_stacking_base_models: selectedModels,
-        ensemble_stacking_completed: false,
-        ensemble_stacking_metrics_rmse: null,
-        ensemble_stacking_metrics_mae: null,
-        ensemble_stacking_metrics_r2: null,
-      });
+      if (selectionUpdateTimer.current) {
+        clearTimeout(selectionUpdateTimer.current);
+        selectionUpdateTimer.current = null;
+        await commitSelectionUpdate(selectedModels);
+      } else {
+        await commitSelectionUpdate(selectedModels);
+      }
       setActiveStep(3);
       return;
     }

@@ -19,23 +19,18 @@ const ProductionPlan: React.FC = () => {
     { id: 6, title: '完整计划表生成', icon: BarChart3, path: 'final-plan' },
   ];
 
-  const handleCompleteSubStep = (stepId: number) => {
+  const handleCompleteSubStep = async (stepId: number) => {
     if (!completedSubSteps.includes(stepId)) {
       setCompletedSubSteps([...completedSubSteps, stepId]);
     }
     if (stepId < 6) {
       setCurrentSubStep(stepId + 1);
     } else {
-      // Last sub-step completed, check for quiz
-      if (state.quiz_about_plan_completed) {
-        navigate('/report');
-      } else {
-        updateState({
-          highest_completed_step: 7, // Mark step 7 (production plan) as completed
-          current_step: 8, // Unlock step 8 (report)
-        });
-        navigate('/quiz-plan');
-      }
+      await updateState({
+        highest_completed_step: 7,
+      });
+
+      navigate('/quiz-plan');
     }
   };
 
