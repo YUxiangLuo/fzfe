@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { TrendingUp, CheckCircle, Loader2 } from "lucide-react";
-import { useExperiment } from "../../contexts/ExperimentContext";
+import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
 const MOCK_METRICS = { rmse: 3.2, mae: 1.8, r2: 0.91 };
 
@@ -12,19 +12,27 @@ const steps = [
 
 const ExponentialSmoothingModel: React.FC = () => {
   const { state, updateState } = useExperiment();
-  const modelState = state.exponentialSmoothing;
+  const modelState = {
+    completed: state.exponential_smoothing_completed,
+    alpha: state.exponential_smoothing_alpha,
+    metrics: {
+      rmse: state.exponential_smoothing_metrics_rmse,
+      mae: state.exponential_smoothing_metrics_mae,
+      r2: state.exponential_smoothing_metrics_r2,
+    } as ModelMetrics,
+  };
 
   const baseModelsCompletedCount = [
-    state.movingAverage.completed,
-    state.exponentialSmoothing.completed,
-    state.arima.completed,
-    state.lstm.completed,
+    state.moving_average_completed,
+    state.exponential_smoothing_completed,
+    state.arima_completed,
+    state.lstm_completed,
   ].filter(Boolean).length;
 
   const hasAnyEnsembleCompleted = [
-    state.ensembleWeighted.completed,
-    state.ensembleBoosting.completed,
-    state.ensembleStacking.completed,
+    state.ensemble_weighted_completed,
+    state.ensemble_boosting_completed,
+    state.ensemble_stacking_completed,
   ].some(Boolean);
 
   const shouldShowFusionUnlockedNotice =
@@ -58,12 +66,8 @@ const ExponentialSmoothingModel: React.FC = () => {
 
     if (activeStep === 2) {
       await updateState({
-        exponentialSmoothing: {
-          ...modelState,
-          completed: false,
-          alpha,
-          metrics: modelState.metrics,
-        },
+        exponential_smoothing_alpha: alpha,
+        exponential_smoothing_completed: false,
       });
       setActiveStep(3);
       return;
@@ -71,15 +75,13 @@ const ExponentialSmoothingModel: React.FC = () => {
 
     if (activeStep === 3 && !modelState.completed && !isTraining) {
       setIsTraining(true);
-      const baseline = state.exponentialSmoothing;
       setTimeout(async () => {
         await updateState({
-          exponentialSmoothing: {
-            ...baseline,
-            completed: true,
-            alpha,
-            metrics: { ...MOCK_METRICS },
-          },
+          exponential_smoothing_completed: true,
+          exponential_smoothing_alpha: alpha,
+          exponential_smoothing_metrics_rmse: MOCK_METRICS.rmse,
+          exponential_smoothing_metrics_mae: MOCK_METRICS.mae,
+          exponential_smoothing_metrics_r2: MOCK_METRICS.r2,
         });
         setIsTraining(false);
       }, 1200);

@@ -9,6 +9,15 @@ import { apiClient } from '../../../utils/apiClient';
 
 type ExperimentStatus = 'Not Started' | 'In Progress' | 'Completed';
 
+export type SelectedBestModel =
+  | 'ma'
+  | 'exp'
+  | 'arima'
+  | 'lstm'
+  | 'ensemble_weighted'
+  | 'ensemble_boosting'
+  | 'ensemble_stacking';
+
 export interface ModelMetrics {
   rmse: number | null;
   mae: number | null;
@@ -38,47 +47,6 @@ export interface AdfStationarityRow {
   critical_values: Record<string, number>;
 }
 
-export interface MovingAverageState {
-  completed: boolean | null;
-  window: number | null;
-  metrics: ModelMetrics;
-}
-
-export interface ExponentialSmoothingState {
-  completed: boolean | null;
-  alpha: number | null;
-  metrics: ModelMetrics;
-}
-
-export interface ArimaState {
-  completed: boolean | null;
-  p: number | null;
-  d: number | null;
-  q: number | null;
-  metrics: ModelMetrics;
-  adfStationarity: AdfStationarityRow[];
-}
-
-export interface LstmState {
-  completed: boolean | null;
-  normalization: 'minmax' | 'zscore' | null;
-  features: string[];
-  metrics: ModelMetrics;
-}
-
-export interface EnsembleState {
-  completed: boolean | null;
-  baseModels: string[];
-  metrics: ModelMetrics;
-}
-
-export interface DataWindowSelection {
-  trainStartIndex: number | null;
-  trainEndIndex: number | null;
-  evaluateStartIndex: number | null;
-  evaluateEndIndex: number | null;
-}
-
 export interface ExperimentState {
   experiment_id: number | null;
   student_id: number | null;
@@ -88,61 +56,67 @@ export interface ExperimentState {
   selected_industry: string | null;
   selected_company: string | null;
   selected_product: string | null;
-  movingAverage: MovingAverageState;
-  exponentialSmoothing: ExponentialSmoothingState;
-  arima: ArimaState;
-  lstm: LstmState;
-  ensembleWeighted: EnsembleState;
-  ensembleBoosting: EnsembleState;
-  ensembleStacking: EnsembleState;
-  best_model: string | null;
-  dataWindow: DataWindowSelection;
+
+  data_window_train_start_index: number | null;
+  data_window_train_end_index: number | null;
+  data_window_evaluate_start_index: number | null;
+  data_window_evaluate_end_index: number | null;
+
+  moving_average_completed: boolean;
+  moving_average_window: number | null;
+  moving_average_metrics_rmse: number | null;
+  moving_average_metrics_mae: number | null;
+  moving_average_metrics_r2: number | null;
+
+  exponential_smoothing_completed: boolean;
+  exponential_smoothing_alpha: number | null;
+  exponential_smoothing_metrics_rmse: number | null;
+  exponential_smoothing_metrics_mae: number | null;
+  exponential_smoothing_metrics_r2: number | null;
+
+  arima_completed: boolean;
+  arima_p: number | null;
+  arima_d: number | null;
+  arima_q: number | null;
+  arima_metrics_rmse: number | null;
+  arima_metrics_mae: number | null;
+  arima_metrics_r2: number | null;
+  arima_adf_stationarity: AdfStationarityRow[];
+
+  lstm_completed: boolean;
+  lstm_normalization: 'minmax' | 'zscore' | null;
+  lstm_features: string[];
+  lstm_metrics_rmse: number | null;
+  lstm_metrics_mae: number | null;
+  lstm_metrics_r2: number | null;
+
+  ensemble_weighted_completed: boolean;
+  ensemble_weighted_base_models: string[];
+  ensemble_weighted_metrics_rmse: number | null;
+  ensemble_weighted_metrics_mae: number | null;
+  ensemble_weighted_metrics_r2: number | null;
+
+  ensemble_boosting_completed: boolean;
+  ensemble_boosting_base_models: string[];
+  ensemble_boosting_metrics_rmse: number | null;
+  ensemble_boosting_metrics_mae: number | null;
+  ensemble_boosting_metrics_r2: number | null;
+
+  ensemble_stacking_completed: boolean;
+  ensemble_stacking_base_models: string[];
+  ensemble_stacking_metrics_rmse: number | null;
+  ensemble_stacking_metrics_mae: number | null;
+  ensemble_stacking_metrics_r2: number | null;
+
+  selected_best_model: SelectedBestModel | null;
+
   quiz_about_model_completed: boolean;
   quiz_about_plan_completed: boolean;
+
+  start_time: string | null;
+  last_activity_at: string | null;
+  completion_time: string | null;
 }
-
-const createEmptyMetrics = (): ModelMetrics => ({ rmse: null, mae: null, r2: null });
-
-const createInitialMovingAverage = (): MovingAverageState => ({
-  completed: null,
-  window: null,
-  metrics: createEmptyMetrics(),
-});
-
-const createInitialExponentialSmoothing = (): ExponentialSmoothingState => ({
-  completed: null,
-  alpha: null,
-  metrics: createEmptyMetrics(),
-});
-
-const createInitialArima = (): ArimaState => ({
-  completed: null,
-  p: null,
-  d: null,
-  q: null,
-  metrics: createEmptyMetrics(),
-  adfStationarity: [],
-});
-
-const createInitialLstm = (): LstmState => ({
-  completed: null,
-  normalization: null,
-  features: [],
-  metrics: createEmptyMetrics(),
-});
-
-const createInitialEnsemble = (): EnsembleState => ({
-  completed: null,
-  baseModels: [],
-  metrics: createEmptyMetrics(),
-});
-
-const createInitialDataWindowSelection = (): DataWindowSelection => ({
-  trainStartIndex: null,
-  trainEndIndex: null,
-  evaluateStartIndex: null,
-  evaluateEndIndex: null,
-});
 
 const buildInitialState = (): ExperimentState => ({
   experiment_id: null,
@@ -153,66 +127,123 @@ const buildInitialState = (): ExperimentState => ({
   selected_industry: null,
   selected_company: null,
   selected_product: null,
-  movingAverage: createInitialMovingAverage(),
-  exponentialSmoothing: createInitialExponentialSmoothing(),
-  arima: createInitialArima(),
-  lstm: createInitialLstm(),
-  ensembleWeighted: createInitialEnsemble(),
-  ensembleBoosting: createInitialEnsemble(),
-  ensembleStacking: createInitialEnsemble(),
-  best_model: null,
-  dataWindow: createInitialDataWindowSelection(),
+
+  data_window_train_start_index: null,
+  data_window_train_end_index: null,
+  data_window_evaluate_start_index: null,
+  data_window_evaluate_end_index: null,
+
+  moving_average_completed: false,
+  moving_average_window: null,
+  moving_average_metrics_rmse: null,
+  moving_average_metrics_mae: null,
+  moving_average_metrics_r2: null,
+
+  exponential_smoothing_completed: false,
+  exponential_smoothing_alpha: null,
+  exponential_smoothing_metrics_rmse: null,
+  exponential_smoothing_metrics_mae: null,
+  exponential_smoothing_metrics_r2: null,
+
+  arima_completed: false,
+  arima_p: null,
+  arima_d: 0,
+  arima_q: null,
+  arima_metrics_rmse: null,
+  arima_metrics_mae: null,
+  arima_metrics_r2: null,
+  arima_adf_stationarity: [],
+
+  lstm_completed: false,
+  lstm_normalization: null,
+  lstm_features: [],
+  lstm_metrics_rmse: null,
+  lstm_metrics_mae: null,
+  lstm_metrics_r2: null,
+
+  ensemble_weighted_completed: false,
+  ensemble_weighted_base_models: [],
+  ensemble_weighted_metrics_rmse: null,
+  ensemble_weighted_metrics_mae: null,
+  ensemble_weighted_metrics_r2: null,
+
+  ensemble_boosting_completed: false,
+  ensemble_boosting_base_models: [],
+  ensemble_boosting_metrics_rmse: null,
+  ensemble_boosting_metrics_mae: null,
+  ensemble_boosting_metrics_r2: null,
+
+  ensemble_stacking_completed: false,
+  ensemble_stacking_base_models: [],
+  ensemble_stacking_metrics_rmse: null,
+  ensemble_stacking_metrics_mae: null,
+  ensemble_stacking_metrics_r2: null,
+
+  selected_best_model: null,
+
   quiz_about_model_completed: false,
   quiz_about_plan_completed: false,
+
+  start_time: null,
+  last_activity_at: null,
+  completion_time: null,
 });
 
 export const initialState: ExperimentState = buildInitialState();
 
-const resetLogic: Partial<Record<keyof ExperimentState, (keyof ExperimentState)[]>> = {
-  selected_industry: [
-    'selected_company',
-    'selected_product',
-    'highest_completed_step',
-    'current_step',
-    'movingAverage',
-    'exponentialSmoothing',
-    'arima',
-    'lstm',
-    'ensembleWeighted',
-    'ensembleBoosting',
-    'ensembleStacking',
-    'best_model',
-    'dataWindow',
-  ],
-  selected_company: [
-    'selected_product',
-    'highest_completed_step',
-    'current_step',
-    'movingAverage',
-    'exponentialSmoothing',
-    'arima',
-    'lstm',
-    'ensembleWeighted',
-    'ensembleBoosting',
-    'ensembleStacking',
-    'best_model',
-    'dataWindow',
-  ],
-  selected_product: [
-    'highest_completed_step',
-    'current_step',
-    'movingAverage',
-    'exponentialSmoothing',
-    'arima',
-    'lstm',
-    'ensembleWeighted',
-    'ensembleBoosting',
-    'ensembleStacking',
-    'best_model',
-    'dataWindow',
-    'quiz_about_model_completed',
-    'quiz_about_plan_completed',
-  ],
+const resetModelingFields = (target: ExperimentState, { resetQuizzes }: { resetQuizzes: boolean }) => {
+  target.moving_average_completed = false;
+  target.moving_average_window = null;
+  target.moving_average_metrics_rmse = null;
+  target.moving_average_metrics_mae = null;
+  target.moving_average_metrics_r2 = null;
+
+  target.exponential_smoothing_completed = false;
+  target.exponential_smoothing_alpha = null;
+  target.exponential_smoothing_metrics_rmse = null;
+  target.exponential_smoothing_metrics_mae = null;
+  target.exponential_smoothing_metrics_r2 = null;
+
+  target.arima_completed = false;
+  target.arima_p = null;
+  target.arima_d = 0;
+  target.arima_q = null;
+  target.arima_metrics_rmse = null;
+  target.arima_metrics_mae = null;
+  target.arima_metrics_r2 = null;
+  target.arima_adf_stationarity = [];
+
+  target.lstm_completed = false;
+  target.lstm_normalization = null;
+  target.lstm_features = [];
+  target.lstm_metrics_rmse = null;
+  target.lstm_metrics_mae = null;
+  target.lstm_metrics_r2 = null;
+
+  target.ensemble_weighted_completed = false;
+  target.ensemble_weighted_base_models = [];
+  target.ensemble_weighted_metrics_rmse = null;
+  target.ensemble_weighted_metrics_mae = null;
+  target.ensemble_weighted_metrics_r2 = null;
+
+  target.ensemble_boosting_completed = false;
+  target.ensemble_boosting_base_models = [];
+  target.ensemble_boosting_metrics_rmse = null;
+  target.ensemble_boosting_metrics_mae = null;
+  target.ensemble_boosting_metrics_r2 = null;
+
+  target.ensemble_stacking_completed = false;
+  target.ensemble_stacking_base_models = [];
+  target.ensemble_stacking_metrics_rmse = null;
+  target.ensemble_stacking_metrics_mae = null;
+  target.ensemble_stacking_metrics_r2 = null;
+
+  target.selected_best_model = null;
+
+  if (resetQuizzes) {
+    target.quiz_about_model_completed = false;
+    target.quiz_about_plan_completed = false;
+  }
 };
 
 interface ExperimentContextType {
@@ -222,7 +253,6 @@ interface ExperimentContextType {
   resetExperiment: () => Promise<void>;
   isStepCompleted: (step: number) => boolean;
   isStepUnlocked: (step: number) => boolean;
-  // New additions for in-memory sales data
   productSalesData: ProductSalesData | null;
   isLoadingSales: boolean;
   salesDataError: string | null;
@@ -235,7 +265,6 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<ExperimentState>(buildInitialState());
   const [loading, setLoading] = useState(true);
 
-  // In-memory state for sales data, not persisted with the main experiment state
   const [productSalesData, setProductSalesData] = useState<ProductSalesData | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(false);
   const [salesDataError, setSalesDataError] = useState<string | null>(null);
@@ -244,75 +273,61 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     const fetchState = async () => {
       setLoading(true);
       const fetchedState = await getExperimentState();
-      setState(fetchedState && typeof fetchedState === 'object' ? { ...buildInitialState(), ...fetchedState } : buildInitialState());
+      setState(
+        fetchedState && typeof fetchedState === 'object'
+          ? { ...buildInitialState(), ...fetchedState }
+          : buildInitialState(),
+      );
       setLoading(false);
     };
     fetchState();
   }, []);
 
   const updateState = async (updates: Partial<ExperimentState>) => {
-    const newState: ExperimentState = { ...state, ...updates };
-    const freshDefaults = buildInitialState();
+    const nextState: ExperimentState = { ...state, ...updates };
 
-    for (const key of Object.keys(updates) as (keyof ExperimentState)[]) {
-      const fieldsToReset = resetLogic[key];
-      if (!fieldsToReset) continue;
+    const industryChanged =
+      Object.prototype.hasOwnProperty.call(updates, 'selected_industry') &&
+      updates.selected_industry !== state.selected_industry;
+    const companyChanged =
+      Object.prototype.hasOwnProperty.call(updates, 'selected_company') &&
+      updates.selected_company !== state.selected_company;
+    const productChanged =
+      Object.prototype.hasOwnProperty.call(updates, 'selected_product') &&
+      updates.selected_product !== state.selected_product;
 
-      // When a selection changes that invalidates sales data, clear it.
-      if (key === 'selected_industry' || key === 'selected_company' || key === 'selected_product') {
-        setProductSalesData(null);
-        setSalesDataError(null);
-      }
-
-      for (const field of fieldsToReset) {
-        switch (field) {
-          case 'highest_completed_step':
-            if (key === 'selected_industry') newState.highest_completed_step = 0;
-            if (key === 'selected_company') newState.highest_completed_step = 1;
-            if (key === 'selected_product') newState.highest_completed_step = 2;
-            break;
-          case 'current_step':
-            if (key === 'selected_industry') newState.current_step = 1;
-            if (key === 'selected_company') newState.current_step = 2;
-            if (key === 'selected_product') newState.current_step = 3;
-            break;
-          case 'movingAverage':
-            newState.movingAverage = createInitialMovingAverage();
-            break;
-          case 'exponentialSmoothing':
-            newState.exponentialSmoothing = createInitialExponentialSmoothing();
-            break;
-          case 'arima':
-            newState.arima = createInitialArima();
-            break;
-          case 'lstm':
-            newState.lstm = createInitialLstm();
-            break;
-          case 'ensembleWeighted':
-            newState.ensembleWeighted = createInitialEnsemble();
-            break;
-          case 'ensembleBoosting':
-            newState.ensembleBoosting = createInitialEnsemble();
-            break;
-          case 'ensembleStacking':
-            newState.ensembleStacking = createInitialEnsemble();
-            break;
-          case 'dataWindow':
-            newState.dataWindow = createInitialDataWindowSelection();
-            break;
-          default:
-            (newState as unknown as Record<string, unknown>)[field as string] =
-              (freshDefaults as unknown as Record<string, unknown>)[field as string];
-        }
-      }
+    if (industryChanged) {
+      nextState.selected_company = null;
+      nextState.selected_product = null;
+      nextState.highest_completed_step = 0;
+      nextState.current_step = 1;
+      resetModelingFields(nextState, { resetQuizzes: true });
+      setProductSalesData(null);
+      setSalesDataError(null);
+    } else if (companyChanged) {
+      nextState.selected_product = null;
+      nextState.highest_completed_step = 1;
+      nextState.current_step = 2;
+      resetModelingFields(nextState, { resetQuizzes: true });
+      setProductSalesData(null);
+      setSalesDataError(null);
+    } else if (productChanged) {
+      nextState.highest_completed_step = 2;
+      nextState.current_step = 3;
+      resetModelingFields(nextState, { resetQuizzes: true });
+      setProductSalesData(null);
+      setSalesDataError(null);
     }
 
-    if (newState.status === 'Not Started' && Object.keys(updates).length > 0) {
-      newState.status = 'In Progress';
+    if (nextState.status === 'Not Started' && Object.keys(updates).length > 0) {
+      nextState.status = 'In Progress';
+      nextState.start_time = nextState.start_time ?? new Date().toISOString();
     }
 
-    setState(newState);
-    await apiUpdateExperimentState(newState);
+    nextState.last_activity_at = new Date().toISOString();
+
+    setState(nextState);
+    await apiUpdateExperimentState(nextState);
   };
 
   const resetExperiment = async () => {
@@ -321,12 +336,11 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     resetState.experiment_id = 1;
     resetState.student_id = 123;
     setState(resetState);
-    setProductSalesData(null); // Also clear in-memory data on full reset
+    setProductSalesData(null);
     setSalesDataError(null);
   };
 
   const isStepCompleted = (step: number): boolean => state.highest_completed_step >= step;
-
   const isStepUnlocked = (step: number): boolean => step <= state.current_step;
 
   const loadProductSalesData = async (industry: string, company: string, product: string): Promise<boolean> => {

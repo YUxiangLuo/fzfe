@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Brain, CheckCircle, Loader2, TrendingUp } from "lucide-react";
-import { useExperiment } from "../../contexts/ExperimentContext";
+import { useExperiment, type ModelMetrics, type AdfStationarityRow } from "../../contexts/ExperimentContext";
 
 const MOCK_ADF_RESULTS = [
   {
@@ -38,25 +38,37 @@ const steps = [
 
 const ARIMAModel: React.FC = () => {
   const { state, updateState } = useExperiment();
-  const arimaState = state.arima;
+  const arimaState = {
+    completed: state.arima_completed,
+    p: state.arima_p,
+    d: state.arima_d,
+    q: state.arima_q,
+    metrics: {
+      rmse: state.arima_metrics_rmse,
+      mae: state.arima_metrics_mae,
+      r2: state.arima_metrics_r2,
+    } as ModelMetrics,
+    adfStationarity: state.arima_adf_stationarity,
+  };
 
   const baseModelsCompletedCount = [
-    state.movingAverage.completed,
-    state.exponentialSmoothing.completed,
-    state.arima.completed,
-    state.lstm.completed,
+    state.moving_average_completed,
+    state.exponential_smoothing_completed,
+    state.arima_completed,
+    state.lstm_completed,
   ].filter(Boolean).length;
 
   const hasAnyEnsembleCompleted = [
-    state.ensembleWeighted.completed,
-    state.ensembleBoosting.completed,
-    state.ensembleStacking.completed,
+    state.ensemble_weighted_completed,
+    state.ensemble_boosting_completed,
+    state.ensemble_stacking_completed,
   ].some(Boolean);
 
   const shouldShowFusionUnlockedNotice =
     baseModelsCompletedCount >= 2 && !hasAnyEnsembleCompleted;
 
-  const adfResults = arimaState.adfStationarity.length > 0 ? arimaState.adfStationarity : MOCK_ADF_RESULTS;
+  const adfResults: readonly AdfStationarityRow[] =
+    arimaState.adfStationarity.length > 0 ? arimaState.adfStationarity : MOCK_ADF_RESULTS;
 
   const recommendedD = useMemo(() => {
     const firstStationary = adfResults.find((row) => row.stationary);
@@ -85,20 +97,15 @@ const ARIMAModel: React.FC = () => {
   }, [arimaState.d]);
 
   const handleNext = async () => {
-    const currentArima = state.arima;
-
     if (activeStep === 1) {
       setActiveStep(2);
       return;
     }
 
     if (activeStep === 2) {
-      if (currentArima.adfStationarity.length === 0) {
+      if (state.arima_adf_stationarity.length === 0) {
         await updateState({
-          arima: {
-            ...currentArima,
-            adfStationarity: [...MOCK_ADF_RESULTS],
-          },
+          arima_adf_stationarity: [...MOCK_ADF_RESULTS],
         });
       }
       setActiveStep(3);
@@ -106,33 +113,34 @@ const ARIMAModel: React.FC = () => {
     }
 
     if (activeStep === 3) {
+      const nextAdf =
+        state.arima_adf_stationarity.length > 0 ? [...state.arima_adf_stationarity] : [...MOCK_ADF_RESULTS];
       await updateState({
-        arima: {
-          ...currentArima,
-          adfStationarity: [...(currentArima.adfStationarity.length > 0 ? currentArima.adfStationarity : MOCK_ADF_RESULTS)],
-          d: selectedD,
-          completed: false,
-        },
+        arima_adf_stationarity: nextAdf,
+        arima_d: selectedD,
+        arima_completed: false,
+        arima_metrics_rmse: null,
+        arima_metrics_mae: null,
+        arima_metrics_r2: null,
       });
       setActiveStep(4);
       return;
     }
 
-    if (activeStep === 4 && !currentArima.completed && !isTraining) {
+    if (activeStep === 4 && !arimaState.completed && !isTraining) {
       setIsTraining(true);
-      const baselineArima = state.arima;
-      const payload = baselineArima.adfStationarity.length > 0 ? baselineArima.adfStationarity : adfResults;
+      const payload =
+        state.arima_adf_stationarity.length > 0 ? [...state.arima_adf_stationarity] : [...adfResults];
       setTimeout(async () => {
         await updateState({
-          arima: {
-            ...baselineArima,
-            adfStationarity: [...payload],
-            d: selectedD,
-            p: AUTO_TUNED_PQ.p,
-            q: AUTO_TUNED_PQ.q,
-            completed: true,
-            metrics: { ...MOCK_METRICS },
-          },
+          arima_adf_stationarity: payload,
+          arima_d: selectedD,
+          arima_p: AUTO_TUNED_PQ.p,
+          arima_q: AUTO_TUNED_PQ.q,
+          arima_completed: true,
+          arima_metrics_rmse: MOCK_METRICS.rmse,
+          arima_metrics_mae: MOCK_METRICS.mae,
+          arima_metrics_r2: MOCK_METRICS.r2,
         });
         setIsTraining(false);
       }, 1500);

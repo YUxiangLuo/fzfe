@@ -24,13 +24,13 @@ const ModelBuilding: React.FC = () => {
   const { state, updateState } = useExperiment();
 
   const completionMap: Record<string, boolean> = {
-    moving_average: Boolean(state.movingAverage.completed),
-    exponential_smoothing: Boolean(state.exponentialSmoothing.completed),
-    arima: Boolean(state.arima.completed),
-    lstm: Boolean(state.lstm.completed),
-    weighted_ensemble: Boolean(state.ensembleWeighted.completed),
-    boosting_ensemble: Boolean(state.ensembleBoosting.completed),
-    stacking_ensemble: Boolean(state.ensembleStacking.completed),
+    moving_average: state.moving_average_completed,
+    exponential_smoothing: state.exponential_smoothing_completed,
+    arima: state.arima_completed,
+    lstm: state.lstm_completed,
+    weighted_ensemble: state.ensemble_weighted_completed,
+    boosting_ensemble: state.ensemble_boosting_completed,
+    stacking_ensemble: state.ensemble_stacking_completed,
   };
 
   const dataPreparationRoutes = [
@@ -53,10 +53,10 @@ const ModelBuilding: React.FC = () => {
   ];
 
   const hasDataWindowSelection =
-    state.dataWindow.trainStartIndex !== null &&
-    state.dataWindow.trainEndIndex !== null &&
-    state.dataWindow.evaluateStartIndex !== null &&
-    state.dataWindow.evaluateEndIndex !== null;
+    state.data_window_train_start_index !== null &&
+    state.data_window_train_end_index !== null &&
+    state.data_window_evaluate_start_index !== null &&
+    state.data_window_evaluate_end_index !== null;
 
   const baseModelsCompletedCount = ['moving_average', 'exponential_smoothing', 'arima', 'lstm']
     .filter((id) => completionMap[id]).length;

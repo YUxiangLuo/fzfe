@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Brain, CheckCircle, Loader2, SlidersHorizontal } from "lucide-react";
-import { useExperiment } from "../../contexts/ExperimentContext";
+import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
 const MOCK_METRICS = { rmse: 3.2, mae: 1.6, r2: 0.95 };
 const AVAILABLE_FEATURES = [
@@ -20,19 +20,28 @@ const steps = [
 
 const LSTMModel: React.FC = () => {
   const { state, updateState } = useExperiment();
-  const lstmState = state.lstm;
+  const lstmState = {
+    completed: state.lstm_completed,
+    normalization: state.lstm_normalization,
+    features: state.lstm_features,
+    metrics: {
+      rmse: state.lstm_metrics_rmse,
+      mae: state.lstm_metrics_mae,
+      r2: state.lstm_metrics_r2,
+    } as ModelMetrics,
+  };
 
   const baseModelsCompletedCount = [
-    state.movingAverage.completed,
-    state.exponentialSmoothing.completed,
-    state.arima.completed,
-    state.lstm.completed,
+    state.moving_average_completed,
+    state.exponential_smoothing_completed,
+    state.arima_completed,
+    state.lstm_completed,
   ].filter(Boolean).length;
 
   const hasAnyEnsembleCompleted = [
-    state.ensembleWeighted.completed,
-    state.ensembleBoosting.completed,
-    state.ensembleStacking.completed,
+    state.ensemble_weighted_completed,
+    state.ensemble_boosting_completed,
+    state.ensemble_stacking_completed,
   ].some(Boolean);
 
   const shouldShowFusionUnlockedNotice =
@@ -77,60 +86,51 @@ const LSTMModel: React.FC = () => {
     );
   };
 
-  const ensureSalesFeature = () => {
-    if (!selectedFeatures.includes("sales_quantity")) {
-      setSelectedFeatures((prev) => ["sales_quantity", ...prev]);
-    }
-  };
+  const ensureSalesFeature = (features: string[]): string[] =>
+    features.includes("sales_quantity") ? features : ["sales_quantity", ...features];
 
   const handleNext = async () => {
-    const currentState = state.lstm;
-
     if (activeStep === 1) {
       setActiveStep(2);
       return;
     }
 
     if (activeStep === 2) {
-      ensureSalesFeature();
       await updateState({
-        lstm: {
-          ...currentState,
-          normalization: selectedNormalization,
-          completed: false,
-        },
+        lstm_normalization: selectedNormalization,
+        lstm_completed: false,
       });
       setActiveStep(3);
       return;
     }
 
     if (activeStep === 3) {
-      ensureSalesFeature();
+      const featuresToSave = ensureSalesFeature(selectedFeatures);
+      setSelectedFeatures(featuresToSave);
       await updateState({
-        lstm: {
-          ...currentState,
-          normalization: selectedNormalization,
-          features: selectedFeatures,
-          completed: false,
-        },
+        lstm_normalization: selectedNormalization,
+        lstm_features: featuresToSave,
+        lstm_completed: false,
+        lstm_metrics_rmse: null,
+        lstm_metrics_mae: null,
+        lstm_metrics_r2: null,
       });
       setActiveStep(4);
       return;
     }
 
-    if (activeStep === 4 && !currentState.completed && !isTraining) {
-      ensureSalesFeature();
+    if (activeStep === 4 && !lstmState.completed && !isTraining) {
+      const featuresToSave = ensureSalesFeature(selectedFeatures);
+      setSelectedFeatures(featuresToSave);
       setIsTraining(true);
-      const baseline = state.lstm;
       setTimeout(async () => {
         await updateState({
-          lstm: {
-            ...baseline,
-            normalization: selectedNormalization,
-            features: selectedFeatures,
-            completed: true,
-            metrics: { ...MOCK_METRICS },
-          },
+          lstm_normalization: selectedNormalization,
+          lstm_features: featuresToSave,
+          lstm_completed: true,
+          lstm_metrics_rmse: MOCK_METRICS.rmse,
+          lstm_metrics_mae: MOCK_METRICS.mae,
+          lstm_metrics_r2: MOCK_METRICS.r2,
         });
         setIsTraining(false);
       }, 1500);

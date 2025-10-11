@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useExperiment } from '../contexts/ExperimentContext';
+import React, { useMemo, useState } from 'react';
+import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext';
 import { FileText, Bold, Italic, Underline, List, ListOrdered, Save } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -68,7 +68,90 @@ const ExperimentReport: React.FC = () => {
     },
   });
 
-  const bestModelMetrics = state.best_model ? state[state.best_model as keyof typeof state] as { metrics: any } : null;
+  const bestModelLabel = useMemo(() => {
+    const labels: Record<SelectedBestModel, string> = {
+      ma: '移动平均法',
+      exp: '指数平滑法',
+      arima: 'ARIMA模型',
+      lstm: 'LSTM神经网络',
+      ensemble_weighted: '加权平均融合',
+      ensemble_boosting: 'Boosting融合',
+      ensemble_stacking: 'Stacking融合',
+    };
+    return state.selected_best_model ? labels[state.selected_best_model] : null;
+  }, [state.selected_best_model]);
+
+  const bestModelMetrics: ModelMetrics | null = useMemo(() => {
+    switch (state.selected_best_model) {
+      case 'ma':
+        return {
+          rmse: state.moving_average_metrics_rmse,
+          mae: state.moving_average_metrics_mae,
+          r2: state.moving_average_metrics_r2,
+        };
+      case 'exp':
+        return {
+          rmse: state.exponential_smoothing_metrics_rmse,
+          mae: state.exponential_smoothing_metrics_mae,
+          r2: state.exponential_smoothing_metrics_r2,
+        };
+      case 'arima':
+        return {
+          rmse: state.arima_metrics_rmse,
+          mae: state.arima_metrics_mae,
+          r2: state.arima_metrics_r2,
+        };
+      case 'lstm':
+        return {
+          rmse: state.lstm_metrics_rmse,
+          mae: state.lstm_metrics_mae,
+          r2: state.lstm_metrics_r2,
+        };
+      case 'ensemble_weighted':
+        return {
+          rmse: state.ensemble_weighted_metrics_rmse,
+          mae: state.ensemble_weighted_metrics_mae,
+          r2: state.ensemble_weighted_metrics_r2,
+        };
+      case 'ensemble_boosting':
+        return {
+          rmse: state.ensemble_boosting_metrics_rmse,
+          mae: state.ensemble_boosting_metrics_mae,
+          r2: state.ensemble_boosting_metrics_r2,
+        };
+      case 'ensemble_stacking':
+        return {
+          rmse: state.ensemble_stacking_metrics_rmse,
+          mae: state.ensemble_stacking_metrics_mae,
+          r2: state.ensemble_stacking_metrics_r2,
+        };
+      default:
+        return null;
+    }
+  }, [
+    state.selected_best_model,
+    state.moving_average_metrics_rmse,
+    state.moving_average_metrics_mae,
+    state.moving_average_metrics_r2,
+    state.exponential_smoothing_metrics_rmse,
+    state.exponential_smoothing_metrics_mae,
+    state.exponential_smoothing_metrics_r2,
+    state.arima_metrics_rmse,
+    state.arima_metrics_mae,
+    state.arima_metrics_r2,
+    state.lstm_metrics_rmse,
+    state.lstm_metrics_mae,
+    state.lstm_metrics_r2,
+    state.ensemble_weighted_metrics_rmse,
+    state.ensemble_weighted_metrics_mae,
+    state.ensemble_weighted_metrics_r2,
+    state.ensemble_boosting_metrics_rmse,
+    state.ensemble_boosting_metrics_mae,
+    state.ensemble_boosting_metrics_r2,
+    state.ensemble_stacking_metrics_rmse,
+    state.ensemble_stacking_metrics_mae,
+    state.ensemble_stacking_metrics_r2,
+  ]);
 
   return (
     <div className="p-8">
@@ -99,12 +182,12 @@ const ExperimentReport: React.FC = () => {
               <div className="border-t pt-4">
                 <h3 className="font-medium text-gray-500">最优模型</h3>
                 <div className="mt-2 space-y-1 text-gray-800">
-                  <p><strong>模型:</strong> <span className="font-semibold text-blue-600">{state.best_model || 'N/A'}</span></p>
+                  <p><strong>模型:</strong> <span className="font-semibold text-blue-600">{bestModelLabel || 'N/A'}</span></p>
                   {bestModelMetrics && (
                     <>
-                      <p><strong>RMSE:</strong> {bestModelMetrics.metrics.rmse?.toFixed(2) || 'N/A'}</p>
-                      <p><strong>R²:</strong> {bestModelMetrics.metrics.r2?.toFixed(2) || 'N/A'}</p>
-                      <p><strong>MAE:</strong> {bestModelMetrics.metrics.mae?.toFixed(2) || 'N/A'}</p>
+                      <p><strong>RMSE:</strong> {bestModelMetrics.rmse !== null ? bestModelMetrics.rmse.toFixed(2) : 'N/A'}</p>
+                      <p><strong>R²:</strong> {bestModelMetrics.r2 !== null ? bestModelMetrics.r2.toFixed(2) : 'N/A'}</p>
+                      <p><strong>MAE:</strong> {bestModelMetrics.mae !== null ? bestModelMetrics.mae.toFixed(2) : 'N/A'}</p>
                     </>
                   )}
                 </div>

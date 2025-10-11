@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useExperiment } from '../contexts/ExperimentContext';
+import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext';
 import { TrendingUp, Award, CheckCircle, Star, BookOpenCheck } from 'lucide-react';
 
 const ResultEvaluation: React.FC = () => {
   const navigate = useNavigate();
   const { state, updateState } = useExperiment();
-  const [selectedBestModel, setSelectedBestModel] = useState<string | null>(state.best_model);
+  const [selectedBestModel, setSelectedBestModel] = useState<SelectedBestModel | null>(state.selected_best_model);
 
   const handleNext = () => {
     if (!selectedBestModel) return;
@@ -14,77 +14,124 @@ const ResultEvaluation: React.FC = () => {
     if (state.quiz_about_model_completed) {
       navigate('/production');
     } else {
-      updateState({ 
-          highest_completed_step: 6,
-          current_step: 7,
-          best_model: selectedBestModel,
+      updateState({
+        highest_completed_step: 6,
+        current_step: 7,
+        selected_best_model: selectedBestModel,
       });
       navigate('/quiz');
     }
   };
 
   const completedModels = useMemo(() => {
-    const entries = [
+    const entries: Array<{
+      id: SelectedBestModel;
+      name: string;
+      completed: boolean;
+      metrics: ModelMetrics;
+    }> = [
       {
-        id: 'moving_average',
+        id: 'ma',
         name: '移动平均法',
-        completed: state.movingAverage.completed,
-        metrics: state.movingAverage.metrics,
+        completed: state.moving_average_completed,
+        metrics: {
+          rmse: state.moving_average_metrics_rmse,
+          mae: state.moving_average_metrics_mae,
+          r2: state.moving_average_metrics_r2,
+        },
       },
       {
-        id: 'exponential_smoothing',
+        id: 'exp',
         name: '指数平滑法',
-        completed: state.exponentialSmoothing.completed,
-        metrics: state.exponentialSmoothing.metrics,
+        completed: state.exponential_smoothing_completed,
+        metrics: {
+          rmse: state.exponential_smoothing_metrics_rmse,
+          mae: state.exponential_smoothing_metrics_mae,
+          r2: state.exponential_smoothing_metrics_r2,
+        },
       },
       {
         id: 'arima',
         name: 'ARIMA模型',
-        completed: state.arima.completed,
-        metrics: state.arima.metrics,
+        completed: state.arima_completed,
+        metrics: {
+          rmse: state.arima_metrics_rmse,
+          mae: state.arima_metrics_mae,
+          r2: state.arima_metrics_r2,
+        },
       },
       {
         id: 'lstm',
         name: 'LSTM神经网络',
-        completed: state.lstm.completed,
-        metrics: state.lstm.metrics,
+        completed: state.lstm_completed,
+        metrics: {
+          rmse: state.lstm_metrics_rmse,
+          mae: state.lstm_metrics_mae,
+          r2: state.lstm_metrics_r2,
+        },
       },
       {
-        id: 'weighted_ensemble',
+        id: 'ensemble_weighted',
         name: '加权平均融合',
-        completed: state.ensembleWeighted.completed,
-        metrics: state.ensembleWeighted.metrics,
+        completed: state.ensemble_weighted_completed,
+        metrics: {
+          rmse: state.ensemble_weighted_metrics_rmse,
+          mae: state.ensemble_weighted_metrics_mae,
+          r2: state.ensemble_weighted_metrics_r2,
+        },
       },
       {
-        id: 'boosting_ensemble',
+        id: 'ensemble_boosting',
         name: 'Boosting融合',
-        completed: state.ensembleBoosting.completed,
-        metrics: state.ensembleBoosting.metrics,
+        completed: state.ensemble_boosting_completed,
+        metrics: {
+          rmse: state.ensemble_boosting_metrics_rmse,
+          mae: state.ensemble_boosting_metrics_mae,
+          r2: state.ensemble_boosting_metrics_r2,
+        },
       },
       {
-        id: 'stacking_ensemble',
+        id: 'ensemble_stacking',
         name: 'Stacking融合',
-        completed: state.ensembleStacking.completed,
-        metrics: state.ensembleStacking.metrics,
+        completed: state.ensemble_stacking_completed,
+        metrics: {
+          rmse: state.ensemble_stacking_metrics_rmse,
+          mae: state.ensemble_stacking_metrics_mae,
+          r2: state.ensemble_stacking_metrics_r2,
+        },
       },
     ];
 
     return entries.filter((item) => item.completed);
   }, [
-    state.movingAverage.completed,
-    state.movingAverage.metrics,
-    state.exponentialSmoothing.completed,
-    state.exponentialSmoothing.metrics,
-    state.arima.completed,
-    state.arima.metrics,
-    state.lstm.completed,
-    state.lstm.metrics,
-    state.ensembleWeighted.completed,
-    state.ensembleWeighted.metrics,
-    state.ensembleBoosting.completed,
-    state.ensembleBoosting.metrics,
-    state.ensembleStacking.completed,
-    state.ensembleStacking.metrics,
+    state.moving_average_completed,
+    state.moving_average_metrics_rmse,
+    state.moving_average_metrics_mae,
+    state.moving_average_metrics_r2,
+    state.exponential_smoothing_completed,
+    state.exponential_smoothing_metrics_rmse,
+    state.exponential_smoothing_metrics_mae,
+    state.exponential_smoothing_metrics_r2,
+    state.arima_completed,
+    state.arima_metrics_rmse,
+    state.arima_metrics_mae,
+    state.arima_metrics_r2,
+    state.lstm_completed,
+    state.lstm_metrics_rmse,
+    state.lstm_metrics_mae,
+    state.lstm_metrics_r2,
+    state.ensemble_weighted_completed,
+    state.ensemble_weighted_metrics_rmse,
+    state.ensemble_weighted_metrics_mae,
+    state.ensemble_weighted_metrics_r2,
+    state.ensemble_boosting_completed,
+    state.ensemble_boosting_metrics_rmse,
+    state.ensemble_boosting_metrics_mae,
+    state.ensemble_boosting_metrics_r2,
+    state.ensemble_stacking_completed,
+    state.ensemble_stacking_metrics_rmse,
+    state.ensemble_stacking_metrics_mae,
+    state.ensemble_stacking_metrics_r2,
   ]);
 
   const sortedModels = useMemo(

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { CheckCircle, Layers } from "lucide-react";
-import { useExperiment } from "../../contexts/ExperimentContext";
+import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
 const MOCK_METRICS = { rmse: 2.3, mae: 1.3, r2: 0.98 };
 
@@ -12,16 +12,29 @@ const steps = [
 
 const StackingEnsembleModel: React.FC = () => {
   const { state, updateState } = useExperiment();
-  const modelState = state.ensembleStacking;
+  const modelState = {
+    completed: state.ensemble_stacking_completed,
+    baseModels: state.ensemble_stacking_base_models,
+    metrics: {
+      rmse: state.ensemble_stacking_metrics_rmse,
+      mae: state.ensemble_stacking_metrics_mae,
+      r2: state.ensemble_stacking_metrics_r2,
+    } as ModelMetrics,
+  };
 
   const completionMap = useMemo(
     () => ({
-      moving_average: Boolean(state.movingAverage.completed),
-      exponential_smoothing: Boolean(state.exponentialSmoothing.completed),
-      arima: Boolean(state.arima.completed),
-      lstm: Boolean(state.lstm.completed),
+      moving_average: state.moving_average_completed,
+      exponential_smoothing: state.exponential_smoothing_completed,
+      arima: state.arima_completed,
+      lstm: state.lstm_completed,
     }),
-    [state.arima.completed, state.exponentialSmoothing.completed, state.lstm.completed, state.movingAverage.completed],
+    [
+      state.arima_completed,
+      state.exponential_smoothing_completed,
+      state.lstm_completed,
+      state.moving_average_completed,
+    ],
   );
 
   const availableBaseModels = useMemo(
@@ -59,8 +72,6 @@ const StackingEnsembleModel: React.FC = () => {
   };
 
   const handleNext = async () => {
-    const currentState = state.ensembleStacking;
-
     if (activeStep === 1) {
       setActiveStep(2);
       return;
@@ -68,24 +79,23 @@ const StackingEnsembleModel: React.FC = () => {
 
     if (activeStep === 2) {
       await updateState({
-        ensembleStacking: {
-          ...currentState,
-          baseModels: selectedModels,
-          completed: false,
-        },
+        ensemble_stacking_base_models: selectedModels,
+        ensemble_stacking_completed: false,
+        ensemble_stacking_metrics_rmse: null,
+        ensemble_stacking_metrics_mae: null,
+        ensemble_stacking_metrics_r2: null,
       });
       setActiveStep(3);
       return;
     }
 
-    if (activeStep === 3 && !currentState.completed) {
+    if (activeStep === 3 && !modelState.completed) {
       await updateState({
-        ensembleStacking: {
-          ...currentState,
-          baseModels: selectedModels,
-          completed: true,
-          metrics: { ...MOCK_METRICS },
-        },
+        ensemble_stacking_base_models: selectedModels,
+        ensemble_stacking_completed: true,
+        ensemble_stacking_metrics_rmse: MOCK_METRICS.rmse,
+        ensemble_stacking_metrics_mae: MOCK_METRICS.mae,
+        ensemble_stacking_metrics_r2: MOCK_METRICS.r2,
       });
     }
   };

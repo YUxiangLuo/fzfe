@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { BarChart3, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
-import { useExperiment } from "../../contexts/ExperimentContext";
+import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 import { apiClient } from "../../../../utils/apiClient";
 
 const steps = [
@@ -11,7 +11,15 @@ const steps = [
 
 const MovingAverageModel: React.FC = () => {
   const { state, updateState } = useExperiment();
-  const modelState = state.movingAverage;
+  const modelState = {
+    completed: state.moving_average_completed,
+    window: state.moving_average_window,
+    metrics: {
+      rmse: state.moving_average_metrics_rmse,
+      mae: state.moving_average_metrics_mae,
+      r2: state.moving_average_metrics_r2,
+    } as ModelMetrics,
+  };
 
   const getInitialStep = () => {
     if (modelState.completed) return 3;
@@ -25,16 +33,16 @@ const MovingAverageModel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const baseModelsCompletedCount = [
-    state.movingAverage.completed,
-    state.exponentialSmoothing.completed,
-    state.arima.completed,
-    state.lstm.completed,
+    state.moving_average_completed,
+    state.exponential_smoothing_completed,
+    state.arima_completed,
+    state.lstm_completed,
   ].filter(Boolean).length;
 
   const hasAnyEnsembleCompleted = [
-    state.ensembleWeighted.completed,
-    state.ensembleBoosting.completed,
-    state.ensembleStacking.completed,
+    state.ensemble_weighted_completed,
+    state.ensemble_boosting_completed,
+    state.ensemble_stacking_completed,
   ].some(Boolean);
 
   const shouldShowFusionUnlockedNotice =
@@ -50,12 +58,11 @@ const MovingAverageModel: React.FC = () => {
     setWindowSize(newWindowSize);
     if (modelState.completed) {
       updateState({
-        movingAverage: {
-          ...modelState,
-          window: newWindowSize, // also update window here
-          completed: false,
-          metrics: { rmse: null, mae: null, r2: null },
-        },
+        moving_average_window: newWindowSize,
+        moving_average_completed: false,
+        moving_average_metrics_rmse: null,
+        moving_average_metrics_mae: null,
+        moving_average_metrics_r2: null,
       });
     }
   };
@@ -69,21 +76,19 @@ const MovingAverageModel: React.FC = () => {
     try {
       // Ensure the latest window size from local state is in global state
       await updateState({
-        movingAverage: {
-          ...modelState,
-          window: windowSize,
-          completed: false,
-        },
+        moving_average_window: windowSize,
+        moving_average_completed: false,
       });
 
       const requestBody = {
         selected_industry: state.selected_industry,
         selected_company: state.selected_company,
         selected_product: state.selected_product,
-        movingAverage: {
-          window: windowSize,
-        },
-        data_window: state.dataWindow,
+        data_window_train_start_index: state.data_window_train_start_index,
+        data_window_train_end_index: state.data_window_train_end_index,
+        data_window_evaluate_start_index: state.data_window_evaluate_start_index,
+        data_window_evaluate_end_index: state.data_window_evaluate_end_index,
+        moving_average_window: windowSize,
       };
 
       const response = await apiClient.post<{
@@ -92,13 +97,13 @@ const MovingAverageModel: React.FC = () => {
       }>("/model/moving-average/train", requestBody);
 
       if (response.status === "success") {
+        const metrics = response.results?.metrics ?? { rmse: null, mae: null, r2: null };
         await updateState({
-          movingAverage: {
-            ...state.movingAverage,
-            window: windowSize,
-            metrics: response.results.metrics,
-            completed: true,
-          },
+          moving_average_window: windowSize,
+          moving_average_completed: true,
+          moving_average_metrics_rmse: metrics.rmse ?? null,
+          moving_average_metrics_mae: metrics.mae ?? null,
+          moving_average_metrics_r2: metrics.r2 ?? null,
         });
       } else {
         throw new Error("模型计算返回失败状态");
@@ -117,10 +122,8 @@ const MovingAverageModel: React.FC = () => {
     } else if (activeStep === 2) {
       // Save the current window size to global state and move to the next step
       await updateState({
-        movingAverage: {
-          ...modelState,
-          window: windowSize,
-        },
+        moving_average_window: windowSize,
+        moving_average_completed: false,
       });
       setActiveStep(3);
     } else if (activeStep === 3) {

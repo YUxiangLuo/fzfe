@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext';
 import { AlertTriangle, CalendarRange, CheckCircle2 } from 'lucide-react';
@@ -62,23 +62,14 @@ const DataWindowSelection: React.FC = () => {
   const meta = productSalesData?.meta;
 
   const defaultRanges = useMemo(() => buildDefaultRanges(points), [points]);
-
-  const [trainingRange, setTrainingRange] = useState<RangeSelection>({ startIndex: null, endIndex: null });
-  const [evaluateRange, setEvaluateRange] = useState<RangeSelection>({ startIndex: null, endIndex: null });
-
-  useEffect(() => {
-    if (defaultRanges) {
-      setTrainingRange({
-        startIndex: state.dataWindow.trainStartIndex ?? defaultRanges.training.startIndex,
-        endIndex: state.dataWindow.trainEndIndex ?? defaultRanges.training.endIndex,
-      });
-      setEvaluateRange({
-        startIndex: state.dataWindow.evaluateStartIndex ?? defaultRanges.evaluate.startIndex,
-        endIndex: state.dataWindow.evaluateEndIndex ?? defaultRanges.evaluate.endIndex,
-      });
-    }
-  }, [defaultRanges, state.dataWindow]);
-
+  const trainingRange: RangeSelection = {
+    startIndex: state.data_window_train_start_index,
+    endIndex: state.data_window_train_end_index,
+  };
+  const evaluateRange: RangeSelection = {
+    startIndex: state.data_window_evaluate_start_index,
+    endIndex: state.data_window_evaluate_end_index,
+  };
 
   if (points.length === 0) {
     return (
@@ -109,12 +100,16 @@ const DataWindowSelection: React.FC = () => {
 
   const evaluateOptions = trainingOptions;
 
-  const handleTrainingChange = (key: keyof RangeSelection, value: number) => {
-    setTrainingRange((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleEvaluateChange = (key: keyof RangeSelection, value: number) => {
-    setEvaluateRange((prev) => ({ ...prev, [key]: value }));
+  const updateRangeField = async (
+    field:
+      | 'data_window_train_start_index'
+      | 'data_window_train_end_index'
+      | 'data_window_evaluate_start_index'
+      | 'data_window_evaluate_end_index',
+    rawValue: string,
+  ) => {
+    const value = rawValue === '' ? null : Number(rawValue);
+    await updateState({ [field]: value } as Partial<typeof state>);
   };
 
   const isTrainingValid = isValidRange(trainingRange);
@@ -126,16 +121,8 @@ const DataWindowSelection: React.FC = () => {
 
   const canSave = isTrainingValid && isEvaluateValid && isSeparated;
 
-  const handleSave = async () => {
+  const handleProceed = () => {
     if (!canSave) return;
-    await updateState({
-      dataWindow: {
-        trainStartIndex: trainingRange.startIndex,
-        trainEndIndex: trainingRange.endIndex,
-        evaluateStartIndex: evaluateRange.startIndex,
-        evaluateEndIndex: evaluateRange.endIndex,
-      },
-    });
     navigate('/model/ma');
   };
 
@@ -147,7 +134,7 @@ const DataWindowSelection: React.FC = () => {
           <span>选择历史销量数据时段</span>
         </h2>
         <p className="text-gray-600">
-          请选择用于训练预测模型的历史数据范围，以及用于评估模型表现的对比区间。
+          请选择用于训练预测模型的历史数据范围，以及用于评估模型表现的对比区间。所有字段默认为空，每次选择都会即时保存。
         </p>
       </header>
 
@@ -172,9 +159,10 @@ const DataWindowSelection: React.FC = () => {
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2"
                 value={trainingRange.startIndex ?? ''}
                 onChange={(event) =>
-                  handleTrainingChange('startIndex', Number(event.target.value))
+                  void updateRangeField('data_window_train_start_index', event.target.value)
                 }
               >
+                <option value="">请选择开始月份</option>
                 {trainingOptions.map((option) => (
                   <option key={`train-start-${option.value}`} value={option.value}>
                     {option.label}
@@ -188,9 +176,10 @@ const DataWindowSelection: React.FC = () => {
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2"
                 value={trainingRange.endIndex ?? ''}
                 onChange={(event) =>
-                  handleTrainingChange('endIndex', Number(event.target.value))
+                  void updateRangeField('data_window_train_end_index', event.target.value)
                 }
               >
+                <option value="">请选择结束月份</option>
                 {trainingOptions.map((option) => (
                   <option key={`train-end-${option.value}`} value={option.value}>
                     {option.label}
@@ -216,9 +205,10 @@ const DataWindowSelection: React.FC = () => {
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2"
                 value={evaluateRange.startIndex ?? ''}
                 onChange={(event) =>
-                  handleEvaluateChange('startIndex', Number(event.target.value))
+                  void updateRangeField('data_window_evaluate_start_index', event.target.value)
                 }
               >
+                <option value="">请选择开始月份</option>
                 {evaluateOptions.map((option) => (
                   <option key={`evaluate-start-${option.value}`} value={option.value}>
                     {option.label}
@@ -232,9 +222,10 @@ const DataWindowSelection: React.FC = () => {
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2"
                 value={evaluateRange.endIndex ?? ''}
                 onChange={(event) =>
-                  handleEvaluateChange('endIndex', Number(event.target.value))
+                  void updateRangeField('data_window_evaluate_end_index', event.target.value)
                 }
               >
+                <option value="">请选择结束月份</option>
                 {evaluateOptions.map((option) => (
                   <option key={`evaluate-end-${option.value}`} value={option.value}>
                     {option.label}
@@ -261,29 +252,29 @@ const DataWindowSelection: React.FC = () => {
 
       <footer className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 space-y-3 md:space-y-0">
         <div className="text-sm text-gray-500 flex items-center space-x-2">
-          {canSave && trainingRange.startIndex !== null && evaluateRange.startIndex !== null ? (
+          {canSave ? (
             <>
               <CheckCircle2 className="w-4 h-4 text-green-600" />
               <span>
-                已选择训练区间 {trainingOptions[trainingRange.startIndex!]?.label} 至{' '}
-                {trainingOptions[trainingRange.endIndex!]?.label}，评估区间{' '}
-                {evaluateOptions[evaluateRange.startIndex!]?.label} 至{' '}
-                {evaluateOptions[evaluateRange.endIndex!]?.label}。
+                已选择训练区间{' '}
+                {`${trainingOptions[trainingRange.startIndex!]?.label} 至 ${trainingOptions[trainingRange.endIndex!]?.label}`}
+                ，评估区间{' '}
+                {`${evaluateOptions[evaluateRange.startIndex!]?.label} 至 ${evaluateOptions[evaluateRange.endIndex!]?.label}`}。
               </span>
             </>
           ) : (
-            <span>完成有效的时间区间配置后即可解锁预测模型。</span>
+            <span>完整选择训练与评估区间后即可前往模型训练。</span>
           )}
         </div>
 
         <div className="flex items-center space-x-3">
           <button
-            onClick={handleSave}
+            onClick={handleProceed}
             disabled={!canSave}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
             type="button"
           >
-            保存并解锁模型
+            前往基础模型
           </button>
         </div>
       </footer>

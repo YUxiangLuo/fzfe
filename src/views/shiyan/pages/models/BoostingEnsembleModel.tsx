@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { CheckCircle, Layers, Loader2 } from "lucide-react";
-import { useExperiment } from "../../contexts/ExperimentContext";
+import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
 const MOCK_METRICS = { rmse: 2.5, mae: 1.4, r2: 0.97 };
 
@@ -12,16 +12,29 @@ const steps = [
 
 const BoostingEnsembleModel: React.FC = () => {
   const { state, updateState } = useExperiment();
-  const modelState = state.ensembleBoosting;
+  const modelState = {
+    completed: state.ensemble_boosting_completed,
+    baseModels: state.ensemble_boosting_base_models,
+    metrics: {
+      rmse: state.ensemble_boosting_metrics_rmse,
+      mae: state.ensemble_boosting_metrics_mae,
+      r2: state.ensemble_boosting_metrics_r2,
+    } as ModelMetrics,
+  };
 
   const completionMap = useMemo(
     () => ({
-      moving_average: Boolean(state.movingAverage.completed),
-      exponential_smoothing: Boolean(state.exponentialSmoothing.completed),
-      arima: Boolean(state.arima.completed),
-      lstm: Boolean(state.lstm.completed),
+      moving_average: state.moving_average_completed,
+      exponential_smoothing: state.exponential_smoothing_completed,
+      arima: state.arima_completed,
+      lstm: state.lstm_completed,
     }),
-    [state.arima.completed, state.exponentialSmoothing.completed, state.lstm.completed, state.movingAverage.completed],
+    [
+      state.arima_completed,
+      state.exponential_smoothing_completed,
+      state.lstm_completed,
+      state.moving_average_completed,
+    ],
   );
 
   const availableBaseModels = useMemo(
@@ -60,8 +73,6 @@ const BoostingEnsembleModel: React.FC = () => {
   };
 
   const handleNext = async () => {
-    const currentState = state.ensembleBoosting;
-
     if (activeStep === 1) {
       setActiveStep(2);
       return;
@@ -69,27 +80,25 @@ const BoostingEnsembleModel: React.FC = () => {
 
     if (activeStep === 2) {
       await updateState({
-        ensembleBoosting: {
-          ...currentState,
-          baseModels: selectedModels,
-          completed: false,
-        },
+        ensemble_boosting_base_models: selectedModels,
+        ensemble_boosting_completed: false,
+        ensemble_boosting_metrics_rmse: null,
+        ensemble_boosting_metrics_mae: null,
+        ensemble_boosting_metrics_r2: null,
       });
       setActiveStep(3);
       return;
     }
 
-    if (activeStep === 3 && !currentState.completed && !isTraining) {
+    if (activeStep === 3 && !modelState.completed && !isTraining) {
       setIsTraining(true);
-      const baseline = state.ensembleBoosting;
       setTimeout(async () => {
         await updateState({
-          ensembleBoosting: {
-            ...baseline,
-            baseModels: selectedModels,
-            completed: true,
-            metrics: { ...MOCK_METRICS },
-          },
+          ensemble_boosting_base_models: selectedModels,
+          ensemble_boosting_completed: true,
+          ensemble_boosting_metrics_rmse: MOCK_METRICS.rmse,
+          ensemble_boosting_metrics_mae: MOCK_METRICS.mae,
+          ensemble_boosting_metrics_r2: MOCK_METRICS.r2,
         });
         setIsTraining(false);
       }, 1500);
