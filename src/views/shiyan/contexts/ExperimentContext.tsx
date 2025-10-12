@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   getExperimentState,
@@ -109,6 +109,7 @@ export interface ExperimentState {
 
   selected_best_model: SelectedBestModel | null;
 
+  lstm_target_field: string | null;
   quiz_about_model_completed: boolean;
   quiz_about_plan_completed: boolean;
 
@@ -180,6 +181,7 @@ const buildInitialState = (): ExperimentState => ({
 
   selected_best_model: null,
 
+  lstm_target_field: null,
   quiz_about_model_completed: false,
   quiz_about_plan_completed: false,
 
@@ -228,6 +230,7 @@ const resetModelingFields = (
   target.lstm_completed = false;
   target.lstm_normalization = null;
   target.lstm_features = [];
+  target.lstm_target_field = null;
   target.lstm_metrics_rmse = null;
   target.lstm_metrics_mae = null;
   target.lstm_metrics_r2 = null;
@@ -267,7 +270,11 @@ interface ExperimentContextType {
   productSalesData: ProductSalesData | null;
   isLoadingSales: boolean;
   salesDataError: string | null;
+  productFieldOptions: string[] | null;
+  isLoadingFields: boolean;
+  productFieldsError: string | null;
   loadProductSalesData: (industry: string, company: string, product: string) => Promise<boolean>;
+  loadProductFieldOptions: (industry: string, company: string, product: string) => Promise<boolean>;
 }
 
 const ExperimentContext = createContext<ExperimentContextType | undefined>(undefined);
@@ -279,6 +286,9 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
   const [productSalesData, setProductSalesData] = useState<ProductSalesData | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(false);
   const [salesDataError, setSalesDataError] = useState<string | null>(null);
+  const [productFieldOptions, setProductFieldOptions] = useState<string[] | null>(null);
+  const [isLoadingFields, setIsLoadingFields] = useState(false);
+  const [productFieldsError, setProductFieldsError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchState = async () => {
@@ -295,6 +305,59 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     };
     void fetchState();
   }, []);
+
+  const shouldLoadSales = useMemo(() => {
+    if (!state.selected_industry || !state.selected_company || !state.selected_product) {
+      return false;
+    }
+    return state.highest_completed_step >= 3;
+  }, [state.selected_industry, state.selected_company, state.selected_product, state.highest_completed_step]);
+
+  useEffect(() => {
+    if (
+      !shouldLoadSales ||
+      productSalesData ||
+      isLoadingSales ||
+      salesDataError ||
+      !state.selected_industry ||
+      !state.selected_company ||
+      !state.selected_product
+    ) {
+      return;
+    }
+    void loadProductSalesData(state.selected_industry, state.selected_company, state.selected_product);
+  }, [
+    shouldLoadSales,
+    productSalesData,
+    isLoadingSales,
+    salesDataError,
+    state.selected_industry,
+    state.selected_company,
+    state.selected_product,
+  ]);
+
+  useEffect(() => {
+    if (
+      !shouldLoadSales ||
+      productFieldOptions ||
+      isLoadingFields ||
+      productFieldsError ||
+      !state.selected_industry ||
+      !state.selected_company ||
+      !state.selected_product
+    ) {
+      return;
+    }
+    void loadProductFieldOptions(state.selected_industry, state.selected_company, state.selected_product);
+  }, [
+    shouldLoadSales,
+    productFieldOptions,
+    isLoadingFields,
+    productFieldsError,
+    state.selected_industry,
+    state.selected_company,
+    state.selected_product,
+  ]);
 
   const updateState = async (updates: Partial<ExperimentState>) => {
     const previousState = state;
@@ -335,6 +398,8 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       resetModelingFields(nextState, { resetQuizzes: true });
       setProductSalesData(null);
       setSalesDataError(null);
+      setProductFieldOptions(null);
+      setProductFieldsError(null);
     } else if (companyChanged) {
       nextState.selected_product = null;
       nextState.highest_completed_step = 1;
@@ -342,12 +407,16 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       resetModelingFields(nextState, { resetQuizzes: true });
       setProductSalesData(null);
       setSalesDataError(null);
+      setProductFieldOptions(null);
+      setProductFieldsError(null);
     } else if (productChanged) {
       nextState.highest_completed_step = 2;
       nextState.current_step = 3;
       resetModelingFields(nextState, { resetQuizzes: true });
       setProductSalesData(null);
       setSalesDataError(null);
+      setProductFieldOptions(null);
+      setProductFieldsError(null);
     }
 
     if (dataWindowChanged) {
@@ -386,6 +455,8 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
         if (productChangedRemote) {
           setProductSalesData(null);
           setSalesDataError(null);
+          setProductFieldOptions(null);
+          setProductFieldsError(null);
         }
       }
     } catch (error) {
@@ -413,6 +484,24 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const loadProductFieldOptions = async (industry: string, company: string, product: string): Promise<boolean> => {
+    setIsLoadingFields(true);
+    setProductFieldsError(null);
+    try {
+      const endpoint = `/datasets/industries/${industry}/companies/${company}/products/${product}/fields`;
+      const response = await apiClient.get<{ fields: string[] }>(endpoint);
+      const fields = Array.isArray(response?.fields) ? response.fields : [];
+      setProductFieldOptions(fields);
+      return true;
+    } catch (err: any) {
+      setProductFieldsError(err.message || '获取产品字段信息失败');
+      setProductFieldOptions(null);
+      return false;
+    } finally {
+      setIsLoadingFields(false);
+    }
+  };
+
   return (
     <ExperimentContext.Provider
       value={{
@@ -424,7 +513,11 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
         productSalesData,
         isLoadingSales,
         salesDataError,
+        productFieldOptions,
+        isLoadingFields,
+        productFieldsError,
         loadProductSalesData,
+        loadProductFieldOptions,
       }}
     >
       {children}

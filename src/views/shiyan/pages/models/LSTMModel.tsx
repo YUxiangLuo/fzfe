@@ -3,27 +3,23 @@ import { BrainCircuit, CheckCircle, Loader2 } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
 const MOCK_METRICS = { rmse: 3.2, mae: 1.6, r2: 0.95 };
-const AVAILABLE_FEATURES = [
-  { id: "sales_quantity", name: "销售数量", description: "历史月度销量数据（必选）", required: true },
-  { id: "price", name: "价格", description: "产品历史平均售价" },
-  { id: "promotion", name: "促销活动", description: "促销强度或二元促销标识" },
-  { id: "inventory", name: "库存水平", description: "期末库存量" },
-  { id: "weather", name: "天气指数", description: "气候相关变量" },
-];
-
 const steps = [
   { id: 1, title: "方法简介", description: "了解 LSTM 神经网络的核心思想与应用价值。" },
   { id: 2, title: "选择归一化方式", description: "了解 Min-Max 与 Z-Score 的差异，并选择适合的归一化方法。" },
-  { id: 3, title: "配置输入特征", description: "勾选用于训练的输入特征，至少保留销售数量。" },
+  { id: 3, title: "配置特征与预测列", description: "选择用于训练的输入特征，并指定需要预测的目标字段。" },
   { id: 4, title: "训练并查看指标", description: "运行 LSTM 模型，查看 RMSE、MAE 与 R² 指标。" },
 ] as const;
 
+const sanitizeFeatures = (features: string[], target: string | null): string[] =>
+  target ? features.filter((field) => field !== target) : [...features];
+
 const LSTMModel: React.FC = () => {
-  const { state, updateState } = useExperiment();
+  const { state, updateState, productFieldOptions, isLoadingFields, productFieldsError } = useExperiment();
   const lstmState = {
     completed: state.lstm_completed,
     normalization: state.lstm_normalization,
     features: state.lstm_features,
+    targetField: state.lstm_target_field,
     metrics: {
       rmse: state.lstm_metrics_rmse,
       mae: state.lstm_metrics_mae,
@@ -49,21 +45,25 @@ const LSTMModel: React.FC = () => {
 
   const derivedStep = useMemo(() => {
     if (lstmState.completed) return 4;
-    if (lstmState.features.length > 0) return 3;
+    if (lstmState.targetField || lstmState.features.length > 0) return 3;
     if (lstmState.normalization) return 2;
     return 1;
-  }, [lstmState.completed, lstmState.features.length, lstmState.normalization]);
+  }, [lstmState.completed, lstmState.features.length, lstmState.normalization, lstmState.targetField]);
 
   const [activeStep, setActiveStep] = useState(derivedStep);
   const [selectedNormalization, setSelectedNormalization] = useState<"minmax" | "zscore">(
     lstmState.normalization ?? "minmax",
   );
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(
-    lstmState.features.length > 0 ? lstmState.features : ["sales_quantity"],
+    sanitizeFeatures(lstmState.features, lstmState.targetField ?? null),
   );
+  const [selectedTarget, setSelectedTarget] = useState<string | null>(lstmState.targetField ?? null);
+  const [featureValidationAttempted, setFeatureValidationAttempted] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
   const normalizationUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const featuresUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const targetUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevDerivedStepRef = useRef(derivedStep);
 
   const buildDownstreamReset = () => ({
     ensemble_weighted_completed: false,
@@ -89,17 +89,20 @@ const LSTMModel: React.FC = () => {
   });
 
   useEffect(() => {
-    setActiveStep(derivedStep);
-  }, [derivedStep]);
+    const prevDerived = prevDerivedStepRef.current;
+    if (derivedStep > prevDerived && derivedStep > activeStep) {
+      setActiveStep(derivedStep);
+    }
+    prevDerivedStepRef.current = derivedStep;
+  }, [derivedStep, activeStep]);
 
   useEffect(() => {
     if (lstmState.normalization) {
       setSelectedNormalization(lstmState.normalization);
     }
-    if (lstmState.features.length > 0) {
-      setSelectedFeatures(lstmState.features);
-    }
-  }, [lstmState.features, lstmState.normalization]);
+    setSelectedFeatures(sanitizeFeatures(lstmState.features, lstmState.targetField ?? null));
+    setSelectedTarget(lstmState.targetField ?? null);
+  }, [lstmState.features, lstmState.normalization, lstmState.targetField]);
 
   useEffect(() => {
     return () => {
@@ -108,6 +111,9 @@ const LSTMModel: React.FC = () => {
       }
       if (featuresUpdateTimer.current) {
         clearTimeout(featuresUpdateTimer.current);
+      }
+      if (targetUpdateTimer.current) {
+        clearTimeout(targetUpdateTimer.current);
       }
     };
   }, []);
@@ -137,21 +143,47 @@ const LSTMModel: React.FC = () => {
   };
 
   const commitFeaturesUpdate = async (features: string[]) => {
-    const normalized = ensureSalesFeature(features);
-    const storedFeatures = ensureSalesFeature(state.lstm_features ?? []);
+    const sanitized = sanitizeFeatures(features, state.lstm_target_field ?? null);
+    const storedFeatures = state.lstm_features ?? [];
 
-    if (arraysEqual(normalized, storedFeatures)) {
+    if (arraysEqual(sanitized, storedFeatures)) {
       return;
     }
 
     await updateState({
-      lstm_features: normalized,
+      lstm_features: sanitized,
       lstm_completed: false,
       lstm_metrics_rmse: null,
       lstm_metrics_mae: null,
       lstm_metrics_r2: null,
       ...buildDownstreamReset(),
     });
+  };
+
+  const commitTargetUpdate = async (field: string | null) => {
+    const stored = state.lstm_target_field ?? null;
+    if (stored === field) {
+      return;
+    }
+
+    await updateState({
+      lstm_target_field: field,
+      lstm_completed: false,
+      lstm_metrics_rmse: null,
+      lstm_metrics_mae: null,
+      lstm_metrics_r2: null,
+      ...buildDownstreamReset(),
+    });
+  };
+
+  const scheduleTargetUpdate = (field: string | null) => {
+    if (targetUpdateTimer.current) {
+      clearTimeout(targetUpdateTimer.current);
+    }
+    targetUpdateTimer.current = setTimeout(() => {
+      targetUpdateTimer.current = null;
+      void commitTargetUpdate(field);
+    }, 300);
   };
 
   const scheduleNormalizationUpdate = (value: "minmax" | "zscore") => {
@@ -180,21 +212,56 @@ const LSTMModel: React.FC = () => {
     scheduleNormalizationUpdate(value);
   };
 
-  const handleFeatureToggle = (featureId: string) => {
-    const target = AVAILABLE_FEATURES.find((f) => f.id === featureId);
-    if (target?.required) return;
+  const handleFeatureToggle = (field: string) => {
+    setFeatureValidationAttempted(false);
     setSelectedFeatures((prev) => {
-      const next = prev.includes(featureId)
-        ? prev.filter((id) => id !== featureId)
-        : [...prev, featureId];
-      const ensured = ensureSalesFeature(next);
-      scheduleFeaturesUpdate(ensured);
-      return ensured;
+      const next = prev.includes(field)
+        ? prev.filter((id) => id !== field)
+        : [...prev, field];
+      const sanitized = sanitizeFeatures(next, selectedTarget);
+      scheduleFeaturesUpdate(sanitized);
+      return sanitized;
     });
   };
 
-  const ensureSalesFeature = (features: string[]): string[] =>
-    features.includes("sales_quantity") ? features : ["sales_quantity", ...features];
+  const handleTargetSelect = (value: string | null) => {
+    setFeatureValidationAttempted(false);
+    setSelectedTarget(value);
+    scheduleTargetUpdate(value);
+  };
+
+  useEffect(() => {
+    if (!selectedTarget) {
+      return;
+    }
+    setSelectedFeatures((prev) => {
+      if (!prev.includes(selectedTarget)) {
+        return prev;
+      }
+      const sanitized = sanitizeFeatures(prev, selectedTarget);
+      scheduleFeaturesUpdate(sanitized);
+      return sanitized;
+    });
+  }, [selectedTarget]);
+
+  useEffect(() => {
+    if (!productFieldOptions || productFieldOptions.length === 0) {
+      return;
+    }
+    setSelectedFeatures((prev) => {
+      const filtered = prev.filter((field) => productFieldOptions.includes(field));
+      if (filtered.length === prev.length) {
+        return prev;
+      }
+      scheduleFeaturesUpdate(filtered);
+      return filtered;
+    });
+    if (selectedTarget && !productFieldOptions.includes(selectedTarget)) {
+      setSelectedTarget(null);
+      scheduleTargetUpdate(null);
+    }
+  }, [productFieldOptions, selectedTarget]);
+
 
   const handleNext = async () => {
     if (activeStep === 1) {
@@ -215,7 +282,20 @@ const LSTMModel: React.FC = () => {
     }
 
     if (activeStep === 3) {
-      const featuresToSave = ensureSalesFeature(selectedFeatures);
+      setFeatureValidationAttempted(true);
+      if (!selectedTarget || selectedFeatures.length === 0) {
+        return;
+      }
+
+      if (targetUpdateTimer.current) {
+        clearTimeout(targetUpdateTimer.current);
+        targetUpdateTimer.current = null;
+        await commitTargetUpdate(selectedTarget);
+      } else {
+        await commitTargetUpdate(selectedTarget);
+      }
+
+      const featuresToSave = sanitizeFeatures(selectedFeatures, selectedTarget);
       setSelectedFeatures(featuresToSave);
       if (featuresUpdateTimer.current) {
         clearTimeout(featuresUpdateTimer.current);
@@ -224,6 +304,7 @@ const LSTMModel: React.FC = () => {
       } else {
         await commitFeaturesUpdate(featuresToSave);
       }
+
       setActiveStep(4);
       return;
     }
@@ -234,7 +315,16 @@ const LSTMModel: React.FC = () => {
         normalizationUpdateTimer.current = null;
         await commitNormalizationUpdate(selectedNormalization);
       }
-      const featuresToSave = ensureSalesFeature(selectedFeatures);
+
+      if (targetUpdateTimer.current) {
+        clearTimeout(targetUpdateTimer.current);
+        targetUpdateTimer.current = null;
+        await commitTargetUpdate(selectedTarget);
+      } else {
+        await commitTargetUpdate(selectedTarget);
+      }
+
+      const featuresToSave = sanitizeFeatures(selectedFeatures, selectedTarget);
       setSelectedFeatures(featuresToSave);
       if (featuresUpdateTimer.current) {
         clearTimeout(featuresUpdateTimer.current);
@@ -249,6 +339,7 @@ const LSTMModel: React.FC = () => {
         await updateState({
           lstm_normalization: selectedNormalization,
           lstm_features: featuresToSave,
+          lstm_target_field: selectedTarget ?? null,
           lstm_completed: true,
           lstm_metrics_rmse: MOCK_METRICS.rmse,
           lstm_metrics_mae: MOCK_METRICS.mae,
@@ -340,43 +431,94 @@ const LSTMModel: React.FC = () => {
     </div>
   );
 
-  const renderFeatureSelectionStep = () => (
-    <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">选择输入特征</h3>
-        <p className="text-sm text-gray-600 mb-6">
-          至少包含 <span className="font-medium text-gray-800">销售数量</span> 作为主要输入，可结合价格、促销等外生变量提升模型表现。
-        </p>
-        <div className="space-y-4">
-          {AVAILABLE_FEATURES.map((feature) => {
-            const isSelected = selectedFeatures.includes(feature.id);
-            return (
-              <div
-                key={feature.id}
-                onClick={() => handleFeatureToggle(feature.id)}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  isSelected ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-blue-200"
-                } ${feature.required ? "cursor-default" : "cursor-pointer"}`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected ? "border-blue-500 bg-blue-500" : "border-gray-300"}`}>
-                      {isSelected && <CheckCircle className="w-3 h-3 text-white" />}
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900">{feature.name}</h4>
-                      <p className="text-sm text-gray-600">{feature.description}</p>
-                    </div>
+  const renderFeatureSelectionStep = () => {
+    if (isLoadingFields) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col items-center space-y-3">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+          <p className="text-gray-600">正在加载字段列表...</p>
+        </div>
+      );
+    }
+
+    if (productFieldsError) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h3 className="text-xl font-semibold text-red-600 mb-2">字段加载失败</h3>
+          <p className="text-sm text-red-600">{productFieldsError}</p>
+        </div>
+      );
+    }
+
+    const fields = productFieldOptions ?? [];
+    if (fields.length === 0) {
+      return (
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">暂无字段信息</h3>
+          <p className="text-sm text-gray-600">当前产品缺少可用字段，请联系管理员补充数据。</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-3">
+          <h3 className="text-xl font-semibold text-gray-900">选择预测目标字段</h3>
+          <p className="text-sm text-gray-600">选择需要预测的目标字段（例如销量、销售额等）。该字段不会同时作为输入特征。</p>
+          <select
+            className="mt-2 w-full border border-gray-300 rounded-lg px-3 py-2"
+            value={selectedTarget ?? ''}
+            onChange={(event) => handleTargetSelect(event.target.value === '' ? null : event.target.value)}
+          >
+            <option value="">请选择目标字段</option>
+            {fields.map((field) => (
+              <option key={`target-${field}`} value={field}>
+                {field}
+              </option>
+            ))}
+          </select>
+          {featureValidationAttempted && !selectedTarget && (
+            <p className="text-sm text-red-600">请选择一个预测目标字段。</p>
+          )}
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
+          <h3 className="text-xl font-semibold text-gray-900">选择输入特征</h3>
+          <p className="text-sm text-gray-600">勾选希望作为模型输入的历史字段，至少选择一个。已被设为预测目标的字段将自动排除在输入特征之外。</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {fields.map((field) => {
+              const isTarget = selectedTarget === field;
+              const isSelected = selectedFeatures.includes(field);
+              return (
+                <div
+                  key={`feature-${field}`}
+                  onClick={() => !isTarget && handleFeatureToggle(field)}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-200'
+                  } ${isTarget ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="text-gray-900 font-medium">{field}</div>
+                    {isTarget ? (
+                      <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">预测目标</span>
+                    ) : (
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'}`}>
+                        {isSelected && <CheckCircle className="w-3 h-3 text-white" />}
+                      </div>
+                    )}
                   </div>
-                  {feature.required && <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-full">必选</span>}
+                  {isTarget && <p className="mt-2 text-xs text-blue-600">目标字段不可作为输入特征。</p>}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+          {featureValidationAttempted && selectedFeatures.length === 0 && (
+            <p className="text-sm text-red-600">请至少选择一个输入特征。</p>
+          )}
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderTrainingStep = () => (
     <div className="space-y-6">
@@ -402,7 +544,7 @@ const LSTMModel: React.FC = () => {
               <div>
                 <p className="text-green-800 font-semibold">模型已训练完成并保存。</p>
                 <p className="text-sm text-green-700">
-                  归一化方式：{(lstmState.normalization ?? selectedNormalization) === "minmax" ? "Min-Max" : "Z-Score"}；输入特征：{lstmState.features.join(', ')}
+                  归一化方式：{(lstmState.normalization ?? selectedNormalization) === "minmax" ? "Min-Max" : "Z-Score"}；预测字段：{lstmState.targetField ?? selectedTarget ?? "未设置"}；输入特征：{lstmState.features.join(', ') || "未选择"}
                 </p>
               </div>
             </div>
@@ -456,7 +598,7 @@ const LSTMModel: React.FC = () => {
   })();
 
   const isNextDisabled =
-    (activeStep === 3 && selectedFeatures.length === 0) ||
+    (activeStep === 3 && (!selectedTarget || selectedFeatures.length === 0)) ||
     (activeStep === 4 && (isTraining || Boolean(lstmState.completed)));
 
   return (

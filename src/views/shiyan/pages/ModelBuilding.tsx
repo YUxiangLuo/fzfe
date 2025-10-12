@@ -198,23 +198,34 @@ const ModelBuilding: React.FC = () => {
                     const isActive = location.pathname.endsWith('/' + model.path);
                     const isDisabled = !hasValidDataWindow;
                     const Icon = model.icon;
-                    return isDisabled ? (
-                      <div
-                        key={model.id}
-                        className="flex items-center space-x-3 p-3 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
-                      >
+                    const isCompleted = completionMap[model.id] ?? false;
+                    const ItemContent = (
+                      <div className="flex items-center gap-3">
+                        <span className={`w-2 h-2 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-transparent'}`} />
                         <Icon className="w-5 h-5" />
                         <span>{model.name}</span>
-                        <Lock className="w-4 h-4 ml-auto" />
                       </div>
-                    ) : (
+                    );
+
+                    if (isDisabled) {
+                      return (
+                        <div
+                          key={model.id}
+                          className="flex items-center justify-between p-3 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
+                        >
+                          {ItemContent}
+                          <Lock className="w-4 h-4" />
+                        </div>
+                      );
+                    }
+
+                    return (
                       <Link
                         key={model.id}
                         to={`/model/${model.path}`}
-                        className={`flex items-center space-x-3 p-3 rounded-lg transition-all ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                        className={`flex items-center justify-between p-3 rounded-lg transition-all ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
                       >
-                        <Icon className="w-5 h-5" />
-                        <span>{model.name}</span>
+                        {ItemContent}
                       </Link>
                     );
                   })}
@@ -236,23 +247,34 @@ const ModelBuilding: React.FC = () => {
                     const isActive = location.pathname.endsWith('/' + model.path);
                     const isDisabled = !canAccessEnsemble;
                     const Icon = model.icon;
-                    return isDisabled ? (
-                      <div
-                        key={model.id}
-                        className="flex items-center space-x-3 p-3 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
-                      >
+                    const isCompleted = completionMap[model.id] ?? false;
+                    const ItemContent = (
+                      <div className="flex items-center gap-3">
+                        <span className={`w-2 h-2 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-transparent'}`} />
                         <Icon className="w-5 h-5" />
                         <span>{model.name}</span>
-                        <Lock className="w-4 h-4 ml-auto" />
                       </div>
-                    ) : (
+                    );
+
+                    if (isDisabled) {
+                      return (
+                        <div
+                          key={model.id}
+                          className="flex items-center justify-between p-3 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
+                        >
+                          {ItemContent}
+                          <Lock className="w-4 h-4" />
+                        </div>
+                      );
+                    }
+
+                    return (
                       <Link
                         key={model.id}
                         to={`/model/${model.path}`}
-                        className={`flex items-center space-x-3 p-3 rounded-lg transition-all ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                        className={`flex items-center justify-between p-3 rounded-lg transition-all ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
                       >
-                        <Icon className="w-5 h-5" />
-                        <span>{model.name}</span>
+                        {ItemContent}
                       </Link>
                     );
                   })}

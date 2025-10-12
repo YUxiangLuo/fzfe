@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
-import { Package, ArrowRight, Loader2 } from 'lucide-react';
+import { Package, ArrowRight } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
 
 const ProductSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState, loadProductSalesData, isLoadingSales, salesDataError } = useExperiment();
+  const { state, updateState, salesDataError } = useExperiment();
   const [products, setProducts] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,20 +58,15 @@ const ProductSelection: React.FC = () => {
   };
 
   const handleNext = async () => {
-    if (state.selected_product && state.selected_industry && state.selected_company) {
-      const success = await loadProductSalesData(
-        state.selected_industry,
-        state.selected_company,
-        state.selected_product,
-      );
-      if (success) {
-        updateState({
-          highest_completed_step: 3,
-          current_step: 4,
-        });
-        navigate('/data');
-      }
+    if (!state.selected_product) {
+      return;
     }
+
+    await updateState({
+      highest_completed_step: Math.max(state.highest_completed_step, 3),
+      current_step: 4,
+    });
+    navigate('/data');
   };
 
   return (
@@ -157,17 +152,11 @@ const ProductSelection: React.FC = () => {
           </button>
           <button
             onClick={handleNext}
-            disabled={!state.selected_product || isLoading || !!error || isLoadingSales}
+            disabled={!state.selected_product || isLoading || !!error}
             className="flex items-center justify-center space-x-2 w-48 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
-            {isLoadingSales ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                <span>下一步</span>
-                <ArrowRight className="w-5 h-5" />
-              </>
-            )}
+            <span>下一步</span>
+            <ArrowRight className="w-5 h-5" />
           </button>
         </div>
       </div>

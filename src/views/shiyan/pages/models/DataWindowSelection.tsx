@@ -60,7 +60,6 @@ const DataWindowSelection: React.FC = () => {
     state,
     updateState,
     productSalesData,
-    loadProductSalesData,
     isLoadingSales,
     salesDataError,
   } = useExperiment();
@@ -68,28 +67,6 @@ const DataWindowSelection: React.FC = () => {
   const points = productSalesData?.monthlySales ?? [];
   const meta = productSalesData?.meta;
   const { selected_industry, selected_company, selected_product } = state;
-
-  useEffect(() => {
-    if (
-      productSalesData ||
-      isLoadingSales ||
-      salesDataError ||
-      !selected_industry ||
-      !selected_company ||
-      !selected_product
-    ) {
-      return;
-    }
-    void loadProductSalesData(selected_industry, selected_company, selected_product);
-  }, [
-    productSalesData,
-    isLoadingSales,
-    salesDataError,
-    loadProductSalesData,
-    selected_industry,
-    selected_company,
-    selected_product,
-  ]);
 
   const defaultRanges = useMemo(() => buildDefaultRanges(points), [points]);
   const trainingRange: RangeSelection = {
