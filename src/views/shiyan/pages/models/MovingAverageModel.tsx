@@ -63,7 +63,7 @@ const MovingAverageModel: React.FC = () => {
     };
   }, []);
 
-  const buildEnsembleReset = () => ({
+  const buildDownstreamReset = () => ({
     ensemble_weighted_completed: false,
     ensemble_weighted_base_models: [],
     ensemble_weighted_metrics_rmse: null,
@@ -79,6 +79,11 @@ const MovingAverageModel: React.FC = () => {
     ensemble_stacking_metrics_rmse: null,
     ensemble_stacking_metrics_mae: null,
     ensemble_stacking_metrics_r2: null,
+    selected_best_model: null,
+    quiz_about_model_completed: false,
+    quiz_about_plan_completed: false,
+    highest_completed_step: Math.min(state.highest_completed_step ?? 0, 4),
+    current_step: Math.min(state.current_step ?? 5, 5),
   });
 
   const commitWindowUpdate = async (value: number) => {
@@ -96,7 +101,7 @@ const MovingAverageModel: React.FC = () => {
       moving_average_metrics_rmse: null,
       moving_average_metrics_mae: null,
       moving_average_metrics_r2: null,
-      ...buildEnsembleReset(),
+      ...buildDownstreamReset(),
     });
   };
 
@@ -124,6 +129,7 @@ const MovingAverageModel: React.FC = () => {
       await updateState({
         moving_average_window: windowSize,
         moving_average_completed: false,
+        ...buildDownstreamReset(),
       });
 
       const requestBody = {

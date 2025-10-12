@@ -64,6 +64,11 @@ const WeightedEnsembleModel: React.FC = () => {
     ensemble_weighted_metrics_rmse: null,
     ensemble_weighted_metrics_mae: null,
     ensemble_weighted_metrics_r2: null,
+    selected_best_model: null,
+    quiz_about_model_completed: false,
+    quiz_about_plan_completed: false,
+    highest_completed_step: Math.min(state.highest_completed_step ?? 0, 4),
+    current_step: Math.min(state.current_step ?? 5, 5),
   });
 
 

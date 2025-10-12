@@ -1,33 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Brain, CheckCircle, Loader2 } from "lucide-react";
 import { useExperiment, type AdfStationarityRow, type ModelMetrics } from "../../contexts/ExperimentContext";
+import { apiClient } from "../../../../utils/apiClient";
 
-const ADF_SIMULATION_DELAY = 1000;
 const TRAINING_SIMULATION_DELAY = 1500;
-
-const MOCK_ADF_RESULTS: AdfStationarityRow[] = [
-  {
-    diff_order: 0,
-    statistic: -1.876,
-    p_value: 0.64,
-    stationary: false,
-    critical_values: { "1%": -3.5, "5%": -2.89, "10%": -2.58 },
-  },
-  {
-    diff_order: 1,
-    statistic: -3.954,
-    p_value: 0.002,
-    stationary: true,
-    critical_values: { "1%": -3.5, "5%": -2.89, "10%": -2.58 },
-  },
-  {
-    diff_order: 2,
-    statistic: -5.102,
-    p_value: 0.0,
-    stationary: true,
-    critical_values: { "1%": -3.5, "5%": -2.89, "10%": -2.58 },
-  },
-];
 
 const MOCK_TRAINING_RESULT: { pq: { p: number; q: number }; metrics: ModelMetrics } = {
   pq: { p: 2, q: 1 },
@@ -36,7 +12,7 @@ const MOCK_TRAINING_RESULT: { pq: { p: number; q: number }; metrics: ModelMetric
 
 const STEPS = [
   { id: 1, title: "方法简介", description: "了解 ARIMA 模型的结构与适用场景。" },
-  { id: 2, title: "ADF 平稳性检验", description: "通过模拟的 ADF 检验判断序列是否平稳。" },
+  { id: 2, title: "ADF 平稳性检验", description: "通过 ADF 检验判断序列是否平稳。" },
   { id: 3, title: "设定差分阶数 d", description: "根据检验结果选择合适的差分阶数。" },
   { id: 4, title: "训练模型并自动寻优", description: "模拟训练过程，得到推荐的 p、q 与误差指标。" },
 ] as const;
@@ -45,12 +21,22 @@ const formatNumber = (value: number | null | undefined, fractionDigits = 3) =>
   typeof value === "number" ? value.toFixed(fractionDigits) : "—";
 
 const ARIMAModel: React.FC = () => {
-  const { state, updateState } = useExperiment();
+  const {
+    state,
+    updateState,
+    productSalesData,
+    loadProductSalesData,
+    isLoadingSales,
+    salesDataError,
+  } = useExperiment();
 
   const dUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const adfResults = state.arima_adf_stationarity;
   const storedD = state.arima_d;
   const trainingCompleted = state.arima_completed;
+  const { data_window_train_start_index, data_window_train_end_index } = state;
+  const monthlySales = productSalesData?.monthlySales ?? [];
+  const { selected_industry, selected_company, selected_product } = state;
 
   const baseModelsCompletedCount = [
     state.moving_average_completed,
@@ -81,7 +67,7 @@ const ARIMAModel: React.FC = () => {
   const [dError, setDError] = useState<string | null>(null);
   const [isTraining, setIsTraining] = useState(false);
 
-  const buildEnsembleReset = () => ({
+  const buildDownstreamReset = () => ({
     ensemble_weighted_completed: false,
     ensemble_weighted_base_models: [],
     ensemble_weighted_metrics_rmse: null,
@@ -97,6 +83,11 @@ const ARIMAModel: React.FC = () => {
     ensemble_stacking_metrics_rmse: null,
     ensemble_stacking_metrics_mae: null,
     ensemble_stacking_metrics_r2: null,
+    selected_best_model: null,
+    quiz_about_model_completed: false,
+    quiz_about_plan_completed: false,
+    highest_completed_step: Math.min(state.highest_completed_step ?? 0, 4),
+    current_step: Math.min(state.current_step ?? 5, 5),
   });
 
   const recommendedD = useMemo(() => {
@@ -107,6 +98,28 @@ const ARIMAModel: React.FC = () => {
   const [selectedD, setSelectedD] = useState<number | null>(
     storedD ?? (adfResults.length > 0 ? recommendedD : null),
   );
+
+  useEffect(() => {
+    if (
+      productSalesData ||
+      isLoadingSales ||
+      salesDataError ||
+      !selected_industry ||
+      !selected_company ||
+      !selected_product
+    ) {
+      return;
+    }
+    void loadProductSalesData(selected_industry, selected_company, selected_product);
+  }, [
+    productSalesData,
+    isLoadingSales,
+    salesDataError,
+    selected_industry,
+    selected_company,
+    selected_product,
+    loadProductSalesData,
+  ]);
 
   useEffect(() => {
     if (adfResults.length > 0 && (selectedD === null || selectedD === undefined)) {
@@ -143,7 +156,7 @@ const ARIMAModel: React.FC = () => {
       arima_metrics_rmse: null,
       arima_metrics_mae: null,
       arima_metrics_r2: null,
-      ...buildEnsembleReset(),
+      ...buildDownstreamReset(),
     });
   };
 
@@ -164,23 +177,59 @@ const ARIMAModel: React.FC = () => {
   const handleRunAdf = async () => {
     if (isRunningAdf) return;
     setAdfError(null);
+    if (
+      monthlySales.length === 0 ||
+      data_window_train_start_index === null ||
+      data_window_train_end_index === null
+    ) {
+      setAdfError("缺少完整的训练区间销量数据，无法执行 ADF 检验。");
+      return;
+    }
+
     setIsRunningAdf(true);
 
-    await new Promise((resolve) => setTimeout(resolve, ADF_SIMULATION_DELAY));
+    try {
+      const startIndex = Math.max(0, data_window_train_start_index);
+      const endIndex = Math.min(monthlySales.length - 1, data_window_train_end_index);
+      if (startIndex > endIndex) {
+        throw new Error("训练区间起止顺序异常，无法执行 ADF 检验。");
+      }
 
-    const nextRecommended = MOCK_ADF_RESULTS.find((row) => row.stationary)?.diff_order ?? 0;
+      const trainingSeries = monthlySales.slice(startIndex, endIndex + 1);
 
-    await updateState({
-      arima_adf_stationarity: [...MOCK_ADF_RESULTS],
-      arima_d: null,
-      arima_completed: false,
-      arima_metrics_rmse: null,
-      arima_metrics_mae: null,
-      arima_metrics_r2: null,
-    });
+      const response = await apiClient.post<{ result: AdfStationarityRow[] }>("/tools/adf", {
+        series: trainingSeries.map((record) => ({
+          month: record.month,
+          sales: record.sales,
+        })),
+      });
 
-    setIsRunningAdf(false);
-    setSelectedD(nextRecommended);
+      const results = Array.isArray(response?.result) ? response.result : [];
+      if (results.length === 0) {
+        throw new Error("后端未返回有效的 ADF 检验结果。");
+      }
+
+      const nextRecommended = results.find((row) => row.stationary)?.diff_order ?? 0;
+
+      await updateState({
+        arima_adf_stationarity: results,
+        arima_d: null,
+        arima_completed: false,
+        arima_metrics_rmse: null,
+        arima_metrics_mae: null,
+        arima_metrics_r2: null,
+        ...buildDownstreamReset(),
+      });
+
+      setSelectedD(nextRecommended);
+    } catch (error: any) {
+      const message = typeof error?.message === "string" && error.message
+        ? error.message
+        : "ADF 检验请求失败。";
+      setAdfError(message);
+    } finally {
+      setIsRunningAdf(false);
+    }
   };
 
   const handleStartTraining = async () => {
@@ -378,10 +427,46 @@ const ARIMAModel: React.FC = () => {
 
   const renderDiffStep = () => (
     <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">选择差分阶数 d</h3>
-        <p className="text-sm text-gray-600">请选择使序列平稳的差分阶数，必要时可多次尝试比较模型表现。</p>
-        <div className="flex items-center gap-4 mt-6">
+      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
+        <div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">选择差分阶数 d</h3>
+          <p className="text-sm text-gray-600">
+            根据最新的 ADF 检验结果，挑选能够让序列平稳的差分阶数。必要时可以返回上一步重新检验或比较不同 d 值对模型的影响。
+          </p>
+        </div>
+
+        {adfResults.length > 0 ? (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">推荐差分阶数</span>
+              <span className="text-lg font-semibold text-blue-900">d = {recommendedD}</span>
+            </div>
+            <div className="grid gap-2">
+              {adfResults.map((row) => (
+                <div
+                  key={`adf-summary-${row.diff_order}`}
+                  className={`flex items-center justify-between rounded-md px-3 py-2 ${
+                    row.stationary ? "bg-white text-blue-800" : "bg-blue-100/60 text-blue-700"
+                  }`}
+                >
+                  <span className="text-sm font-medium">d = {row.diff_order}</span>
+                  <span className="text-xs text-blue-600">
+                    p 值：{formatNumber(row.p_value, 4)} · {row.stationary ? "结果平稳" : "仍不平稳"}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-blue-700">
+              推荐值取自首个判定为平稳的差分阶数，可在下方按钮中直接选择或尝试其他阶数。
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
+            尚未生成 ADF 检验结果，请返回上一步执行检验后再选择差分阶数。
+          </div>
+        )}
+
+        <div className="flex items-center gap-4">
           {[0, 1, 2].map((option) => {
             const isActive = selectedD === option;
             return (
@@ -398,8 +483,9 @@ const ARIMAModel: React.FC = () => {
             );
           })}
         </div>
+
         {dError && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
             {dError}
           </div>
         )}

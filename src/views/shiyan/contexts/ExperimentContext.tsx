@@ -190,11 +190,19 @@ const buildInitialState = (): ExperimentState => ({
 
 export const initialState: ExperimentState = buildInitialState();
 
-const resetModelingFields = (target: ExperimentState, { resetQuizzes }: { resetQuizzes: boolean }) => {
-  target.data_window_train_start_index = null;
-  target.data_window_train_end_index = null;
-  target.data_window_evaluate_start_index = null;
-  target.data_window_evaluate_end_index = null;
+const resetModelingFields = (
+  target: ExperimentState,
+  {
+    resetQuizzes,
+    preserveDataWindow = false,
+  }: { resetQuizzes: boolean; preserveDataWindow?: boolean },
+) => {
+  if (!preserveDataWindow) {
+    target.data_window_train_start_index = null;
+    target.data_window_train_end_index = null;
+    target.data_window_evaluate_start_index = null;
+    target.data_window_evaluate_end_index = null;
+  }
 
   target.moving_average_completed = false;
   target.moving_average_window = null;
@@ -301,6 +309,23 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     const productChanged =
       Object.prototype.hasOwnProperty.call(updates, 'selected_product') &&
       updates.selected_product !== previousState.selected_product;
+    const dataWindowFields: Array<
+      | 'data_window_train_start_index'
+      | 'data_window_train_end_index'
+      | 'data_window_evaluate_start_index'
+      | 'data_window_evaluate_end_index'
+    > = [
+      'data_window_train_start_index',
+      'data_window_train_end_index',
+      'data_window_evaluate_start_index',
+      'data_window_evaluate_end_index',
+    ];
+    const dataWindowChanged = dataWindowFields.some((field) => {
+      if (!Object.prototype.hasOwnProperty.call(updates, field)) {
+        return false;
+      }
+      return updates[field] !== previousState[field];
+    });
 
     if (industryChanged) {
       nextState.selected_company = null;
@@ -323,6 +348,20 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       resetModelingFields(nextState, { resetQuizzes: true });
       setProductSalesData(null);
       setSalesDataError(null);
+    }
+
+    if (dataWindowChanged) {
+      const wasComplete = dataWindowFields.every(
+        (field) => previousState[field] !== null && previousState[field] !== undefined,
+      );
+      const isCompleteNow = dataWindowFields.every(
+        (field) => nextState[field] !== null && nextState[field] !== undefined,
+      );
+      if (wasComplete && isCompleteNow) {
+        resetModelingFields(nextState, { resetQuizzes: true, preserveDataWindow: true });
+        nextState.highest_completed_step = Math.min(nextState.highest_completed_step, 4);
+        nextState.current_step = Math.min(nextState.current_step, 5);
+      }
     }
 
     if (nextState.status === 'Not Started' && Object.keys(updates).length > 0) {
