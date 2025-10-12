@@ -365,11 +365,7 @@ const Introduction: React.FC = () => {
                   : "下一步"}
               </span>
               {currentStep === steps.length - 1 ? (
-                isExperimentOngoing ? (
-                  <ArrowLeft className="w-5 h-5" />
-                ) : (
-                  <Play className="w-5 h-5" />
-                )
+                <Play className="w-5 h-5" />
               ) : (
                 <ArrowRight className="w-5 h-5" />
               )}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { TrendingUp, CheckCircle, Loader2 } from "lucide-react";
+import { ChartSpline, CheckCircle, Loader2 } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
 const MOCK_METRICS = { rmse: 3.2, mae: 1.8, r2: 0.91 };
@@ -40,7 +40,7 @@ const ExponentialSmoothingModel: React.FC = () => {
 
   const derivedStep = useMemo(() => {
     if (modelState.completed) return 3;
-    if (modelState.alpha !== null && modelState.alpha !== undefined) return 3;
+    if (modelState.alpha !== null && modelState.alpha !== undefined) return 2;
     return 1;
   }, [modelState.completed, modelState.alpha]);
 
@@ -178,17 +178,17 @@ const ExponentialSmoothingModel: React.FC = () => {
         </p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-          <p className="font-semibold text-orange-700 mb-2">适用场景</p>
-          <p className="text-sm text-orange-700">短期预测、需求趋势较稳定的产品线。</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="font-semibold text-blue-700 mb-2">适用场景</p>
+          <p className="text-sm text-blue-700">短期预测、需求趋势较稳定的产品线。</p>
         </div>
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-          <p className="font-semibold text-orange-700 mb-2">优势</p>
-          <p className="text-sm text-orange-700">计算简便、对突变具有较快响应速度。</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="font-semibold text-blue-700 mb-2">优势</p>
+          <p className="text-sm text-blue-700">计算简便、对突变具有较快响应速度。</p>
         </div>
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-          <p className="font-semibold text-orange-700 mb-2">注意事项</p>
-          <p className="text-sm text-orange-700">需要调参以平衡响应速度与稳定性，过大或过小都会影响效果。</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="font-semibold text-blue-700 mb-2">注意事项</p>
+          <p className="text-sm text-blue-700">需要调参以平衡响应速度与稳定性，过大或过小都会影响效果。</p>
         </div>
       </div>
     </div>
@@ -200,7 +200,7 @@ const ExponentialSmoothingModel: React.FC = () => {
         <h3 className="text-xl font-semibold text-gray-900 mb-4">选择平滑系数 α</h3>
         <p className="text-sm text-gray-600 mb-6">α 越大，模型越关注最新数据；α 越小，模型越平滑。通常可从 0.1 - 0.3 起步。</p>
         <label className="block text-lg font-medium text-gray-700 mb-3">
-          平滑系数 (α)：<span className="text-orange-600 font-bold">{alpha.toFixed(2)}</span>
+          平滑系数 (α)：<span className="text-blue-600 font-bold">{alpha.toFixed(2)}</span>
         </label>
         <input
           type="range"
@@ -227,7 +227,7 @@ const ExponentialSmoothingModel: React.FC = () => {
         )}
 
         {isTraining && (
-          <div className="flex items-center space-x-3 text-orange-600 bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
+        <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
             <Loader2 className="w-5 h-5 animate-spin" />
             <span>正在计算指数平滑结果...</span>
           </div>
@@ -245,15 +245,15 @@ const ExponentialSmoothingModel: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
-                <p className="text-2xl font-semibold text-orange-700 mt-2">{modelState.metrics.rmse ?? '—'}</p>
+                <p className="text-2xl font-semibold text-blue-700 mt-2">{modelState.metrics.rmse ?? '—'}</p>
               </div>
               <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
-                <p className="text-2xl font-semibold text-orange-700 mt-2">{modelState.metrics.mae ?? '—'}</p>
+                <p className="text-2xl font-semibold text-blue-700 mt-2">{modelState.metrics.mae ?? '—'}</p>
               </div>
               <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
-                <p className="text-2xl font-semibold text-orange-700 mt-2">{modelState.metrics.r2 ?? '—'}</p>
+                <p className="text-2xl font-semibold text-blue-700 mt-2">{modelState.metrics.r2 ?? '—'}</p>
               </div>
             </div>
             {shouldShowFusionUnlockedNotice && (
@@ -296,7 +296,7 @@ const ExponentialSmoothingModel: React.FC = () => {
     <div className="bg-gray-50 rounded-xl border border-gray-200">
       <div className="border-b border-gray-200 bg-white rounded-t-xl p-6">
         <div className="flex items-center space-x-3 text-sm text-gray-500">
-          <TrendingUp className="w-5 h-5 text-orange-600" />
+          <ChartSpline className="w-5 h-5 text-blue-600" />
           <span>指数平滑法分步指导</span>
         </div>
         <h2 className="mt-2 text-2xl font-semibold text-gray-900">指数平滑模型</h2>
@@ -308,7 +308,7 @@ const ExponentialSmoothingModel: React.FC = () => {
           <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 hidden md:block">
             <div className="h-1 rounded-full bg-gray-200">
               <div
-                className="h-1 rounded-full bg-gradient-to-r from-orange-500 to-green-500 transition-all duration-500"
+                className="h-1 rounded-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
                 style={{ width: `${((activeStep - 1) / (steps.length - 1)) * 100}%` }}
               />
             </div>
@@ -320,16 +320,16 @@ const ExponentialSmoothingModel: React.FC = () => {
               return (
                 <div
                   key={step.id}
-                  className={`relative rounded-xl border p-5 transition-all shadow-sm ${
+                  className={`relative rounded-xl border p-5 transition-all shadow-sm text-center ${
                     isActive
-                      ? "border-orange-500 bg-orange-50"
+                      ? "border-blue-500 bg-blue-50"
                       : isCompleted
                       ? "border-green-500 bg-green-50"
                       : "border-gray-200 bg-white"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-orange-500 text-white" : "bg-gray-200 text-gray-700"}`}>
+                  <div className="flex flex-col items-center gap-2 mb-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold leading-none ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}>
                       {step.id}
                     </div>
                     {isCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}
@@ -361,7 +361,7 @@ const ExponentialSmoothingModel: React.FC = () => {
               ? "bg-gray-400 cursor-not-allowed"
               : activeStep === 3
               ? "bg-green-600 hover:bg-green-700"
-              : "bg-orange-600 hover:bg-orange-700"
+              : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
           <span>{nextButtonLabel}</span>

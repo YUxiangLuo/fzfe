@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useState, useRef} from "react";
-import { CheckCircle, Layers, Loader2 } from "lucide-react";
+import { CheckCircle, Scale, Loader2 } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
 const MOCK_METRICS = { rmse: 2.7, mae: 1.5, r2: 0.96 };
@@ -182,17 +182,17 @@ const WeightedEnsembleModel: React.FC = () => {
         </p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-          <p className="font-semibold text-indigo-700 mb-2">前提条件</p>
-          <p className="text-sm text-indigo-700">至少完成两个基础模型，并确保预测目标一致。</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="font-semibold text-blue-700 mb-2">前提条件</p>
+          <p className="text-sm text-blue-700">至少完成两个基础模型，并确保预测目标一致。</p>
         </div>
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-          <p className="font-semibold text-indigo-700 mb-2">优势</p>
-          <p className="text-sm text-indigo-700">可减小单一模型偏差，提升整体稳定性。</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="font-semibold text-blue-700 mb-2">优势</p>
+          <p className="text-sm text-blue-700">可减小单一模型偏差，提升整体稳定性。</p>
         </div>
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-          <p className="font-semibold text-indigo-700 mb-2">注意事项</p>
-          <p className="text-sm text-indigo-700">基础模型需表现互补；权重优化需防止过拟合。</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="font-semibold text-blue-700 mb-2">注意事项</p>
+          <p className="text-sm text-blue-700">基础模型需表现互补；权重优化需防止过拟合。</p>
         </div>
       </div>
     </div>
@@ -211,12 +211,12 @@ const WeightedEnsembleModel: React.FC = () => {
                 key={model.id}
                 onClick={() => handleModelToggle(model.id)}
                 className={`p-4 rounded-lg border-2 transition-all cursor-pointer ${
-                  isSelected ? "border-indigo-500 bg-indigo-50" : "border-gray-200 hover:border-gray-300"
+                  isSelected ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-blue-200"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected ? "border-indigo-500 bg-indigo-500" : "border-gray-300"}`}>
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected ? "border-blue-500 bg-blue-500" : "border-gray-300"}`}>
                       {isSelected && <CheckCircle className="w-3 h-3 text-white" />}
                     </div>
                     <h4 className="font-semibold text-gray-900">{model.name}</h4>
@@ -245,7 +245,7 @@ const WeightedEnsembleModel: React.FC = () => {
         )}
 
         {isTraining && (
-          <div className="flex items-center space-x-3 text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg px-4 py-3">
+          <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
             <Loader2 className="w-5 h-5 animate-spin" />
             <span>正在优化权重并融合预测...</span>
           </div>
@@ -263,15 +263,15 @@ const WeightedEnsembleModel: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
-                <p className="text-2xl font-semibold text-indigo-700 mt-2">{modelState.metrics.rmse ?? '—'}</p>
+                <p className="text-2xl font-semibold text-blue-700 mt-2">{modelState.metrics.rmse ?? '—'}</p>
               </div>
               <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
-                <p className="text-2xl font-semibold text-indigo-700 mt-2">{modelState.metrics.mae ?? '—'}</p>
+                <p className="text-2xl font-semibold text-blue-700 mt-2">{modelState.metrics.mae ?? '—'}</p>
               </div>
               <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
-                <p className="text-2xl font-semibold text-indigo-700 mt-2">{modelState.metrics.r2 ?? '—'}</p>
+                <p className="text-2xl font-semibold text-blue-700 mt-2">{modelState.metrics.r2 ?? '—'}</p>
               </div>
             </div>
           </div>
@@ -309,7 +309,7 @@ const WeightedEnsembleModel: React.FC = () => {
     <div className="bg-gray-50 rounded-xl border border-gray-200">
       <div className="border-b border-gray-200 bg-white rounded-t-xl p-6">
         <div className="flex items-center space-x-3 text-sm text-gray-500">
-          <Layers className="w-5 h-5 text-indigo-600" />
+          <Scale className="w-5 h-5 text-blue-600" />
           <span>加权平均融合分步指导</span>
         </div>
         <h2 className="mt-2 text-2xl font-semibold text-gray-900">加权平均融合模型</h2>
@@ -321,7 +321,7 @@ const WeightedEnsembleModel: React.FC = () => {
           <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 hidden md:block">
             <div className="h-1 rounded-full bg-gray-200">
               <div
-                className="h-1 rounded-full bg-gradient-to-r from-indigo-500 to-green-500 transition-all duration-500"
+                className="h-1 rounded-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
                 style={{ width: `${((activeStep - 1) / (steps.length - 1)) * 100}%` }}
               />
             </div>
@@ -335,14 +335,14 @@ const WeightedEnsembleModel: React.FC = () => {
                   key={step.id}
                   className={`relative rounded-xl border p-5 transition-all shadow-sm ${
                     isActive
-                      ? "border-indigo-500 bg-indigo-50"
+                      ? "border-blue-500 bg-blue-50"
                       : isCompleted
                       ? "border-green-500 bg-green-50"
                       : "border-gray-200 bg-white"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-indigo-500 text-white" : "bg-gray-200 text-gray-700"}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold leading-none ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}>
                       {step.id}
                     </div>
                     {isCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}
@@ -374,7 +374,7 @@ const WeightedEnsembleModel: React.FC = () => {
               ? "bg-gray-400 cursor-not-allowed"
               : activeStep === 3
               ? "bg-green-600 hover:bg-green-700"
-              : "bg-indigo-600 hover:bg-indigo-700"
+              : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
           <span>{nextButtonLabel}</span>

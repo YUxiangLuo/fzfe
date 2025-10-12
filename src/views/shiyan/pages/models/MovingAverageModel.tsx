@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
+import { LineChart, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 import { apiClient } from "../../../../utils/apiClient";
 
@@ -326,7 +326,7 @@ const MovingAverageModel: React.FC = () => {
     <div className="bg-gray-50 rounded-xl border border-gray-200">
       <div className="border-b border-gray-200 bg-white rounded-t-xl p-6">
         <div className="flex items-center space-x-3 text-sm text-gray-500">
-          <BarChart3 className="w-5 h-5 text-blue-600" />
+          <LineChart className="w-5 h-5 text-blue-600" />
           <span>移动平均法分步指导</span>
         </div>
         <h2 className="mt-2 text-2xl font-semibold text-gray-900">移动平均模型</h2>
@@ -350,7 +350,7 @@ const MovingAverageModel: React.FC = () => {
               return (
                 <div
                   key={step.id}
-                  className={`relative rounded-xl border p-5 transition-all shadow-sm ${
+                  className={`relative rounded-xl border p-5 transition-all shadow-sm text-center ${
                     isActive
                       ? "border-blue-500 bg-blue-50"
                       : isCompleted
@@ -358,8 +358,8 @@ const MovingAverageModel: React.FC = () => {
                       : "border-gray-200 bg-white"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}>
+                  <div className="flex flex-col items-center gap-2 mb-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold leading-none ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}>
                       {step.id}
                     </div>
                     {isCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}

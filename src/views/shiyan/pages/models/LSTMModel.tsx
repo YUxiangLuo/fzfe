@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Brain, CheckCircle, Loader2 } from "lucide-react";
+import { BrainCircuit, CheckCircle, Loader2 } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 
 const MOCK_METRICS = { rmse: 3.2, mae: 1.6, r2: 0.95 };
@@ -49,8 +49,8 @@ const LSTMModel: React.FC = () => {
 
   const derivedStep = useMemo(() => {
     if (lstmState.completed) return 4;
-    if (lstmState.features.length > 0) return 4;
-    if (lstmState.normalization) return 3;
+    if (lstmState.features.length > 0) return 3;
+    if (lstmState.normalization) return 2;
     return 1;
   }, [lstmState.completed, lstmState.features.length, lstmState.normalization]);
 
@@ -273,17 +273,17 @@ const LSTMModel: React.FC = () => {
         </p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <p className="font-semibold text-purple-700 mb-2">适用场景</p>
-          <p className="text-sm text-purple-700">需求波动复杂、存在多维影响因素的时间序列。</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="font-semibold text-blue-700 mb-2">适用场景</p>
+          <p className="text-sm text-blue-700">需求波动复杂、存在多维影响因素的时间序列。</p>
         </div>
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <p className="font-semibold text-purple-700 mb-2">优势</p>
-          <p className="text-sm text-purple-700">能够自动提取非线性特征，捕捉长期依赖关系。</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="font-semibold text-blue-700 mb-2">优势</p>
+          <p className="text-sm text-blue-700">能够自动提取非线性特征，捕捉长期依赖关系。</p>
         </div>
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <p className="font-semibold text-purple-700 mb-2">注意事项</p>
-          <p className="text-sm text-purple-700">需要合理的特征归一化与数据量支持，训练时间相对较长。</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="font-semibold text-blue-700 mb-2">注意事项</p>
+          <p className="text-sm text-blue-700">需要合理的特征归一化与数据量支持，训练时间相对较长。</p>
         </div>
       </div>
     </div>
@@ -294,18 +294,18 @@ const LSTMModel: React.FC = () => {
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <h3 className="text-xl font-semibold text-gray-900 mb-4">归一化方式对比</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className={`rounded-xl border p-6 space-y-3 ${selectedNormalization === "minmax" ? "border-purple-500 bg-purple-50" : "border-gray-200"}`}>
-            <h4 className="text-lg font-semibold text-purple-700">Min-Max 归一化</h4>
-            <p className="text-sm text-purple-600">将特征缩放到 [0,1] 区间，对范围固定的数据集十分稳定。</p>
-            <ul className="text-sm text-purple-700 space-y-1">
+          <div className={`rounded-xl border p-6 space-y-3 ${selectedNormalization === "minmax" ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}>
+            <h4 className="text-lg font-semibold text-blue-700">Min-Max 归一化</h4>
+            <p className="text-sm text-blue-600">将特征缩放到 [0,1] 区间，对范围固定的数据集十分稳定。</p>
+            <ul className="text-sm text-blue-700 space-y-1">
               <li>• 适用于边界明确的指标，例如销量、库存。</li>
               <li>• 对离群值敏感，容易受极端值影响。</li>
             </ul>
           </div>
-          <div className={`rounded-xl border p-6 space-y-3 ${selectedNormalization === "zscore" ? "border-purple-500 bg-purple-50" : "border-gray-200"}`}>
-            <h4 className="text-lg font-semibold text-purple-700">Z-Score 标准化</h4>
-            <p className="text-sm text-purple-600">使特征均值为 0、方差为 1，便于梯度下降更快收敛。</p>
-            <ul className="text-sm text-purple-700 space-y-1">
+          <div className={`rounded-xl border p-6 space-y-3 ${selectedNormalization === "zscore" ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}>
+            <h4 className="text-lg font-semibold text-blue-700">Z-Score 标准化</h4>
+            <p className="text-sm text-blue-600">使特征均值为 0、方差为 1，便于梯度下降更快收敛。</p>
+            <ul className="text-sm text-blue-700 space-y-1">
               <li>• 更适合存在明显波动或含离群值的特征。</li>
               <li>• 可保持不同尺度变量的相对关系。</li>
             </ul>
@@ -317,8 +317,8 @@ const LSTMModel: React.FC = () => {
           onClick={() => handleNormalizationSelect("minmax")}
           className={`px-6 py-3 rounded-lg border-2 transition-all ${
             selectedNormalization === "minmax"
-              ? "border-purple-500 bg-purple-50 text-purple-700"
-              : "border-gray-200 text-gray-700 hover:border-gray-300"
+              ? "border-blue-500 bg-blue-50 text-blue-700"
+              : "border-gray-200 text-gray-700 hover:border-blue-200"
           }`}
         >
           选择 Min-Max 归一化
@@ -327,15 +327,15 @@ const LSTMModel: React.FC = () => {
           onClick={() => handleNormalizationSelect("zscore")}
           className={`px-6 py-3 rounded-lg border-2 transition-all ${
             selectedNormalization === "zscore"
-              ? "border-purple-500 bg-purple-50 text-purple-700"
-              : "border-gray-200 text-gray-700 hover:border-gray-300"
+              ? "border-blue-500 bg-blue-50 text-blue-700"
+              : "border-gray-200 text-gray-700 hover:border-blue-200"
           }`}
         >
           选择 Z-Score 标准化
         </button>
       </div>
       <p className="text-xs text-gray-500">
-        推荐从 <span className="text-purple-600 font-medium">{recommendedNormalization === "minmax" ? "Min-Max" : "Z-Score"}</span> 开始，根据模型效果再进行调整。
+        推荐从 <span className="text-blue-600 font-medium">{recommendedNormalization === "minmax" ? "Min-Max" : "Z-Score"}</span> 开始，根据模型效果再进行调整。
       </p>
     </div>
   );
@@ -355,12 +355,12 @@ const LSTMModel: React.FC = () => {
                 key={feature.id}
                 onClick={() => handleFeatureToggle(feature.id)}
                 className={`p-4 rounded-lg border-2 transition-all ${
-                  isSelected ? "border-purple-500 bg-purple-50" : "border-gray-200 hover:border-gray-300"
+                  isSelected ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-blue-200"
                 } ${feature.required ? "cursor-default" : "cursor-pointer"}`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected ? "border-purple-500 bg-purple-500" : "border-gray-300"}`}>
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${isSelected ? "border-blue-500 bg-blue-500" : "border-gray-300"}`}>
                       {isSelected && <CheckCircle className="w-3 h-3 text-white" />}
                     </div>
                     <div>
@@ -389,7 +389,7 @@ const LSTMModel: React.FC = () => {
         )}
 
         {isTraining && (
-          <div className="flex items-center space-x-3 text-purple-600 bg-purple-50 border border-purple-200 rounded-lg px-4 py-3">
+          <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
             <Loader2 className="w-5 h-5 animate-spin" />
             <span>模型训练中，大约需要 1-2 秒...</span>
           </div>
@@ -409,19 +409,19 @@ const LSTMModel: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
-                <p className="text-2xl font-semibold text-purple-700 mt-2">{lstmState.metrics.rmse ?? '—'}</p>
+                <p className="text-2xl font-semibold text-blue-700 mt-2">{lstmState.metrics.rmse ?? '—'}</p>
               </div>
               <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
-                <p className="text-2xl font-semibold text-purple-700 mt-2">{lstmState.metrics.mae ?? '—'}</p>
+                <p className="text-2xl font-semibold text-blue-700 mt-2">{lstmState.metrics.mae ?? '—'}</p>
               </div>
               <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
-                <p className="text-2xl font-semibold text-purple-700 mt-2">{lstmState.metrics.r2 ?? '—'}</p>
+                <p className="text-2xl font-semibold text-blue-700 mt-2">{lstmState.metrics.r2 ?? '—'}</p>
               </div>
             </div>
             {shouldShowFusionUnlockedNotice && (
-              <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-800">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
                 🎉 已完成至少两个基础模型，融合模型现已解锁！尝试组合不同算法，进一步提升预测表现。
               </div>
             )}
@@ -463,7 +463,7 @@ const LSTMModel: React.FC = () => {
     <div className="bg-gray-50 rounded-xl border border-gray-200">
       <div className="border-b border-gray-200 bg-white rounded-t-xl p-6">
         <div className="flex items-center space-x-3 text-sm text-gray-500">
-          <Brain className="w-5 h-5 text-purple-600" />
+          <BrainCircuit className="w-5 h-5 text-blue-600" />
           <span>LSTM 模型分步指导</span>
         </div>
         <h2 className="mt-2 text-2xl font-semibold text-gray-900">LSTM 神经网络</h2>
@@ -475,7 +475,7 @@ const LSTMModel: React.FC = () => {
           <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 hidden md:block">
             <div className="h-1 rounded-full bg-gray-200">
               <div
-                className="h-1 rounded-full bg-gradient-to-r from-purple-500 to-green-500 transition-all duration-500"
+                className="h-1 rounded-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
                 style={{ width: `${((activeStep - 1) / (steps.length - 1)) * 100}%` }}
               />
             </div>
@@ -487,16 +487,16 @@ const LSTMModel: React.FC = () => {
               return (
                 <div
                   key={step.id}
-                  className={`relative rounded-xl border p-5 transition-all shadow-sm ${
+                  className={`relative rounded-xl border p-5 transition-all shadow-sm text-center ${
                     isActive
-                      ? "border-purple-500 bg-purple-50"
+                      ? "border-blue-500 bg-blue-50"
                       : isCompleted
                       ? "border-green-500 bg-green-50"
                       : "border-gray-200 bg-white"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-purple-500 text-white" : "bg-gray-200 text-gray-700"}`}>
+                  <div className="flex flex-col items-center gap-2 mb-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold leading-none ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}>
                       {step.id}
                     </div>
                     {isCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}
@@ -528,7 +528,7 @@ const LSTMModel: React.FC = () => {
               ? "bg-gray-400 cursor-not-allowed"
               : activeStep === 4
               ? "bg-green-600 hover:bg-green-700"
-              : "bg-purple-600 hover:bg-purple-700"
+              : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
           {nextButtonLabel}

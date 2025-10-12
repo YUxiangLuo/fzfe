@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Brain, CheckCircle, Loader2 } from "lucide-react";
+import { Sigma, CheckCircle, Loader2 } from "lucide-react";
 import { useExperiment, type AdfStationarityRow, type ModelMetrics } from "../../contexts/ExperimentContext";
 import { apiClient } from "../../../../utils/apiClient";
 
@@ -569,7 +569,7 @@ const ARIMAModel: React.FC = () => {
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-6">
         <div className="flex items-center space-x-3 text-sm text-gray-500">
-          <Brain className="w-5 h-5 text-blue-600" />
+          <Sigma className="w-5 h-5 text-blue-600" />
           <span>ARIMA 模型分步向导</span>
         </div>
         <h2 className="mt-2 text-2xl font-semibold text-gray-900">ARIMA 模型</h2>
@@ -592,7 +592,7 @@ const ARIMAModel: React.FC = () => {
             return (
               <div
                 key={step.id}
-                className={`relative rounded-xl border p-5 transition-all shadow-sm ${
+                className={`relative rounded-xl border p-5 transition-all shadow-sm text-center ${
                   isActive
                     ? "border-blue-500 bg-blue-50"
                     : isCompleted

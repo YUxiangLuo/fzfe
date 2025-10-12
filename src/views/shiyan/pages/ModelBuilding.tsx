@@ -2,9 +2,14 @@ import React, { useEffect } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
 import {
-  Brain,
+  LineChart,
+  ChartSpline,
+  Sigma,
+  BrainCircuit,
+  Scale,
+  Sparkles,
+  Layers,
   TrendingUp,
-  BarChart3,
   Lock,
   CalendarRange,
 } from 'lucide-react';
@@ -43,20 +48,30 @@ const ModelBuilding: React.FC = () => {
   ] as const;
 
   const models = [
-    { id: 'moving_average', name: '移动平均法', path: 'ma', icon: BarChart3, type: 'basic' },
-    { id: 'exponential_smoothing', name: '指数平滑法', path: 'es', icon: TrendingUp, type: 'basic' },
-    { id: 'arima', name: 'ARIMA模型', path: 'arima', icon: TrendingUp, type: 'basic' },
-    { id: 'lstm', name: 'LSTM神经网络', path: 'lstm', icon: Brain, type: 'basic' },
-    { id: 'weighted_ensemble', name: '加权平均融合', path: 'weighted', icon: BarChart3, type: 'ensemble' },
-    { id: 'boosting_ensemble', name: 'Boosting融合', path: 'boosting', icon: Brain, type: 'ensemble' },
-    { id: 'stacking_ensemble', name: 'Stacking融合', path: 'stacking', icon: Brain, type: 'ensemble' },
+    { id: 'moving_average', name: '移动平均法', path: 'ma', icon: LineChart, type: 'basic' },
+    { id: 'exponential_smoothing', name: '指数平滑法', path: 'es', icon: ChartSpline, type: 'basic' },
+    { id: 'arima', name: 'ARIMA模型', path: 'arima', icon: Sigma, type: 'basic' },
+    { id: 'lstm', name: 'LSTM神经网络', path: 'lstm', icon: BrainCircuit, type: 'basic' },
+    { id: 'weighted_ensemble', name: '加权平均融合', path: 'weighted', icon: Scale, type: 'ensemble' },
+    { id: 'boosting_ensemble', name: 'Boosting融合', path: 'boosting', icon: Sparkles, type: 'ensemble' },
+    { id: 'stacking_ensemble', name: 'Stacking融合', path: 'stacking', icon: Layers, type: 'ensemble' },
   ];
 
-  const hasDataWindowSelection =
-    state.data_window_train_start_index !== null &&
-    state.data_window_train_end_index !== null &&
-    state.data_window_evaluate_start_index !== null &&
-    state.data_window_evaluate_end_index !== null;
+  const {
+    data_window_train_start_index: trainStart,
+    data_window_train_end_index: trainEnd,
+    data_window_evaluate_start_index: evalStart,
+    data_window_evaluate_end_index: evalEnd,
+  } = state;
+
+  const hasValidDataWindow =
+    trainStart !== null &&
+    trainEnd !== null &&
+    evalStart !== null &&
+    evalEnd !== null &&
+    trainStart <= trainEnd &&
+    evalStart <= evalEnd &&
+    trainEnd < evalStart;
 
   const baseModelsCompletedCount = ['moving_average', 'exponential_smoothing', 'arima', 'lstm']
     .filter((id) => completionMap[id]).length;
@@ -116,13 +131,13 @@ const ModelBuilding: React.FC = () => {
   const shouldShowRoleIntro = sanitizedPath === '/model';
 
   useEffect(() => {
-    if (!hasDataWindowSelection) {
+    if (!hasValidDataWindow) {
       const isSetupRoute = sanitizedPath === '/model' || sanitizedPath === '/model/window';
       if (!isSetupRoute) {
         navigate('/model/window', { replace: true });
       }
     }
-  }, [hasDataWindowSelection, sanitizedPath, navigate]);
+  }, [hasValidDataWindow, sanitizedPath, navigate]);
 
   if (shouldShowRoleIntro) {
     return (
@@ -181,7 +196,7 @@ const ModelBuilding: React.FC = () => {
                   .filter((model) => model.type === 'basic')
                   .map((model) => {
                     const isActive = location.pathname.endsWith('/' + model.path);
-                    const isDisabled = !hasDataWindowSelection;
+                    const isDisabled = !hasValidDataWindow;
                     const Icon = model.icon;
                     return isDisabled ? (
                       <div
@@ -204,7 +219,7 @@ const ModelBuilding: React.FC = () => {
                     );
                   })}
               </nav>
-              {!hasDataWindowSelection && (
+              {!hasValidDataWindow && (
                 <p className="mt-2 text-xs text-gray-500">
                   完成数据时段配置后即可解锁基础模型。
                 </p>
