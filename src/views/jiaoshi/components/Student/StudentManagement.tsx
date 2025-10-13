@@ -136,6 +136,22 @@ const StudentManagement: React.FC = () => {
 
   const [studentToRemove, setStudentToRemove] = useState<Student | null>(null);
   const [isProcessingRemoval, setIsProcessingRemoval] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState<number | null>(null);
+
+  const handleResetPassword = async (student: Student) => {
+    if (window.confirm(`确定要重置学生 ${student.full_name} (${student.username}) 的密码吗？`)) {
+      setIsResettingPassword(student.user_id);
+      try {
+        await apiClient.post(`/users/${student.user_id}/reset-password`);
+        alert(`学生 ${student.full_name} 的密码已成功重置。`);
+      } catch (err: any) {
+        alert(`密码重置失败: ${err.message}`);
+      } finally {
+        setIsResettingPassword(null);
+      }
+    }
+  };
+
 
   const handleOpenAddModal = () => {
     if (!selectedClassId) {
@@ -288,13 +304,28 @@ const StudentManagement: React.FC = () => {
             </span>
           ) : '—'}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
-          <button
-            onClick={() => setStudentToRemove(student)}
-            className="underline underline-offset-2 hover:text-red-800 cursor-pointer"
-          >
-            移除
-          </button>
+        <td className="px-6 py-4 whitespace-nowrap text-sm">
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={() => handleResetPassword(student)}
+              variant="ghost"
+              size="sm"
+              className="text-blue-600 hover:bg-blue-50 hover:text-blue-700 focus:ring-blue-500"
+              title="重置学生密码"
+              disabled={isResettingPassword === student.user_id}
+            >
+              {isResettingPassword === student.user_id ? '重置中...' : '重置密码'}
+            </Button>
+            <Button
+              onClick={() => setStudentToRemove(student)}
+              variant="outline"
+              size="sm"
+              className="border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700 focus:ring-red-500"
+              title="从班级移除学生"
+            >
+              移除
+            </Button>
+          </div>
         </td>
       </tr>
     ));
@@ -372,7 +403,7 @@ const StudentManagement: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">邮箱</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">手机号码</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">加入时间</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -397,7 +428,6 @@ const StudentManagement: React.FC = () => {
                 确认将学生 <span className="font-medium text-gray-900">{studentToRemove?.full_name}</span> ({studentToRemove?.username}) 从班级
                 <span className="font-medium text-gray-900"> {currentClassName}</span> 中移除吗？
               </p>
-              <p className="text-xs text-gray-500 mt-1">移除后该学生需要重新使用班级码才能加入。</p>
             </div>
           </div>
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">

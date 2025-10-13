@@ -21,16 +21,12 @@ interface QuestionFormState {
 }
 
 const KNOWLEDGE_POINTS = [
-  '需求预测基础',
-  '时间序列预处理',
-  '预测模型选择',
-  '模型融合与集成',
+  'ARIMA模型',
+  'LSTM模型',
+  '移动平均法',
+  '指数平滑法',
+  '融合模型',
   '生产计划',
-  '库存策略',
-  '优化调度',
-  '实验平台操作',
-  '结果评估指标',
-  '应急与风险管理',
 ];
 
 const API_TYPE_TO_FORM_TYPE: Record<QuestionTypeApi, QuestionFormType> = {
@@ -83,6 +79,21 @@ const QuestionBank: React.FC = () => {
     correctAnswers: [],
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<number | null>(null);
+
+  const handleDeleteQuestion = async (questionId: number) => {
+    if (window.confirm('确定要永久删除这道题目吗？此操作不可撤销。')) {
+      setIsDeleting(questionId);
+      try {
+        await apiClient.delete(`/question-bank/${questionId}`);
+        setQuestions((prev) => prev.filter((q) => q.question_id !== questionId));
+      } catch (err: any) {
+        alert(`删除失败: ${err.message}`);
+      } finally {
+        setIsDeleting(null);
+      }
+    }
+  };
 
   useEffect(() => {
     const handler = window.setTimeout(() => {
@@ -132,14 +143,8 @@ const QuestionBank: React.FC = () => {
   }, [questions, debouncedSearchTerm]);
 
   const knowledgePointOptions = useMemo(() => {
-    const set = new Set(KNOWLEDGE_POINTS);
-    questions.forEach((question) => {
-      if (question.knowledge_point) {
-        set.add(question.knowledge_point);
-      }
-    });
-    return Array.from(set);
-  }, [questions]);
+    return KNOWLEDGE_POINTS;
+  }, []);
 
   const statistics = useMemo(() => {
     const total = questions.length;
@@ -359,8 +364,8 @@ const QuestionBank: React.FC = () => {
           ),
         );
       } else {
-        const created = await apiClient.post('/question-bank', payload);
-        setQuestions((prev) => [...prev, created as Question]);
+        await apiClient.post('/question-bank', payload);
+        await fetchQuestions();
       }
       closeEditor();
     } catch (err: any) {
@@ -530,62 +535,69 @@ const QuestionBank: React.FC = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">序号</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">题目内容</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">知识点</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建者</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                     正在加载题库...
                   </td>
                 </tr>
               ) : filteredQuestions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                     {questions.length === 0 ? '题库暂无数据，请稍后重试。' : '未找到符合搜索条件的题目。'}
                   </td>
                 </tr>
               ) : (
-                filteredQuestions.map((question) => {
+                filteredQuestions.map((question, index) => {
                   const badge = getTypeBadge(question.question_type);
                   return (
                     <tr key={question.question_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        <div className="max-w-xl">
-                          <p className="truncate">{question.question_text}</p>
-                        </div>
+                      <td className="px-6 py-4 text-sm text-gray-500 align-top">{index + 1}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900 align-top min-w-[300px] whitespace-normal">
+                        {question.question_text}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-gray-700 align-top whitespace-nowrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.className}`}>
                           {badge.label}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-gray-700 align-top whitespace-nowrap">
                         {question.knowledge_point || '—'}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
+                      <td className="px-6 py-4 text-sm text-gray-500 align-top whitespace-nowrap">
                         {question.creator_name || '—'}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
+                      <td className="px-6 py-4 text-sm text-gray-700 align-top">
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={() => openPreview(question)}
-                            className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center cursor-pointer"
+                            className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center cursor-pointer whitespace-nowrap"
                           >
                             <Eye size={14} className="mr-1" />
                             <span>预览</span>
                           </button>
                           <button
                             onClick={() => openEditor(question)}
-                            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center cursor-pointer"
+                            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center cursor-pointer whitespace-nowrap"
                           >
                             <Edit2 size={14} className="mr-1" />
                             <span>编辑</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteQuestion(question.question_id)}
+                            disabled={isDeleting === question.question_id}
+                            className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                          >
+                            {isDeleting === question.question_id ? '删除中...' : '删除'}
                           </button>
                         </div>
                       </td>

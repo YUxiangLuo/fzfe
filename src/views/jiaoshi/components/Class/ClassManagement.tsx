@@ -355,21 +355,23 @@ const ClassManagement: React.FC = () => {
             </button>
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-            <div className="flex items-center space-x-3">
-              <button
+            <div className="flex items-center space-x-2">
+              <Button
                 onClick={() => handleOpenEdit(classItem)}
-                className="text-blue-600 hover:text-blue-800 cursor-pointer"
+                variant="outline"
+                size="sm"
                 title="修改班级"
               >
-                <Edit2 size={16} />
-              </button>
-              <button
+                修改
+              </Button>
+              <Button
                 onClick={() => handleDelete(classItem)}
-                className="text-red-600 hover:text-red-800 cursor-pointer"
+                size="sm"
+                className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
                 title="删除班级"
               >
-                <Trash2 size={16} />
-              </button>
+                删除
+              </Button>
             </div>
           </td>
         </tr>
