@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChartSpline, CheckCircle, Loader2 } from "lucide-react";
+import { ChartSpline, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
-
-const MOCK_METRICS = { rmse: 3.2, mae: 1.8, r2: 0.91 };
+import { apiClient } from "../../../../utils/apiClient";
 
 const steps = [
   { id: 1, title: "方法简介", description: "了解指数平滑法的核心思想和适用场景。" },
@@ -47,6 +46,7 @@ const ExponentialSmoothingModel: React.FC = () => {
   const [activeStep, setActiveStep] = useState(derivedStep);
   const [alpha, setAlpha] = useState(modelState.alpha ?? 0.5);
   const [isTraining, setIsTraining] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const alphaUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const buildDownstreamReset = () => ({
@@ -131,6 +131,80 @@ const ExponentialSmoothingModel: React.FC = () => {
     }, 300);
   };
 
+  const handleCalculate = async () => {
+    if (isTraining || modelState.completed) return;
+
+    setIsTraining(true);
+    setError(null);
+
+    try {
+      // Ensure the latest alpha from local state is in global state
+      await updateState({
+        exponential_smoothing_alpha: alpha,
+        exponential_smoothing_completed: false,
+        ...buildDownstreamReset(),
+      });
+
+      const requestBody = {
+        selected_industry: state.selected_industry,
+        selected_company: state.selected_company,
+        selected_product: state.selected_product,
+        data_window_train_start_index: state.data_window_train_start_index,
+        data_window_train_end_index: state.data_window_train_end_index,
+        data_window_evaluate_start_index: state.data_window_evaluate_start_index,
+        data_window_evaluate_end_index: state.data_window_evaluate_end_index,
+        exponential_smoothing_alpha: alpha,
+      };
+
+      const response = await apiClient.post<{
+        status: string;
+        results: {
+          mode: string;
+          data_points: number;
+          alpha: number;
+          train_range: {
+            start_index: number;
+            end_index: number;
+            months: string[];
+          };
+          evaluate_range: {
+            start_index: number;
+            end_index: number;
+            months: string[];
+          };
+          evaluated_points: number;
+          evaluate_indices: number[];
+          evaluate_months: string[];
+          metrics: {
+            rmse: number;
+            mae: number;
+            mape: number;
+            r2: number;
+          };
+          notes?: string[];
+          saved_model?: string;
+        };
+      }>("/model/es/train", requestBody);
+
+      if (response.status === "success") {
+        const metrics = response.results?.metrics ?? { rmse: null, mae: null, r2: null };
+        await updateState({
+          exponential_smoothing_alpha: alpha,
+          exponential_smoothing_completed: true,
+          exponential_smoothing_metrics_rmse: metrics.rmse ?? null,
+          exponential_smoothing_metrics_mae: metrics.mae ?? null,
+          exponential_smoothing_metrics_r2: metrics.r2 ?? null,
+        });
+      } else {
+        throw new Error("模型计算返回失败状态");
+      }
+    } catch (err: any) {
+      setError(err.message || "计算过程中发生未知错误");
+    } finally {
+      setIsTraining(false);
+    }
+  };
+
   const handleNext = async () => {
     if (activeStep === 1) {
       setActiveStep(2);
@@ -149,18 +223,8 @@ const ExponentialSmoothingModel: React.FC = () => {
       return;
     }
 
-    if (activeStep === 3 && !modelState.completed && !isTraining) {
-      setIsTraining(true);
-      setTimeout(async () => {
-        await updateState({
-          exponential_smoothing_completed: true,
-          exponential_smoothing_alpha: alpha,
-          exponential_smoothing_metrics_rmse: MOCK_METRICS.rmse,
-          exponential_smoothing_metrics_mae: MOCK_METRICS.mae,
-          exponential_smoothing_metrics_r2: MOCK_METRICS.r2,
-        });
-        setIsTraining(false);
-      }, 1200);
+    if (activeStep === 3) {
+      handleCalculate();
     }
   };
 
@@ -222,18 +286,28 @@ const ExponentialSmoothingModel: React.FC = () => {
         <h3 className="text-xl font-semibold text-gray-900 mb-4">运行模型并查看结果</h3>
         {!modelState.completed && !isTraining && (
           <p className="text-sm text-gray-600">
-            点击“开始计算并保存结果”后，系统将使用 α = {alpha.toFixed(2)} 的指数平滑，对最新销量给予更高权重。
+            点击"开始计算并保存结果"后，系统将使用 α = {alpha.toFixed(2)} 的指数平滑，对最新销量给予更高权重。
           </p>
         )}
 
         {isTraining && (
-        <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+          <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
             <Loader2 className="w-5 h-5 animate-spin" />
             <span>正在计算指数平滑结果...</span>
           </div>
         )}
 
-        {modelState.completed && !isTraining && (
+        {error && !isTraining && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <div>
+              <p className="text-red-800 font-semibold">计算失败</p>
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {modelState.completed && !isTraining && !error && (
           <div className="space-y-4">
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3">
               <CheckCircle className="w-5 h-5 text-green-600" />

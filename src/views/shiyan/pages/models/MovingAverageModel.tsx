@@ -145,8 +145,20 @@ const MovingAverageModel: React.FC = () => {
 
       const response = await apiClient.post<{
         status: string;
-        results: { metrics: { rmse: number; mae: number; r2: number } };
-      }>("/model/moving-average/train", requestBody);
+        results: {
+          metrics: {
+            window: number;
+            evaluated_points: number;
+            rmse: number;
+            mae: number;
+            mape: number;
+            r2: number;
+            evaluate_indices: number[];
+            evaluate_months: string[];
+          };
+          saved_model?: string;
+        };
+      }>("/model/ma/train", requestBody);
 
       if (response.status === "success") {
         const metrics = response.results?.metrics ?? { rmse: null, mae: null, r2: null };

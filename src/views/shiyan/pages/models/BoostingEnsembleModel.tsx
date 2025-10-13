@@ -1,8 +1,7 @@
 import React, {useEffect, useMemo, useState, useRef} from "react";
-import { CheckCircle, Sparkles, Loader2 } from "lucide-react";
+import { CheckCircle, Sparkles, Loader2, AlertTriangle } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
-
-const MOCK_METRICS = { rmse: 2.5, mae: 1.4, r2: 0.97 };
+import { apiClient } from "../../../../utils/apiClient";
 
 const steps = [
   { id: 1, title: "方法简介", description: "了解 Boosting 融合如何逐步提升模型表现。" },
@@ -58,6 +57,7 @@ const BoostingEnsembleModel: React.FC = () => {
   const hasMountedRef = useRef(false);
   const [selectedModels, setSelectedModels] = useState<string[]>(modelState.baseModels);
   const [isTraining, setIsTraining] = useState(false);
+  const [trainingError, setTrainingError] = useState<string | null>(null);
   const selectionUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetMetrics = () => ({
@@ -132,6 +132,88 @@ const BoostingEnsembleModel: React.FC = () => {
     });
   };
 
+  const handleTrainModel = async () => {
+    if (isTraining || modelState.completed) return;
+    setIsTraining(true);
+    setTrainingError(null);
+
+    try {
+      // Map frontend model IDs to backend format
+      const modelIdMap: Record<string, string> = {
+        'moving_average': 'ma',
+        'exponential_smoothing': 'es',
+        'arima': 'arima',
+        'lstm': 'lstm'
+      };
+
+      const backendModels = selectedModels.map(id => modelIdMap[id] || id);
+
+      const requestBody: Record<string, any> = {
+        selected_industry: state.selected_industry,
+        selected_company: state.selected_company,
+        selected_product: state.selected_product,
+        data_window_train_start_index: state.data_window_train_start_index,
+        data_window_train_end_index: state.data_window_train_end_index,
+        data_window_evaluate_start_index: state.data_window_evaluate_start_index,
+        data_window_evaluate_end_index: state.data_window_evaluate_end_index,
+        ensemble_boosting_base_models: backendModels,
+      };
+
+      // Add model-specific parameters ONLY if the model is selected
+      if (backendModels.includes('arima')) {
+        requestBody.arima_d = state.arima_d;
+      }
+      if (backendModels.includes('es')) {
+        requestBody.exponential_smoothing_alpha = state.exponential_smoothing_alpha;
+      }
+      if (backendModels.includes('ma')) {
+        requestBody.moving_average_window = state.moving_average_window;
+      }
+      if (backendModels.includes('lstm')) {
+        requestBody.lstm_features = state.lstm_features;
+        requestBody.lstm_target_field = state.lstm_target_field;
+        requestBody.lstm_normalization = state.lstm_normalization;
+      }
+
+      // Remove undefined/null values to avoid sending them to backend
+      Object.keys(requestBody).forEach(key => {
+        if (requestBody[key] === undefined || requestBody[key] === null) {
+          delete requestBody[key];
+        }
+      });
+
+      const response = await apiClient.post<{
+        status: string;
+        results: {
+          mode: string;
+          strategy: string;
+          n_models: number;
+          eval_range: { start: number; end: number; };
+          metrics: { rmse: number; mae: number; mape: number; r2: number; };
+          notes?: string[];
+          saved_ensemble?: string;
+        };
+      }>("/model/boosting/train", requestBody);
+
+      if (response.status === "success") {
+        const metrics = response.results?.metrics;
+        await updateState({
+          ensemble_boosting_base_models: selectedModels,
+          ensemble_boosting_completed: true,
+          ensemble_boosting_metrics_rmse: metrics.rmse ?? null,
+          ensemble_boosting_metrics_mae: metrics.mae ?? null,
+          ensemble_boosting_metrics_r2: metrics.r2 ?? null,
+        });
+      } else {
+        throw new Error("Boosting 融合训练返回失败状态");
+      }
+    } catch (err: any) {
+      setTrainingError(err.message || "训练过程中发生未知错误");
+    } finally {
+      setIsTraining(false);
+    }
+  };
+
   const handleNext = async () => {
     if (activeStep === 1) {
       setActiveStep(2);
@@ -151,17 +233,7 @@ const BoostingEnsembleModel: React.FC = () => {
     }
 
     if (activeStep === 3 && !modelState.completed && !isTraining) {
-      setIsTraining(true);
-      setTimeout(async () => {
-        await updateState({
-          ensemble_boosting_base_models: selectedModels,
-          ensemble_boosting_completed: true,
-          ensemble_boosting_metrics_rmse: MOCK_METRICS.rmse,
-          ensemble_boosting_metrics_mae: MOCK_METRICS.mae,
-          ensemble_boosting_metrics_r2: MOCK_METRICS.r2,
-        });
-        setIsTraining(false);
-      }, 1500);
+      await handleTrainModel();
     }
   };
 
@@ -245,6 +317,16 @@ const BoostingEnsembleModel: React.FC = () => {
           <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
             <Loader2 className="w-5 h-5 animate-spin" />
             <span>Boosting 训练中，请稍候...</span>
+          </div>
+        )}
+
+        {trainingError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start space-x-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-red-800 font-semibold">训练失败</p>
+              <p className="text-sm text-red-700 mt-1">{trainingError}</p>
+            </div>
           </div>
         )}
 

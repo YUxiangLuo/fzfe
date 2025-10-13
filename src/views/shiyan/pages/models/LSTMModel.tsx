@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { BrainCircuit, CheckCircle, Loader2 } from "lucide-react";
+import { BrainCircuit, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
-
-const MOCK_METRICS = { rmse: 3.2, mae: 1.6, r2: 0.95 };
+import { apiClient } from "../../../../utils/apiClient";
 const steps = [
   { id: 1, title: "方法简介", description: "了解 LSTM 神经网络的核心思想与应用价值。" },
   { id: 2, title: "选择归一化方式", description: "了解 Min-Max 与 Z-Score 的差异，并选择适合的归一化方法。" },
@@ -60,6 +59,7 @@ const LSTMModel: React.FC = () => {
   const [selectedTarget, setSelectedTarget] = useState<string | null>(lstmState.targetField ?? null);
   const [featureValidationAttempted, setFeatureValidationAttempted] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
+  const [trainingError, setTrainingError] = useState<string | null>(null);
   const normalizationUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const featuresUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const targetUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -263,6 +263,99 @@ const LSTMModel: React.FC = () => {
   }, [productFieldOptions, selectedTarget]);
 
 
+  const handleTrainModel = async () => {
+    if (isTraining || lstmState.completed) return;
+
+    setIsTraining(true);
+    setTrainingError(null);
+
+    try {
+      // Ensure all latest values are in global state
+      if (normalizationUpdateTimer.current) {
+        clearTimeout(normalizationUpdateTimer.current);
+        normalizationUpdateTimer.current = null;
+        await commitNormalizationUpdate(selectedNormalization);
+      }
+
+      if (targetUpdateTimer.current) {
+        clearTimeout(targetUpdateTimer.current);
+        targetUpdateTimer.current = null;
+        await commitTargetUpdate(selectedTarget);
+      } else {
+        await commitTargetUpdate(selectedTarget);
+      }
+
+      const featuresToSave = sanitizeFeatures(selectedFeatures, selectedTarget);
+      setSelectedFeatures(featuresToSave);
+      if (featuresUpdateTimer.current) {
+        clearTimeout(featuresUpdateTimer.current);
+        featuresUpdateTimer.current = null;
+        await commitFeaturesUpdate(featuresToSave);
+      } else {
+        await commitFeaturesUpdate(featuresToSave);
+      }
+
+      // Prepare request body
+      const requestBody = {
+        selected_industry: state.selected_industry,
+        selected_company: state.selected_company,
+        selected_product: state.selected_product,
+        data_window_train_start_index: state.data_window_train_start_index,
+        data_window_train_end_index: state.data_window_train_end_index,
+        data_window_evaluate_start_index: state.data_window_evaluate_start_index,
+        data_window_evaluate_end_index: state.data_window_evaluate_end_index,
+        lstm_normalization: selectedNormalization,
+        lstm_target_field: selectedTarget ?? '',
+        lstm_features: featuresToSave,
+      };
+
+      const response = await apiClient.post<{
+        status: string;
+        results: {
+          mode: string;
+          norm: string;
+          lookback: number;
+          evaluated_points: number;
+          auto_adjustments?: {
+            batch_size?: {
+              input: number;
+              final: number;
+              reason: string;
+            };
+          };
+          metrics: {
+            rmse: number;
+            mae: number;
+            mape: number;
+            r2: number;
+          };
+          notes?: string[];
+          saved_model?: string;
+        };
+        inferred_feature_types?: Record<string, string>;
+      }>("/model/lstm/train", requestBody);
+
+      if (response.status === "success") {
+        const metrics = response.results?.metrics ?? { rmse: null, mae: null, r2: null };
+        await updateState({
+          lstm_normalization: selectedNormalization,
+          lstm_features: featuresToSave,
+          lstm_target_field: selectedTarget ?? null,
+          lstm_completed: true,
+          lstm_metrics_rmse: metrics.rmse ?? null,
+          lstm_metrics_mae: metrics.mae ?? null,
+          lstm_metrics_r2: metrics.r2 ?? null,
+        });
+      } else {
+        throw new Error("模型训练返回失败状态");
+      }
+    } catch (err: any) {
+      setTrainingError(err.message || "训练过程中发生未知错误");
+    } finally {
+      setIsTraining(false);
+    }
+  };
+
   const handleNext = async () => {
     if (activeStep === 1) {
       setActiveStep(2);
@@ -310,43 +403,7 @@ const LSTMModel: React.FC = () => {
     }
 
     if (activeStep === 4 && !lstmState.completed && !isTraining) {
-      if (normalizationUpdateTimer.current) {
-        clearTimeout(normalizationUpdateTimer.current);
-        normalizationUpdateTimer.current = null;
-        await commitNormalizationUpdate(selectedNormalization);
-      }
-
-      if (targetUpdateTimer.current) {
-        clearTimeout(targetUpdateTimer.current);
-        targetUpdateTimer.current = null;
-        await commitTargetUpdate(selectedTarget);
-      } else {
-        await commitTargetUpdate(selectedTarget);
-      }
-
-      const featuresToSave = sanitizeFeatures(selectedFeatures, selectedTarget);
-      setSelectedFeatures(featuresToSave);
-      if (featuresUpdateTimer.current) {
-        clearTimeout(featuresUpdateTimer.current);
-        featuresUpdateTimer.current = null;
-        await commitFeaturesUpdate(featuresToSave);
-      } else {
-        await commitFeaturesUpdate(featuresToSave);
-      }
-
-      setIsTraining(true);
-      setTimeout(async () => {
-        await updateState({
-          lstm_normalization: selectedNormalization,
-          lstm_features: featuresToSave,
-          lstm_target_field: selectedTarget ?? null,
-          lstm_completed: true,
-          lstm_metrics_rmse: MOCK_METRICS.rmse,
-          lstm_metrics_mae: MOCK_METRICS.mae,
-          lstm_metrics_r2: MOCK_METRICS.r2,
-        });
-        setIsTraining(false);
-      }, 1500);
+      await handleTrainModel();
     }
   };
 
@@ -450,18 +507,72 @@ const LSTMModel: React.FC = () => {
       );
     }
 
-    const fields = productFieldOptions ?? [];
+    const rawFields = productFieldOptions ?? [];
+
+    // 智能过滤：剔除不适合作为数值特征的字段
+    const isNumericField = (fieldName: string): boolean => {
+      const lowerField = fieldName.toLowerCase();
+
+      // 排除规则：包含以下关键词的字段不适合作为特征
+      const excludeKeywords = [
+        // 标识符类
+        '代码', 'code', 'id', '编码',
+        '编号', 'number', 'no', 'num',
+
+        // 文本类
+        '名称', 'name',
+        '地址', 'address',
+        '描述', 'description', 'desc',
+        '备注', 'remark', 'note', 'comment',
+
+        // 分类类
+        '类型', 'type', 'category',
+        '状态', 'status', 'state',
+        '单位', 'unit',
+
+        // 时间类（通常已在数据中体现，不需要作为特征）
+        '日期', 'date', 'time', 'datetime',
+        '年份', 'year', '年',
+        '月份', 'month', '月',
+        '季度', 'quarter', '季',
+        '日', 'day',
+
+        // 媒体类
+        '链接', 'url', 'link',
+        '图片', 'image', 'img', 'picture', 'photo'
+      ];
+
+      // 如果字段名包含任何排除关键词，则过滤掉
+      return !excludeKeywords.some(keyword => lowerField.includes(keyword));
+    };
+
+    const fields = rawFields.filter(isNumericField);
+    const filteredCount = rawFields.length - fields.length;
+
     if (fields.length === 0) {
       return (
         <div className="bg-white border border-gray-200 rounded-xl p-6">
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">暂无字段信息</h3>
-          <p className="text-sm text-gray-600">当前产品缺少可用字段，请联系管理员补充数据。</p>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">暂无可用字段</h3>
+          <p className="text-sm text-gray-600">
+            {rawFields.length > 0
+              ? `检测到 ${rawFields.length} 个字段，但均为非数值类型（如代码、名称等），无法用于模型训练。`
+              : '当前产品缺少字段信息，请联系管理员补充数据。'
+            }
+          </p>
         </div>
       );
     }
 
     return (
       <div className="space-y-6">
+        {filteredCount > 0 && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              <span className="font-semibold">智能过滤</span>：已自动过滤 {filteredCount} 个非数值字段（如代码、名称等），仅显示适合建模的 {fields.length} 个数值字段。
+            </p>
+          </div>
+        )}
+
         <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-3">
           <h3 className="text-xl font-semibold text-gray-900">选择预测目标字段</h3>
           <p className="text-sm text-gray-600">选择需要预测的目标字段（例如销量、销售额等）。该字段不会同时作为输入特征。</p>
@@ -533,11 +644,21 @@ const LSTMModel: React.FC = () => {
         {isTraining && (
           <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span>模型训练中，大约需要 1-2 秒...</span>
+            <span>模型训练中，请稍候...</span>
           </div>
         )}
 
-        {lstmState.completed && !isTraining && (
+        {trainingError && !isTraining && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <div>
+              <p className="text-red-800 font-semibold">训练失败</p>
+              <p className="text-sm text-red-700">{trainingError}</p>
+            </div>
+          </div>
+        )}
+
+        {lstmState.completed && !isTraining && !trainingError && (
           <div className="space-y-4">
             <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3">
               <CheckCircle className="w-5 h-5 text-green-600" />

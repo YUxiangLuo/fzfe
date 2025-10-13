@@ -1,14 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Sigma, CheckCircle, Loader2 } from "lucide-react";
+import { Sigma, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
 import { useExperiment, type AdfStationarityRow, type ModelMetrics } from "../../contexts/ExperimentContext";
 import { apiClient } from "../../../../utils/apiClient";
-
-const TRAINING_SIMULATION_DELAY = 1500;
-
-const MOCK_TRAINING_RESULT: { pq: { p: number; q: number }; metrics: ModelMetrics } = {
-  pq: { p: 2, q: 1 },
-  metrics: { rmse: 2.9, mae: 1.7, r2: 0.93 },
-};
 
 const STEPS = [
   { id: 1, title: "方法简介", description: "了解 ARIMA 模型的结构与适用场景。" },
@@ -66,6 +59,7 @@ const ARIMAModel: React.FC = () => {
   const [adfError, setAdfError] = useState<string | null>(null);
   const [dError, setDError] = useState<string | null>(null);
   const [isTraining, setIsTraining] = useState(false);
+  const [trainingError, setTrainingError] = useState<string | null>(null);
 
   const buildDownstreamReset = () => ({
     ensemble_weighted_completed: false,
@@ -234,21 +228,70 @@ const ARIMAModel: React.FC = () => {
 
   const handleStartTraining = async () => {
     if (isTraining || trainingCompleted) return;
+
     setIsTraining(true);
+    setTrainingError(null);
 
-    await new Promise((resolve) => setTimeout(resolve, TRAINING_SIMULATION_DELAY));
+    try {
+      // Ensure the latest d value is in global state
+      if (selectedD !== null && selectedD !== undefined) {
+        await updateState({
+          arima_d: selectedD,
+          arima_completed: false,
+          ...buildDownstreamReset(),
+        });
+      }
 
-    const { pq, metrics } = MOCK_TRAINING_RESULT;
-    await updateState({
-      arima_p: pq.p,
-      arima_q: pq.q,
-      arima_completed: true,
-      arima_metrics_rmse: metrics.rmse,
-      arima_metrics_mae: metrics.mae,
-      arima_metrics_r2: metrics.r2,
-    });
+      const requestBody = {
+        selected_industry: state.selected_industry,
+        selected_company: state.selected_company,
+        selected_product: state.selected_product,
+        data_window_train_start_index: state.data_window_train_start_index,
+        data_window_train_end_index: state.data_window_train_end_index,
+        data_window_evaluate_start_index: state.data_window_evaluate_start_index,
+        data_window_evaluate_end_index: state.data_window_evaluate_end_index,
+        arima_d: selectedD ?? state.arima_d ?? 0,
+      };
 
-    setIsTraining(false);
+      const response = await apiClient.post<{
+        status: string;
+        results: {
+          mode: string;
+          best_order: {
+            p: number;
+            d: number;
+            q: number;
+          };
+          metrics: {
+            rmse: number;
+            mae: number;
+            mape: number;
+            r2: number;
+            aic: number;
+          };
+          notes?: string[];
+        };
+      }>("/model/arima/train", requestBody);
+
+      if (response.status === "success") {
+        const { best_order, metrics } = response.results;
+        await updateState({
+          arima_p: best_order.p,
+          arima_d: best_order.d,
+          arima_q: best_order.q,
+          arima_completed: true,
+          arima_metrics_rmse: metrics.rmse ?? null,
+          arima_metrics_mae: metrics.mae ?? null,
+          arima_metrics_r2: metrics.r2 ?? null,
+        });
+      } else {
+        throw new Error("模型训练返回失败状态");
+      }
+    } catch (err: any) {
+      setTrainingError(err.message || "训练过程中发生未知错误");
+    } finally {
+      setIsTraining(false);
+    }
   };
 
   const handleNext = async () => {
@@ -514,7 +557,18 @@ const ARIMAModel: React.FC = () => {
             <span>正在训练模型...</span>
           </div>
         )}
-        {trainingCompleted && (
+
+        {trainingError && !isTraining && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <div>
+              <p className="text-red-800 font-semibold">训练失败</p>
+              <p className="text-sm text-red-700">{trainingError}</p>
+            </div>
+          </div>
+        )}
+
+        {trainingCompleted && !trainingError && (
           <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center space-x-3">
             <CheckCircle className="w-5 h-5 text-green-600" />
             <div>

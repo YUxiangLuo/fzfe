@@ -1,8 +1,7 @@
 import React, {useEffect, useMemo, useState, useRef} from "react";
-import { CheckCircle, Scale, Loader2 } from "lucide-react";
+import { CheckCircle, Scale, Loader2, AlertTriangle } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
-
-const MOCK_METRICS = { rmse: 2.7, mae: 1.5, r2: 0.96 };
+import { apiClient } from "../../../../utils/apiClient";
 
 const steps = [
   { id: 1, title: "方法简介", description: "了解加权平均融合的原理及适用前提。" },
@@ -57,6 +56,7 @@ const WeightedEnsembleModel: React.FC = () => {
   const [activeStep, setActiveStep] = useState(derivedStep);
   const [selectedModels, setSelectedModels] = useState<string[]>(modelState.baseModels);
   const [isTraining, setIsTraining] = useState(false);
+  const [trainingError, setTrainingError] = useState<string | null>(null);
   const selectionUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetMetrics = () => ({
@@ -135,6 +135,66 @@ const WeightedEnsembleModel: React.FC = () => {
     });
   };
 
+  const handleTrainModel = async () => {
+    if (isTraining || modelState.completed) return;
+    setIsTraining(true);
+    setTrainingError(null);
+
+    try {
+      // Map frontend model IDs to backend format
+      const modelIdMap: Record<string, string> = {
+        'moving_average': 'ma',
+        'exponential_smoothing': 'es',
+        'arima': 'arima',
+        'lstm': 'lstm'
+      };
+
+      const backendModels = selectedModels.map(id => modelIdMap[id] || id);
+
+      const requestBody = {
+        selected_industry: state.selected_industry,
+        selected_company: state.selected_company,
+        selected_product: state.selected_product,
+        data_window_train_start_index: state.data_window_train_start_index,
+        data_window_train_end_index: state.data_window_train_end_index,
+        data_window_evaluate_start_index: state.data_window_evaluate_start_index,
+        data_window_evaluate_end_index: state.data_window_evaluate_end_index,
+        ensemble_weighted_base_models: backendModels,
+      };
+
+      const response = await apiClient.post<{
+        status: string;
+        results: {
+          mode: string;
+          strategy: string;
+          n_models: number;
+          weights: number[];
+          eval_range: { start: number; end: number; };
+          metrics: { rmse: number; mae: number; mape: number; r2: number; };
+          notes?: string[];
+          saved_ensemble?: string;
+        };
+      }>("/model/weighted-average/train", requestBody);
+
+      if (response.status === "success") {
+        const metrics = response.results?.metrics;
+        await updateState({
+          ensemble_weighted_base_models: selectedModels,
+          ensemble_weighted_completed: true,
+          ensemble_weighted_metrics_rmse: metrics.rmse ?? null,
+          ensemble_weighted_metrics_mae: metrics.mae ?? null,
+          ensemble_weighted_metrics_r2: metrics.r2 ?? null,
+        });
+      } else {
+        throw new Error("融合模型训练返回失败状态");
+      }
+    } catch (err: any) {
+      setTrainingError(err.message || "训练过程中发生未知错误");
+    } finally {
+      setIsTraining(false);
+    }
+  };
+
   const handleNext = async () => {
     if (activeStep === 1) {
       setActiveStep(2);
@@ -154,17 +214,7 @@ const WeightedEnsembleModel: React.FC = () => {
     }
 
     if (activeStep === 3 && !modelState.completed && !isTraining) {
-      setIsTraining(true);
-      setTimeout(async () => {
-        await updateState({
-          ensemble_weighted_base_models: selectedModels,
-          ensemble_weighted_completed: true,
-          ensemble_weighted_metrics_rmse: MOCK_METRICS.rmse,
-          ensemble_weighted_metrics_mae: MOCK_METRICS.mae,
-          ensemble_weighted_metrics_r2: MOCK_METRICS.r2,
-        });
-        setIsTraining(false);
-      }, 1500);
+      await handleTrainModel();
     }
   };
 
@@ -248,6 +298,16 @@ const WeightedEnsembleModel: React.FC = () => {
           <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
             <Loader2 className="w-5 h-5 animate-spin" />
             <span>正在优化权重并融合预测...</span>
+          </div>
+        )}
+
+        {trainingError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start space-x-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-red-800 font-semibold">训练失败</p>
+              <p className="text-sm text-red-700 mt-1">{trainingError}</p>
+            </div>
           </div>
         )}
 
