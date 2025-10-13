@@ -114,7 +114,7 @@ const PersonalInfo: React.FC = () => {
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center mr-3"><User className="w-4 h-4 text-white" /></div>
                 基本信息
               </h2>
-              <button onClick={handleOpenModal} className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-blue-600 bg-white rounded-lg border border-blue-200 hover:bg-blue-50">
+              <button onClick={handleOpenModal} className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-blue-600 bg-white rounded-lg border border-blue-200 hover:bg-blue-50 cursor-pointer">
                 <Edit2 size={16} /><span>编辑信息</span>
               </button>
             </div>
@@ -154,8 +154,8 @@ const PersonalInfo: React.FC = () => {
               <input type="email" value={tempUser.email} onChange={(e) => setTempUser({ ...tempUser, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
             </div>
             <div className="flex justify-end space-x-3 pt-4">
-              <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
-              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">保存修改</button>
+              <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">取消</button>
+              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer">保存修改</button>
             </div>
           </div>
         </Modal>

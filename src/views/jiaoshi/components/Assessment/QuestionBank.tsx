@@ -575,14 +575,14 @@ const QuestionBank: React.FC = () => {
                         <div className="flex items-center space-x-2">
                           <button
                             onClick={() => openPreview(question)}
-                            className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center"
+                            className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center cursor-pointer"
                           >
                             <Eye size={14} className="mr-1" />
                             <span>预览</span>
                           </button>
                           <button
                             onClick={() => openEditor(question)}
-                            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center"
+                            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center cursor-pointer"
                           >
                             <Edit2 size={14} className="mr-1" />
                             <span>编辑</span>
@@ -691,7 +691,7 @@ const QuestionBank: React.FC = () => {
                 <label className="text-sm font-medium text-gray-700">选项设置</label>
                 <button
                   type="button"
-                  className="text-sm text-blue-600 hover:text-blue-700"
+                  className="text-sm text-blue-600 hover:text-blue-700 cursor-pointer"
                   onClick={handleAddOption}
                 >
                   添加选项
@@ -710,7 +710,7 @@ const QuestionBank: React.FC = () => {
                     {editorState.options.length > 2 && (
                       <button
                         type="button"
-                        className="text-sm text-red-600 hover:text-red-700"
+                        className="text-sm text-red-600 hover:text-red-700 cursor-pointer"
                         onClick={() => handleRemoveOption(index)}
                       >
                         删除

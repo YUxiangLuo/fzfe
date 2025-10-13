@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Users, Loader, AlertTriangle, Edit2, Trash2, User as UserIcon } from 'lucide-react';
+import { Plus, Users, Loader, AlertTriangle, Edit2, Trash2, User as UserIcon, Upload, FileText, CheckCircle, XCircle } from 'lucide-react';
 import type { Class, Assistant, Student } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
@@ -13,6 +13,14 @@ interface CreateClassForm {
 
 interface EnrichedClass extends Class {
   assistants?: Assistant[];
+}
+
+interface CreateClassResponse {
+  class: Class;
+  students_created: number;
+  students_enrolled: number;
+  students: Student[];
+  errors: string[];
 }
 
 const ClassManagement: React.FC = () => {
@@ -29,6 +37,9 @@ const ClassManagement: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [isStudentsLoading, setIsStudentsLoading] = useState(false);
   const [studentsError, setStudentsError] = useState<string | null>(null);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [createResult, setCreateResult] = useState<CreateClassResponse | null>(null);
+  const [showResultModal, setShowResultModal] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -88,28 +99,103 @@ const ClassManagement: React.FC = () => {
 
   const handleOpenCreate = () => {
     setFormData({ class_name: '', class_code: '' });
+    setCsvFile(null);
     setShowCreateModal(true);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.name.endsWith('.csv')) {
+        alert('请上传 CSV 格式的文件');
+        e.target.value = '';
+        return;
+      }
+      setCsvFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setCsvFile(null);
+    const fileInput = document.getElementById('csv-file-input') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
+  const validateClassName = (name: string): string | null => {
+    if (!name.trim()) {
+      return '班级名称不能为空';
+    }
+    if (name.trim().length < 2) {
+      return '班级名称至少需要2个字符';
+    }
+    if (name.trim().length > 50) {
+      return '班级名称不能超过50个字符';
+    }
+    // 检查是否包含特殊符号（允许中文、英文、数字、短横线、下划线）
+    const invalidChars = /[^\u4e00-\u9fa5a-zA-Z0-9\-_]/g;
+    if (invalidChars.test(name.trim())) {
+      return '班级名称不能包含特殊符号或空格';
+    }
+    return null;
+  };
+
+  const validateClassCode = (code: string): string | null => {
+    if (!code.trim()) {
+      return '班级代码不能为空';
+    }
+    if (code.trim().length < 2) {
+      return '班级代码至少需要2个字符';
+    }
+    if (code.trim().length > 20) {
+      return '班级代码不能超过20个字符';
+    }
+    // 班级代码只允许英文、数字、短横线、下划线（不允许空格和中文）
+    const validPattern = /^[a-zA-Z0-9\-_]+$/;
+    if (!validPattern.test(code.trim())) {
+      return '班级代码只能包含英文、数字、短横线和下划线';
+    }
+    return null;
+  };
+
   const handleCreate = async () => {
-    if (!formData.class_name.trim()) {
-      alert('请填写班级名称');
+    // 验证班级名称
+    const nameError = validateClassName(formData.class_name);
+    if (nameError) {
+      alert(nameError);
+      return;
+    }
+
+    // 验证班级代码
+    const codeError = validateClassCode(formData.class_code);
+    if (codeError) {
+      alert(codeError);
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const payload: Record<string, string> = {
-        class_name: formData.class_name.trim(),
-      };
-      if (formData.class_code.trim()) {
-        payload.class_code = formData.class_code.trim();
+      const formDataToSend = new FormData();
+      formDataToSend.append('class_name', formData.class_name.trim());
+      formDataToSend.append('class_code', formData.class_code.trim());
+      if (csvFile) {
+        formDataToSend.append('student_list', csvFile);
       }
 
-      const createdClass = await apiClient.post('/classes', payload);
-      setClasses(prev => [{ ...createdClass, assistants: [] }, ...prev]);
+      const result = await apiClient.postFormData<CreateClassResponse>('/classes', formDataToSend);
+
+      // 添加新班级到列表
+      setClasses(prev => [{ ...result.class, assistants: [] }, ...prev]);
+
+      // 显示创建结果
+      setCreateResult(result);
       setShowCreateModal(false);
+      setShowResultModal(true);
+
+      // 重置表单
       setFormData({ class_name: '', class_code: '' });
+      setCsvFile(null);
     } catch (err: any) {
       alert(`创建班级失败: ${err.message}`);
     } finally {
@@ -128,19 +214,27 @@ const ClassManagement: React.FC = () => {
 
   const handleUpdate = async () => {
     if (!selectedClass) return;
-    if (!formData.class_name.trim()) {
-      alert('请填写班级名称');
+
+    // 验证班级名称
+    const nameError = validateClassName(formData.class_name);
+    if (nameError) {
+      alert(nameError);
+      return;
+    }
+
+    // 验证班级代码
+    const codeError = validateClassCode(formData.class_code);
+    if (codeError) {
+      alert(codeError);
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const payload: Record<string, string> = {
+      const payload = {
         class_name: formData.class_name.trim(),
+        class_code: formData.class_code.trim(),
       };
-      if (formData.class_code.trim()) {
-        payload.class_code = formData.class_code.trim();
-      }
 
       const updatedClass = await apiClient.put(`/classes/${selectedClass.class_id}`, payload);
       setClasses(prev =>
@@ -255,7 +349,7 @@ const ClassManagement: React.FC = () => {
           <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
             <button
               onClick={() => handleViewStudents(classItem)}
-              className="underline underline-offset-2 hover:text-blue-800"
+              className="underline underline-offset-2 hover:text-blue-800 cursor-pointer"
             >
               查看所有学生
             </button>
@@ -264,14 +358,14 @@ const ClassManagement: React.FC = () => {
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => handleOpenEdit(classItem)}
-                className="text-blue-600 hover:text-blue-800"
+                className="text-blue-600 hover:text-blue-800 cursor-pointer"
                 title="修改班级"
               >
                 <Edit2 size={16} />
               </button>
               <button
                 onClick={() => handleDelete(classItem)}
-                className="text-red-600 hover:text-red-800"
+                className="text-red-600 hover:text-red-800 cursor-pointer"
                 title="删除班级"
               >
                 <Trash2 size={16} />
@@ -383,37 +477,95 @@ const ClassManagement: React.FC = () => {
         onClose={() => {
           setShowCreateModal(false);
           setFormData({ class_name: '', class_code: '' });
+          setCsvFile(null);
         }}
         title="新增班级"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">班级名称</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              班级名称 <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               value={formData.class_name}
               onChange={(e) => setFormData(prev => ({ ...prev, class_name: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="请输入班级名称"
+              placeholder="例如：2024级计算机1班"
+              maxLength={50}
             />
+            <p className="mt-1 text-xs text-gray-500">
+              2-50个字符，可包含中文、英文、数字、短横线和下划线
+            </p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">班级代码（可选）</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              班级代码 <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               value={formData.class_code}
               onChange={(e) => setFormData(prev => ({ ...prev, class_code: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="例如：SEM2025"
+              placeholder="例如：CS101-2025"
+              maxLength={20}
             />
-            <p className="mt-2 text-xs text-gray-500">班级代码可用于学生通过班级码加入班级。</p>
+            <p className="mt-1 text-xs text-gray-500">
+              2-20个字符，只能包含英文、数字、短横线和下划线
+            </p>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">学生名单（可选）</label>
+            <div className="space-y-2">
+              {!csvFile ? (
+                <div className="relative">
+                  <input
+                    id="csv-file-input"
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="csv-file-input"
+                    className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all duration-200"
+                  >
+                    <Upload size={20} className="text-gray-400 mr-2" />
+                    <span className="text-sm text-gray-600">点击上传 CSV 文件</span>
+                  </label>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <FileText size={20} className="text-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{csvFile.name}</p>
+                      <p className="text-xs text-gray-500">{(csvFile.size / 1024).toFixed(2)} KB</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleRemoveFile}
+                    className="text-red-600 hover:text-red-800 transition-colors"
+                    title="移除文件"
+                  >
+                    <XCircle size={20} />
+                  </button>
+                </div>
+              )}
+              <p className="text-xs text-gray-500">
+                上传 CSV 文件将自动创建学生账号并加入班级。CSV 文件需包含学号和姓名字段。
+              </p>
+            </div>
+          </div>
+
           <div className="flex justify-end space-x-3 pt-4">
             <Button
               variant="outline"
               onClick={() => {
                 setShowCreateModal(false);
                 setFormData({ class_name: '', class_code: '' });
+                setCsvFile(null);
               }}
             >
               取消
@@ -436,25 +588,36 @@ const ClassManagement: React.FC = () => {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">班级名称</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              班级名称 <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               value={formData.class_name}
               onChange={(e) => setFormData(prev => ({ ...prev, class_name: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="请输入班级名称"
+              placeholder="例如：2024级计算机1班"
+              maxLength={50}
             />
+            <p className="mt-1 text-xs text-gray-500">
+              2-50个字符，可包含中文、英文、数字、短横线和下划线
+            </p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">班级代码（可选）</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              班级代码 <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               value={formData.class_code}
               onChange={(e) => setFormData(prev => ({ ...prev, class_code: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="例如：SEM2025"
+              placeholder="例如：CS101-2025"
+              maxLength={20}
             />
-            <p className="mt-2 text-xs text-gray-500">班级代码可用于学生通过班级码加入班级。</p>
+            <p className="mt-1 text-xs text-gray-500">
+              2-20个字符，只能包含英文、数字、短横线和下划线
+            </p>
           </div>
           <div className="flex justify-end space-x-3 pt-4">
             <Button
@@ -472,6 +635,93 @@ const ClassManagement: React.FC = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={showResultModal}
+        onClose={() => {
+          setShowResultModal(false);
+          setCreateResult(null);
+        }}
+        title="班级创建成功"
+      >
+        {createResult && (
+          <div className="space-y-4">
+            {/* 成功提示 */}
+            <div className="flex items-center space-x-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <CheckCircle size={24} className="text-green-600 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-green-900">班级创建成功！</p>
+                <p className="text-xs text-green-700 mt-1">
+                  班级 "{createResult.class.class_name}" 已成功创建
+                  {createResult.class.class_code && ` (班级代码: ${createResult.class.class_code})`}
+                </p>
+              </div>
+            </div>
+
+            {/* 统计信息 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <p className="text-2xl font-bold text-blue-600">{createResult.students_created}</p>
+                <p className="text-sm text-gray-600 mt-1">新创建学生</p>
+              </div>
+              <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                <p className="text-2xl font-bold text-indigo-600">{createResult.students_enrolled}</p>
+                <p className="text-sm text-gray-600 mt-1">加入班级学生</p>
+              </div>
+            </div>
+
+            {/* 错误信息 */}
+            {createResult.errors && createResult.errors.length > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-start space-x-2">
+                  <AlertTriangle size={18} className="text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-yellow-900">部分学生创建失败</p>
+                    <ul className="mt-2 space-y-1 text-xs text-yellow-800">
+                      {createResult.errors.map((error, index) => (
+                        <li key={index} className="list-disc list-inside">{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 学生列表 */}
+            {createResult.students && createResult.students.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">学生列表</h3>
+                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
+                  <ul className="divide-y divide-gray-200">
+                    {createResult.students.map((student) => (
+                      <li key={student.user_id} className="flex items-center p-3 hover:bg-gray-50">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center mr-3">
+                          <UserIcon size={16} className="text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">{student.full_name}</p>
+                          <p className="text-xs text-gray-500">{student.username}</p>
+                        </div>
+                        <p className="text-xs text-gray-500">{student.email}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {/* 关闭按钮 */}
+            <div className="flex justify-end pt-4 border-t border-gray-100">
+              <Button onClick={() => {
+                setShowResultModal(false);
+                setCreateResult(null);
+              }}>
+                完成
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

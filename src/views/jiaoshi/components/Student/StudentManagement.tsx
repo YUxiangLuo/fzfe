@@ -1,10 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Loader, AlertTriangle, Mail, Phone, User as UserIcon } from 'lucide-react';
+import { Search, Loader, AlertTriangle, Mail, Phone, User as UserIcon, UserPlus } from 'lucide-react';
 import type { Student, Class } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
+
+interface NewStudentForm {
+  username: string;
+  full_name: string;
+  email: string;
+  phone_number: string;
+}
 
 const StudentManagement: React.FC = () => {
   const [classes, setClasses] = useState<Class[]>([]);
@@ -16,6 +23,14 @@ const StudentManagement: React.FC = () => {
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newStudent, setNewStudent] = useState<NewStudentForm>({
+    username: '',
+    full_name: '',
+    email: '',
+    phone_number: '',
+  });
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -122,6 +137,74 @@ const StudentManagement: React.FC = () => {
   const [studentToRemove, setStudentToRemove] = useState<Student | null>(null);
   const [isProcessingRemoval, setIsProcessingRemoval] = useState(false);
 
+  const handleOpenAddModal = () => {
+    if (!selectedClassId) {
+      alert('请先选择一个班级');
+      return;
+    }
+    setNewStudent({
+      username: '',
+      full_name: '',
+      email: '',
+      phone_number: '',
+    });
+    setShowAddModal(true);
+  };
+
+  const handleAddStudent = async () => {
+    if (!selectedClassId) {
+      alert('请先选择一个班级');
+      return;
+    }
+
+    if (!newStudent.username.trim()) {
+      alert('请填写学号');
+      return;
+    }
+
+    if (!newStudent.full_name.trim()) {
+      alert('请填写姓名');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 创建学生
+      const payload: any = {
+        username: newStudent.username.trim(),
+        full_name: newStudent.full_name.trim(),
+      };
+
+      if (newStudent.email.trim()) {
+        payload.email = newStudent.email.trim();
+      }
+
+      if (newStudent.phone_number.trim()) {
+        payload.phone_number = newStudent.phone_number.trim();
+      }
+
+      const createdStudent = await apiClient.post<Student>(`/classes/${selectedClassId}/students`, payload);
+
+      // 更新学生列表
+      setStudents(prev => [...prev, createdStudent]);
+      setShowAddModal(false);
+      setNewStudent({
+        username: '',
+        full_name: '',
+        email: '',
+        phone_number: '',
+      });
+    } catch (err: any) {
+      if (err.message.includes('409') || err.message.includes('已存在')) {
+        alert('学号或邮箱已存在，请检查后重试');
+      } else {
+        alert(`添加学生失败: ${err.message}`);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleRemoveStudent = async () => {
     if (!studentToRemove || !selectedClassId) return;
 
@@ -208,7 +291,7 @@ const StudentManagement: React.FC = () => {
         <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
           <button
             onClick={() => setStudentToRemove(student)}
-            className="underline underline-offset-2 hover:text-red-800"
+            className="underline underline-offset-2 hover:text-red-800 cursor-pointer"
           >
             移除
           </button>
@@ -226,6 +309,10 @@ const StudentManagement: React.FC = () => {
             <p className="text-sm text-gray-500 mt-1">当前班级：{currentClassName}</p>
           )}
         </div>
+        <Button onClick={handleOpenAddModal} className="bg-green-600 hover:bg-green-700">
+          <UserPlus size={16} className="mr-2" />
+          添加学生
+        </Button>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -323,6 +410,112 @@ const StudentManagement: React.FC = () => {
               disabled={isProcessingRemoval}
             >
               {isProcessingRemoval ? '移除中...' : '确认移除'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => {
+          setShowAddModal(false);
+          setNewStudent({
+            username: '',
+            full_name: '',
+            email: '',
+            phone_number: '',
+          });
+        }}
+        title="添加学生"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              学号 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={newStudent.username}
+              onChange={(e) => setNewStudent(prev => ({ ...prev, username: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="例如：2021001"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              姓名 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={newStudent.full_name}
+              onChange={(e) => setNewStudent(prev => ({ ...prev, full_name: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="例如：张三"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              邮箱（可选）
+            </label>
+            <input
+              type="email"
+              value={newStudent.email}
+              onChange={(e) => setNewStudent(prev => ({ ...prev, email: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="例如：zhangsan@example.com"
+              disabled={isSubmitting}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              未填写时系统将自动生成邮箱
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              手机号（可选）
+            </label>
+            <input
+              type="tel"
+              value={newStudent.phone_number}
+              onChange={(e) => setNewStudent(prev => ({ ...prev, phone_number: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="例如：13800138000"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-sm text-blue-800">
+              <strong>提示：</strong>学生将被添加到当前选择的班级 <span className="font-semibold">{currentClassName}</span>
+            </p>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAddModal(false);
+                setNewStudent({
+                  username: '',
+                  full_name: '',
+                  email: '',
+                  phone_number: '',
+                });
+              }}
+              disabled={isSubmitting}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleAddStudent}
+              disabled={isSubmitting}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {isSubmitting ? '添加中...' : '确认添加'}
             </Button>
           </div>
         </div>

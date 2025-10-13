@@ -1,21 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Layout/Header';
 import Sidebar from './components/Layout/Sidebar';
 import MainContent from './components/Layout/MainContent';
 import type { MenuItem } from './types';
 
+const STORAGE_KEY = 'jiaoshi_active_menu';
+const DEFAULT_MENU: MenuItem = 'experiment-progress';
+
 function App() {
-  const [activeMenuItem, setActiveMenuItem] = useState<MenuItem>('experiment-progress');
+  // 从 localStorage 读取上次访问的菜单项，如果没有则使用默认值
+  const [activeMenuItem, setActiveMenuItem] = useState<MenuItem>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return (stored as MenuItem) || DEFAULT_MENU;
+    } catch {
+      return DEFAULT_MENU;
+    }
+  });
+
+  // 每次菜单项变化时保存到 localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, activeMenuItem);
+    } catch (error) {
+      console.error('Failed to save menu item to localStorage:', error);
+    }
+  }, [activeMenuItem]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
       <Header />
       <div className="flex h-[calc(100vh-80px)]">
-        <Sidebar 
+        <Sidebar
           activeMenuItem={activeMenuItem}
           onMenuItemClick={setActiveMenuItem}
         />
-        <MainContent 
+        <MainContent
           activeMenuItem={activeMenuItem}
         />
       </div>
