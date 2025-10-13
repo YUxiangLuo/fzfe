@@ -54,7 +54,6 @@ const MainLayout = () => {
             <Route path="/quiz" element={<ProtectedRoute step={7}><ModelQuiz /></ProtectedRoute>} />
             <Route path="/production" element={<ProtectedRoute step={7}><ProductionPlan /></ProtectedRoute>} />
             <Route path="/quiz-plan" element={<ProtectedRoute step={7}><PlanQuiz /></ProtectedRoute>} />
-            <Route path="/report" element={<ProtectedRoute step={7}><ExperimentReport /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>
@@ -70,6 +69,7 @@ function App() {
           <Route path="/" element={<Navigate to="/introduction" replace />} />
           <Route path="/introduction" element={<Introduction />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/report" element={<ExperimentReport />} />
           {/* All main experiment routes are now under the MainLayout */}
           <Route path="/*" element={<MainLayout />} />
         </Routes>
