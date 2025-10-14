@@ -46,7 +46,7 @@ const getIndustryIcon = (industryName: string): React.ElementType => {
 
 const IndustrySelection: React.FC = () => {
     const navigate = useNavigate();
-    const { state, updateState } = useExperiment();
+    const { state, updateState, recordStepEvent } = useExperiment();
     const [industries, setIndustries] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -82,6 +82,11 @@ const IndustrySelection: React.FC = () => {
         return () => {
             isActive = false;
         };
+    }, []);
+
+    // Record STARTED event when component mounts
+    useEffect(() => {
+        recordStepEvent(1, 'STARTED');
     }, []);
 
     const handleSelectIndustry = (industryId: string) => {

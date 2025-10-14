@@ -4,6 +4,7 @@ import {
   getExperimentState,
   updateExperimentState as apiUpdateExperimentState,
   createExperimentState,
+  recordStepEvent,
 } from '../../../utils/apiClient';
 import { apiClient } from '../../../utils/apiClient';
 
@@ -267,6 +268,7 @@ interface ExperimentContextType {
   loading: boolean;
   updateState: (updates: Partial<ExperimentState>) => Promise<void>;
   createNewExperiment: () => Promise<void>;
+  recordStepEvent: (stepOrder: number, eventType: 'STARTED' | 'COMPLETED') => Promise<void>;
   isStepCompleted: (step: number) => boolean;
   isStepUnlocked: (step: number) => boolean;
   productSalesData: ProductSalesData | null;
@@ -361,6 +363,18 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     state.selected_product,
   ]);
 
+  const recordStepEventWrapper = async (stepOrder: number, eventType: 'STARTED' | 'COMPLETED') => {
+    if (!state.experiment_id) {
+      console.warn('Cannot record step event: experiment_id is null');
+      return;
+    }
+    try {
+      await recordStepEvent(state.experiment_id, stepOrder, eventType);
+    } catch (error) {
+      console.error(`Failed to record ${eventType} event for step ${stepOrder}:`, error);
+    }
+  };
+
   const updateState = async (updates: Partial<ExperimentState>) => {
     const previousState = state;
     const nextState: ExperimentState = { ...state, ...updates };
@@ -444,6 +458,16 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
 
     setState(nextState);
 
+    // Record COMPLETED event if highest_completed_step increased
+    if (nextState.highest_completed_step > previousState.highest_completed_step && nextState.experiment_id) {
+      // Record COMPLETED event for each step that was completed
+      for (let step = previousState.highest_completed_step + 1; step <= nextState.highest_completed_step; step++) {
+        recordStepEvent(nextState.experiment_id, step, 'COMPLETED').catch(err => {
+          console.error(`Failed to record COMPLETED event for step ${step}:`, err);
+        });
+      }
+    }
+
     try {
       const serverState = await apiUpdateExperimentState(nextState);
       if (serverState && typeof serverState === 'object') {
@@ -526,6 +550,7 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
         loading,
         updateState,
         createNewExperiment,
+        recordStepEvent: recordStepEventWrapper,
         isStepCompleted,
         isStepUnlocked,
         productSalesData,

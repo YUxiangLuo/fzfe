@@ -23,6 +23,7 @@ const HistoricalData: React.FC = () => {
     isLoadingSales,
     salesDataError,
     loadProductSalesData,
+    recordStepEvent,
   } = useExperiment();
   const [selectedPeriod, setSelectedPeriod] = useState('all');
   const { selected_industry, selected_company, selected_product } = state;
@@ -48,6 +49,11 @@ const HistoricalData: React.FC = () => {
     selected_company,
     selected_product,
   ]);
+
+  // Record STARTED event when component mounts
+  useEffect(() => {
+    recordStepEvent(4, 'STARTED');
+  }, []);
 
   const activeDataset = productSalesData;
   const monthlySales = activeDataset?.monthlySales ?? [];

@@ -5,7 +5,7 @@ import { apiClient } from "../../../../utils/apiClient";
 const steps = [
   { id: 1, title: "方法简介", description: "了解 LSTM 神经网络的核心思想与应用价值。" },
   { id: 2, title: "选择归一化方式", description: "了解 Min-Max 与 Z-Score 的差异，并选择适合的归一化方法。" },
-  { id: 3, title: "配置特征与预测列", description: "选择用于训练的输入特征，并指定需要预测的目标字段。" },
+  { id: 3, title: "配置特征与预测列", description: "选择预测目标字段和输入特征，构建多维度预测模型。" },
   { id: 4, title: "训练并查看指标", description: "运行 LSTM 模型，查看 RMSE、MAE 与 R² 指标。" },
 ] as const;
 
@@ -50,8 +50,8 @@ const LSTMModel: React.FC = () => {
   }, [lstmState.completed, lstmState.features.length, lstmState.normalization, lstmState.targetField]);
 
   const [activeStep, setActiveStep] = useState(derivedStep);
-  const [selectedNormalization, setSelectedNormalization] = useState<"minmax" | "zscore">(
-    lstmState.normalization ?? "minmax",
+  const [selectedNormalization, setSelectedNormalization] = useState<"minmax" | "zscore" | null>(
+    lstmState.normalization ?? null,
   );
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>(
     sanitizeFeatures(lstmState.features, lstmState.targetField ?? null),
@@ -271,6 +271,10 @@ const LSTMModel: React.FC = () => {
 
     try {
       // Ensure all latest values are in global state
+      if (!selectedNormalization) {
+        throw new Error("请先选择归一化方式");
+      }
+
       if (normalizationUpdateTimer.current) {
         clearTimeout(normalizationUpdateTimer.current);
         normalizationUpdateTimer.current = null;
@@ -363,6 +367,9 @@ const LSTMModel: React.FC = () => {
     }
 
     if (activeStep === 2) {
+      if (!selectedNormalization) {
+        return;
+      }
       if (normalizationUpdateTimer.current) {
         clearTimeout(normalizationUpdateTimer.current);
         normalizationUpdateTimer.current = null;
@@ -575,21 +582,17 @@ const LSTMModel: React.FC = () => {
 
         <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-3">
           <h3 className="text-xl font-semibold text-gray-900">选择预测目标字段</h3>
-          <p className="text-sm text-gray-600">选择需要预测的目标字段（例如销量、销售额等）。该字段不会同时作为输入特征。</p>
+          <p className="text-sm text-gray-600">本实验的预测目标已固定为"销售数量"字段，该字段不会同时作为输入特征。</p>
           <select
             className="mt-2 w-full border border-gray-300 rounded-lg px-3 py-2"
             value={selectedTarget ?? ''}
             onChange={(event) => handleTargetSelect(event.target.value === '' ? null : event.target.value)}
           >
             <option value="">请选择目标字段</option>
-            {fields.map((field) => (
-              <option key={`target-${field}`} value={field}>
-                {field}
-              </option>
-            ))}
+            <option value="销售数量">销售数量</option>
           </select>
           {featureValidationAttempted && !selectedTarget && (
-            <p className="text-sm text-red-600">请选择一个预测目标字段。</p>
+            <p className="text-sm text-red-600">请选择预测目标字段。</p>
           )}
         </div>
 
@@ -719,6 +722,7 @@ const LSTMModel: React.FC = () => {
   })();
 
   const isNextDisabled =
+    (activeStep === 2 && !selectedNormalization) ||
     (activeStep === 3 && (!selectedTarget || selectedFeatures.length === 0)) ||
     (activeStep === 4 && (isTraining || Boolean(lstmState.completed)));
 

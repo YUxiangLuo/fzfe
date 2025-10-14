@@ -420,7 +420,7 @@ const ExperimentLogs: React.FC = () => {
                             <h3 className="text-sm font-semibold text-gray-700">实验记录</h3>
                             <div className="space-y-3">
                               {summary.sessions.map((session, index) => {
-                                const sequenceLabel = `第${index + 1}次`;
+                                // const sequenceLabel = `第${index + 1}次`;
                                 const statusMeta = mapStatusToDisplay(session.status);
                                 const showEndLabel = session.status === 'In Progress' ? '最近活跃' : '结束时间';
 
@@ -428,9 +428,9 @@ const ExperimentLogs: React.FC = () => {
                                   <div key={`${summary.studentId}-${index}`} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                                     <div className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-6 space-y-3 md:space-y-0">
                                       <div className="flex items-center space-x-4">
-                                        <div className={`px-4 py-2 rounded-full text-base font-semibold ${statusMeta.color}`}>
+                                        {/* <div className={`px-4 py-2 rounded-full text-base font-semibold ${statusMeta.color}`}>
                                           {sequenceLabel}
-                                        </div>
+                                        </div> */}
                                         <div className={`px-3 py-1 rounded-full text-sm font-medium ${statusMeta.color}`}>
                                           {statusMeta.label}
                                         </div>

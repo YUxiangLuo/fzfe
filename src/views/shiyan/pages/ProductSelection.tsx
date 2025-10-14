@@ -6,7 +6,7 @@ import { apiClient } from '../../../utils/apiClient';
 
 const ProductSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState, salesDataError } = useExperiment();
+  const { state, updateState, salesDataError, recordStepEvent } = useExperiment();
   const [products, setProducts] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +52,11 @@ const ProductSelection: React.FC = () => {
       isActive = false;
     };
   }, [state.selected_industry, state.selected_company]);
+
+  // Record STARTED event when component mounts
+  useEffect(() => {
+    recordStepEvent(3, 'STARTED');
+  }, []);
 
   const handleSelectProduct = (productId: string) => {
     updateState({ selected_product: productId });

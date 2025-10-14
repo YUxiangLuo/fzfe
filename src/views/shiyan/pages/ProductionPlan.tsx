@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
 import { Calendar, CheckCircle, Factory, Truck, AlertTriangle, ArrowRight, Calculator, Target, TrendingUp, Package, FileText, BarChart3 } from 'lucide-react';
@@ -6,9 +6,14 @@ import { Calendar, CheckCircle, Factory, Truck, AlertTriangle, ArrowRight, Calcu
 const ProductionPlan: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { updateState, state } = useExperiment();
+  const { updateState, state, recordStepEvent } = useExperiment();
   const [currentSubStep, setCurrentSubStep] = useState(1);
   const [completedSubSteps, setCompletedSubSteps] = useState<number[]>([]);
+
+  // Record STARTED event when component mounts
+  useEffect(() => {
+    recordStepEvent(7, 'STARTED');
+  }, []);
 
   const subSteps = [
     { id: 1, title: '生产计划制定总概述', icon: FileText, path: 'overview' },

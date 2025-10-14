@@ -89,9 +89,7 @@ const ARIMAModel: React.FC = () => {
     return firstStationary?.diff_order ?? 0;
   }, [adfResults]);
 
-  const [selectedD, setSelectedD] = useState<number | null>(
-    storedD ?? (adfResults.length > 0 ? recommendedD : null),
-  );
+  const [selectedD, setSelectedD] = useState<number | null>(storedD ?? null);
 
   useEffect(() => {
     if (
@@ -114,12 +112,6 @@ const ARIMAModel: React.FC = () => {
     selected_product,
     loadProductSalesData,
   ]);
-
-  useEffect(() => {
-    if (adfResults.length > 0 && (selectedD === null || selectedD === undefined)) {
-      setSelectedD(recommendedD);
-    }
-  }, [adfResults, recommendedD, selectedD]);
 
   useEffect(() => {
     if (storedD !== null && storedD !== undefined) {
@@ -203,8 +195,6 @@ const ARIMAModel: React.FC = () => {
         throw new Error("后端未返回有效的 ADF 检验结果。");
       }
 
-      const nextRecommended = results.find((row) => row.stationary)?.diff_order ?? 0;
-
       await updateState({
         arima_adf_stationarity: results,
         arima_d: null,
@@ -214,8 +204,6 @@ const ARIMAModel: React.FC = () => {
         arima_metrics_r2: null,
         ...buildDownstreamReset(),
       });
-
-      setSelectedD(nextRecommended);
     } catch (error: any) {
       const message = typeof error?.message === "string" && error.message
         ? error.message

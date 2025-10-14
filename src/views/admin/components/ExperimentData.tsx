@@ -275,17 +275,13 @@ const ExperimentDataView: React.FC = () => {
               </p>
               <ul className="list-disc list-inside space-y-1">
                 <li>
-                  <code className="bg-blue-100 px-1 rounded">日期</code> (格式:
-                  YYYY-MM-DD)
+                  <code className="bg-blue-100 px-1 rounded">年份</code>
                 </li>
                 <li>
-                  <code className="bg-blue-100 px-1 rounded">产品名称</code>
+                  <code className="bg-blue-100 px-1 rounded">月份</code>
                 </li>
                 <li>
-                  <code className="bg-blue-100 px-1 rounded">销售额</code>
-                </li>
-                <li>
-                  <code className="bg-blue-100 px-1 rounded">销量</code>
+                  <code className="bg-blue-100 px-1 rounded">销售数量</code>
                 </li>
               </ul>
             </div>

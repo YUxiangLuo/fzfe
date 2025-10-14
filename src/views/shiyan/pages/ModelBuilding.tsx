@@ -26,7 +26,12 @@ import DataWindowSelection from './models/DataWindowSelection';
 const ModelBuilding: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { state, updateState } = useExperiment();
+  const { state, updateState, recordStepEvent } = useExperiment();
+
+  // Record STARTED event when component mounts
+  useEffect(() => {
+    recordStepEvent(5, 'STARTED');
+  }, []);
 
   const completionMap: Record<string, boolean> = {
     moving_average: state.moving_average_completed,

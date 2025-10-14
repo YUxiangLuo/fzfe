@@ -37,8 +37,9 @@ const Sidebar: React.FC = () => {
 
   const getStepStyles = (stepId: number) => {
     const status = getStepStatus(stepId);
-    const isActive = location.pathname.startsWith(steps.find(s => s.id === stepId)?.path || '---');
-    
+    const stepPath = steps.find(s => s.id === stepId)?.path || '---';
+    const isActive = location.pathname === stepPath || location.pathname.startsWith(stepPath + '/');
+
     switch (status) {
       case 'completed':
         return `bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 ${isActive ? 'ring-2 ring-green-400' : ''}`;

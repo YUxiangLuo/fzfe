@@ -1,51 +1,150 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
-import { BookOpenCheck, ChevronRight } from 'lucide-react';
+import { apiClient } from '../../../utils/apiClient';
+import { BookOpenCheck, ChevronRight, Loader2, AlertTriangle } from 'lucide-react';
 
-const quizData = [
-  {
-    id: 1,
-    type: 'single',
-    question: '库存平衡公式中，期末库存是如何计算的？',
-    options: [
-      '期初库存 + 预测需求 - 计划产出',
-      '期初库存 + 计划产出 - 预测需求',
-      '计划产出 - 预测需求',
-      '期初库存 - 预测需求',
-    ],
-  },
-  {
-    id: 2,
-    type: 'truefalse',
-    question: '追求100%的服务水平是所有企业生产计划的最终目标。',
-    options: ['正确', '错误'],
-  },
-  {
-    id: 3,
-    type: 'single',
-    question: '“计划生产量”相比“需求预测结果”，多考虑了哪个因素？',
-    options: ['客户订单', '安全库存', '生产成本', '上期缺货量'],
-  },
-  {
-    id: 4,
-    type: 'multiple',
-    question: '以下哪些是“生产投入量”公式的组成部分？',
-    options: ['计划生产量', '上期期末库存', '上期缺货量', '本期服务水平'],
-  },
-];
+interface Question {
+  question_id: number;
+  knowledge_point: string;
+  question_type: 'Single Choice' | 'Multiple Choice' | 'True/False';
+  question_text: string;
+  options: Record<string, string> | string[];
+}
+
+interface Answer {
+  question_id: number;
+  submitted_answer: string[];
+}
 
 const PlanQuiz: React.FC = () => {
   const navigate = useNavigate();
-  const { updateState } = useExperiment();
+  const { state, updateState } = useExperiment();
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [answers, setAnswers] = useState<Record<number, string[]>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await apiClient.get<Question[]>('/quiz/plan-questions');
+        setQuestions(response);
+      } catch (err: any) {
+        setError(err.message || '加载题目失败，请刷新页面重试');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchQuestions();
+  }, []);
+
+  const handleAnswerChange = (questionId: number, optionKey: string, questionType: string) => {
+    setAnswers((prev) => {
+      const current = prev[questionId] || [];
+
+      if (questionType === 'Single Choice' || questionType === 'True/False') {
+        // 单选和判断题：直接替换
+        return { ...prev, [questionId]: [optionKey] };
+      } else {
+        // 多选题：切换选中状态
+        if (current.includes(optionKey)) {
+          return { ...prev, [questionId]: current.filter(k => k !== optionKey) };
+        } else {
+          return { ...prev, [questionId]: [...current, optionKey] };
+        }
+      }
+    });
+  };
 
   const handleSubmitQuiz = async () => {
-    await updateState({ 
-      quiz_about_plan_completed: true,
-    });
-    
-    navigate('/report');
+    // 验证所有题目都已回答
+    const unansweredQuestions = questions.filter(q => !answers[q.question_id] || answers[q.question_id].length === 0);
+    if (unansweredQuestions.length > 0) {
+      setSubmitError(`请完成所有题目后再提交（还有 ${unansweredQuestions.length} 道题未作答）`);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      // 构造提交数据
+      const submitData = {
+        experiment_id: state.experiment_id!,
+        answers: Object.entries(answers).map(([questionId, submitted_answer]) => ({
+          question_id: parseInt(questionId),
+          submitted_answer,
+        })),
+      };
+
+      await apiClient.post('/quiz/answers', submitData);
+
+      // 导航到实验报告页面
+      navigate('/report');
+    } catch (err: any) {
+      setSubmitError(err.message || '提交失败，请重试');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const getOptionsList = (options: Record<string, string> | string[]): Array<{ key: string; text: string }> => {
+    if (Array.isArray(options)) {
+      return options.map((text, index) => ({ key: String(index), text }));
+    } else {
+      return Object.entries(options).map(([key, text]) => ({ key, text }));
+    }
+  };
+
+  const getQuestionTypeLabel = (type: string) => {
+    switch (type) {
+      case 'Single Choice':
+        return '单选题';
+      case 'Multiple Choice':
+        return '多选题';
+      case 'True/False':
+        return '判断题';
+      default:
+        return type;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-green-600 mx-auto mb-4" />
+          <p className="text-gray-600">正在加载题目...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-screen">
+        <div className="max-w-md">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-red-800 mb-2">加载失败</h3>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              刷新页面
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
@@ -61,37 +160,82 @@ const PlanQuiz: React.FC = () => {
         </header>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 space-y-8">
-          {quizData.map((item, index) => (
-            <div key={item.id} className="border-b border-gray-200 pb-6 last:border-b-0">
-              <p className="font-semibold text-gray-800 mb-4">
-                {index + 1}. {item.question} 
-                <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({item.type === 'single' ? '单选题' : item.type === 'multiple' ? '多选题' : '判断题'})
-                </span>
-              </p>
-              <div className="space-y-3">
-                {item.options.map((option, optionIndex) => (
-                  <label key={optionIndex} className="flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type={item.type === 'multiple' ? 'checkbox' : 'radio'}
-                      name={`question-${item.id}`}
-                      className={item.type === 'multiple' ? 'h-4 w-4 rounded' : 'h-4 w-4'}
-                    />
-                    <span className="ml-3 text-gray-700">{option}</span>
-                  </label>
-                ))}
+          {questions.map((question, index) => {
+            const optionsList = getOptionsList(question.options);
+            const selectedAnswers = answers[question.question_id] || [];
+
+            return (
+              <div key={question.question_id} className="border-b border-gray-200 pb-6 last:border-b-0">
+                <div className="mb-4">
+                  <p className="font-semibold text-gray-800 mb-2">
+                    {index + 1}. {question.question_text}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-gray-500">
+                      ({getQuestionTypeLabel(question.question_type)})
+                    </span>
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                      {question.knowledge_point}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {optionsList.map((option) => {
+                    const isSelected = selectedAnswers.includes(option.key);
+                    const inputType = question.question_type === 'Multiple Choice' ? 'checkbox' : 'radio';
+
+                    return (
+                      <label
+                        key={option.key}
+                        className={`flex items-center p-3 rounded-lg cursor-pointer transition-colors ${
+                          isSelected ? 'bg-green-50 border-2 border-green-500' : 'border-2 border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <input
+                          type={inputType}
+                          name={`question-${question.question_id}`}
+                          checked={isSelected}
+                          onChange={() => handleAnswerChange(question.question_id, option.key, question.question_type)}
+                          className={`${inputType === 'checkbox' ? 'h-4 w-4 rounded' : 'h-4 w-4'} text-green-600 focus:ring-green-500`}
+                        />
+                        <span className="ml-3 text-gray-700">
+                          {Array.isArray(question.options) ? option.text : `${option.key}. ${option.text}`}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+
+        {submitError && (
+          <div className="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
+              <p className="text-red-600">{submitError}</p>
+            </div>
+          </div>
+        )}
 
         <footer className="mt-8 text-center">
           <button
             onClick={handleSubmitQuiz}
-            className="w-full md:w-auto inline-flex items-center justify-center px-8 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all"
+            disabled={isSubmitting}
+            className="w-full md:w-auto inline-flex items-center justify-center px-8 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            提交答案，开始编写实验报告
-            <ChevronRight className="w-5 h-5 ml-2" />
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                提交中...
+              </>
+            ) : (
+              <>
+                提交答案，开始编写实验报告
+                <ChevronRight className="w-5 h-5 ml-2" />
+              </>
+            )}
           </button>
         </footer>
       </div>

@@ -1,12 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext';
 import { TrendingUp, Award, CheckCircle, Star, BookOpenCheck } from 'lucide-react';
 
 const ResultEvaluation: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState } = useExperiment();
+  const { state, updateState, recordStepEvent } = useExperiment();
   const [selectedBestModel, setSelectedBestModel] = useState<SelectedBestModel | null>(state.selected_best_model);
+
+  // Record STARTED event when component mounts
+  useEffect(() => {
+    recordStepEvent(6, 'STARTED');
+  }, []);
 
   const handleNext = () => {
     if (!selectedBestModel) return;

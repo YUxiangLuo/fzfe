@@ -137,8 +137,14 @@ export const getExperimentState = async (): Promise<ExperimentState> => {
     }
     return mergeWithInitial(existing);
   } catch (error) {
-    console.error("Failed to fetch experiment state; falling back to initial state.", error);
-    return mergeWithInitial(initialState);
+    console.error("Failed to fetch experiment state; creating a new experiment.", error);
+    // If no experiment exists for this user, create a new one
+    try {
+      return await createExperimentState();
+    } catch (createError) {
+      console.error("Failed to create new experiment; falling back to initial state.", createError);
+      return mergeWithInitial(initialState);
+    }
   }
 };
 
@@ -148,4 +154,16 @@ export const updateExperimentState = async (state: ExperimentState): Promise<Exp
   }
   const updated = await apiClient.put<ExperimentState>(`/experiment-status/${state.experiment_id}`, state);
   return mergeWithInitial(updated);
+};
+
+export const recordStepEvent = async (
+  experimentId: number,
+  stepOrder: number,
+  eventType: 'STARTED' | 'COMPLETED'
+): Promise<{ message: string; event_id: number }> => {
+  return await apiClient.post<{ message: string; event_id: number }>('/experiments/events', {
+    experiment_id: experimentId,
+    step_order: stepOrder,
+    event_type: eventType,
+  });
 };
