@@ -272,29 +272,68 @@ const ExperimentReport: React.FC = () => {
   // Section 4: 生产计划参数计算结果
   const [planParamsAnalysis, setPlanParamsAnalysis] = useState('');
   const planParamsContent = useMemo(() => {
-    // TODO: 这部分需要从生产计划步骤获取数据
-    // 目前全局状态中没有这些字段，可能需要添加
+    if (!state.production_plan_completed) {
+      return '尚未完成生产计划制定，无法显示参数计算结果。';
+    }
+
+    const totalDemand = state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0);
+    const avgSafetyStock = state.production_mps_table.length > 0
+      ? state.production_mps_table.reduce((sum, row) => sum + row.safety_stock, 0) / state.production_mps_table.length
+      : 0;
+
     return `生产计划参数计算结果：
 
-（注：此部分数据暂未在全局状态中提供，需要补充相关字段）
+基础参数设置：
+• 预测期数：${state.production_forecast_periods || 'N/A'} 期
+• 期初库存：${state.production_initial_inventory?.toLocaleString() || 'N/A'} 件
+• 目标服务水平：${state.production_target_service_level ? (state.production_target_service_level * 100).toFixed(0) + '%' : 'N/A'}
+• 安全库存系数（Z分数）：${state.production_safety_stock_z_score?.toFixed(2) || 'N/A'}
 
-预测需求量：待补充
-安全库存：待补充
-生产批量：待补充
-生产周期：待补充`;
+计算结果汇总：
+• 总预测需求量：${totalDemand.toLocaleString()} 件（${state.production_forecast_periods || 0}期累计）
+• 平均安全库存：${Math.round(avgSafetyStock).toLocaleString()} 件/期
+• 预测模型：${state.selected_best_model || 'N/A'}`;
   }, [state]);
 
   // Section 5: 生产计划决策结果
   const [planDecisionAnalysis, setPlanDecisionAnalysis] = useState('');
   const planDecisionContent = useMemo(() => {
-    // TODO: 这部分需要从生产计划步骤获取数据
-    return `生产计划决策结果：
+    if (!state.production_plan_completed || state.production_mps_table.length === 0) {
+      return '尚未完成生产计划制定，无法显示MPS表。';
+    }
 
-（注：此部分数据暂未在全局状态中提供，需要补充相关字段）
+    const totalDemand = state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0);
+    const totalProduction = state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0);
+    const totalStockout = state.production_mps_table.reduce((sum, row) => sum + row.stockout, 0);
+    const avgInventory = state.production_mps_table.reduce((sum, row) => sum + row.ending_inventory, 0) / state.production_mps_table.length;
+    const avgServiceLevel = state.production_mps_table.reduce((sum, row) => sum + row.service_level, 0) / state.production_mps_table.length;
+    const stockoutPeriods = state.production_mps_table.filter(row => row.stockout > 0).length;
 
-生产计划方案：待补充
-资源配置：待补充
-时间安排：待补充`;
+    let result = '主生产计划表（MPS Table）：\n\n';
+    result += '期数 | 预测需求 | 安全库存 | 计划生产 | 期初库存 | 产出量 | 期末库存 | 缺货量 | 服务水平\n';
+    result += ''.padEnd(120, '-') + '\n';
+
+    state.production_mps_table.forEach(row => {
+      result += `${row.period_label.padEnd(6)} | `;
+      result += `${row.demand_forecast.toString().padStart(8)} | `;
+      result += `${row.safety_stock.toString().padStart(8)} | `;
+      result += `${row.planned_production.toString().padStart(8)} | `;
+      result += `${row.beginning_inventory.toString().padStart(8)} | `;
+      result += `${row.production_output.toString().padStart(6)} | `;
+      result += `${row.ending_inventory.toString().padStart(8)} | `;
+      result += `${row.stockout.toString().padStart(6)} | `;
+      result += `${(row.service_level * 100).toFixed(1).padStart(6)}%\n`;
+    });
+
+    result += '\n计划摘要分析：\n';
+    result += `• 总预测需求：${totalDemand.toLocaleString()} 件\n`;
+    result += `• 总产出量：${totalProduction.toLocaleString()} 件\n`;
+    result += `• 总缺货量：${totalStockout.toLocaleString()} 件\n`;
+    result += `• 平均期末库存：${Math.round(avgInventory).toLocaleString()} 件\n`;
+    result += `• 平均服务水平：${(avgServiceLevel * 100).toFixed(1)}%（目标：${state.production_target_service_level ? (state.production_target_service_level * 100).toFixed(0) : 'N/A'}%）\n`;
+    result += `• 缺货期数：${stockoutPeriods} / ${state.production_mps_table.length} 期`;
+
+    return result;
   }, [state]);
 
   const sections: ReportSection[] = [

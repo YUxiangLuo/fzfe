@@ -48,6 +48,19 @@ export interface AdfStationarityRow {
   critical_values: Record<string, number>;
 }
 
+export interface MPSTableRow {
+  period: number;
+  period_label: string;
+  demand_forecast: number;
+  safety_stock: number;
+  planned_production: number;
+  beginning_inventory: number;
+  production_output: number;
+  ending_inventory: number;
+  stockout: number;
+  service_level: number;
+}
+
 export interface ExperimentState {
   experiment_id: number | null;
   student_id: number | null;
@@ -114,6 +127,14 @@ export interface ExperimentState {
   lstm_target_field: string | null;
   quiz_about_model_completed: boolean;
   quiz_about_plan_completed: boolean;
+
+  // Production planning fields
+  production_plan_completed: boolean;
+  production_forecast_periods: number | null;
+  production_initial_inventory: number | null;
+  production_target_service_level: number | null;
+  production_safety_stock_z_score: number | null;
+  production_mps_table: MPSTableRow[];
 
   start_time: string | null;
   last_activity_at: string | null;
@@ -187,6 +208,14 @@ const buildInitialState = (): ExperimentState => ({
   quiz_about_model_completed: false,
   quiz_about_plan_completed: false,
 
+  // Production planning initial values
+  production_plan_completed: false,
+  production_forecast_periods: null,
+  production_initial_inventory: null,
+  production_target_service_level: null,
+  production_safety_stock_z_score: null,
+  production_mps_table: [],
+
   start_time: null,
   last_activity_at: null,
   completion_time: null,
@@ -256,6 +285,14 @@ const resetModelingFields = (
   target.ensemble_stacking_metrics_r2 = null;
 
   target.selected_best_model = null;
+
+  // Reset production planning fields
+  target.production_plan_completed = false;
+  target.production_forecast_periods = null;
+  target.production_initial_inventory = null;
+  target.production_target_service_level = null;
+  target.production_safety_stock_z_score = null;
+  target.production_mps_table = [];
 
   if (resetQuizzes) {
     target.quiz_about_model_completed = false;
@@ -468,25 +505,66 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    try {
-      const serverState = await apiUpdateExperimentState(nextState);
-      if (serverState && typeof serverState === 'object') {
-        setState(serverState);
+    // Determine if we should sync to backend (lazy sync strategy)
+    // Rationale: Reduce API calls during frequent parameter adjustments in modeling phase
+    // Only sync when:
+    // 1. Step completion: User advances to next major step (syncs all accumulated changes)
+    // 2. Critical state changes: Industry/company/product selection or data window setup
+    // 3. Model completion: User finishes training a model (important checkpoint)
+    // 4. Experiment completion: Status changes to 'Completed'
+    const stepCompleted = nextState.highest_completed_step > previousState.highest_completed_step;
+    const criticalStateChanged = industryChanged || companyChanged || productChanged || dataWindowChanged;
 
-        const productChangedRemote =
-          serverState.selected_industry !== previousState.selected_industry ||
-          serverState.selected_company !== previousState.selected_company ||
-          serverState.selected_product !== previousState.selected_product;
+    // Check if any model completion status changed from false to true
+    const modelCompletionFields = [
+      'moving_average_completed',
+      'exponential_smoothing_completed',
+      'arima_completed',
+      'lstm_completed',
+      'ensemble_weighted_completed',
+      'ensemble_boosting_completed',
+      'ensemble_stacking_completed',
+    ] as const;
 
-        if (productChangedRemote) {
-          setProductSalesData(null);
-          setSalesDataError(null);
-          setProductFieldOptions(null);
-          setProductFieldsError(null);
+    const modelCompleted = modelCompletionFields.some(
+      (field) => nextState[field] === true && previousState[field] === false
+    );
+
+    // Check if experiment status changed to 'Completed'
+    const experimentCompleted =
+      Object.prototype.hasOwnProperty.call(updates, 'status') &&
+      nextState.status === 'Completed' &&
+      previousState.status !== 'Completed';
+
+    // Check if production plan was completed
+    const productionPlanCompleted =
+      Object.prototype.hasOwnProperty.call(updates, 'production_plan_completed') &&
+      nextState.production_plan_completed === true &&
+      previousState.production_plan_completed === false;
+
+    const shouldSyncToBackend = stepCompleted || criticalStateChanged || modelCompleted || experimentCompleted || productionPlanCompleted;
+
+    if (shouldSyncToBackend) {
+      try {
+        const serverState = await apiUpdateExperimentState(nextState);
+        if (serverState && typeof serverState === 'object') {
+          setState(serverState);
+
+          const productChangedRemote =
+            serverState.selected_industry !== previousState.selected_industry ||
+            serverState.selected_company !== previousState.selected_company ||
+            serverState.selected_product !== previousState.selected_product;
+
+          if (productChangedRemote) {
+            setProductSalesData(null);
+            setSalesDataError(null);
+            setProductFieldOptions(null);
+            setProductFieldsError(null);
+          }
         }
+      } catch (error) {
+        console.error("Failed to persist experiment state.", error);
       }
-    } catch (error) {
-      console.error("Failed to persist experiment state.", error);
     }
   };
 

@@ -51,7 +51,7 @@ const MainLayout = () => {
             <Route path="/data" element={<ProtectedRoute step={4}><HistoricalData /></ProtectedRoute>} />
             <Route path="/model/*" element={<ProtectedRoute step={5}><ModelBuilding /></ProtectedRoute>} />
             <Route path="/evaluation" element={<ProtectedRoute step={6}><ResultEvaluation /></ProtectedRoute>} />
-            <Route path="/production" element={<ProtectedRoute step={7}><ProductionPlan /></ProtectedRoute>} />
+            <Route path="/production/*" element={<ProtectedRoute step={7}><ProductionPlan /></ProtectedRoute>} />
           </Routes>
         </main>
       </div>

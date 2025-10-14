@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext';
 import { TrendingUp, Award, CheckCircle, Star, BookOpenCheck } from 'lucide-react';
@@ -7,11 +7,22 @@ const ResultEvaluation: React.FC = () => {
   const navigate = useNavigate();
   const { state, updateState, recordStepEvent } = useExperiment();
   const [selectedBestModel, setSelectedBestModel] = useState<SelectedBestModel | null>(state.selected_best_model);
+  const hasRecordedStartRef = useRef(false);
+  const prevHighestStepRef = useRef(state.highest_completed_step);
 
-  // Record STARTED event when component mounts
+  // Record STARTED event only when entering a new step (step > highest_completed_step)
+  // Reset ref when state is rolled back (highest_completed_step decreases)
   useEffect(() => {
-    recordStepEvent(6, 'STARTED');
-  }, []);
+    if (state.highest_completed_step < prevHighestStepRef.current) {
+      hasRecordedStartRef.current = false;
+    }
+    prevHighestStepRef.current = state.highest_completed_step;
+
+    if (6 > state.highest_completed_step && !hasRecordedStartRef.current) {
+      recordStepEvent(6, 'STARTED');
+      hasRecordedStartRef.current = true;
+    }
+  }, [state.highest_completed_step, recordStepEvent]);
 
   const handleNext = () => {
     if (!selectedBestModel) return;

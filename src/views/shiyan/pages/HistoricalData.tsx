@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
 import { BarChart3, Calendar, Info, ArrowRight, Loader2, AlertTriangle } from 'lucide-react';
@@ -27,6 +27,8 @@ const HistoricalData: React.FC = () => {
   } = useExperiment();
   const [selectedPeriod, setSelectedPeriod] = useState('all');
   const { selected_industry, selected_company, selected_product } = state;
+  const hasRecordedStartRef = useRef(false);
+  const prevHighestStepRef = useRef(state.highest_completed_step);
 
   useEffect(() => {
     if (
@@ -50,10 +52,19 @@ const HistoricalData: React.FC = () => {
     selected_product,
   ]);
 
-  // Record STARTED event when component mounts
+  // Record STARTED event only when entering a new step (step > highest_completed_step)
+  // Reset ref when state is rolled back (highest_completed_step decreases)
   useEffect(() => {
-    recordStepEvent(4, 'STARTED');
-  }, []);
+    if (state.highest_completed_step < prevHighestStepRef.current) {
+      hasRecordedStartRef.current = false;
+    }
+    prevHighestStepRef.current = state.highest_completed_step;
+
+    if (4 > state.highest_completed_step && !hasRecordedStartRef.current) {
+      recordStepEvent(4, 'STARTED');
+      hasRecordedStartRef.current = true;
+    }
+  }, [state.highest_completed_step, recordStepEvent]);
 
   const activeDataset = productSalesData;
   const monthlySales = activeDataset?.monthlySales ?? [];

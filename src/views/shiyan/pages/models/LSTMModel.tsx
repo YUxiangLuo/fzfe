@@ -84,6 +84,12 @@ const LSTMModel: React.FC = () => {
     selected_best_model: null,
     quiz_about_model_completed: false,
     quiz_about_plan_completed: false,
+    production_plan_completed: false,
+    production_forecast_periods: null,
+    production_initial_inventory: null,
+    production_target_service_level: null,
+    production_safety_stock_z_score: null,
+    production_mps_table: [],
     highest_completed_step: Math.min(state.highest_completed_step ?? 0, 4),
     current_step: Math.min(state.current_step ?? 5, 5),
   });

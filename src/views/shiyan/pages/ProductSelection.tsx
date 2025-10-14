@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
 import { Package, ArrowRight } from 'lucide-react';
@@ -10,6 +10,8 @@ const ProductSelection: React.FC = () => {
   const [products, setProducts] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasRecordedStartRef = useRef(false);
+  const prevHighestStepRef = useRef(state.highest_completed_step);
 
   useEffect(() => {
     let isActive = true;
@@ -53,10 +55,19 @@ const ProductSelection: React.FC = () => {
     };
   }, [state.selected_industry, state.selected_company]);
 
-  // Record STARTED event when component mounts
+  // Record STARTED event only when entering a new step (step > highest_completed_step)
+  // Reset ref when state is rolled back (highest_completed_step decreases)
   useEffect(() => {
-    recordStepEvent(3, 'STARTED');
-  }, []);
+    if (state.highest_completed_step < prevHighestStepRef.current) {
+      hasRecordedStartRef.current = false;
+    }
+    prevHighestStepRef.current = state.highest_completed_step;
+
+    if (3 > state.highest_completed_step && !hasRecordedStartRef.current) {
+      recordStepEvent(3, 'STARTED');
+      hasRecordedStartRef.current = true;
+    }
+  }, [state.highest_completed_step, recordStepEvent]);
 
   const handleSelectProduct = (productId: string) => {
     updateState({ selected_product: productId });

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
 import {
@@ -27,11 +27,22 @@ const ModelBuilding: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { state, updateState, recordStepEvent } = useExperiment();
+  const hasRecordedStartRef = useRef(false);
+  const prevHighestStepRef = useRef(state.highest_completed_step);
 
-  // Record STARTED event when component mounts
+  // Record STARTED event only when entering a new step (step > highest_completed_step)
+  // Reset ref when state is rolled back (highest_completed_step decreases)
   useEffect(() => {
-    recordStepEvent(5, 'STARTED');
-  }, []);
+    if (state.highest_completed_step < prevHighestStepRef.current) {
+      hasRecordedStartRef.current = false;
+    }
+    prevHighestStepRef.current = state.highest_completed_step;
+
+    if (5 > state.highest_completed_step && !hasRecordedStartRef.current) {
+      recordStepEvent(5, 'STARTED');
+      hasRecordedStartRef.current = true;
+    }
+  }, [state.highest_completed_step, recordStepEvent]);
 
   const completionMap: Record<string, boolean> = {
     moving_average: state.moving_average_completed,
