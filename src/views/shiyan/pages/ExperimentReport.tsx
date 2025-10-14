@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext';
 import {
   FileText, Save, Database, BarChart3, CheckSquare, Calculator, ClipboardList,
-  AlertCircle, ChevronDown, ChevronUp, X
+  ChevronDown, ChevronUp, X, Download, CheckCircle, Loader2
 } from 'lucide-react';
+import { apiClient } from '../../../utils/apiClient';
 
 interface ReportSection {
   title: string;
@@ -36,9 +37,54 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, defaultO
   );
 };
 
+interface UserSummary {
+  user_id: number;
+  username: string;
+  full_name: string;
+  email: string;
+  role: string;
+  phone_number?: string | null;
+  created_at: string;
+}
+
 const ExperimentReport: React.FC = () => {
-  const { state } = useExperiment();
+  const { state, updateState, createNewExperiment } = useExperiment();
   const navigate = useNavigate();
+
+  // User info state
+  const [userInfo, setUserInfo] = useState<UserSummary | null>(null);
+
+  // Submission state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [pdfPath, setPdfPath] = useState<string | null>(null);
+
+  // Completion modal state
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+
+  // Generate default report title based on experiment state
+  const generateDefaultTitle = () => {
+    const industry = state.selected_industry || '未知行业';
+    const company = state.selected_company || '未知企业';
+    const product = state.selected_product || '未知产品';
+    return `${industry}-${company}-${product}需求预测与生产计划决策实验报告`;
+  };
+
+  const [reportTitle, setReportTitle] = useState(generateDefaultTitle());
+
+  // Fetch user info on mount
+  React.useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const profile = await apiClient.get<UserSummary>('/users/me');
+        setUserInfo(profile);
+      } catch (error) {
+        console.error('Failed to fetch user info:', error);
+      }
+    };
+    fetchUserInfo();
+  }, []);
 
   // Section 1: 数据情况
   const [dataAnalysis, setDataAnalysis] = useState('');
@@ -284,8 +330,6 @@ const ExperimentReport: React.FC = () => {
     },
   ];
 
-  const getCharCount = (text: string) => text.trim().length;
-
   const getAnalysisSetter = (index: number) => {
     switch (index) {
       case 0: return setDataAnalysis;
@@ -308,67 +352,282 @@ const ExperimentReport: React.FC = () => {
     }
   };
 
-  // Calculate similarity between two texts (simple version)
-  const calculateSimilarity = (text1: string, text2: string): number => {
-    if (!text1 || !text2) return 0;
+  // Generate HTML report
+  const generateHTMLReport = (): string => {
+    const escapeHtml = (text: string) => {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+        .replace(/\n/g, '<br>');
+    };
 
-    const words1 = text1.toLowerCase().split(/\s+/);
-    const words2 = text2.toLowerCase().split(/\s+/);
+    // Format date
+    const formatDate = (dateString: string | null): string => {
+      if (!dateString) return '未知';
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+      } catch {
+        return '未知';
+      }
+    };
 
-    const set1 = new Set(words1);
-    const set2 = new Set(words2);
+    // Get current date
+    const currentDate = new Date().toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
 
-    const intersection = new Set([...set1].filter(x => set2.has(x)));
-    const union = new Set([...set1, ...set2]);
+    const sections = [
+      {
+        title: '一、数据情况',
+        content: dataContent,
+        analysis: dataAnalysis,
+      },
+      {
+        title: '二、模型对比结果',
+        content: modelComparisonContent,
+        analysis: modelComparisonAnalysis,
+      },
+      {
+        title: '三、模型选择结果',
+        content: modelSelectionContent,
+        analysis: modelSelectionAnalysis,
+      },
+      {
+        title: '四、生产计划参数计算结果',
+        content: planParamsContent,
+        analysis: planParamsAnalysis,
+      },
+      {
+        title: '五、生产计划决策结果',
+        content: planDecisionContent,
+        analysis: planDecisionAnalysis,
+      },
+    ];
 
-    return intersection.size / union.size;
+    let htmlContent = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(reportTitle)}</title>
+  <style>
+    body {
+      font-family: 'SimSun', serif;
+      line-height: 1.8;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #fff;
+    }
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    .report-meta {
+      text-align: center;
+      margin-bottom: 40px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    .report-meta table {
+      margin: 0 auto;
+      border-collapse: collapse;
+    }
+    .report-meta td {
+      padding: 8px 20px;
+      text-align: left;
+      font-size: 14px;
+      color: #555;
+    }
+    .report-meta .label {
+      font-weight: bold;
+      color: #333;
+      text-align: right;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: bold;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    h3 {
+      font-size: 16px;
+      font-weight: bold;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      color: #555;
+    }
+    p {
+      text-indent: 2em;
+      margin-bottom: 12px;
+      color: #333;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+    .content-box {
+      background: #f5f5f5;
+      padding: 15px;
+      border-left: 4px solid #4a90e2;
+      margin: 15px 0;
+      font-family: 'Courier New', monospace;
+      white-space: pre-wrap;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(reportTitle)}</h1>
+
+  <div class="report-meta">
+    <table>
+      <tr>
+        <td class="label">学生姓名：</td>
+        <td>${escapeHtml(userInfo?.full_name || userInfo?.username || '未知')}</td>
+        <td class="label">学生ID：</td>
+        <td>${state.student_id || '未知'}</td>
+      </tr>
+      <tr>
+        <td class="label">实验ID：</td>
+        <td>${state.experiment_id || '未知'}</td>
+        <td class="label">实验开始时间：</td>
+        <td>${formatDate(state.start_time)}</td>
+      </tr>
+      <tr>
+        <td class="label">报告生成时间：</td>
+        <td colspan="3">${currentDate}</td>
+      </tr>
+    </table>
+  </div>
+`;
+
+    sections.forEach((section) => {
+      htmlContent += `
+  <div class="section">
+    <h2>${escapeHtml(section.title)}</h2>
+    <h3>实验结果</h3>
+    <div class="content-box">${escapeHtml(section.content)}</div>
+    <h3>结果分析</h3>
+    <p>${escapeHtml(section.analysis || '暂无分析内容')}</p>
+  </div>
+`;
+    });
+
+    htmlContent += `
+</body>
+</html>`;
+
+    return htmlContent;
   };
 
-  // Check if any two sections have >20% similarity
-  const checkSimilarity = (): { hasIssue: boolean; message: string } => {
-    const analyses = [dataAnalysis, modelComparisonAnalysis, modelSelectionAnalysis, planParamsAnalysis, planDecisionAnalysis];
-
-    for (let i = 0; i < analyses.length; i++) {
-      for (let j = i + 1; j < analyses.length; j++) {
-        if (analyses[i] && analyses[j]) {
-          const similarity = calculateSimilarity(analyses[i], analyses[j]);
-          if (similarity > 0.2) {
-            return {
-              hasIssue: true,
-              message: `第${i + 1}部分与第${j + 1}部分的重复率为 ${(similarity * 100).toFixed(1)}%，超过了20%的限制。`
-            };
-          }
-        }
-      }
-    }
-
-    return { hasIssue: false, message: '' };
+  // Convert string to base64
+  const toBase64 = (str: string): string => {
+    return btoa(unescape(encodeURIComponent(str)));
   };
 
-  const handleSave = () => {
-    // Check word count
-    for (let i = 0; i < sections.length; i++) {
-      const analysis = getAnalysisValue(i);
-      if (getCharCount(analysis) < 100) {
-        alert(`第${i + 1}部分"${sections[i].title}"的分析内容不足100字，当前为${getCharCount(analysis)}字。`);
-        return;
-      }
-    }
-
-    // Check similarity
-    const { hasIssue, message } = checkSimilarity();
-    if (hasIssue) {
-      alert(message);
+  // Handle save and submit
+  const handleSave = async () => {
+    if (!state.experiment_id) {
+      setSubmitError('实验ID不存在，无法提交报告');
       return;
     }
 
-    alert('报告验证通过！可以提交。\n（注：实际保存逻辑待实现）');
-  };
+    // Basic validation - check if all sections have analysis content
+    const hasEmptySection = sections.some((_, idx) => !getAnalysisValue(idx).trim());
+    if (hasEmptySection) {
+      setSubmitError('请完成所有部分的分析内容后再提交');
+      return;
+    }
 
-  const similarityCheck = checkSimilarity();
+    try {
+      setIsSubmitting(true);
+      setSubmitError(null);
+      setSubmitSuccess(false);
+
+      // Generate HTML report
+      const htmlReport = generateHTMLReport();
+
+      // Convert to base64
+      const base64Content = toBase64(htmlReport);
+
+      // Submit to API
+      const response = await apiClient.post<{
+        message: string;
+        report_id: number;
+        pdf_path: string;
+      }>('/reports', {
+        experiment_id: state.experiment_id,
+        report_content: base64Content,
+      });
+
+      setSubmitSuccess(true);
+      setPdfPath(response.pdf_path);
+      setSubmitError(null);
+
+      // Update experiment state to completed
+      const now = new Date().toISOString();
+      await updateState({
+        status: 'Completed',
+        last_activity_at: now,
+        completion_time: now,
+      });
+
+      // Show completion modal
+      setShowCompletionModal(true);
+    } catch (error: any) {
+      console.error('Failed to submit report:', error);
+      setSubmitError(error.message || '提交报告失败，请重试');
+      setSubmitSuccess(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleClose = () => {
     navigate('/production');
+  };
+
+  const handleStartNewExperiment = async () => {
+    try {
+      // Create a new experiment and update global state
+      await createNewExperiment();
+      // Redirect to introduction page
+      navigate('/introduction');
+    } catch (error) {
+      console.error('Failed to start new experiment:', error);
+      // Still navigate to introduction even if creation fails
+      navigate('/introduction');
+    }
+  };
+
+  const handleLogout = () => {
+    // Clear token and redirect to login
+    localStorage.removeItem('token');
+    window.location.href = '/login';
   };
 
   return (
@@ -378,6 +637,7 @@ const ExperimentReport: React.FC = () => {
         onClick={handleClose}
         className="absolute top-6 right-6 p-2 text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg transition-all z-10 shadow-sm"
         title="关闭并返回生产计划"
+        disabled={isSubmitting}
       >
         <X className="w-6 h-6" />
       </button>
@@ -391,44 +651,58 @@ const ExperimentReport: React.FC = () => {
                 撰写实验报告
               </h1>
               <p className="text-gray-600 mb-4">
-                请根据实验结果，完成以下五个部分的分析。每部分分析不少于100字，且各部分内容重复率不超过20%。
+                请根据实验结果，完成以下报告标题和五个部分的分析。
               </p>
 
-              {/* Validation Status */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-blue-900 mb-2">字数要求</h3>
-                  <div className="space-y-1 text-sm">
-                    {sections.map((section, idx) => {
-                      const count = getCharCount(getAnalysisValue(idx));
-                      const isValid = count >= 100;
-                      return (
-                        <div key={idx} className="flex justify-between items-center">
-                          <span className="text-gray-700">{section.title}</span>
-                          <span className={`font-semibold ${isValid ? 'text-green-600' : 'text-red-600'}`}>
-                            {count} / 100 字
-                          </span>
-                        </div>
-                      );
-                    })}
+              {/* Report Title Editor */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  报告标题
+                  <span className="text-red-500 ml-1">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={reportTitle}
+                  onChange={(e) => setReportTitle(e.target.value)}
+                  placeholder="请输入报告标题"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg font-medium"
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              {/* Submission Status Messages */}
+              {submitError && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-2">
+                  <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-red-900 mb-1">提交失败</h3>
+                    <p className="text-red-700 text-sm">{submitError}</p>
                   </div>
                 </div>
+              )}
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-blue-900 mb-2">重复率检查</h3>
-                  {similarityCheck.hasIssue ? (
-                    <div className="flex items-start space-x-2 text-sm text-red-700">
-                      <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                      <span>{similarityCheck.message}</span>
+              {submitSuccess && pdfPath && (
+                <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-2">
+                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-green-900 mb-1">提交成功！</h3>
+                      <p className="text-green-700 text-sm mb-3">您的实验报告已成功生成并保存为PDF文件。</p>
+                      <div className="flex items-center space-x-3">
+                        <code className="text-xs bg-white px-3 py-1 rounded border border-green-200 text-gray-700">
+                          {pdfPath}
+                        </code>
+                        <button
+                          onClick={() => navigate('/production')}
+                          className="text-sm text-green-700 hover:text-green-800 font-medium underline"
+                        >
+                          返回生产计划
+                        </button>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="flex items-start space-x-2 text-sm text-green-700">
-                      <CheckSquare className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                      <span>所有部分的重复率均未超过20%</span>
-                    </div>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </header>
 
             <div className="space-y-6">
@@ -455,18 +729,16 @@ const ExperimentReport: React.FC = () => {
                           结果分析
                           <span className="text-red-500 ml-1">*</span>
                         </label>
-                        <span className={`text-sm ${getCharCount(getAnalysisValue(idx)) >= 100 ? 'text-green-600' : 'text-gray-500'}`}>
-                          {getCharCount(getAnalysisValue(idx))} / 100 字
-                        </span>
                       </div>
                       <textarea
                         value={getAnalysisValue(idx)}
                         onChange={(e) => getAnalysisSetter(idx)(e.target.value)}
-                        placeholder="请根据上述实验结果展开具体分析，要求逻辑通顺，表述完整，不少于100字..."
+                        placeholder="请根据上述实验结果展开具体分析，要求逻辑通顺，表述完整..."
                         className="w-full min-h-[200px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y text-sm"
+                        disabled={isSubmitting}
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        提示：请同学们按结果展开具体分析，要求逻辑通顺，表述完整。
+                        提示：请根据实验结果展开具体分析，要求逻辑通顺，表述完整。
                       </p>
                     </div>
                   </div>
@@ -477,15 +749,70 @@ const ExperimentReport: React.FC = () => {
             <footer className="mt-8 flex justify-end pb-8">
               <button
                 onClick={handleSave}
-                className="inline-flex items-center justify-center px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
+                disabled={isSubmitting || submitSuccess}
+                className="inline-flex items-center justify-center px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-sm hover:shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                <Save className="w-5 h-5 mr-2" />
-                保存并提交报告
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    提交中...
+                  </>
+                ) : submitSuccess ? (
+                  <>
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    已提交
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5 mr-2" />
+                    保存并提交报告
+                  </>
+                )}
               </button>
             </footer>
           </div>
         </div>
       </div>
+
+      {/* Completion Modal */}
+      {showCompletionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform transition-all">
+            <div className="text-center">
+              {/* Success Icon */}
+              <div className="mx-auto flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                <CheckCircle className="w-10 h-10 text-green-600" />
+              </div>
+
+              {/* Title */}
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                恭喜！实验完成
+              </h2>
+
+              {/* Message */}
+              <p className="text-gray-600 mb-6">
+                您已成功完成本次需求预测与生产计划决策实验的全部内容。实验报告已提交并保存。
+              </p>
+
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <button
+                  onClick={handleStartNewExperiment}
+                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                >
+                  开始新的实验
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  退出登录
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

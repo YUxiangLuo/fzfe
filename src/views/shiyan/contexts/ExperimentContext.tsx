@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import {
   getExperimentState,
   updateExperimentState as apiUpdateExperimentState,
+  createExperimentState,
 } from '../../../utils/apiClient';
 import { apiClient } from '../../../utils/apiClient';
 
@@ -265,6 +266,7 @@ interface ExperimentContextType {
   state: ExperimentState;
   loading: boolean;
   updateState: (updates: Partial<ExperimentState>) => Promise<void>;
+  createNewExperiment: () => Promise<void>;
   isStepCompleted: (step: number) => boolean;
   isStepUnlocked: (step: number) => boolean;
   productSalesData: ProductSalesData | null;
@@ -464,6 +466,21 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const createNewExperiment = async () => {
+    try {
+      const newState = await createExperimentState();
+      setState(newState);
+      // Clear product-related data
+      setProductSalesData(null);
+      setSalesDataError(null);
+      setProductFieldOptions(null);
+      setProductFieldsError(null);
+    } catch (error) {
+      console.error("Failed to create new experiment.", error);
+      throw error;
+    }
+  };
+
   const isStepCompleted = (step: number): boolean => state.highest_completed_step >= step;
   const isStepUnlocked = (step: number): boolean => step <= state.current_step;
 
@@ -508,6 +525,7 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
         state,
         loading,
         updateState,
+        createNewExperiment,
         isStepCompleted,
         isStepUnlocked,
         productSalesData,

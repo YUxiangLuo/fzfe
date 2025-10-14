@@ -124,7 +124,7 @@ const mergeWithInitial = (state: Partial<ExperimentState>): ExperimentState => (
   ...state,
 });
 
-const createExperimentState = async (): Promise<ExperimentState> => {
+export const createExperimentState = async (): Promise<ExperimentState> => {
   const created = await apiClient.post<ExperimentState>("/experiment-status", {});
   return mergeWithInitial(created);
 };
