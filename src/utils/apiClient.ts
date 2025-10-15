@@ -41,8 +41,8 @@ const buildUrl = (endpoint: string): string => {
   return base.toString();
 };
 
-const handleResponse = async <T = any>(response: Response): Promise<T> => {
-  if (response.status === 401) {
+const handleResponse = async <T = any>(response: Response, endpoint: string): Promise<T> => {
+  if (response.status === 401 && endpoint !== '/users/me/password') {
     localStorage.removeItem("token");
     window.location.href = "/login";
     throw new Error("会话已过期，请重新登录");
@@ -82,7 +82,7 @@ const request = async <T = any>(
   };
 
   const response = await fetch(buildUrl(endpoint), config);
-  return handleResponse<T>(response);
+  return handleResponse<T>(response, endpoint);
 };
 
 export const apiClient = {

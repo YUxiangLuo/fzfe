@@ -504,19 +504,19 @@ const QuestionBank: React.FC = () => {
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-green-600">{statistics.single}</p>
+            <p className="text-3xl font-bold text-blue-600">{statistics.single}</p>
             <p className="text-sm text-gray-600">单选题</p>
           </div>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-orange-600">{statistics.multiple}</p>
+            <p className="text-3xl font-bold text-green-600">{statistics.multiple}</p>
             <p className="text-sm text-gray-600">多选题</p>
           </div>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-purple-600">{statistics.booleanCount}</p>
+            <p className="text-3xl font-bold text-orange-600">{statistics.booleanCount}</p>
             <p className="text-sm text-gray-600">判断题</p>
           </div>
         </div>

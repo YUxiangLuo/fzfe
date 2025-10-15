@@ -1,0 +1,19 @@
+feat(profile): add change password functionality
+
+Implement the ability for both teachers and students to change their own passwords on their respective profile pages.
+
+Key changes include:
+- Adding a "Change Password" form to the profile views.
+- Implementing the API call to `PUT /api/users/me/password`.
+- Translating API error messages into user-friendly Chinese.
+- Making password fields visible by default for ease of use in a teaching context.
+
+fix(auth): prevent logout on incorrect password entry
+
+Modify the global API client to ignore 401 errors specifically from the password change endpoint. This prevents the user from being logged out when they enter an invalid current password.
+
+fix(ui): improve profile and sidebar UX
+
+- Correct color inconsistencies on the Question Bank page.
+- Ensure the sidebar menu remains expanded after a page refresh.
+- Adjust the layout of profile page sections for better logical flow.

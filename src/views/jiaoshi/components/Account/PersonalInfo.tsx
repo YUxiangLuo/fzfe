@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Edit2, User, Phone, Mail, Calendar, Loader, AlertTriangle, BookCopy } from 'lucide-react';
+import { Edit2, User, Phone, Mail, Calendar, Loader, AlertTriangle, BookCopy, KeyRound, Save } from 'lucide-react';
 import Modal from '../Common/Modal';
 import { apiClient } from '../../../../utils/apiClient';
 import type { User as UserType, Class as ClassType } from '../../types';
+import Button from '../Common/Button';
 
 const PersonalInfo: React.FC = () => {
   const [user, setUser] = useState<UserType | null>(null);
@@ -15,6 +16,15 @@ const PersonalInfo: React.FC = () => {
   
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [tempUser, setTempUser] = useState<UserType | null>(null);
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -60,6 +70,44 @@ const PersonalInfo: React.FC = () => {
       setIsEditModalOpen(false);
     } catch (err: any) {
       alert(`保存失败: ${err.message}`);
+    }
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setPasswordData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setPasswordError('新密码和确认密码不匹配。');
+      return;
+    }
+    if (!passwordData.newPassword || passwordData.newPassword.length < 6) {
+      setPasswordError('新密码长度不能少于6位。');
+      return;
+    }
+
+    setIsSavingPassword(true);
+    try {
+      await apiClient.put('/users/me/password', {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      setPasswordSuccess('密码修改成功！');
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err: any) {
+      if (err && err.message && err.message.includes('Invalid current password')) {
+        setPasswordError('当前密码不正确，请重新输入。');
+      } else {
+        setPasswordError(err.message || '密码修改失败，请稍后重试。');
+      }
+    } finally {
+      setIsSavingPassword(false);
     }
   };
 
@@ -135,6 +183,39 @@ const PersonalInfo: React.FC = () => {
             </h2>
           </div>
           <div className="p-8">{renderClassesContent()}</div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
+          <div className="px-8 py-6 bg-gradient-to-r from-red-50 to-orange-50 rounded-t-2xl">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-orange-600 rounded-lg flex items-center justify-center mr-3"><KeyRound className="w-4 h-4 text-white" /></div>
+              修改密码
+            </h2>
+          </div>
+          <form onSubmit={handlePasswordSubmit} className="p-8 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">当前密码</label>
+                <input type="text" name="currentPassword" value={passwordData.currentPassword} onChange={handlePasswordChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">新密码</label>
+                <input type="text" name="newPassword" value={passwordData.newPassword} onChange={handlePasswordChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">确认新密码</label>
+                <input type="text" name="confirmPassword" value={passwordData.confirmPassword} onChange={handlePasswordChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+            {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
+            {passwordSuccess && <p className="text-sm text-green-600">{passwordSuccess}</p>}
+            <div className="flex justify-end">
+              <Button type="submit" disabled={isSavingPassword}>
+                <Save size={16} className="mr-2" />
+                {isSavingPassword ? '保存中...' : '保存新密码'}
+              </Button>
+            </div>
+          </form>
         </div>
       </div>
 

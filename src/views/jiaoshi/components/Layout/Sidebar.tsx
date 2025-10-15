@@ -30,16 +30,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   activeMenuItem, 
   onMenuItemClick
 }) => {
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(['account']);
-
-  // 如果默认选中的是实验相关页面，自动展开实验菜单
-  React.useEffect(() => {
-    if (activeMenuItem.startsWith('experiment-')) {
-      setExpandedMenus(prev => 
-        prev.includes('experiment') ? prev : [...prev, 'experiment']
-      );
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(() => {
+    const parentMenu = activeMenuItem.split('-')[0];
+    if (parentMenu && ['account', 'experiment', 'assessment'].includes(parentMenu)) {
+      return [parentMenu];
     }
-  }, [activeMenuItem]);
+    return ['account'];
+  });
 
   const toggleMenu = (menu: string) => {
     setExpandedMenus(prev => 
