@@ -3,15 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext';
 import { TrendingUp, Award, CheckCircle, Star, BookOpenCheck } from 'lucide-react';
 
+type SortKey = 'rmse' | 'mae' | 'r2';
+type SortDirection = 'asc' | 'desc';
+
 const ResultEvaluation: React.FC = () => {
   const navigate = useNavigate();
   const { state, updateState, recordStepEvent } = useExperiment();
-  const [selectedBestModel, setSelectedBestModel] = useState<SelectedBestModel | null>(state.selected_best_model);
+  const [selectedBestModel, setSelectedBestModel] = useState<SelectedBestModel | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection }>({ key: 'r2', direction: 'desc' });
+  const [isSorting, setIsSorting] = useState(false); // For animation
   const hasRecordedStartRef = useRef(false);
   const prevHighestStepRef = useRef(state.highest_completed_step);
 
-  // Record STARTED event only when entering a new step (step > highest_completed_step)
-  // Reset ref when state is rolled back (highest_completed_step decreases)
+  // Sync local selection with global state, especially after a page refresh
+  useEffect(() => {
+    setSelectedBestModel(state.selected_best_model);
+  }, [state.selected_best_model]);
+
   useEffect(() => {
     if (state.highest_completed_step < prevHighestStepRef.current) {
       hasRecordedStartRef.current = false;
@@ -46,119 +54,47 @@ const ResultEvaluation: React.FC = () => {
       completed: boolean;
       metrics: ModelMetrics;
     }> = [
-      {
-        id: 'ma',
-        name: '移动平均法',
-        completed: state.moving_average_completed,
-        metrics: {
-          rmse: state.moving_average_metrics_rmse,
-          mae: state.moving_average_metrics_mae,
-          r2: state.moving_average_metrics_r2,
-        },
-      },
-      {
-        id: 'exp',
-        name: '指数平滑法',
-        completed: state.exponential_smoothing_completed,
-        metrics: {
-          rmse: state.exponential_smoothing_metrics_rmse,
-          mae: state.exponential_smoothing_metrics_mae,
-          r2: state.exponential_smoothing_metrics_r2,
-        },
-      },
-      {
-        id: 'arima',
-        name: 'ARIMA模型',
-        completed: state.arima_completed,
-        metrics: {
-          rmse: state.arima_metrics_rmse,
-          mae: state.arima_metrics_mae,
-          r2: state.arima_metrics_r2,
-        },
-      },
-      {
-        id: 'lstm',
-        name: 'LSTM神经网络',
-        completed: state.lstm_completed,
-        metrics: {
-          rmse: state.lstm_metrics_rmse,
-          mae: state.lstm_metrics_mae,
-          r2: state.lstm_metrics_r2,
-        },
-      },
-      {
-        id: 'ensemble_weighted',
-        name: '加权平均融合',
-        completed: state.ensemble_weighted_completed,
-        metrics: {
-          rmse: state.ensemble_weighted_metrics_rmse,
-          mae: state.ensemble_weighted_metrics_mae,
-          r2: state.ensemble_weighted_metrics_r2,
-        },
-      },
-      {
-        id: 'ensemble_boosting',
-        name: 'Boosting融合',
-        completed: state.ensemble_boosting_completed,
-        metrics: {
-          rmse: state.ensemble_boosting_metrics_rmse,
-          mae: state.ensemble_boosting_metrics_mae,
-          r2: state.ensemble_boosting_metrics_r2,
-        },
-      },
-      {
-        id: 'ensemble_stacking',
-        name: 'Stacking融合',
-        completed: state.ensemble_stacking_completed,
-        metrics: {
-          rmse: state.ensemble_stacking_metrics_rmse,
-          mae: state.ensemble_stacking_metrics_mae,
-          r2: state.ensemble_stacking_metrics_r2,
-        },
-      },
+      { id: 'ma', name: '移动平均法', completed: state.moving_average_completed, metrics: { rmse: state.moving_average_metrics_rmse, mae: state.moving_average_metrics_mae, r2: state.moving_average_metrics_r2 } },
+      { id: 'exp', name: '指数平滑法', completed: state.exponential_smoothing_completed, metrics: { rmse: state.exponential_smoothing_metrics_rmse, mae: state.exponential_smoothing_metrics_mae, r2: state.exponential_smoothing_metrics_r2 } },
+      { id: 'arima', name: 'ARIMA模型', completed: state.arima_completed, metrics: { rmse: state.arima_metrics_rmse, mae: state.arima_metrics_mae, r2: state.arima_metrics_r2 } },
+      { id: 'lstm', name: 'LSTM神经网络', completed: state.lstm_completed, metrics: { rmse: state.lstm_metrics_rmse, mae: state.lstm_metrics_mae, r2: state.lstm_metrics_r2 } },
+      { id: 'ensemble_weighted', name: '加权平均融合', completed: state.ensemble_weighted_completed, metrics: { rmse: state.ensemble_weighted_metrics_rmse, mae: state.ensemble_weighted_metrics_mae, r2: state.ensemble_weighted_metrics_r2 } },
+      { id: 'ensemble_boosting', name: 'Boosting融合', completed: state.ensemble_boosting_completed, metrics: { rmse: state.ensemble_boosting_metrics_rmse, mae: state.ensemble_boosting_metrics_mae, r2: state.ensemble_boosting_metrics_r2 } },
+      { id: 'ensemble_stacking', name: 'Stacking融合', completed: state.ensemble_stacking_completed, metrics: { rmse: state.ensemble_stacking_metrics_rmse, mae: state.ensemble_stacking_metrics_mae, r2: state.ensemble_stacking_metrics_r2 } },
     ];
-
     return entries.filter((item) => item.completed);
-  }, [
-    state.moving_average_completed,
-    state.moving_average_metrics_rmse,
-    state.moving_average_metrics_mae,
-    state.moving_average_metrics_r2,
-    state.exponential_smoothing_completed,
-    state.exponential_smoothing_metrics_rmse,
-    state.exponential_smoothing_metrics_mae,
-    state.exponential_smoothing_metrics_r2,
-    state.arima_completed,
-    state.arima_metrics_rmse,
-    state.arima_metrics_mae,
-    state.arima_metrics_r2,
-    state.lstm_completed,
-    state.lstm_metrics_rmse,
-    state.lstm_metrics_mae,
-    state.lstm_metrics_r2,
-    state.ensemble_weighted_completed,
-    state.ensemble_weighted_metrics_rmse,
-    state.ensemble_weighted_metrics_mae,
-    state.ensemble_weighted_metrics_r2,
-    state.ensemble_boosting_completed,
-    state.ensemble_boosting_metrics_rmse,
-    state.ensemble_boosting_metrics_mae,
-    state.ensemble_boosting_metrics_r2,
-    state.ensemble_stacking_completed,
-    state.ensemble_stacking_metrics_rmse,
-    state.ensemble_stacking_metrics_mae,
-    state.ensemble_stacking_metrics_r2,
-  ]);
+  }, [state]);
 
-  const sortedModels = useMemo(
-    () =>
-      [...completedModels].sort((a, b) => {
-        const aScore = a.metrics.rmse ?? Number.POSITIVE_INFINITY;
-        const bScore = b.metrics.rmse ?? Number.POSITIVE_INFINITY;
-        return aScore - bScore;
-      }),
-    [completedModels],
-  );
+  const sortedModels = useMemo(() => {
+    let sortableModels = [...completedModels];
+    sortableModels.sort((a, b) => {
+      const aValue = a.metrics[sortConfig.key];
+      const bValue = b.metrics[sortConfig.key];
+      if (aValue === null) return 1;
+      if (bValue === null) return -1;
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return sortableModels;
+  }, [completedModels, sortConfig]);
+
+  const handleSortChange = (value: string) => {
+    const [key, direction] = value.split('-') as [SortKey, SortDirection];
+    
+    setIsSorting(true);
+    setSortConfig({ key, direction });
+
+    setTimeout(() => {
+      setIsSorting(false);
+    }, 200); // Duration of the flash animation
+  };
+
+  const sortOptions = [
+    { value: 'r2-desc', label: '按 R² 排序 (从高到低)' },
+    { value: 'rmse-asc', label: '按 RMSE 排序 (从低到高)' },
+    { value: 'mae-asc', label: '按 MAE 排序 (从低到高)' },
+  ];
 
   return (
     <div className="p-8">
@@ -172,64 +108,69 @@ const ResultEvaluation: React.FC = () => {
 
         <div className="space-y-8 mb-8">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">模型性能对比</h2>
-            <div className="space-y-4">
-              {completedModels.length > 0 ? completedModels.map(model => {
-                const isSelected = selectedBestModel === model.id;
-                return (
-                  <div 
-                    key={model.id} 
-                    onClick={() => setSelectedBestModel(model.id)}
-                    className={`p-4 bg-gray-50 border-2 rounded-lg cursor-pointer transition-all ${isSelected ? 'border-blue-500 shadow-md' : 'border-gray-200 hover:border-gray-300'}`}
-                  >
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <h3 className="font-semibold text-gray-800 mb-2">{model.name}</h3>
-                            <div className="grid grid-cols-4 gap-4 text-sm">
-                                <div>
-                                <p className="text-gray-600">RMSE</p>
-                                <p className="font-bold text-blue-800">{model.metrics.rmse ?? '—'}</p>
-                                </div>
-                                <div>
-                                <p className="text-gray-600">R²</p>
-                                <p className="font-bold text-blue-800">{model.metrics.r2 ?? '—'}</p>
-                                </div>
-                                <div>
-                                <p className="text-gray-600">MAE</p>
-                                <p className="font-bold text-blue-800">{model.metrics.mae ?? '—'}</p>
-                                </div>
-                            </div>
-                        </div>
-                        {isSelected && (
-                            <div className="flex items-center space-x-2 bg-blue-500 text-white px-3 py-1 rounded-full text-sm">
-                                <Star className="w-4 h-4" />
-                                <span>最佳模型</span>
-                            </div>
-                        )}
-                    </div>
-                  </div>
-                )
-              }) : <p className="text-gray-500">暂无已完成的模型结果。</p>}
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">模型性能对比</h2>
+              <div className="flex items-center space-x-2 mt-4 sm:mt-0">
+                <label htmlFor="sort-select" className="text-sm font-medium text-gray-600">排序方式:</label>
+                <select
+                  id="sort-select"
+                  value={`${sortConfig.key}-${sortConfig.direction}`}
+                  onChange={(e) => handleSortChange(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  {sortOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                </select>
+              </div>
+            </div>
+            
+            <div className={`transition-opacity duration-200 ${isSorting ? 'opacity-25' : 'opacity-100'}`}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-100 text-gray-600">
+                    <tr>
+                      <th className="p-3 font-semibold">模型</th>
+                      <th className="p-3 font-semibold">RMSE (越低越好)</th>
+                      <th className="p-3 font-semibold">MAE (越低越好)</th>
+                      <th className="p-3 font-semibold">R² (越高越好)</th>
+                      <th className="p-3 font-semibold text-center">选择</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedModels.map((model) => {
+                      const isSelected = selectedBestModel === model.id;
+                      const isBestRmse = model.metrics.rmse !== null && model.metrics.rmse === Math.min(...completedModels.map(m => m.metrics.rmse).filter(v => v !== null) as number[]);
+                      const isBestMae = model.metrics.mae !== null && model.metrics.mae === Math.min(...completedModels.map(m => m.metrics.mae).filter(v => v !== null) as number[]);
+                      const isBestR2 = model.metrics.r2 !== null && model.metrics.r2 === Math.max(...completedModels.map(m => m.metrics.r2).filter(v => v !== null) as number[]);
+                      
+                      return (
+                        <tr key={model.id} className={`border-b ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                          <td className="p-3 font-semibold text-gray-800">{model.name}</td>
+                          <td className={`p-3 ${isBestRmse ? 'font-bold text-green-600' : ''}`}>{model.metrics.rmse?.toFixed(4) ?? '—'}</td>
+                          <td className={`p-3 ${isBestMae ? 'font-bold text-green-600' : ''}`}>{model.metrics.mae?.toFixed(4) ?? '—'}</td>
+                          <td className={`p-3 ${isBestR2 ? 'font-bold text-green-600' : ''}`}>{model.metrics.r2?.toFixed(4) ?? '—'}</td>
+                          <td className="p-3 text-center">
+                            <button 
+                              onClick={() => setSelectedBestModel(model.id)}
+                              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${isSelected ? 'bg-blue-600 text-white shadow' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'}`}
+                            >
+                              {isSelected ? '已选定' : '选择'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
-          {sortedModels.length > 0 && (
-            <div className="bg-green-50 border border-green-200 rounded-xl p-6">
-              <h4 className="font-semibold text-green-800 mb-3">🏆 模型性能排名 (按RMSE排序)</h4>
-              <ol className="space-y-2 text-sm text-green-700">
-                {sortedModels.map((model, index) => (
-                  <li key={model.id} className="flex items-center space-x-3">
-                    <span className="w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-bold">{index + 1}</span>
-                    <span>
-                      {model.name}
-                      {model.metrics.rmse !== null && (
-                        <span className="ml-2 text-green-600 font-semibold">RMSE: {model.metrics.rmse}</span>
-                      )}
-                    </span>
-                    {index === 0 && <Award className="w-5 h-5 text-yellow-500" />}
-                  </li>
-                ))}
-              </ol>
+          {selectedBestModel && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-6 flex items-center justify-center space-x-3">
+              <Star className="w-6 h-6 text-yellow-500" />
+              <h4 className="font-semibold text-green-800 text-lg">
+                您已选择 <span className="font-bold">"{completedModels.find(m => m.id === selectedBestModel)?.name}"</span> 作为最佳模型。
+              </h4>
             </div>
           )}
         </div>

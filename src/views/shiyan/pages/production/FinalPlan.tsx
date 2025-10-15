@@ -2,24 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart3, CheckCircle, Loader2, AlertCircle, TrendingUp } from 'lucide-react';
 import { useExperiment, type MPSTableRow } from '../../contexts/ExperimentContext';
-import { apiClient } from '../../../../utils/apiClient';
-
-// Map selected_best_model to API model_type
-const MODEL_TYPE_MAP: Record<string, string> = {
-  'ma': 'ma',
-  'exp': 'es',
-  'arima': 'arima',
-  'lstm': 'lstm',
-  'ensemble_weighted': 'weighted_average',
-  'ensemble_boosting': 'boosting',
-  'ensemble_stacking': 'stacking',
-};
-
-interface ForecastResult {
-  predictions: number[];
-  mode: string;
-  forecast_steps: number;
-}
 
 const FinalPlan: React.FC = () => {
   const navigate = useNavigate();
@@ -30,19 +12,23 @@ const FinalPlan: React.FC = () => {
   const [mpsTable, setMpsTable] = useState<MPSTableRow[]>([]);
   const [isCompleted, setIsCompleted] = useState(false);
 
-  // Check if we already have MPS table in state
+  // Sync local state with global state
+  // Note: ExperimentContext automatically clears production_mps_table when parameters change,
+  // so if the table exists, it's guaranteed to be valid for the current parameters.
   useEffect(() => {
     if (state.production_mps_table && state.production_mps_table.length > 0) {
       setMpsTable(state.production_mps_table);
       setIsCompleted(state.production_plan_completed);
+    } else {
+      setMpsTable([]);
+      setIsCompleted(false);
     }
-  }, []);
+  }, [state.production_mps_table, state.production_plan_completed]);
 
-  // Calculate safety stock (mock version, will use forecast variance when backend provides it)
-  const calculateSafetyStock = (demandForecast: number): number => {
-    const mockVarianceRatio = 0.05;
-    const zScore = state.production_safety_stock_z_score || 1.65;
-    return Math.round(demandForecast * mockVarianceRatio * zScore);
+  // Scientific safety stock calculation
+  const calculateSafetyStock = (std_dev: number): number => {
+    const zScore = state.production_safety_stock_z_score || 1.65; // Default to 95% confidence
+    return Math.round(zScore * std_dev);
   };
 
   // Generate MPS table
@@ -57,9 +43,9 @@ const FinalPlan: React.FC = () => {
       return;
     }
 
-    const modelType = MODEL_TYPE_MAP[state.selected_best_model];
-    if (!modelType) {
-      setError('无效的模型类型');
+    // Check if forecast results are available from step 4
+    if (!state.production_forecast_results || state.production_forecast_results.length === 0) {
+      setError('未找到预测结果，请先返回"计算预测量"步骤生成预测数据');
       return;
     }
 
@@ -67,31 +53,20 @@ const FinalPlan: React.FC = () => {
     setError(null);
 
     try {
-      // Call prediction API
-      const response = await apiClient.post<{ status: string; results: ForecastResult }>(
-        '/model/predict',
-        {
-          model_type: modelType,
-          forecast_steps: state.production_forecast_periods,
-        }
-      );
+      // Use cached forecast results from step 4 instead of calling API again
+      const predictions = state.production_forecast_results;
 
-      if (response.status !== 'success' || !response.results) {
-        setError('预测失败，请重试');
-        setIsGenerating(false);
-        return;
-      }
-
-      const predictions = response.results.predictions;
-
-      // Generate MPS table
+      // Generate MPS table using cached forecast results
       const generatedTable: MPSTableRow[] = [];
       let previousEndingInventory = state.production_initial_inventory || 0;
       let previousStockout = 0;
 
       for (let i = 0; i < predictions.length; i++) {
-        const demandForecast = Math.round(predictions[i]);
-        const safetyStock = calculateSafetyStock(demandForecast);
+        const prediction = predictions[i];
+        if (!prediction) continue; // Skip if prediction is undefined
+
+        const demandForecast = Math.round(prediction.prediction);
+        const safetyStock = calculateSafetyStock(prediction.std_dev);
         const plannedProduction = demandForecast + safetyStock;
 
         // Beginning inventory = previous period's ending inventory
@@ -112,7 +87,6 @@ const FinalPlan: React.FC = () => {
           endingInventory = 0;
         }
 
-        // Calculate service level
         const serviceLevel = demandForecast > 0 ? 1 - (stockout / demandForecast) : 1;
 
         const row: MPSTableRow = {
@@ -130,7 +104,6 @@ const FinalPlan: React.FC = () => {
 
         generatedTable.push(row);
 
-        // Update for next period
         previousEndingInventory = endingInventory;
         previousStockout = stockout;
       }

@@ -1,80 +1,91 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext';
 import {
   FileText, Save, Database, BarChart3, CheckSquare, Calculator, ClipboardList,
-  ChevronDown, ChevronUp, X, Download, CheckCircle, Loader2
+  X, CheckCircle, Loader2, Building, Factory, Package, TrendingUp, Brain, AlertTriangle,
 } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
-
-interface ReportSection {
-  title: string;
-  icon: React.ReactNode;
-  content: string;
-  analysis: string;
-}
-
-interface CollapsibleSectionProps {
-  title: string;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}
-
-const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ title, defaultOpen = true, children }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-
-  return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full py-3 px-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
-      >
-        <h3 className="font-semibold text-gray-900">{title}</h3>
-        {isOpen ? <ChevronUp className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
-      </button>
-      {isOpen && <div className="p-4 bg-white">{children}</div>}
-    </div>
-  );
-};
 
 interface UserSummary {
   user_id: number;
   username: string;
   full_name: string;
   email: string;
-  role: string;
-  phone_number?: string | null;
-  created_at: string;
 }
 
+// Moved ReportCard outside to prevent re-creation on every render
+const ReportCard = ({ icon, title, analysisKey, children, getAnalysisValue, getAnalysisSetter, isSubmitting }: {
+  icon: React.ReactNode,
+  title: string,
+  analysisKey: string,
+  children: React.ReactNode,
+  getAnalysisValue: (key: string) => string,
+  getAnalysisSetter: (key: string) => (value: string) => void,
+  isSubmitting: boolean
+}) => (
+  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="p-6 border-b border-gray-200 bg-gray-50/50">
+      <h2 className="text-xl font-semibold text-gray-800 flex items-center">
+        {icon}
+        <span className="ml-3">{title}</span>
+      </h2>
+    </div>
+    <div className="p-6 space-y-6">
+      {children}
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">结果分析<span className="text-red-500 ml-1">*</span></label>
+        <textarea
+          value={getAnalysisValue(analysisKey)}
+          onChange={(e) => getAnalysisSetter(analysisKey)(e.target.value)}
+          placeholder="请根据上述实验结果展开具体分析..."
+          className="w-full min-h-[120px] p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-y text-sm"
+          disabled={isSubmitting}
+        />
+      </div>
+    </div>
+  </div>
+);
+
 const ExperimentReport: React.FC = () => {
-  const { state, updateState, createNewExperiment } = useExperiment();
+  const { state, updateState } = useExperiment();
   const navigate = useNavigate();
 
-  // User info state
   const [userInfo, setUserInfo] = useState<UserSummary | null>(null);
-
-  // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pdfPath, setPdfPath] = useState<string | null>(null);
-
-  // Completion modal state
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
+  const [countdown, setCountdown] = useState(8);
 
-  // Generate default report title based on experiment state
-  const generateDefaultTitle = () => {
-    const industry = state.selected_industry || '未知行业';
-    const company = state.selected_company || '未知企业';
-    const product = state.selected_product || '未知产品';
-    return `${industry}-${company}-${product}需求预测与生产计划决策实验报告`;
-  };
+  // Countdown timer effect for auto-logout
+  useEffect(() => {
+    if (showCompletionModal) {
+      setCountdown(8); // Reset countdown each time modal opens
+      const timer = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            handleLogout();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
 
-  const [reportTitle, setReportTitle] = useState(generateDefaultTitle());
+      return () => clearInterval(timer); // Cleanup on unmount or modal close
+    }
+  }, [showCompletionModal]);
+
+  // Scroll to top on component mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   // Fetch user info on mount
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchUserInfo = async () => {
       try {
         const profile = await apiClient.get<UserSummary>('/users/me');
@@ -86,769 +97,401 @@ const ExperimentReport: React.FC = () => {
     fetchUserInfo();
   }, []);
 
-  // Section 1: 数据情况
   const [dataAnalysis, setDataAnalysis] = useState('');
-  const dataContent = useMemo(() => {
-    return `实验数据概况：
-• 行业：${state.selected_industry || 'N/A'}
-• 公司：${state.selected_company || 'N/A'}
-• 产品：${state.selected_product || 'N/A'}
-• 训练集范围：索引 ${state.data_window_train_start_index ?? 'N/A'} 至 ${state.data_window_train_end_index ?? 'N/A'}（共 ${state.data_window_train_end_index !== null && state.data_window_train_start_index !== null ? state.data_window_train_end_index - state.data_window_train_start_index + 1 : 'N/A'} 个数据点）
-• 评估集范围：索引 ${state.data_window_evaluate_start_index ?? 'N/A'} 至 ${state.data_window_evaluate_end_index ?? 'N/A'}（共 ${state.data_window_evaluate_end_index !== null && state.data_window_evaluate_start_index !== null ? state.data_window_evaluate_end_index - state.data_window_evaluate_start_index + 1 : 'N/A'} 个数据点）`;
-  }, [state]);
-
-  // Section 2: 模型对比结果
   const [modelComparisonAnalysis, setModelComparisonAnalysis] = useState('');
-  const modelComparisonContent = useMemo(() => {
-    const models = [];
-
-    if (state.moving_average_completed) {
-      models.push({
-        name: '移动平均法',
-        params: `窗口大小: ${state.moving_average_window ?? 'N/A'}`,
-        rmse: state.moving_average_metrics_rmse,
-        mae: state.moving_average_metrics_mae,
-        r2: state.moving_average_metrics_r2,
-      });
-    }
-
-    if (state.exponential_smoothing_completed) {
-      models.push({
-        name: '指数平滑法',
-        params: `平滑系数α: ${state.exponential_smoothing_alpha ?? 'N/A'}`,
-        rmse: state.exponential_smoothing_metrics_rmse,
-        mae: state.exponential_smoothing_metrics_mae,
-        r2: state.exponential_smoothing_metrics_r2,
-      });
-    }
-
-    if (state.arima_completed) {
-      models.push({
-        name: 'ARIMA模型',
-        params: `参数(p,d,q): (${state.arima_p ?? '?'}, ${state.arima_d ?? '?'}, ${state.arima_q ?? '?'})`,
-        rmse: state.arima_metrics_rmse,
-        mae: state.arima_metrics_mae,
-        r2: state.arima_metrics_r2,
-      });
-    }
-
-    if (state.lstm_completed) {
-      models.push({
-        name: 'LSTM神经网络',
-        params: `归一化: ${state.lstm_normalization || 'N/A'}, 目标字段: ${state.lstm_target_field || 'N/A'}, 特征数: ${state.lstm_features?.length ?? 0}`,
-        rmse: state.lstm_metrics_rmse,
-        mae: state.lstm_metrics_mae,
-        r2: state.lstm_metrics_r2,
-      });
-    }
-
-    if (state.ensemble_weighted_completed) {
-      models.push({
-        name: '加权平均融合',
-        params: `基础模型: ${state.ensemble_weighted_base_models?.join(', ') || 'N/A'}`,
-        rmse: state.ensemble_weighted_metrics_rmse,
-        mae: state.ensemble_weighted_metrics_mae,
-        r2: state.ensemble_weighted_metrics_r2,
-      });
-    }
-
-    if (state.ensemble_boosting_completed) {
-      models.push({
-        name: 'Boosting融合',
-        params: `基础模型: ${state.ensemble_boosting_base_models?.join(', ') || 'N/A'}`,
-        rmse: state.ensemble_boosting_metrics_rmse,
-        mae: state.ensemble_boosting_metrics_mae,
-        r2: state.ensemble_boosting_metrics_r2,
-      });
-    }
-
-    if (state.ensemble_stacking_completed) {
-      models.push({
-        name: 'Stacking融合',
-        params: `基础模型: ${state.ensemble_stacking_base_models?.join(', ') || 'N/A'}`,
-        rmse: state.ensemble_stacking_metrics_rmse,
-        mae: state.ensemble_stacking_metrics_mae,
-        r2: state.ensemble_stacking_metrics_r2,
-      });
-    }
-
-    if (models.length === 0) {
-      return '暂无已完成的模型，无法进行对比。';
-    }
-
-    let result = '各模型性能对比表：\n\n';
-    result += '模型名称 | 参数配置 | RMSE | MAE | R²\n';
-    result += ''.padEnd(80, '-') + '\n';
-
-    models.forEach(model => {
-      result += `${model.name.padEnd(12)} | ${model.params.padEnd(30)} | ${model.rmse !== null ? model.rmse.toFixed(4) : 'N/A'} | ${model.mae !== null ? model.mae.toFixed(4) : 'N/A'} | ${model.r2 !== null ? model.r2.toFixed(4) : 'N/A'}\n`;
-    });
-
-    return result;
-  }, [state]);
-
-  // Section 3: 模型选择结果
   const [modelSelectionAnalysis, setModelSelectionAnalysis] = useState('');
-  const modelSelectionContent = useMemo(() => {
-    const labels: Record<SelectedBestModel, string> = {
-      ma: '移动平均法',
-      exp: '指数平滑法',
-      arima: 'ARIMA模型',
-      lstm: 'LSTM神经网络',
-      ensemble_weighted: '加权平均融合',
-      ensemble_boosting: 'Boosting融合',
-      ensemble_stacking: 'Stacking融合',
-    };
-
-    if (!state.selected_best_model) {
-      return '尚未选择最优模型。';
-    }
-
-    const bestModelName = labels[state.selected_best_model];
-    let metrics: ModelMetrics | null = null;
-
-    switch (state.selected_best_model) {
-      case 'ma':
-        metrics = {
-          rmse: state.moving_average_metrics_rmse,
-          mae: state.moving_average_metrics_mae,
-          r2: state.moving_average_metrics_r2,
-        };
-        break;
-      case 'exp':
-        metrics = {
-          rmse: state.exponential_smoothing_metrics_rmse,
-          mae: state.exponential_smoothing_metrics_mae,
-          r2: state.exponential_smoothing_metrics_r2,
-        };
-        break;
-      case 'arima':
-        metrics = {
-          rmse: state.arima_metrics_rmse,
-          mae: state.arima_metrics_mae,
-          r2: state.arima_metrics_r2,
-        };
-        break;
-      case 'lstm':
-        metrics = {
-          rmse: state.lstm_metrics_rmse,
-          mae: state.lstm_metrics_mae,
-          r2: state.lstm_metrics_r2,
-        };
-        break;
-      case 'ensemble_weighted':
-        metrics = {
-          rmse: state.ensemble_weighted_metrics_rmse,
-          mae: state.ensemble_weighted_metrics_mae,
-          r2: state.ensemble_weighted_metrics_r2,
-        };
-        break;
-      case 'ensemble_boosting':
-        metrics = {
-          rmse: state.ensemble_boosting_metrics_rmse,
-          mae: state.ensemble_boosting_metrics_mae,
-          r2: state.ensemble_boosting_metrics_r2,
-        };
-        break;
-      case 'ensemble_stacking':
-        metrics = {
-          rmse: state.ensemble_stacking_metrics_rmse,
-          mae: state.ensemble_stacking_metrics_mae,
-          r2: state.ensemble_stacking_metrics_r2,
-        };
-        break;
-    }
-
-    return `最优模型选择结果：
-
-选定模型：${bestModelName}
-
-性能指标：
-• RMSE（均方根误差）：${metrics?.rmse !== null ? metrics?.rmse?.toFixed(4) : 'N/A'}
-• MAE（平均绝对误差）：${metrics?.mae !== null ? metrics?.mae?.toFixed(4) : 'N/A'}
-• R²（决定系数）：${metrics?.r2 !== null ? metrics?.r2?.toFixed(4) : 'N/A'}`;
-  }, [state]);
-
-  // Section 4: 生产计划参数计算结果
   const [planParamsAnalysis, setPlanParamsAnalysis] = useState('');
-  const planParamsContent = useMemo(() => {
-    if (!state.production_plan_completed) {
-      return '尚未完成生产计划制定，无法显示参数计算结果。';
-    }
-
-    const totalDemand = state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0);
-    const avgSafetyStock = state.production_mps_table.length > 0
-      ? state.production_mps_table.reduce((sum, row) => sum + row.safety_stock, 0) / state.production_mps_table.length
-      : 0;
-
-    return `生产计划参数计算结果：
-
-基础参数设置：
-• 预测期数：${state.production_forecast_periods || 'N/A'} 期
-• 期初库存：${state.production_initial_inventory?.toLocaleString() || 'N/A'} 件
-• 目标服务水平：${state.production_target_service_level ? (state.production_target_service_level * 100).toFixed(0) + '%' : 'N/A'}
-• 安全库存系数（Z分数）：${state.production_safety_stock_z_score?.toFixed(2) || 'N/A'}
-
-计算结果汇总：
-• 总预测需求量：${totalDemand.toLocaleString()} 件（${state.production_forecast_periods || 0}期累计）
-• 平均安全库存：${Math.round(avgSafetyStock).toLocaleString()} 件/期
-• 预测模型：${state.selected_best_model || 'N/A'}`;
-  }, [state]);
-
-  // Section 5: 生产计划决策结果
   const [planDecisionAnalysis, setPlanDecisionAnalysis] = useState('');
-  const planDecisionContent = useMemo(() => {
-    if (!state.production_plan_completed || state.production_mps_table.length === 0) {
-      return '尚未完成生产计划制定，无法显示MPS表。';
-    }
 
-    const totalDemand = state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0);
-    const totalProduction = state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0);
-    const totalStockout = state.production_mps_table.reduce((sum, row) => sum + row.stockout, 0);
-    const avgInventory = state.production_mps_table.reduce((sum, row) => sum + row.ending_inventory, 0) / state.production_mps_table.length;
-    const avgServiceLevel = state.production_mps_table.reduce((sum, row) => sum + row.service_level, 0) / state.production_mps_table.length;
-    const stockoutPeriods = state.production_mps_table.filter(row => row.stockout > 0).length;
+  const getAnalysisSetter = (key: string) => {
+    const setters: { [key: string]: React.Dispatch<React.SetStateAction<string>> } = {
+      data: setDataAnalysis,
+      comparison: setModelComparisonAnalysis,
+      selection: setModelSelectionAnalysis,
+      params: setPlanParamsAnalysis,
+      decision: setPlanDecisionAnalysis,
+    };
+    return setters[key] || (() => { });
+  };
 
-    let result = '主生产计划表（MPS Table）：\n\n';
-    result += '期数 | 预测需求 | 安全库存 | 计划生产 | 期初库存 | 产出量 | 期末库存 | 缺货量 | 服务水平\n';
-    result += ''.padEnd(120, '-') + '\n';
+  const getAnalysisValue = (key: string) => {
+    const values: { [key: string]: string } = {
+      data: dataAnalysis,
+      comparison: modelComparisonAnalysis,
+      selection: modelSelectionAnalysis,
+      params: planParamsAnalysis,
+      decision: planDecisionAnalysis,
+    };
+    return values[key] || '';
+  };
 
-    state.production_mps_table.forEach(row => {
-      result += `${row.period_label.padEnd(6)} | `;
-      result += `${row.demand_forecast.toString().padStart(8)} | `;
-      result += `${row.safety_stock.toString().padStart(8)} | `;
-      result += `${row.planned_production.toString().padStart(8)} | `;
-      result += `${row.beginning_inventory.toString().padStart(8)} | `;
-      result += `${row.production_output.toString().padStart(6)} | `;
-      result += `${row.ending_inventory.toString().padStart(8)} | `;
-      result += `${row.stockout.toString().padStart(6)} | `;
-      result += `${(row.service_level * 100).toFixed(1).padStart(6)}%\n`;
-    });
-
-    result += '\n计划摘要分析：\n';
-    result += `• 总预测需求：${totalDemand.toLocaleString()} 件\n`;
-    result += `• 总产出量：${totalProduction.toLocaleString()} 件\n`;
-    result += `• 总缺货量：${totalStockout.toLocaleString()} 件\n`;
-    result += `• 平均期末库存：${Math.round(avgInventory).toLocaleString()} 件\n`;
-    result += `• 平均服务水平：${(avgServiceLevel * 100).toFixed(1)}%（目标：${state.production_target_service_level ? (state.production_target_service_level * 100).toFixed(0) : 'N/A'}%）\n`;
-    result += `• 缺货期数：${stockoutPeriods} / ${state.production_mps_table.length} 期`;
-
-    return result;
+  const allModels = useMemo(() => {
+    const models = [];
+    if (state.moving_average_completed) models.push({ name: '移动平均法', params: `窗口: ${state.moving_average_window ?? 'N/A'}`, rmse: state.moving_average_metrics_rmse, mae: state.moving_average_metrics_mae, r2: state.moving_average_metrics_r2 });
+    if (state.exponential_smoothing_completed) models.push({ name: '指数平滑法', params: `Alpha: ${state.exponential_smoothing_alpha ?? 'N/A'}`, rmse: state.exponential_smoothing_metrics_rmse, mae: state.exponential_smoothing_metrics_mae, r2: state.exponential_smoothing_metrics_r2 });
+    if (state.arima_completed) models.push({ name: 'ARIMA', params: `(p,d,q): (${state.arima_p ?? '?'},${state.arima_d ?? '?'},${state.arima_q ?? '?'})`, rmse: state.arima_metrics_rmse, mae: state.arima_metrics_mae, r2: state.arima_metrics_r2 });
+    if (state.lstm_completed) models.push({ name: 'LSTM', params: `归一化: ${state.lstm_normalization || 'N/A'}`, rmse: state.lstm_metrics_rmse, mae: state.lstm_metrics_mae, r2: state.lstm_metrics_r2 });
+    if (state.ensemble_weighted_completed) models.push({ name: '加权融合', params: `模型数: ${state.ensemble_weighted_base_models?.length ?? 0}`, rmse: state.ensemble_weighted_metrics_rmse, mae: state.ensemble_weighted_metrics_mae, r2: state.ensemble_weighted_metrics_r2 });
+    if (state.ensemble_boosting_completed) models.push({ name: 'Boosting融合', params: `模型数: ${state.ensemble_boosting_base_models?.length ?? 0}`, rmse: state.ensemble_boosting_metrics_rmse, mae: state.ensemble_boosting_metrics_mae, r2: state.ensemble_boosting_metrics_r2 });
+    if (state.ensemble_stacking_completed) models.push({ name: 'Stacking融合', params: `模型数: ${state.ensemble_stacking_base_models?.length ?? 0}`, rmse: state.ensemble_stacking_metrics_rmse, mae: state.ensemble_stacking_metrics_mae, r2: state.ensemble_stacking_metrics_r2 });
+    return models;
   }, [state]);
 
-  const sections: ReportSection[] = [
-    {
-      title: '一、数据情况',
-      icon: <Database className="w-5 h-5" />,
-      content: dataContent,
-      analysis: dataAnalysis,
-    },
-    {
-      title: '二、模型对比结果',
-      icon: <BarChart3 className="w-5 h-5" />,
-      content: modelComparisonContent,
-      analysis: modelComparisonAnalysis,
-    },
-    {
-      title: '三、模型选择结果',
-      icon: <CheckSquare className="w-5 h-5" />,
-      content: modelSelectionContent,
-      analysis: modelSelectionAnalysis,
-    },
-    {
-      title: '四、生产计划参数计算结果',
-      icon: <Calculator className="w-5 h-5" />,
-      content: planParamsContent,
-      analysis: planParamsAnalysis,
-    },
-    {
-      title: '五、生产计划决策结果',
-      icon: <ClipboardList className="w-5 h-5" />,
-      content: planDecisionContent,
-      analysis: planDecisionAnalysis,
-    },
-  ];
-
-  const getAnalysisSetter = (index: number) => {
-    switch (index) {
-      case 0: return setDataAnalysis;
-      case 1: return setModelComparisonAnalysis;
-      case 2: return setModelSelectionAnalysis;
-      case 3: return setPlanParamsAnalysis;
-      case 4: return setPlanDecisionAnalysis;
-      default: return () => {};
-    }
-  };
-
-  const getAnalysisValue = (index: number) => {
-    switch (index) {
-      case 0: return dataAnalysis;
-      case 1: return modelComparisonAnalysis;
-      case 2: return modelSelectionAnalysis;
-      case 3: return planParamsAnalysis;
-      case 4: return planDecisionAnalysis;
-      default: return '';
-    }
-  };
-
-  // Generate HTML report
-  const generateHTMLReport = (): string => {
-    const escapeHtml = (text: string) => {
-      return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;')
-        .replace(/\n/g, '<br>');
+  const bestModelMetrics = useMemo(() => {
+    const modelKey = state.selected_best_model;
+    if (!modelKey) return null;
+    const metricsMap: Record<SelectedBestModel, ModelMetrics> = {
+      ma: { rmse: state.moving_average_metrics_rmse, mae: state.moving_average_metrics_mae, r2: state.moving_average_metrics_r2 },
+      exp: { rmse: state.exponential_smoothing_metrics_rmse, mae: state.exponential_smoothing_metrics_mae, r2: state.exponential_smoothing_metrics_r2 },
+      arima: { rmse: state.arima_metrics_rmse, mae: state.arima_metrics_mae, r2: state.arima_metrics_r2 },
+      lstm: { rmse: state.lstm_metrics_rmse, mae: state.lstm_metrics_mae, r2: state.lstm_metrics_r2 },
+      ensemble_weighted: { rmse: state.ensemble_weighted_metrics_rmse, mae: state.ensemble_weighted_metrics_mae, r2: state.ensemble_weighted_metrics_r2 },
+      ensemble_boosting: { rmse: state.ensemble_boosting_metrics_rmse, mae: state.ensemble_boosting_metrics_mae, r2: state.ensemble_boosting_metrics_r2 },
+      ensemble_stacking: { rmse: state.ensemble_stacking_metrics_rmse, mae: state.ensemble_stacking_metrics_mae, r2: state.ensemble_stacking_metrics_r2 },
     };
+    return metricsMap[modelKey];
+  }, [state]);
 
-    // Format date
-    const formatDate = (dateString: string | null): string => {
-      if (!dateString) return '未知';
-      try {
-        const date = new Date(dateString);
-        return date.toLocaleString('zh-CN', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        });
-      } catch {
-        return '未知';
-      }
-    };
+  const generateHTMLForTables = () => {
+    const modelLabels: Record<SelectedBestModel, string> = { ma: '移动平均法', exp: '指数平滑法', arima: 'ARIMA模型', lstm: 'LSTM神经网络', ensemble_weighted: '加权平均融合', ensemble_boosting: 'Boosting融合', ensemble_stacking: 'Stacking融合' };
 
-    // Get current date
-    const currentDate = new Date().toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
+    const renderValue = (val: number | null | undefined) => val?.toFixed(4) ?? 'N/A';
+
+    let html = '<h2>一、实验概述</h2><table>';
+    html += `<tr><td>行业</td><td>${state.selected_industry || 'N/A'}</td></tr>`;
+    html += `<tr><td>公司</td><td>${state.selected_company || 'N/A'}</td></tr>`;
+    html += `<tr><td>产品</td><td>${state.selected_product || 'N/A'}</td></tr></table>`;
+
+    html += '<h2>二、模型性能对比</h2><table><thead><tr><th>模型</th><th>参数</th><th>RMSE</th><th>MAE</th><th>R²</th></tr></thead><tbody>';
+    allModels.forEach(m => {
+      html += `<tr><td>${m.name}</td><td>${m.params}</td><td>${renderValue(m.rmse)}</td><td>${renderValue(m.mae)}</td><td>${renderValue(m.r2)}</td></tr>`;
     });
+    html += '</tbody></table>';
 
-    const sections = [
-      {
-        title: '一、数据情况',
-        content: dataContent,
-        analysis: dataAnalysis,
-      },
-      {
-        title: '二、模型对比结果',
-        content: modelComparisonContent,
-        analysis: modelComparisonAnalysis,
-      },
-      {
-        title: '三、模型选择结果',
-        content: modelSelectionContent,
-        analysis: modelSelectionAnalysis,
-      },
-      {
-        title: '四、生产计划参数计算结果',
-        content: planParamsContent,
-        analysis: planParamsAnalysis,
-      },
-      {
-        title: '五、生产计划决策结果',
-        content: planDecisionContent,
-        analysis: planDecisionAnalysis,
-      },
-    ];
+    html += '<h2>三、最优模型</h2><table>';
+    html += `<tr><td>选定模型</td><td colspan="2">${state.selected_best_model ? modelLabels[state.selected_best_model] : 'N/A'}</td></tr>`;
+    html += `<tr><td>RMSE</td><td colspan="2">${renderValue(bestModelMetrics?.rmse)}</td></tr>`;
+    html += `<tr><td>MAE</td><td colspan="2">${renderValue(bestModelMetrics?.mae)}</td></tr>`;
+    html += `<tr><td>R²</td><td colspan="2">${renderValue(bestModelMetrics?.r2)}</td></tr></table>`;
 
-    let htmlContent = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(reportTitle)}</title>
-  <style>
-    body {
-      font-family: 'SimSun', serif;
-      line-height: 1.8;
-      max-width: 900px;
-      margin: 40px auto;
-      padding: 20px;
-      background: #fff;
-    }
-    h1 {
-      text-align: center;
-      font-size: 24px;
-      font-weight: bold;
-      margin-bottom: 20px;
-      color: #333;
-    }
-    .report-meta {
-      text-align: center;
-      margin-bottom: 40px;
-      padding: 20px;
-      background: #f8f9fa;
-      border-radius: 8px;
-      border: 1px solid #e0e0e0;
-    }
-    .report-meta table {
-      margin: 0 auto;
-      border-collapse: collapse;
-    }
-    .report-meta td {
-      padding: 8px 20px;
-      text-align: left;
-      font-size: 14px;
-      color: #555;
-    }
-    .report-meta .label {
-      font-weight: bold;
-      color: #333;
-      text-align: right;
-    }
-    h2 {
-      font-size: 18px;
-      font-weight: bold;
-      margin-top: 30px;
-      margin-bottom: 15px;
-      color: #333;
-    }
-    h3 {
-      font-size: 16px;
-      font-weight: bold;
-      margin-top: 20px;
-      margin-bottom: 10px;
-      color: #555;
-    }
-    p {
-      text-indent: 2em;
-      margin-bottom: 12px;
-      color: #333;
-    }
-    .section {
-      margin-bottom: 30px;
-    }
-    .content-box {
-      background: #f5f5f5;
-      padding: 15px;
-      border-left: 4px solid #4a90e2;
-      margin: 15px 0;
-      font-family: 'Courier New', monospace;
-      white-space: pre-wrap;
-      color: #333;
-    }
-  </style>
-</head>
-<body>
-  <h1>${escapeHtml(reportTitle)}</h1>
+    html += '<h2>四、生产计划参数</h2><table>';
+    html += `<tr><td>预测期数</td><td>${state.production_forecast_periods || 'N/A'}</td></tr>`;
+    html += `<tr><td>期初库存</td><td>${state.production_initial_inventory?.toLocaleString() || 'N/A'}</td></tr>`;
+    html += `<tr><td>目标服务水平</td><td>${state.production_target_service_level ? (state.production_target_service_level * 100).toFixed(0) + '%' : 'N/A'}</td></tr></table>`;
 
-  <div class="report-meta">
-    <table>
-      <tr>
-        <td class="label">学生姓名：</td>
-        <td>${escapeHtml(userInfo?.full_name || userInfo?.username || '未知')}</td>
-        <td class="label">学生ID：</td>
-        <td>${state.student_id || '未知'}</td>
-      </tr>
-      <tr>
-        <td class="label">实验ID：</td>
-        <td>${state.experiment_id || '未知'}</td>
-        <td class="label">实验开始时间：</td>
-        <td>${formatDate(state.start_time)}</td>
-      </tr>
-      <tr>
-        <td class="label">报告生成时间：</td>
-        <td colspan="3">${currentDate}</td>
-      </tr>
-    </table>
-  </div>
-`;
-
-    sections.forEach((section) => {
-      htmlContent += `
-  <div class="section">
-    <h2>${escapeHtml(section.title)}</h2>
-    <h3>实验结果</h3>
-    <div class="content-box">${escapeHtml(section.content)}</div>
-    <h3>结果分析</h3>
-    <p>${escapeHtml(section.analysis || '暂无分析内容')}</p>
-  </div>
-`;
+    html += '<h2>五、主生产计划 (MPS)</h2><table><thead><tr><th>周期</th><th>预测需求</th><th>安全库存</th><th>期初库存</th><th>产出量</th><th>期末库存</th><th>缺货量</th><th>服务水平</th></tr></thead><tbody>';
+    state.production_mps_table.forEach(row => {
+      html += `<tr><td>${row.period_label}</td><td>${row.demand_forecast}</td><td>${row.safety_stock}</td><td>${row.beginning_inventory}</td><td>${row.production_output}</td><td>${row.ending_inventory}</td><td>${row.stockout}</td><td>${(row.service_level * 100).toFixed(1)}%</td></tr>`;
     });
+    html += '</tbody></table>';
 
-    htmlContent += `
-</body>
-</html>`;
-
-    return htmlContent;
+    return html;
   };
 
-  // Convert string to base64
-  const toBase64 = (str: string): string => {
-    return btoa(unescape(encodeURIComponent(str)));
-  };
-
-  // Handle save and submit
   const handleSave = async () => {
     if (!state.experiment_id) {
       setSubmitError('实验ID不存在，无法提交报告');
       return;
     }
-
-    // Basic validation - check if all sections have analysis content
-    const hasEmptySection = sections.some((_, idx) => !getAnalysisValue(idx).trim());
-    if (hasEmptySection) {
-      setSubmitError('请完成所有部分的分析内容后再提交');
+    if (Object.values({ dataAnalysis, modelComparisonAnalysis, modelSelectionAnalysis, planParamsAnalysis, planDecisionAnalysis }).some(v => !v.trim())) {
+      setShowValidationErrorModal(true);
       return;
     }
 
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(false);
+
     try {
-      setIsSubmitting(true);
-      setSubmitError(null);
-      setSubmitSuccess(false);
+      const modelLabels: Record<SelectedBestModel, string> = { ma: '移动平均法', exp: '指数平滑法', arima: 'ARIMA模型', lstm: 'LSTM神经网络', ensemble_weighted: '加权平均融合', ensemble_boosting: 'Boosting融合', ensemble_stacking: 'Stacking融合' };
+      const renderValue = (val: number | null | undefined, precision = 4) => val !== null && val !== undefined ? val.toFixed(precision) : 'N/A';
 
-      // Generate HTML report
-      const htmlReport = generateHTMLReport();
+      const formatDate = (dateString: string | null): string => {
+        if (!dateString) return '未知';
+        try {
+          return new Date(dateString).toLocaleString('zh-CN', { hour12: false });
+        } catch {
+          return '未知';
+        }
+      };
+      const currentDate = new Date().toLocaleString('zh-CN', { hour12: false });
 
-      // Convert to base64
-      const base64Content = toBase64(htmlReport);
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="zh-CN">
+        <head>
+          <meta charset="UTF-8">
+          <title>实验报告</title>
+          <style>
+            body { font-family: 'SimSun', serif; line-height: 1.6; color: #333; max-width: 900px; margin: 40px auto; }
+            h1, h2, h3 { color: #1a202c; }
+            h1 { text-align: center; font-size: 24px; }
+            h2 { font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-top: 24px; }
+            .report-meta { text-align: center; margin-bottom: 40px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0; }
+            .report-meta table { margin: 0 auto; border-collapse: collapse; }
+            .report-meta td { padding: 8px 15px; text-align: left; font-size: 14px; color: #555; border: none; }
+            .report-meta .label { font-weight: bold; color: #333; text-align: right; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { border: 1px solid #cbd5e0; padding: 8px; text-align: left; font-size: 14px; }
+            th { background-color: #f7fafc; }
+            .analysis { margin-top: 16px; text-indent: 2em; }
+          </style>
+        </head>
+        <body>
+          <h1>${userInfo?.full_name || '学生'}的实验报告</h1>
+          
+          <div class="report-meta">
+            <table>
+              <tr>
+                <td class="label">学生姓名：</td><td>${userInfo?.full_name || '未知'}</td>
+                <td class="label">学生ID：</td><td>${state.student_id || '未知'}</td>
+              </tr>
+              <tr>
+                <td class="label">实验ID：</td><td>${state.experiment_id || '未知'}</td>
+                <td class="label">实验开始时间：</td><td>${formatDate(state.start_time)}</td>
+              </tr>
+              <tr>
+                <td class="label">报告生成时间：</td><td colspan="3">${currentDate}</td>
+              </tr>
+            </table>
+          </div>
 
-      // Submit to API
-      const response = await apiClient.post<{
-        message: string;
-        report_id: number;
-        pdf_path: string;
-      }>('/reports', {
+          <h2>一、实验概述</h2>
+          <table>
+            <tr><th>行业</th><td>${state.selected_industry || 'N/A'}</td></tr>
+            <tr><th>公司</th><td>${state.selected_company || 'N/A'}</td></tr>
+            <tr><th>产品</th><td>${state.selected_product || 'N/A'}</td></tr>
+          </table>
+          <p class="analysis">${dataAnalysis}</p>
+
+          <h2>二、模型性能对比</h2>
+          <table>
+            <thead><tr><th>模型</th><th>参数</th><th>RMSE</th><th>MAE</th><th>R²</th></tr></thead>
+            <tbody>
+              ${allModels.map(m => `
+                <tr>
+                  <td>${m.name}</td>
+                  <td>${m.params}</td>
+                  <td>${renderValue(m.rmse)}</td>
+                  <td>${renderValue(m.mae)}</td>
+                  <td>${renderValue(m.r2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <p class="analysis">${modelComparisonAnalysis}</p>
+
+          <h2>三、最优模型选择</h2>
+          <table>
+            <tr><th>选定模型</th><td>${state.selected_best_model ? modelLabels[state.selected_best_model] : 'N/A'}</td></tr>
+            <tr><th>RMSE</th><td>${renderValue(bestModelMetrics?.rmse)}</td></tr>
+            <tr><th>MAE</th><td>${renderValue(bestModelMetrics?.mae)}</td></tr>
+            <tr><th>R²</th><td>${renderValue(bestModelMetrics?.r2)}</td></tr>
+          </table>
+          <p class="analysis">${modelSelectionAnalysis}</p>
+
+          <h2>四、生产计划参数</h2>
+          <table>
+            <tr><th>预测期数</th><td>${state.production_forecast_periods || 'N/A'}</td></tr>
+            <tr><th>期初库存</th><td>${state.production_initial_inventory?.toLocaleString() || 'N/A'}</td></tr>
+            <tr><th>目标服务水平</th><td>${state.production_target_service_level ? `${(state.production_target_service_level * 100).toFixed(0)}%` : 'N/A'}</td></tr>
+          </table>
+          <p class="analysis">${planParamsAnalysis}</p>
+
+          <h2>五、主生产计划 (MPS)</h2>
+          <table>
+            <thead><tr><th>周期</th><th>预测需求</th><th>安全库存</th><th>期初库存</th><th>产出量</th><th>期末库存</th><th>缺货量</th><th>服务水平</th></tr></thead>
+            <tbody>
+              ${state.production_mps_table.map(row => `
+                <tr>
+                  <td>${row.period_label}</td>
+                  <td>${row.demand_forecast}</td>
+                  <td>${row.safety_stock}</td>
+                  <td>${row.beginning_inventory}</td>
+                  <td>${row.production_output}</td>
+                  <td>${row.ending_inventory}</td>
+                  <td>${row.stockout}</td>
+                  <td>${(row.service_level * 100).toFixed(1)}%</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <p class="analysis">${planDecisionAnalysis}</p>
+        </body>
+        </html>
+      `;
+
+      const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
+
+      const response = await apiClient.post<{ message: string; report_id: number; pdf_path: string }>('/reports', {
         experiment_id: state.experiment_id,
         report_content: base64Content,
       });
 
       setSubmitSuccess(true);
       setPdfPath(response.pdf_path);
-      setSubmitError(null);
-
-      // Update experiment state to completed
       const now = new Date().toISOString();
-      await updateState({
-        status: 'Completed',
-        last_activity_at: now,
-        completion_time: now,
-      });
-
-      // Show completion modal
+      await updateState({ status: 'Completed', last_activity_at: now, completion_time: now });
       setShowCompletionModal(true);
+
     } catch (error: any) {
-      console.error('Failed to submit report:', error);
       setSubmitError(error.message || '提交报告失败，请重试');
-      setSubmitSuccess(false);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleClose = () => {
-    navigate('/production');
-  };
-
-  const handleStartNewExperiment = async () => {
-    try {
-      // Create a new experiment and update global state
-      await createNewExperiment();
-      // Redirect to introduction page
-      navigate('/introduction');
-    } catch (error) {
-      console.error('Failed to start new experiment:', error);
-      // Still navigate to introduction even if creation fails
-      navigate('/introduction');
-    }
-  };
 
   const handleLogout = () => {
-    // Clear token and redirect to login
     localStorage.removeItem('token');
     window.location.href = '/login';
   };
 
+  const renderValue = (value: string | number | null | undefined) => value ?? <span className="text-gray-400">N/A</span>;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      {/* Close Button */}
-      <button
-        onClick={handleClose}
-        className="absolute top-6 right-6 p-2 text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg transition-all z-10 shadow-sm"
-        title="关闭并返回生产计划"
-        disabled={isSubmitting}
-      >
-        <X className="w-6 h-6" />
-      </button>
-
-      <div className="min-h-screen flex flex-col">
-        <div className="flex-1 overflow-y-auto">
-          <div className="p-8 max-w-[1400px] mx-auto">
-            <header className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
-                <FileText className="w-8 h-8 mr-3 text-blue-600" />
-                撰写实验报告
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto p-8">
+        <header className="mb-8">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 flex items-center">
+                <FileText className="w-9 h-9 mr-4 text-blue-600" />
+                实验报告
               </h1>
-              <p className="text-gray-600 mb-4">
-                请根据实验结果，完成以下报告标题和五个部分的分析。
+              <p className="text-gray-600 mt-2">
+                请根据实验结果，完成以下五个部分的分析，然后提交报告。
               </p>
-
-              {/* Report Title Editor */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  报告标题
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={reportTitle}
-                  onChange={(e) => setReportTitle(e.target.value)}
-                  placeholder="请输入报告标题"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg font-medium"
-                  disabled={isSubmitting}
-                />
-              </div>
-
-              {/* Submission Status Messages */}
-              {submitError && (
-                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-2">
-                  <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h3 className="font-semibold text-red-900 mb-1">提交失败</h3>
-                    <p className="text-red-700 text-sm">{submitError}</p>
-                  </div>
-                </div>
-              )}
-
-              {submitSuccess && pdfPath && (
-                <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
-                  <div className="flex items-start space-x-2">
-                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-green-900 mb-1">提交成功！</h3>
-                      <p className="text-green-700 text-sm mb-3">您的实验报告已成功生成并保存为PDF文件。</p>
-                      <div className="flex items-center space-x-3">
-                        <code className="text-xs bg-white px-3 py-1 rounded border border-green-200 text-gray-700">
-                          {pdfPath}
-                        </code>
-                        <button
-                          onClick={() => navigate('/production')}
-                          className="text-sm text-green-700 hover:text-green-800 font-medium underline"
-                        >
-                          返回生产计划
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </header>
-
-            <div className="space-y-6">
-              {sections.map((section, idx) => (
-                <CollapsibleSection key={idx} title={section.title}>
-                  <div className="space-y-4">
-                    {/* Display experiment results */}
-                    <div>
-                      <div className="flex items-center space-x-2 mb-2">
-                        {section.icon}
-                        <h4 className="font-semibold text-gray-900">实验结果</h4>
-                      </div>
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <pre className="text-sm text-gray-800 whitespace-pre-wrap font-mono">
-                          {section.content}
-                        </pre>
-                      </div>
-                    </div>
-
-                    {/* Analysis textarea */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="font-semibold text-gray-900">
-                          结果分析
-                          <span className="text-red-500 ml-1">*</span>
-                        </label>
-                      </div>
-                      <textarea
-                        value={getAnalysisValue(idx)}
-                        onChange={(e) => getAnalysisSetter(idx)(e.target.value)}
-                        placeholder="请根据上述实验结果展开具体分析，要求逻辑通顺，表述完整..."
-                        className="w-full min-h-[200px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y text-sm"
-                        disabled={isSubmitting}
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        提示：请根据实验结果展开具体分析，要求逻辑通顺，表述完整。
-                      </p>
-                    </div>
-                  </div>
-                </CollapsibleSection>
-              ))}
             </div>
-
-            <footer className="mt-8 flex justify-end pb-8">
-              <button
-                onClick={handleSave}
-                disabled={isSubmitting || submitSuccess}
-                className="inline-flex items-center justify-center px-8 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-sm hover:shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    提交中...
-                  </>
-                ) : submitSuccess ? (
-                  <>
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    已提交
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-5 h-5 mr-2" />
-                    保存并提交报告
-                  </>
-                )}
-              </button>
-            </footer>
+            <button onClick={() => navigate('/production')} disabled={showCompletionModal} className="p-2 text-gray-500 hover:bg-gray-200 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="返回">
+              <X className="w-6 h-6" />
+            </button>
           </div>
-        </div>
+        </header>
+
+        <main className="space-y-8">
+          <ReportCard icon={<Database className="w-6 h-6 text-blue-600" />} title="一、实验概述" analysisKey="data" getAnalysisValue={getAnalysisValue} getAnalysisSetter={getAnalysisSetter} isSubmitting={isSubmitting}>
+            <table className="w-full text-sm text-left text-gray-700">
+              <tbody>
+                <tr className="border-b"><td className="py-2 font-medium text-gray-500 w-1/4">行业</td><td className="py-2 font-semibold">{renderValue(state.selected_industry)}</td></tr>
+                <tr className="border-b"><td className="py-2 font-medium text-gray-500">公司</td><td className="py-2 font-semibold">{renderValue(state.selected_company)}</td></tr>
+                <tr><td className="py-2 font-medium text-gray-500">产品</td><td className="py-2 font-semibold">{renderValue(state.selected_product)}</td></tr>
+              </tbody>
+            </table>
+          </ReportCard>
+
+          <ReportCard icon={<Brain className="w-6 h-6 text-purple-600" />} title="二、模型性能对比" analysisKey="comparison" getAnalysisValue={getAnalysisValue} getAnalysisSetter={getAnalysisSetter} isSubmitting={isSubmitting}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-100 text-gray-600">
+                  <tr>
+                    <th className="p-3 font-semibold">模型</th><th className="p-3 font-semibold">参数</th>
+                    <th className="p-3 font-semibold">RMSE</th><th className="p-3 font-semibold">MAE</th><th className="p-3 font-semibold">R²</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allModels.map((m, i) => (
+                    <tr key={i} className="border-b">
+                      <td className="p-3 font-medium">{m.name}</td><td className="p-3 font-mono text-xs">{m.params}</td>
+                      <td className="p-3">{renderValue(m.rmse?.toFixed(4))}</td><td className="p-3">{renderValue(m.mae?.toFixed(4))}</td><td className="p-3">{renderValue(m.r2?.toFixed(4))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </ReportCard>
+
+          <ReportCard icon={<TrendingUp className="w-6 h-6 text-green-600" />} title="三、最优模型选择" analysisKey="selection" getAnalysisValue={getAnalysisValue} getAnalysisSetter={getAnalysisSetter} isSubmitting={isSubmitting}>
+            <table className="w-full text-sm text-left text-gray-700">
+              <tbody>
+                <tr className="border-b"><td className="py-2 font-medium text-gray-500 w-1/4">选定模型</td><td className="py-2 font-semibold">{renderValue(state.selected_best_model ? { ma: '移动平均', exp: '指数平滑', arima: 'ARIMA', lstm: 'LSTM', ensemble_weighted: '加权融合', ensemble_boosting: 'Boosting融合', ensemble_stacking: 'Stacking融合' }[state.selected_best_model] : null)}</td></tr>
+                <tr className="border-b"><td className="py-2 font-medium text-gray-500">RMSE</td><td className="py-2 font-semibold">{renderValue(bestModelMetrics?.rmse?.toFixed(4))}</td></tr>
+                <tr className="border-b"><td className="py-2 font-medium text-gray-500">MAE</td><td className="py-2 font-semibold">{renderValue(bestModelMetrics?.mae?.toFixed(4))}</td></tr>
+                <tr><td className="py-2 font-medium text-gray-500">R²</td><td className="py-2 font-semibold">{renderValue(bestModelMetrics?.r2?.toFixed(4))}</td></tr>
+              </tbody>
+            </table>
+          </ReportCard>
+
+          <ReportCard icon={<Calculator className="w-6 h-6 text-orange-600" />} title="四、生产计划参数" analysisKey="params" getAnalysisValue={getAnalysisValue} getAnalysisSetter={getAnalysisSetter} isSubmitting={isSubmitting}>
+            <table className="w-full text-sm text-left text-gray-700">
+              <tbody>
+                <tr className="border-b"><td className="py-2 font-medium text-gray-500 w-1/2">预测期数</td><td className="py-2 font-semibold">{renderValue(state.production_forecast_periods)}</td></tr>
+                <tr className="border-b"><td className="py-2 font-medium text-gray-500">期初库存</td><td className="py-2 font-semibold">{renderValue(state.production_initial_inventory?.toLocaleString())}</td></tr>
+                <tr><td className="py-2 font-medium text-gray-500">目标服务水平</td><td className="py-2 font-semibold">{renderValue(state.production_target_service_level ? `${(state.production_target_service_level * 100).toFixed(0)}%` : null)}</td></tr>
+              </tbody>
+            </table>
+          </ReportCard>
+
+          <ReportCard icon={<ClipboardList className="w-6 h-6 text-indigo-600" />} title="五、主生产计划 (MPS)" analysisKey="decision" getAnalysisValue={getAnalysisValue} getAnalysisSetter={getAnalysisSetter} isSubmitting={isSubmitting}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-100 text-gray-600 text-xs">
+                  <tr>
+                    {['周期', '预测需求', '安全库存', '期初库存', '产出量', '期末库存', '缺货量', '服务水平'].map(h => <th key={h} className="p-2 font-semibold">{h}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.production_mps_table.map((row, i) => (
+                    <tr key={i} className="border-b">
+                      <td className="p-2 font-medium">{row.period_label}</td><td className="p-2">{row.demand_forecast}</td><td className="p-2">{row.safety_stock}</td>
+                      <td className="p-2">{row.beginning_inventory}</td><td className="p-2">{row.production_output}</td><td className="p-2">{row.ending_inventory}</td>
+                      <td className="p-2">{row.stockout}</td><td className="p-2">{`${(row.service_level * 100).toFixed(1)}%`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </ReportCard>
+
+          <div className="pt-8 flex justify-end">
+            <button
+              onClick={handleSave}
+              disabled={isSubmitting || submitSuccess}
+              className="inline-flex items-center justify-center px-8 py-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />提交中...</> : (submitSuccess ? <><CheckCircle className="w-5 h-5 mr-2" />已提交</> : <><Save className="w-5 h-5 mr-2" />保存并提交报告</>)}
+            </button>
+          </div>
+          {submitError && <p className="text-right text-red-600 mt-4">{submitError}</p>}
+        </main>
       </div>
 
-      {/* Completion Modal */}
       {showCompletionModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform transition-all">
-            <div className="text-center">
-              {/* Success Icon */}
-              <div className="mx-auto flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                <CheckCircle className="w-10 h-10 text-green-600" />
-              </div>
-
-              {/* Title */}
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                恭喜！实验完成
-              </h2>
-
-              {/* Message */}
-              <p className="text-gray-600 mb-6">
-                您已成功完成本次需求预测与生产计划决策实验的全部内容。实验报告已提交并保存。
-              </p>
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                <button
-                  onClick={handleStartNewExperiment}
-                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
-                >
-                  开始新的实验
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
-                >
-                  退出登录
-                </button>
-              </div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+            <div className="mx-auto flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+              <CheckCircle className="w-10 h-10 text-green-600" />
             </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">恭喜！实验完成</h2>
+            <p className="text-gray-600 mb-6">您的实验报告已成功提交并保存。</p>
+            <div className="space-y-3">
+              <button
+                onClick={handleLogout}
+                className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+              >
+                退出登录 ({countdown})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showValidationErrorModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+            <div className="mx-auto flex items-center justify-center w-16 h-16 bg-yellow-100 rounded-full mb-4">
+              <AlertTriangle className="w-10 h-10 text-yellow-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">内容不完整</h2>
+            <p className="text-gray-600 mb-6">
+              请检查并确保所有部分的分析内容都已填写。
+            </p>
+            <button
+              onClick={() => setShowValidationErrorModal(false)}
+              className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              返回修改
+            </button>
           </div>
         </div>
       )}

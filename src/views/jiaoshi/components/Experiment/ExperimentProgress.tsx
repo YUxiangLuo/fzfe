@@ -6,22 +6,15 @@ import {
   Search,
   AlertTriangle,
   Clock,
-  Flag,
+  CheckCircle2,
+  PlayCircle,
 } from "lucide-react";
-import type { Class, Student, StepEvent, ClassStepEvent } from "../../types";
+import type { Class, StudentExperimentProgress, ExperimentStep } from "../../types";
 import { apiClient } from "../../../../utils/apiClient";
 import { decodeToken } from "../../../../utils/auth";
 
-interface StepProgress {
-  id: string;
-  label: string;
-  order: number;
-  completed: boolean;
-  completedAt?: string;
-}
-
 // This serves as the base structure and ordering for the experiment steps.
-const STEP_DEFINITIONS: Omit<StepProgress, "completed" | "completedAt">[] = [
+const STEP_DEFINITIONS: { id: string; label: string; order: number }[] = [
   { id: "industry_selection", label: "选择行业", order: 1 },
   { id: "company_selection", label: "选择企业", order: 2 },
   { id: "product_selection", label: "选择产品", order: 3 },
@@ -34,17 +27,14 @@ const STEP_DEFINITIONS: Omit<StepProgress, "completed" | "completedAt">[] = [
 const ExperimentProgress: React.FC = () => {
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>("");
-  const [students, setStudents] = useState<Student[]>([]);
-  const [progressByStudent, setProgressByStudent] = useState<
-    Record<number, StepProgress[]>
-  >({});
+  const [studentProgress, setStudentProgress] = useState<StudentExperimentProgress[]>([]);
+  
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
   const [teacherId, setTeacherId] = useState<number | null>(null);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
-  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,48 +91,39 @@ const ExperimentProgress: React.FC = () => {
 
   useEffect(() => {
     setExpandedRows([]);
-    setProgressByStudent({});
-    setStudents([]);
+    setStudentProgress([]);
 
     if (!selectedClassId) {
       return;
     }
 
     const fetchData = async () => {
-      setIsLoadingStudents(true);
       setIsLoadingProgress(true);
       setError(null);
 
       try {
-        const [studentsResponse, progressResponse] = await Promise.all([
-          apiClient.get(`/classes/${selectedClassId}/students`),
-          apiClient.get(`/classes/${selectedClassId}/step-events`)
-        ]);
-
-        const studentList = Array.isArray(studentsResponse) ? (studentsResponse as Student[]) : [];
-        setStudents(studentList);
-
-        const allEvents = Array.isArray(progressResponse) ? (progressResponse as ClassStepEvent[]) : [];
-
-        const eventsByStudent = allEvents.reduce((acc, event) => {
-          const bucket = acc[event.student_id] ?? (acc[event.student_id] = []);
-          bucket.push(event);
-          return acc;
-        }, {} as Record<number, StepEvent[]>);
-
-        const newProgressMap: Record<number, StepProgress[]> = {};
-        for (const student of studentList) {
-          const studentEvents = eventsByStudent[student.user_id] || [];
-          newProgressMap[student.user_id] = processStudentEvents(studentEvents);
+        const progressData = await apiClient.get<StudentExperimentProgress[]>(`/classes/${selectedClassId}/step-events`);
+        
+        if (Array.isArray(progressData)) {
+          const parsedData = progressData.map(student => {
+            if (typeof student.steps === 'string') {
+              try {
+                return { ...student, steps: JSON.parse(student.steps) };
+              } catch (e) {
+                console.error(`Failed to parse steps for student ${student.student_id}:`, e);
+                return { ...student, steps: [] }; // Gracefully handle parsing errors
+              }
+            }
+            return student;
+          });
+          setStudentProgress(parsedData);
+        } else {
+          setStudentProgress([]);
         }
-        setProgressByStudent(newProgressMap);
-
       } catch (err: any) {
-        setError(err.message || "获取班级数据失败");
-        setStudents([]);
-        setProgressByStudent({});
+        setError(err.message || "获取班级进度数据失败");
+        setStudentProgress([]);
       } finally {
-        setIsLoadingStudents(false);
         setIsLoadingProgress(false);
       }
     };
@@ -151,13 +132,13 @@ const ExperimentProgress: React.FC = () => {
   }, [selectedClassId]);
 
   const filteredStudents = useMemo(() => {
-    if (!debouncedSearchTerm) return students;
+    if (!debouncedSearchTerm) return studentProgress;
     const query = debouncedSearchTerm.toLowerCase();
-    return students.filter(
+    return studentProgress.filter(
       (student) =>
         student.username.toLowerCase().includes(query) || student.full_name.toLowerCase().includes(query),
     );
-  }, [students, debouncedSearchTerm]);
+  }, [studentProgress, debouncedSearchTerm]);
 
   const currentClassName = useMemo(() => {
     return classes.find((cls) => String(cls.class_id) === selectedClassId)?.class_name ?? "—";
@@ -171,6 +152,43 @@ const ExperimentProgress: React.FC = () => {
     );
   };
 
+  const getStudentStatus = (student: StudentExperimentProgress) => {
+    if (!Array.isArray(student.steps) || student.steps.length === 0) {
+      return {
+        completedSteps: 0,
+        totalSteps: STEP_DEFINITIONS.length,
+        completionPercent: 0,
+        latestCompleted: null,
+        currentStep: STEP_DEFINITIONS[0],
+        statusLabel: "未开始",
+      };
+    }
+
+    const completedSteps = student.steps.filter(step => step.completed_at).length;
+    const totalSteps = STEP_DEFINITIONS.length;
+    const completionPercent = Math.round((completedSteps / totalSteps) * 100);
+    
+    const latestCompletedStepOrder = Math.max(0, ...student.steps.filter(s => s.completed_at).map(s => s.step_order));
+    const latestCompleted = STEP_DEFINITIONS.find(def => def.order === latestCompletedStepOrder) || null;
+
+    const currentStepOrder = Math.max(1, ...student.steps.map(s => s.step_order));
+    let currentStep = STEP_DEFINITIONS.find(def => def.order === currentStepOrder) || null;
+    if (student.steps.find(s => s.step_order === currentStepOrder)?.completed_at) {
+      currentStep = STEP_DEFINITIONS.find(def => def.order === currentStepOrder + 1) || null;
+    }
+    
+    const statusLabel = completionPercent === 100 ? "已完成" : (completedSteps > 0 ? "进行中" : "已开始");
+
+    return {
+      completedSteps,
+      totalSteps,
+      completionPercent,
+      latestCompleted,
+      currentStep,
+      statusLabel,
+    };
+  };
+
   const renderProgressRows = () => {
     if (!selectedClassId) {
       return (
@@ -182,7 +200,7 @@ const ExperimentProgress: React.FC = () => {
       );
     }
 
-    if (isLoadingStudents || isLoadingProgress) {
+    if (isLoadingProgress) {
       return (
         <tr>
           <td colSpan={7} className="py-12 text-center text-gray-500">
@@ -199,22 +217,24 @@ const ExperimentProgress: React.FC = () => {
       return (
         <tr>
           <td colSpan={7} className="py-12 text-center text-gray-500">
-            {students.length === 0 ? "该班级暂无学生。" : "未找到符合条件的学生。"}
+            {studentProgress.length === 0 ? "该班级暂无学生或实验数据。" : "未找到符合条件的学生。"}
           </td>
         </tr>
       );
     }
 
     return filteredStudents.map((student, index) => {
-      const steps = progressByStudent[student.user_id] || STEP_DEFINITIONS.map(step => ({ ...step, completed: false }));
-      const completedSteps = steps.filter((step) => step.completed).length;
-      const completionPercent = Math.round((completedSteps / steps.length) * 100);
-      const latestCompleted = [...steps].reverse().find((step) => step.completed);
-      const inProgressStep = steps.find((step) => !step.completed);
-      const isExpanded = expandedRows.includes(student.user_id);
+      const {
+        completedSteps,
+        totalSteps,
+        completionPercent,
+        latestCompleted,
+        currentStep,
+      } = getStudentStatus(student);
+      const isExpanded = expandedRows.includes(student.student_id);
 
       return (
-        <React.Fragment key={student.user_id}>
+        <React.Fragment key={student.student_id}>
           <tr className="hover:bg-slate-50">
             <td className="w-12 text-center text-sm text-gray-500">{index + 1}</td>
             <td className="px-4 py-4 text-sm text-gray-900 font-medium">
@@ -227,25 +247,25 @@ const ExperimentProgress: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <div className="flex-1 h-2 rounded-full bg-slate-200">
                   <div
-                    className="h-2 rounded-full bg-blue-500"
+                    className={`h-2 rounded-full ${completionPercent === 100 ? 'bg-green-500' : 'bg-blue-500'}`}
                     style={{ width: `${completionPercent}%` }}
                   />
                 </div>
                 <span className="text-sm text-gray-600 w-12 text-right">{completionPercent}%</span>
               </div>
             </td>
-            <td className="px-4 py-4 text-sm text-gray-700">{latestCompleted ? latestCompleted.label : "未开始"}</td>
-            <td className="px-4 py-4 text-sm text-gray-700">{inProgressStep ? inProgressStep.label : "已完成"}</td>
-            <td className="px-4 py-4 text-sm text-gray-500 text-right">{completedSteps}/{steps.length} 步</td>
+            <td className="px-4 py-4 text-sm text-gray-700">{latestCompleted ? latestCompleted.label : "—"}</td>
+            <td className="px-4 py-4 text-sm text-gray-700">{currentStep ? currentStep.label : "已完成"}</td>
+            <td className="px-4 py-4 text-sm text-gray-500 text-right">{completedSteps}/{totalSteps} 步</td>
             <td className="px-4 py-4 text-center">
               <button
-                onClick={() => toggleRow(student.user_id)}
+                onClick={() => toggleRow(student.student_id)}
                 className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition-all duration-200"
               >
                 {isExpanded ? (
-                  <><ChevronDown size={14} className="mr-1" />收起详情</>
+                  <><ChevronDown size={14} className="mr-1" />收起</>
                 ) : (
-                  <><ChevronRight size={14} className="mr-1" />展开详情</>
+                  <><ChevronRight size={14} className="mr-1" />详情</>
                 )}
               </button>
             </td>
@@ -254,28 +274,39 @@ const ExperimentProgress: React.FC = () => {
             <tr className="bg-slate-50">
               <td colSpan={7} className="px-8 py-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                  {steps.map((step) => (
-                    <div
-                      key={step.id}
-                      className={`rounded-xl border p-4 flex items-start space-x-3 bg-white ${
-                        step.completed ? "border-green-200" : "border-slate-200"
-                      }`}
-                    >
+                  {STEP_DEFINITIONS.map((stepDef) => {
+                    const stepData = student.steps?.find(s => s.step_order === stepDef.order);
+                    const status = stepData?.completed_at ? 'completed' : (stepData?.started_at ? 'started' : 'pending');
+                    
+                    return (
                       <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          step.completed ? "bg-green-500 text-white" : "bg-slate-200 text-slate-500"
+                        key={stepDef.id}
+                        className={`rounded-xl border p-4 flex items-start space-x-3 bg-white ${
+                          status === 'completed' ? "border-green-200" : "border-slate-200"
                         }`}
                       >
-                        {step.completed ? <Flag size={18} /> : <Clock size={18} />}
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            status === 'completed' ? "bg-green-500 text-white" : 
+                            status === 'started' ? "bg-blue-500 text-white" :
+                            "bg-slate-200 text-slate-500"
+                          }`}
+                        >
+                          {status === 'completed' ? <CheckCircle2 size={18} /> : 
+                           status === 'started' ? <PlayCircle size={18} /> : 
+                           <Clock size={18} />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{stepDef.label}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {status === 'completed' ? `完成: ${formatTime(stepData!.completed_at)}` :
+                             status === 'started' ? `开始: ${formatTime(stepData!.started_at)}` :
+                             "尚未开始"}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{step.label}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {step.completed ? `完成时间：${formatTime(step.completedAt)}` : "尚未完成"}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </td>
             </tr>
@@ -361,26 +392,7 @@ const ExperimentProgress: React.FC = () => {
   );
 };
 
-function processStudentEvents(events: StepEvent[]): StepProgress[] {
-  const completedEvents = new Map<number, StepEvent>();
-  for (const event of events) {
-    if (event.event_type === "COMPLETED") {
-      completedEvents.set(event.step_order, event);
-    }
-  }
-
-  return STEP_DEFINITIONS.map((baseStep) => {
-    const completedEvent = completedEvents.get(baseStep.order);
-    return {
-      ...baseStep,
-      label: baseStep.label,
-      completed: !!completedEvent,
-      completedAt: completedEvent?.event_timestamp,
-    };
-  }).sort((a, b) => a.order - b.order);
-}
-
-function formatTime(value?: string) {
+function formatTime(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;

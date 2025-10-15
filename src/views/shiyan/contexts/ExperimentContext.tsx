@@ -134,6 +134,7 @@ export interface ExperimentState {
   production_initial_inventory: number | null;
   production_target_service_level: number | null;
   production_safety_stock_z_score: number | null;
+  production_forecast_results: Array<{ prediction: number; std_dev: number }> | null;
   production_mps_table: MPSTableRow[];
 
   start_time: string | null;
@@ -214,6 +215,7 @@ const buildInitialState = (): ExperimentState => ({
   production_initial_inventory: null,
   production_target_service_level: null,
   production_safety_stock_z_score: null,
+  production_forecast_results: null,
   production_mps_table: [],
 
   start_time: null,
@@ -292,6 +294,7 @@ const resetModelingFields = (
   target.production_initial_inventory = null;
   target.production_target_service_level = null;
   target.production_safety_stock_z_score = null;
+  target.production_forecast_results = null;
   target.production_mps_table = [];
 
   if (resetQuizzes) {
@@ -300,11 +303,21 @@ const resetModelingFields = (
   }
 };
 
+const resetProductionPlanFields = (target: ExperimentState) => {
+  target.production_plan_completed = false;
+  target.production_forecast_periods = null;
+  target.production_initial_inventory = null;
+  target.production_target_service_level = null;
+  target.production_safety_stock_z_score = null;
+  target.production_forecast_results = null;
+  target.production_mps_table = [];
+  target.quiz_about_plan_completed = false;
+};
+
 interface ExperimentContextType {
   state: ExperimentState;
   loading: boolean;
   updateState: (updates: Partial<ExperimentState>) => Promise<void>;
-  createNewExperiment: () => Promise<void>;
   recordStepEvent: (stepOrder: number, eventType: 'STARTED' | 'COMPLETED') => Promise<void>;
   isStepCompleted: (step: number) => boolean;
   isStepUnlocked: (step: number) => boolean;
@@ -442,6 +455,48 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       }
       return updates[field] !== previousState[field];
     });
+    const bestModelChanged =
+      Object.prototype.hasOwnProperty.call(updates, 'selected_best_model') &&
+      updates.selected_best_model !== previousState.selected_best_model;
+
+    // Distinguish between production parameter changes and result updates
+    const productionParamFields: Array<
+      | 'production_forecast_periods'
+      | 'production_initial_inventory'
+      | 'production_target_service_level'
+      | 'production_safety_stock_z_score'
+    > = [
+      'production_forecast_periods',
+      'production_initial_inventory',
+      'production_target_service_level',
+      'production_safety_stock_z_score',
+    ];
+
+    const productionResultFields: Array<
+      | 'production_forecast_results'
+      | 'production_mps_table'
+      | 'production_plan_completed'
+    > = [
+      'production_forecast_results',
+      'production_mps_table',
+      'production_plan_completed',
+    ];
+
+    // Check if production parameters changed (not results)
+    const productionParamsChanged = productionParamFields.some((field) => {
+      if (!Object.prototype.hasOwnProperty.call(updates, field)) {
+        return false;
+      }
+      return updates[field] !== previousState[field];
+    });
+
+    // Check if any production field changed (for sync detection)
+    const productionStateChanged = [...productionParamFields, ...productionResultFields].some((field) => {
+      if (!Object.prototype.hasOwnProperty.call(updates, field)) {
+        return false;
+      }
+      return updates[field] !== previousState[field];
+    });
 
     if (industryChanged) {
       nextState.selected_company = null;
@@ -483,6 +538,34 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
         resetModelingFields(nextState, { resetQuizzes: true, preserveDataWindow: true });
         nextState.highest_completed_step = Math.min(nextState.highest_completed_step, 4);
         nextState.current_step = Math.min(nextState.current_step, 5);
+      }
+    }
+
+    if (bestModelChanged) {
+      resetProductionPlanFields(nextState);
+      nextState.highest_completed_step = Math.min(nextState.highest_completed_step, 6);
+      nextState.current_step = Math.min(nextState.current_step, 7);
+    }
+
+    // Only clear results when production parameters change, not when results are being updated
+    if (productionParamsChanged) {
+      // Check if this update also includes new results (indicating a fresh calculation)
+      const hasNewForecastResults = Object.prototype.hasOwnProperty.call(updates, 'production_forecast_results')
+        && updates.production_forecast_results !== null;
+      const hasNewMpsTable = Object.prototype.hasOwnProperty.call(updates, 'production_mps_table')
+        && Array.isArray(updates.production_mps_table)
+        && updates.production_mps_table.length > 0;
+
+      // If production parameters changed, invalidate the old results
+      // BUT: Don't clear results that are being set in this same update (fresh calculation)
+      nextState.production_plan_completed = false;
+
+      if (!hasNewForecastResults) {
+        nextState.production_forecast_results = null;
+      }
+
+      if (!hasNewMpsTable) {
+        nextState.production_mps_table = [];
       }
     }
 
@@ -542,7 +625,7 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       nextState.production_plan_completed === true &&
       previousState.production_plan_completed === false;
 
-    const shouldSyncToBackend = stepCompleted || criticalStateChanged || modelCompleted || experimentCompleted || productionPlanCompleted;
+    const shouldSyncToBackend = stepCompleted || criticalStateChanged || modelCompleted || experimentCompleted || productionPlanCompleted || productionStateChanged || bestModelChanged;
 
     if (shouldSyncToBackend) {
       try {
@@ -568,20 +651,6 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const createNewExperiment = async () => {
-    try {
-      const newState = await createExperimentState();
-      setState(newState);
-      // Clear product-related data
-      setProductSalesData(null);
-      setSalesDataError(null);
-      setProductFieldOptions(null);
-      setProductFieldsError(null);
-    } catch (error) {
-      console.error("Failed to create new experiment.", error);
-      throw error;
-    }
-  };
 
   const isStepCompleted = (step: number): boolean => state.highest_completed_step >= step;
   const isStepUnlocked = (step: number): boolean => step <= state.current_step;
@@ -627,7 +696,6 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
         state,
         loading,
         updateState,
-        createNewExperiment,
         recordStepEvent: recordStepEventWrapper,
         isStepCompleted,
         isStepUnlocked,

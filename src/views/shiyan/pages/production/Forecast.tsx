@@ -16,7 +16,7 @@ const MODEL_TYPE_MAP: Record<string, string> = {
 };
 
 interface ForecastResult {
-  predictions: number[];
+  predictions: { prediction: number; std_dev: number }[];
   mode: string;
   forecast_steps: number;
 }
@@ -33,7 +33,7 @@ const Forecast: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [forecastData, setForecastData] = useState<ForecastResult | null>(null);
 
-  // Load from state if available
+  // Load from state if available and sync when global state updates
   useEffect(() => {
     if (state.production_forecast_periods) {
       setForecastPeriods(state.production_forecast_periods);
@@ -44,15 +44,23 @@ const Forecast: React.FC = () => {
     if (state.production_target_service_level !== null) {
       setTargetServiceLevel(state.production_target_service_level);
     }
-  }, []);
+    // Restore forecast results from global state if available
+    if (state.production_forecast_results && state.production_forecast_results.length > 0) {
+      setForecastData({
+        predictions: state.production_forecast_results,
+        mode: 'restored',
+        forecast_steps: state.production_forecast_results.length,
+      });
+    }
+  }, [
+    state.production_forecast_periods,
+    state.production_initial_inventory,
+    state.production_target_service_level,
+    state.production_forecast_results,
+  ]);
 
   const handleGenerateForecast = async () => {
-    if (!state.selected_best_model) {
-      setError('请先在结果评估阶段选择最佳模型');
-      return;
-    }
-
-    const modelType = MODEL_TYPE_MAP[state.selected_best_model];
+    const modelType = MODEL_TYPE_MAP[state.selected_best_model!];
     if (!modelType) {
       setError('无效的模型类型');
       return;
@@ -73,13 +81,15 @@ const Forecast: React.FC = () => {
       if (response.status === 'success' && response.results) {
         setForecastData(response.results);
 
-        // Save parameters to state
+        // Save parameters and forecast results to global state
         await updateState({
           production_forecast_periods: forecastPeriods,
           production_initial_inventory: initialInventory,
           production_target_service_level: targetServiceLevel,
           // Calculate Z-score based on service level
           production_safety_stock_z_score: getZScore(targetServiceLevel),
+          // Save forecast results for use in final plan generation
+          production_forecast_results: response.results.predictions,
         });
       } else {
         setError('预测失败，请重试');
@@ -94,22 +104,14 @@ const Forecast: React.FC = () => {
 
   // Get Z-score for given service level
   const getZScore = (serviceLevel: number): number => {
-    // Standard normal distribution Z-scores for common service levels
-    const zScoreMap: Record<number, number> = {
-      0.90: 1.28,
-      0.95: 1.65,
-      0.98: 2.05,
-      0.99: 2.33,
-    };
+    const zScoreMap: Record<number, number> = { 0.90: 1.28, 0.95: 1.65, 0.98: 2.05, 0.99: 2.33 };
     return zScoreMap[serviceLevel] || 1.65;
   };
 
-  // Mock: Calculate safety stock (will use forecast variance when backend provides it)
-  const calculateSafetyStock = (demandForecast: number): number => {
-    // Mock: Use 5% of demand as safety stock estimate
-    // TODO: Replace with actual calculation using forecast variance when backend provides it
-    const mockVarianceRatio = 0.05;
-    return Math.round(demandForecast * mockVarianceRatio * (state.production_safety_stock_z_score || 1.65));
+  // Scientific safety stock calculation
+  const calculateSafetyStock = (std_dev: number): number => {
+    const zScore = getZScore(targetServiceLevel);
+    return Math.round(zScore * std_dev);
   };
 
   const handleNext = () => {
@@ -269,14 +271,14 @@ const Forecast: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {forecastData.predictions.map((prediction, index) => {
-                    const safetyStock = calculateSafetyStock(prediction);
-                    const plannedProduction = Math.round(prediction) + safetyStock;
+                  {forecastData.predictions.map((item, index) => {
+                    const safetyStock = calculateSafetyStock(item.std_dev);
+                    const plannedProduction = Math.round(item.prediction) + safetyStock;
 
                     return (
                       <tr key={index} className="border-b border-gray-100">
                         <td className="py-2 px-3 text-gray-600">期 {index + 1}</td>
-                        <td className="py-2 px-3 text-right text-gray-800">{Math.round(prediction).toLocaleString()}</td>
+                        <td className="py-2 px-3 text-right text-gray-800">{Math.round(item.prediction).toLocaleString()}</td>
                         <td className="py-2 px-3 text-right text-orange-600">{safetyStock.toLocaleString()}</td>
                         <td className="py-2 px-3 text-right font-semibold text-blue-600 bg-blue-50">
                           {plannedProduction.toLocaleString()}

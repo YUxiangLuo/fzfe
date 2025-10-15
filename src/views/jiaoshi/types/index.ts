@@ -103,6 +103,24 @@ export interface ExperimentReport {
   selected_product: string | null;
 }
 
+// New types for the refactored experiment progress endpoint
+export interface ExperimentStep {
+  step_order: number;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface StudentExperimentProgress {
+  student_id: number;
+  username: string;
+  full_name: string;
+  experiment_id: number | null;
+  steps: ExperimentStep[] | string | null;
+}
+
+
+// DEPRECATED: Old types for experiment progress, replaced by StudentExperimentProgress
+/*
 export interface ClassExperimentStatus {
   experiment_id: number;
   student_id: number;
@@ -134,3 +152,4 @@ export interface ClassStepEvent extends StepEvent {
   username: string;
   full_name: string;
 }
+*/

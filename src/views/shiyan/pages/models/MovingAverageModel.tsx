@@ -87,6 +87,7 @@ const MovingAverageModel: React.FC = () => {
     production_initial_inventory: null,
     production_target_service_level: null,
     production_safety_stock_z_score: null,
+    production_forecast_results: null,
     production_mps_table: [],
     highest_completed_step: Math.min(state.highest_completed_step ?? 0, 4),
     current_step: Math.min(state.current_step ?? 5, 5),
