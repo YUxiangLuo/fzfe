@@ -47,7 +47,6 @@ const ExponentialSmoothingModel: React.FC = () => {
   const [alpha, setAlpha] = useState(modelState.alpha ?? 0.5);
   const [isTraining, setIsTraining] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const alphaUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const buildDownstreamReset = () => ({
     ensemble_weighted_completed: false,
@@ -89,53 +88,8 @@ const ExponentialSmoothingModel: React.FC = () => {
     }
   }, [modelState.alpha]);
 
-  useEffect(() => {
-    return () => {
-      if (alphaUpdateTimer.current) {
-        clearTimeout(alphaUpdateTimer.current);
-      }
-    };
-  }, []);
-
-  const commitAlphaUpdate = async (value: number) => {
-    const storedAlpha = state.exponential_smoothing_alpha;
-    const changed =
-      storedAlpha === null || storedAlpha === undefined || Math.abs(storedAlpha - value) > Number.EPSILON;
-
-    if (!changed && !modelState.completed) {
-      return;
-    }
-
-    if (!changed && modelState.completed) {
-      // Keep completed state as-is if alpha unchanged
-      return;
-    }
-
-    try {
-      await updateState({
-        exponential_smoothing_alpha: value,
-        exponential_smoothing_completed: false,
-        exponential_smoothing_metrics_rmse: null,
-        exponential_smoothing_metrics_mae: null,
-        exponential_smoothing_metrics_r2: null,
-        ...buildDownstreamReset(),
-      });
-    } catch (error) {
-      console.error("Failed to update smoothing alpha.", error);
-    }
-  };
-
   const handleAlphaChange = (value: number) => {
     setAlpha(value);
-
-    if (alphaUpdateTimer.current) {
-      clearTimeout(alphaUpdateTimer.current);
-    }
-
-    alphaUpdateTimer.current = setTimeout(async () => {
-      alphaUpdateTimer.current = null;
-      await commitAlphaUpdate(value);
-    }, 300);
   };
 
   const handleCalculate = async () => {
@@ -145,13 +99,6 @@ const ExponentialSmoothingModel: React.FC = () => {
     setError(null);
 
     try {
-      // Ensure the latest alpha from local state is in global state
-      await updateState({
-        exponential_smoothing_alpha: alpha,
-        exponential_smoothing_completed: false,
-        ...buildDownstreamReset(),
-      });
-
       const requestBody = {
         selected_industry: state.selected_industry,
         selected_company: state.selected_company,
@@ -219,13 +166,6 @@ const ExponentialSmoothingModel: React.FC = () => {
     }
 
     if (activeStep === 2) {
-      if (alphaUpdateTimer.current) {
-        clearTimeout(alphaUpdateTimer.current);
-        alphaUpdateTimer.current = null;
-        await commitAlphaUpdate(alpha);
-      } else {
-        await commitAlphaUpdate(alpha);
-      }
       setActiveStep(3);
       return;
     }

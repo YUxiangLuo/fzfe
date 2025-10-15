@@ -31,7 +31,6 @@ const MovingAverageModel: React.FC = () => {
   const [windowSize, setWindowSize] = useState(modelState.window ?? 3);
   const [isCalculating, setIsCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const windowUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const baseModelsCompletedCount = [
     state.moving_average_completed,
@@ -54,14 +53,6 @@ const MovingAverageModel: React.FC = () => {
       setWindowSize(modelState.window);
     }
   }, [modelState.window]);
-
-  useEffect(() => {
-    return () => {
-      if (windowUpdateTimer.current) {
-        clearTimeout(windowUpdateTimer.current);
-      }
-    };
-  }, []);
 
   const buildDownstreamReset = () => ({
     ensemble_weighted_completed: false,
@@ -93,36 +84,8 @@ const MovingAverageModel: React.FC = () => {
     current_step: Math.min(state.current_step ?? 5, 5),
   });
 
-  const commitWindowUpdate = async (value: number) => {
-    const storedWindow = state.moving_average_window;
-    const changed =
-      storedWindow === null || storedWindow === undefined || storedWindow !== value;
-
-    if (!changed) {
-      return;
-    }
-
-    await updateState({
-      moving_average_window: value,
-      moving_average_completed: false,
-      moving_average_metrics_rmse: null,
-      moving_average_metrics_mae: null,
-      moving_average_metrics_r2: null,
-      ...buildDownstreamReset(),
-    });
-  };
-
   const handleWindowChange = (newWindowSize: number) => {
     setWindowSize(newWindowSize);
-
-    if (windowUpdateTimer.current) {
-      clearTimeout(windowUpdateTimer.current);
-    }
-
-    windowUpdateTimer.current = setTimeout(() => {
-      windowUpdateTimer.current = null;
-      void commitWindowUpdate(newWindowSize);
-    }, 300);
   };
 
   const handleCalculate = async () => {
@@ -132,13 +95,6 @@ const MovingAverageModel: React.FC = () => {
     setError(null);
 
     try {
-      // Ensure the latest window size from local state is in global state
-      await updateState({
-        moving_average_window: windowSize,
-        moving_average_completed: false,
-        ...buildDownstreamReset(),
-      });
-
       const requestBody = {
         selected_industry: state.selected_industry,
         selected_company: state.selected_company,
@@ -191,13 +147,6 @@ const MovingAverageModel: React.FC = () => {
     if (activeStep === 1) {
       setActiveStep(2);
     } else if (activeStep === 2) {
-      if (windowUpdateTimer.current) {
-        clearTimeout(windowUpdateTimer.current);
-        windowUpdateTimer.current = null;
-        await commitWindowUpdate(windowSize);
-      } else {
-        await commitWindowUpdate(windowSize);
-      }
       setActiveStep(3);
     } else if (activeStep === 3) {
       handleCalculate();

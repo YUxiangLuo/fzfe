@@ -57,7 +57,6 @@ const StackingEnsembleModel: React.FC = () => {
   const [selectedModels, setSelectedModels] = useState<string[]>(modelState.baseModels);
   const [isTraining, setIsTraining] = useState(false);
   const [trainingError, setTrainingError] = useState<string | null>(null);
-  const selectionUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasMountedRef = useRef(false);
 
   const resetMetrics = () => ({
@@ -78,40 +77,6 @@ const StackingEnsembleModel: React.FC = () => {
     highest_completed_step: Math.min(state.highest_completed_step ?? 0, 4),
     current_step: Math.min(state.current_step ?? 5, 5),
   });
-
-  const commitSelectionUpdate = async (models: string[]) => {
-    const storedModels = state.ensemble_stacking_base_models ?? [];
-    const changed =
-      models.length !== storedModels.length ||
-      models.some((model) => !storedModels.includes(model));
-
-    if (!changed) {
-      return;
-    }
-
-    await updateState({
-      ensemble_stacking_base_models: models,
-      ...resetMetrics(),
-    });
-  };
-
-  const scheduleSelectionUpdate = (models: string[]) => {
-    if (selectionUpdateTimer.current) {
-      clearTimeout(selectionUpdateTimer.current);
-    }
-    selectionUpdateTimer.current = setTimeout(() => {
-      selectionUpdateTimer.current = null;
-      void commitSelectionUpdate(models);
-    }, 300);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (selectionUpdateTimer.current) {
-        clearTimeout(selectionUpdateTimer.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     if (!hasMountedRef.current) {
@@ -134,7 +99,6 @@ const StackingEnsembleModel: React.FC = () => {
       const next = prev.includes(modelId)
         ? prev.filter((id) => id !== modelId)
         : [...prev, modelId];
-      scheduleSelectionUpdate(next);
       return next;
     });
   };
@@ -215,13 +179,6 @@ const StackingEnsembleModel: React.FC = () => {
     }
 
     if (activeStep === 2) {
-      if (selectionUpdateTimer.current) {
-        clearTimeout(selectionUpdateTimer.current);
-        selectionUpdateTimer.current = null;
-        await commitSelectionUpdate(selectedModels);
-      } else {
-        await commitSelectionUpdate(selectedModels);
-      }
       setActiveStep(3);
       return;
     }

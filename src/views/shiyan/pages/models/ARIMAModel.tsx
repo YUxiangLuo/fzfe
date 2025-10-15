@@ -23,7 +23,6 @@ const ARIMAModel: React.FC = () => {
     salesDataError,
   } = useExperiment();
 
-  const dUpdateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const adfResults = state.arima_adf_stationarity;
   const storedD = state.arima_d;
   const trainingCompleted = state.arima_completed;
@@ -126,45 +125,10 @@ const ARIMAModel: React.FC = () => {
     }
   }, [storedD]);
 
-  useEffect(() => {
-    return () => {
-      if (dUpdateTimer.current) {
-        clearTimeout(dUpdateTimer.current);
-      }
-    };
-  }, []);
-
-
-  const commitDiffOrderUpdate = async (value: number) => {
-    const storedDiff = state.arima_d;
-    const changed = storedDiff === null || storedDiff === undefined || storedDiff !== value;
-
-    if (!changed) {
-      return;
-    }
-
-    await updateState({
-      arima_d: value,
-      arima_completed: false,
-      arima_metrics_rmse: null,
-      arima_metrics_mae: null,
-      arima_metrics_r2: null,
-      ...buildDownstreamReset(),
-    });
-  };
 
   const handleSelectD = (value: number) => {
     setSelectedD(value);
     setDError(null);
-
-    if (dUpdateTimer.current) {
-      clearTimeout(dUpdateTimer.current);
-    }
-
-    dUpdateTimer.current = setTimeout(() => {
-      dUpdateTimer.current = null;
-      void commitDiffOrderUpdate(value);
-    }, 300);
   };
 
   const handleRunAdf = async () => {
@@ -228,15 +192,6 @@ const ARIMAModel: React.FC = () => {
     setTrainingError(null);
 
     try {
-      // Ensure the latest d value is in global state
-      if (selectedD !== null && selectedD !== undefined) {
-        await updateState({
-          arima_d: selectedD,
-          arima_completed: false,
-          ...buildDownstreamReset(),
-        });
-      }
-
       const requestBody = {
         selected_industry: state.selected_industry,
         selected_company: state.selected_company,
@@ -313,13 +268,6 @@ const ARIMAModel: React.FC = () => {
           return;
         }
         setDError(null);
-        if (dUpdateTimer.current) {
-          clearTimeout(dUpdateTimer.current);
-          dUpdateTimer.current = null;
-          await commitDiffOrderUpdate(selectedD);
-        } else {
-          await commitDiffOrderUpdate(selectedD);
-        }
         setActiveStep(4);
         break;
       }

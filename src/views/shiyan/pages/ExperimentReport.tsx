@@ -63,12 +63,13 @@ const ExperimentReport: React.FC = () => {
   // Countdown timer effect for auto-logout
   useEffect(() => {
     if (showCompletionModal) {
+      localStorage.removeItem('token');
       setCountdown(8); // Reset countdown each time modal opens
       const timer = setInterval(() => {
         setCountdown(prev => {
           if (prev <= 1) {
             clearInterval(timer);
-            handleLogout();
+            window.location.href = "/login";
             return 0;
           }
           return prev - 1;
@@ -343,7 +344,7 @@ const ExperimentReport: React.FC = () => {
 
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    // localStorage.removeItem('token');
     window.location.href = '/login';
   };
 
