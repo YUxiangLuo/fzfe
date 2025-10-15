@@ -11,7 +11,9 @@
   "dependencies": {
     "@tiptap/react": "^3.4.6",
     "@tiptap/starter-kit": "^3.4.6",
+    "@types/lodash.debounce": "^4.0.9",
     "bun-plugin-tailwind": "^0.0.15",
+    "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.541.0",
     "react": "^19",
     "react-dom": "^19",

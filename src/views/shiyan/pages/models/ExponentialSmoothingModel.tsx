@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChartSpline, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 import { apiClient } from "../../../../utils/apiClient";
+import debounce from "lodash.debounce";
 
 const steps = [
   { id: 1, title: "方法简介", description: "了解指数平滑法的核心思想和适用场景。" },
@@ -88,16 +89,23 @@ const ExponentialSmoothingModel: React.FC = () => {
     }
   }, [modelState.alpha]);
 
-  const handleAlphaChange = async (value: number) => {
+  const debouncedUpdate = useCallback(
+    debounce(async (newValue: number) => {
+      await updateState({
+        exponential_smoothing_alpha: newValue,
+        exponential_smoothing_completed: false,
+        exponential_smoothing_metrics_rmse: null,
+        exponential_smoothing_metrics_mae: null,
+        exponential_smoothing_metrics_r2: null,
+        ...buildDownstreamReset(),
+      });
+    }, 500),
+    [updateState],
+  );
+
+  const handleAlphaChange = (value: number) => {
     setAlpha(value);
-    await updateState({
-      exponential_smoothing_alpha: value,
-      exponential_smoothing_completed: false,
-      exponential_smoothing_metrics_rmse: null,
-      exponential_smoothing_metrics_mae: null,
-      exponential_smoothing_metrics_r2: null,
-      ...buildDownstreamReset(),
-    });
+    debouncedUpdate(value);
   };
 
   const handleCalculate = async () => {

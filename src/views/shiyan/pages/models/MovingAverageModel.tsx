@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LineChart, CheckCircle, Loader2, AlertTriangle } from "lucide-react";
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 import { apiClient } from "../../../../utils/apiClient";
+import debounce from "lodash.debounce";
 
 const steps = [
   { id: 1, title: "方法简介", description: "了解移动平均法的基本概念及其适用场景。" },
@@ -84,16 +85,23 @@ const MovingAverageModel: React.FC = () => {
     current_step: Math.min(state.current_step ?? 5, 5),
   });
 
-  const handleWindowChange = async (newWindowSize: number) => {
+  const debouncedUpdate = useCallback(
+    debounce(async (newWindowSize: number) => {
+      await updateState({
+        moving_average_window: newWindowSize,
+        moving_average_completed: false,
+        moving_average_metrics_rmse: null,
+        moving_average_metrics_mae: null,
+        moving_average_metrics_r2: null,
+        ...buildDownstreamReset(),
+      });
+    }, 500),
+    [updateState],
+  );
+
+  const handleWindowChange = (newWindowSize: number) => {
     setWindowSize(newWindowSize);
-    await updateState({
-      moving_average_window: newWindowSize,
-      moving_average_completed: false,
-      moving_average_metrics_rmse: null,
-      moving_average_metrics_mae: null,
-      moving_average_metrics_r2: null,
-      ...buildDownstreamReset(),
-    });
+    debouncedUpdate(newWindowSize);
   };
 
   const handleCalculate = async () => {
