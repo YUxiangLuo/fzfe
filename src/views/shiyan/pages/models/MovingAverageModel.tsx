@@ -84,8 +84,16 @@ const MovingAverageModel: React.FC = () => {
     current_step: Math.min(state.current_step ?? 5, 5),
   });
 
-  const handleWindowChange = (newWindowSize: number) => {
+  const handleWindowChange = async (newWindowSize: number) => {
     setWindowSize(newWindowSize);
+    await updateState({
+      moving_average_window: newWindowSize,
+      moving_average_completed: false,
+      moving_average_metrics_rmse: null,
+      moving_average_metrics_mae: null,
+      moving_average_metrics_r2: null,
+      ...buildDownstreamReset(),
+    });
   };
 
   const handleCalculate = async () => {

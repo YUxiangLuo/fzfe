@@ -110,25 +110,48 @@ const LSTMModel: React.FC = () => {
 
   const recommendedNormalization = useMemo(() => "minmax", []);
 
-  const handleNormalizationSelect = (value: "minmax" | "zscore") => {
+  const handleNormalizationSelect = async (value: "minmax" | "zscore") => {
     if (value === selectedNormalization) return;
     setSelectedNormalization(value);
-  };
-
-  const handleFeatureToggle = (field: string) => {
-    setFeatureValidationAttempted(false);
-    setSelectedFeatures((prev) => {
-      const next = prev.includes(field)
-        ? prev.filter((id) => id !== field)
-        : [...prev, field];
-      const sanitized = sanitizeFeatures(next, selectedTarget);
-      return sanitized;
+    await updateState({
+      lstm_normalization: value,
+      lstm_completed: false,
+      lstm_metrics_rmse: null,
+      lstm_metrics_mae: null,
+      lstm_metrics_r2: null,
+      ...buildDownstreamReset(),
     });
   };
 
-  const handleTargetSelect = (value: string | null) => {
+  const handleFeatureToggle = async (field: string) => {
+    setFeatureValidationAttempted(false);
+    const nextFeatures = selectedFeatures.includes(field)
+      ? selectedFeatures.filter((id) => id !== field)
+      : [...selectedFeatures, field];
+    const sanitized = sanitizeFeatures(nextFeatures, selectedTarget);
+    setSelectedFeatures(sanitized);
+
+    await updateState({
+      lstm_features: sanitized,
+      lstm_completed: false,
+      lstm_metrics_rmse: null,
+      lstm_metrics_mae: null,
+      lstm_metrics_r2: null,
+      ...buildDownstreamReset(),
+    });
+  };
+
+  const handleTargetSelect = async (value: string | null) => {
     setFeatureValidationAttempted(false);
     setSelectedTarget(value);
+    await updateState({
+      lstm_target_field: value,
+      lstm_completed: false,
+      lstm_metrics_rmse: null,
+      lstm_metrics_mae: null,
+      lstm_metrics_r2: null,
+      ...buildDownstreamReset(),
+    });
   };
 
   useEffect(() => {

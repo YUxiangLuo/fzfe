@@ -126,9 +126,17 @@ const ARIMAModel: React.FC = () => {
   }, [storedD]);
 
 
-  const handleSelectD = (value: number) => {
+  const handleSelectD = async (value: number) => {
     setSelectedD(value);
     setDError(null);
+    await updateState({
+      arima_d: value,
+      arima_completed: false,
+      arima_metrics_rmse: null,
+      arima_metrics_mae: null,
+      arima_metrics_r2: null,
+      ...buildDownstreamReset(),
+    });
   };
 
   const handleRunAdf = async () => {

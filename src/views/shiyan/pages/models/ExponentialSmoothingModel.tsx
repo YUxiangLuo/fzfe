@@ -88,8 +88,16 @@ const ExponentialSmoothingModel: React.FC = () => {
     }
   }, [modelState.alpha]);
 
-  const handleAlphaChange = (value: number) => {
+  const handleAlphaChange = async (value: number) => {
     setAlpha(value);
+    await updateState({
+      exponential_smoothing_alpha: value,
+      exponential_smoothing_completed: false,
+      exponential_smoothing_metrics_rmse: null,
+      exponential_smoothing_metrics_mae: null,
+      exponential_smoothing_metrics_r2: null,
+      ...buildDownstreamReset(),
+    });
   };
 
   const handleCalculate = async () => {

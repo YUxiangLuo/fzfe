@@ -94,12 +94,14 @@ const StackingEnsembleModel: React.FC = () => {
     setSelectedModels(modelState.baseModels);
   }, [modelState.baseModels]);
 
-  const handleModelToggle = (modelId: string) => {
-    setSelectedModels((prev) => {
-      const next = prev.includes(modelId)
-        ? prev.filter((id) => id !== modelId)
-        : [...prev, modelId];
-      return next;
+  const handleModelToggle = async (modelId: string) => {
+    const next = selectedModels.includes(modelId)
+      ? selectedModels.filter((id) => id !== modelId)
+      : [...selectedModels, modelId];
+    setSelectedModels(next);
+    await updateState({
+      ensemble_stacking_base_models: next,
+      ...resetMetrics(),
     });
   };
 
