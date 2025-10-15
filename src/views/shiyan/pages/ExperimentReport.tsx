@@ -224,7 +224,7 @@ const ExperimentReport: React.FC = () => {
           <meta charset="UTF-8">
           <title>实验报告</title>
           <style>
-            body { font-family: 'SimSun', serif; line-height: 1.6; color: #333; max-width: 900px; margin: 40px auto; }
+            body { font-family: 'SimSun', serif; line-height: 1.6; color: #333; max-width: 1200px; margin: 40px auto; padding-left: 30px; padding-right: 30px; box-sizing: border-box; }
             h1, h2, h3 { color: #1a202c; }
             h1 { text-align: center; font-size: 24px; }
             h2 { font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-top: 24px; }

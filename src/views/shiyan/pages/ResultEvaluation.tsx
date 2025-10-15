@@ -66,15 +66,19 @@ const ResultEvaluation: React.FC = () => {
   }, [state]);
 
   const sortedModels = useMemo(() => {
-    let sortableModels = [...completedModels];
+    const sortableModels = [...completedModels];
     sortableModels.sort((a, b) => {
-      const aValue = a.metrics[sortConfig.key];
-      const bValue = b.metrics[sortConfig.key];
+      const key = sortConfig.key;
+      const aValue = a.metrics[key];
+      const bValue = b.metrics[key];
+
+      // Handle nulls: push them to the bottom
       if (aValue === null) return 1;
       if (bValue === null) return -1;
-      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
+
+      // R² should be descending, others ascending
+      const directionModifier = sortConfig.direction === 'desc' ? -1 : 1;
+      return (aValue - bValue) * directionModifier;
     });
     return sortableModels;
   }, [completedModels, sortConfig]);
@@ -111,15 +115,25 @@ const ResultEvaluation: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">模型性能对比</h2>
               <div className="flex items-center space-x-2 mt-4 sm:mt-0">
-                <label htmlFor="sort-select" className="text-sm font-medium text-gray-600">排序方式:</label>
-                <select
-                  id="sort-select"
-                  value={`${sortConfig.key}-${sortConfig.direction}`}
-                  onChange={(e) => handleSortChange(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  {sortOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                </select>
+                <span className="text-sm font-medium text-gray-600">排序方式:</span>
+                <div className="flex items-center space-x-2 rounded-lg bg-gray-100 p-1">
+                  {sortOptions.map(opt => {
+                    const isActive = sortConfig.key === opt.value.split('-')[0] && sortConfig.direction === opt.value.split('-')[1];
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => handleSortChange(opt.value)}
+                        className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-colors ${
+                          isActive
+                            ? 'bg-white text-blue-600 shadow-sm'
+                            : 'text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
             
