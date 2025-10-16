@@ -67,8 +67,8 @@ function App() {
           <Route path="/" element={<Navigate to="/introduction" replace />} />
           <Route path="/introduction" element={<Introduction />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/quiz" element={<ProtectedRoute step={7}><ModelQuiz /></ProtectedRoute>} />
-          <Route path="/quiz-plan" element={<ProtectedRoute step={7}><PlanQuiz /></ProtectedRoute>} />
+          <Route path="/quiz" element={<ModelQuiz />} />
+          <Route path="/quiz-plan" element={<PlanQuiz />} />
           <Route path="/report" element={<ExperimentReport />} />
           {/* All main experiment routes are now under the MainLayout */}
           <Route path="/*" element={<MainLayout />} />
