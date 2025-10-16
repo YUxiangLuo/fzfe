@@ -7,7 +7,7 @@ const STEPS = [
   { id: 1, title: "方法简介", description: "了解 ARIMA 模型的结构与适用场景。" },
   { id: 2, title: "ADF 平稳性检验", description: "通过 ADF 检验判断序列是否平稳。" },
   { id: 3, title: "设定差分阶数 d", description: "根据检验结果选择合适的差分阶数。" },
-  { id: 4, title: "训练模型并自动寻优", description: "模拟训练过程，得到推荐的 p、q 与误差指标。" },
+  { id: 4, title: "训练模型并自动寻优", description: "训练模型，得到推荐的 p、q 与误差指标。" },
 ] as const;
 
 const formatNumber = (value: number | null | undefined, fractionDigits = 3) =>
@@ -380,7 +380,7 @@ const ARIMAModel: React.FC = () => {
                   <td colSpan={5} className="px-4 py-6 text-center text-blue-600">
                     <div className="inline-flex items-center space-x-3">
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>正在模拟 ADF 检验，请稍候...</span>
+                      <span>正在进行 ADF 检验，请稍候...</span>
                     </div>
                   </td>
                 </tr>
@@ -408,7 +408,7 @@ const ARIMAModel: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
-                    尚未生成检验结果，请点击上方按钮执行模拟。
+                    尚未生成检验结果，请点击上方按钮执行检验。
                   </td>
                 </tr>
               )}
@@ -491,7 +491,7 @@ const ARIMAModel: React.FC = () => {
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
         <h3 className="text-xl font-semibold text-gray-900">自动寻优与指标预览</h3>
-        <p className="text-sm text-gray-600">点击“开始训练并保存结果”将模拟模型训练过程，训练完成后会展示误差指标。</p>
+        <p className="text-sm text-gray-600">点击“开始训练并保存结果”将执行模型训练过程，训练完成后会展示误差指标。</p>
 
         <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           当前差分阶数 d：<span className="font-semibold text-blue-900">{storedD ?? "未设置"}</span>
