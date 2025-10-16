@@ -44,19 +44,19 @@ const ModelQuiz: React.FC = () => {
     fetchQuestions();
   }, []);
 
-  const handleAnswerChange = (questionId: number, optionKey: string, questionType: string) => {
+  const handleAnswerChange = (questionId: number, optionValue: string, questionType: string) => {
     setAnswers((prev) => {
       const current = prev[questionId] || [];
 
       if (questionType === 'Single Choice' || questionType === 'True/False') {
         // 单选和判断题：直接替换
-        return { ...prev, [questionId]: [optionKey] };
+        return { ...prev, [questionId]: [optionValue] };
       } else {
         // 多选题：切换选中状态
-        if (current.includes(optionKey)) {
-          return { ...prev, [questionId]: current.filter(k => k !== optionKey) };
+        if (current.includes(optionValue)) {
+          return { ...prev, [questionId]: current.filter(k => k !== optionValue) };
         } else {
-          return { ...prev, [questionId]: [...current, optionKey] };
+          return { ...prev, [questionId]: [...current, optionValue] };
         }
       }
     });
@@ -94,11 +94,21 @@ const ModelQuiz: React.FC = () => {
     }
   };
 
-  const getOptionsList = (options: Record<string, string> | string[]): Array<{ key: string; text: string }> => {
+  const getOptionsList = (
+    options: Record<string, string> | string[],
+  ): Array<{ key: string; value: string; label: string }> => {
     if (Array.isArray(options)) {
-      return options.map((text, index) => ({ key: String(index), text }));
+      return options.map((text, index) => ({
+        key: String(index),
+        value: text,
+        label: text,
+      }));
     } else {
-      return Object.entries(options).map(([key, text]) => ({ key, text }));
+      return Object.entries(options).map(([key, text]) => ({
+        key,
+        value: key,
+        label: `${key}. ${text}`,
+      }));
     }
   };
 
@@ -181,7 +191,7 @@ const ModelQuiz: React.FC = () => {
                 </div>
                 <div className="space-y-3">
                   {optionsList.map((option) => {
-                    const isSelected = selectedAnswers.includes(option.key);
+                    const isSelected = selectedAnswers.includes(option.value);
                     const inputType = question.question_type === 'Multiple Choice' ? 'checkbox' : 'radio';
 
                     return (
@@ -195,12 +205,12 @@ const ModelQuiz: React.FC = () => {
                           type={inputType}
                           name={`question-${question.question_id}`}
                           checked={isSelected}
-                          onChange={() => handleAnswerChange(question.question_id, option.key, question.question_type)}
+                          onChange={() =>
+                            handleAnswerChange(question.question_id, option.value, question.question_type)
+                          }
                           className={`${inputType === 'checkbox' ? 'h-4 w-4 rounded' : 'h-4 w-4'} text-blue-600 focus:ring-blue-500`}
                         />
-                        <span className="ml-3 text-gray-700">
-                          {Array.isArray(question.options) ? option.text : `${option.key}. ${option.text}`}
-                        </span>
+                        <span className="ml-3 text-gray-700">{option.label}</span>
                       </label>
                     );
                   })}
