@@ -37,7 +37,7 @@ export const LoginContainer: React.FC = () => {
             window.location.href = "/jiaoshi";
             break;
           case "assistant":
-            window.location.href = "/jiaoshi";
+            window.location.href = "/zhujiao";
             break;
           case "admin":
             window.location.href = "/admin";

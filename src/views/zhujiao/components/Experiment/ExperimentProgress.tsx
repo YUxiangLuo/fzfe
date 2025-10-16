@@ -33,7 +33,7 @@ const ExperimentProgress: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
-  const [teacherId, setTeacherId] = useState<number | null>(null);
+  const [assistantId, setAssistantId] = useState<number | null>(null);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,17 +51,17 @@ const ExperimentProgress: React.FC = () => {
       setIsLoadingClasses(false);
       return;
     }
-    setTeacherId(decoded.sub);
+    setAssistantId(decoded.sub);
   }, []);
 
   useEffect(() => {
-    if (teacherId === null) return;
+    if (assistantId === null) return;
 
     const fetchClasses = async () => {
       setIsLoadingClasses(true);
       setError(null);
       try {
-        const response = await apiClient.get(`/teachers/${teacherId}/classes`);
+        const response = await apiClient.get(`/assistants/${assistantId}/classes`);
         const classList = Array.isArray(response) ? (response as Class[]) : [];
         setClasses(classList);
         const firstClass = classList[0];
@@ -77,7 +77,7 @@ const ExperimentProgress: React.FC = () => {
       }
     };
     fetchClasses();
-  }, [teacherId]);
+  }, [assistantId]);
 
   useEffect(() => {
     const handler = window.setTimeout(() => {

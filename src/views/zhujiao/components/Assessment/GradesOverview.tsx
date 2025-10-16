@@ -20,7 +20,7 @@ const GradesOverview: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   
-  const [teacherId, setTeacherId] = useState<number | null>(null);
+  const [assistantId, setAssistantId] = useState<number | null>(null);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
   const [isLoadingGrades, setIsLoadingGrades] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,17 +45,17 @@ const GradesOverview: React.FC = () => {
       setIsLoadingClasses(false);
       return;
     }
-    setTeacherId(decoded.sub);
+    setAssistantId(decoded.sub);
   }, []);
 
   useEffect(() => {
-    if (teacherId === null) return;
+    if (assistantId === null) return;
 
     const fetchClasses = async () => {
       setIsLoadingClasses(true);
       setError(null);
       try {
-        const response = await apiClient.get<Class[]>(`/teachers/${teacherId}/classes`);
+        const response = await apiClient.get<Class[]>(`/assistants/${assistantId}/classes`);
         if (Array.isArray(response) && response.length > 0) {
           setClasses(response);
           setSelectedClassId(String(response[0].class_id));
@@ -71,7 +71,7 @@ const GradesOverview: React.FC = () => {
     };
 
     fetchClasses();
-  }, [teacherId]);
+  }, [assistantId]);
 
   useEffect(() => {
     if (!selectedClassId) {

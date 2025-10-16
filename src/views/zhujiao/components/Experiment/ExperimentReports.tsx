@@ -32,7 +32,7 @@ const ExperimentReports: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
-  const [teacherId, setTeacherId] = useState<number | null>(null);
+  const [assistantId, setAssistantId] = useState<number | null>(null);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,9 +41,6 @@ const ExperimentReports: React.FC = () => {
   const [selectedReport, setSelectedReport] = useState<ExperimentReport | null>(
     null,
   );
-  const [tempScore, setTempScore] = useState("");
-  const [tempComments, setTempComments] = useState("");
-  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -58,7 +55,7 @@ const ExperimentReports: React.FC = () => {
       setIsLoadingClasses(false);
       return;
     }
-    setTeacherId(decoded.sub);
+    setAssistantId(decoded.sub);
   }, []);
 
   useEffect(() => {
@@ -72,13 +69,13 @@ const ExperimentReports: React.FC = () => {
   }, [searchTerm]);
 
   useEffect(() => {
-    if (teacherId === null) return;
+    if (assistantId === null) return;
 
     const fetchClasses = async () => {
       setIsLoadingClasses(true);
       setError(null);
       try {
-        const response = await apiClient.get(`/teachers/${teacherId}/classes`);
+        const response = await apiClient.get(`/assistants/${assistantId}/classes`);
         const classList = Array.isArray(response) ? (response as Class[]) : [];
         setClasses(classList);
         const firstClass = classList[0];
@@ -95,7 +92,7 @@ const ExperimentReports: React.FC = () => {
     };
 
     fetchClasses();
-  }, [teacherId]);
+  }, [assistantId]);
 
   useEffect(() => {
     if (!selectedClassId) {
@@ -175,85 +172,14 @@ const ExperimentReports: React.FC = () => {
     return Math.round(total / reviewedReports.length).toString();
   }, [reviewedReports]);
 
-  const resetReviewState = () => {
+  const resetViewState = () => {
     setShowReviewModal(false);
     setSelectedReport(null);
-    setTempScore("");
-    setTempComments("");
-    setIsSubmittingReview(false);
   };
 
   const handleReview = (report: ExperimentReport) => {
     setSelectedReport(report);
-    setTempScore(
-      report.grade !== null && report.grade !== undefined
-        ? String(report.grade)
-        : "",
-    );
-    setTempComments(report.feedback ?? "");
     setShowReviewModal(true);
-  };
-
-  const isScoreValid = useMemo(() => {
-    if (!tempScore.trim()) return true;
-    const value = Number(tempScore);
-    return !Number.isNaN(value) && value >= 0 && value <= 100;
-  }, [tempScore]);
-
-  const canSubmitReview = useMemo(() => {
-    if (!selectedReport) return false;
-    const hasGrade = tempScore.trim().length > 0;
-    const hasFeedback = tempComments.trim().length > 0;
-    if (!hasGrade && !hasFeedback) return false;
-    return isScoreValid && !isSubmittingReview;
-  }, [
-    selectedReport,
-    tempScore,
-    tempComments,
-    isScoreValid,
-    isSubmittingReview,
-  ]);
-
-  const handleSaveReview = async () => {
-    if (!selectedReport) return;
-
-    const payload: { grade?: number; feedback?: string } = {};
-    if (tempScore.trim()) {
-      const gradeValue = Number(tempScore);
-      if (Number.isNaN(gradeValue) || gradeValue < 0 || gradeValue > 100) {
-        alert("请填写 0-100 之间的分数");
-        return;
-      }
-      payload.grade = gradeValue;
-    }
-    if (tempComments.trim()) {
-      payload.feedback = tempComments.trim();
-    }
-
-    if (payload.grade === undefined && payload.feedback === undefined) {
-      alert("请至少填写分数或评语");
-      return;
-    }
-
-    try {
-      setIsSubmittingReview(true);
-      const updatedReport = await apiClient.put(
-        `/reports/${selectedReport.report_id}`,
-        payload,
-      );
-      setReports((prev) =>
-        prev.map((report) =>
-          report.report_id === selectedReport.report_id
-            ? { ...(updatedReport as ExperimentReport) }
-            : report,
-        ),
-      );
-      resetReviewState();
-    } catch (err: any) {
-      alert(err.message || "保存评阅结果失败");
-    } finally {
-      setIsSubmittingReview(false);
-    }
   };
 
   const handleDownload = (report: ExperimentReport) => {
@@ -375,16 +301,8 @@ const ExperimentReports: React.FC = () => {
                 disabled={!report.report_id}
                 className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                <Star size={16} className="mr-2" />
-                评阅
-              </button>
-              <button
-                onClick={() => handleDownload(report)}
-                disabled={!report.pdf_file_path}
-                className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-              >
-                <Download size={16} className="mr-1" />
-                下载
+                <FileText size={16} className="mr-2" />
+                查看
               </button>
             </div>
           </td>
@@ -554,14 +472,32 @@ const ExperimentReports: React.FC = () => {
 
       <Modal
         isOpen={showReviewModal}
-        onClose={resetReviewState}
-        title="评阅报告"
+        onClose={resetViewState}
+        title="查看报告"
         size="fullscreen"
       >
         {selectedReport && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
-            {/* PDF Preview Area */}
-            <div className="lg:col-span-3 h-full flex flex-col">
+          <div className="h-full flex flex-col">
+            <div className="flex-shrink-0 p-4 bg-gray-50 rounded-lg border border-gray-200 mb-4 flex justify-between items-center">
+              <div>
+                <h3 className="font-medium text-gray-900">
+                  {selectedReport.student_full_name} ({selectedReport.student_username})
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {extractFileName(selectedReport.pdf_file_path)}
+                </p>
+              </div>
+              <Button
+                onClick={() => handleDownload(selectedReport)}
+                variant="outline"
+                size="sm"
+                disabled={!selectedReport.pdf_file_path}
+              >
+                <Download size={16} className="mr-1" />
+                下载
+              </Button>
+            </div>
+            <div className="flex-1 h-full bg-gray-100 rounded-lg border border-gray-200">
               {selectedReport.pdf_file_path ? (
                 <embed
                   src={buildDownloadUrl(selectedReport.pdf_file_path)}
@@ -570,97 +506,13 @@ const ExperimentReports: React.FC = () => {
                   height="100%"
                 />
               ) : (
-                <div className="h-full bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
-                  <div className="text-center text-gray-500">
+                <div className="h-full flex items-center justify-center text-center text-gray-500">
+                  <div>
                     <FileText className="w-12 h-12 mx-auto mb-2" />
                     <p>该报告没有可预览的文件。</p>
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Review Controls Area */}
-            <div className="lg:col-span-1 space-y-6 bg-gray-50 p-6 rounded-lg border border-gray-200 overflow-y-auto">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="font-medium text-gray-900">
-                    {selectedReport.student_full_name}
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    ({selectedReport.student_username})
-                  </p>
-                </div>
-                <Button
-                  onClick={() => handleDownload(selectedReport)}
-                  variant="outline"
-                  size="sm"
-                  disabled={!selectedReport.pdf_file_path}
-                >
-                  <Download size={16} className="mr-1" />
-                  下载
-                </Button>
-              </div>
-
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <h4 className="text-lg font-semibold text-blue-900 mb-2">
-                  评阅操作
-                </h4>
-                <p className="text-sm text-blue-700">
-                  请仔细查看左侧内容后进行评分或填写反馈。
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    分数 (0-100)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={tempScore}
-                    onChange={(event) => setTempScore(event.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
-                    placeholder="请输入分数"
-                  />
-                  {!isScoreValid && (
-                    <p className="mt-1 text-sm text-red-600">
-                      分数需在 0-100 之间。
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    评语
-                  </label>
-                  <textarea
-                    value={tempComments}
-                    onChange={(event) => setTempComments(event.target.value)}
-                    rows={8}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                    placeholder="请输入评语..."
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col space-y-3 pt-4 border-t border-gray-200">
-                <Button
-                  onClick={handleSaveReview}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white py-3"
-                  disabled={!canSubmitReview}
-                >
-                  <Star size={18} className="mr-2" />
-                  {isSubmittingReview ? "保存中..." : "保存评阅结果"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={resetReviewState}
-                  className="w-full py-3"
-                >
-                  取消
-                </Button>
-              </div>
             </div>
           </div>
         )}

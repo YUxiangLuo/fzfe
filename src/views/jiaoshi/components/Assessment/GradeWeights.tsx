@@ -71,6 +71,10 @@ const GradeWeights: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const [isLoadingClasses, setIsLoadingClasses] = useState(true);
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [teacherId, setTeacherId] = useState<number | null>(null);
@@ -94,32 +98,67 @@ const GradeWeights: React.FC = () => {
 
   useEffect(() => {
     if (teacherId === null) return;
+
+    const fetchClasses = async () => {
+      setIsLoadingClasses(true);
+      setError(null);
+      try {
+        const response = await apiClient.get(`/teachers/${teacherId}/classes`);
+        const classList = Array.isArray(response) ? (response as any[]) : [];
+        setClasses(classList);
+        if (classList.length > 0) {
+          setSelectedClassId(String(classList[0].class_id));
+        } else {
+          setIsLoading(false); // No classes, so no weights to load
+        }
+      } catch (err: any) {
+        setError(err.message || "获取班级列表失败");
+        setIsLoading(false);
+      } finally {
+        setIsLoadingClasses(false);
+      }
+    };
+
+    fetchClasses();
+  }, [teacherId]);
+
+  useEffect(() => {
+    if (!selectedClassId) {
+      setWeights(DEFAULT_WEIGHTS);
+      setTempWeights(DEFAULT_WEIGHTS);
+      setHasExistingPlan(false);
+      setIsLoading(false);
+      return;
+    }
+
     const fetchWeights = async () => {
       setIsLoading(true);
       setError(null);
+      setInfoMessage(null);
       try {
-        const response = await apiClient.get('/grade-weights');
-        if (response) {
-          setWeights(response as GradeWeightsApi);
-          setTempWeights(response as GradeWeightsApi);
-          setHasExistingPlan(true);
+        const response = await apiClient.get<GradeWeightsApi>(`/classes/${selectedClassId}/grade-weights`);
+        setWeights(response);
+        setTempWeights(response);
+        setHasExistingPlan(true);
+      } catch (err: any) {
+        if (err.message && err.message.toLowerCase().includes('not found')) {
+          setWeights(DEFAULT_WEIGHTS);
+          setTempWeights(DEFAULT_WEIGHTS);
+          setHasExistingPlan(false);
+          setInfoMessage('当前班级未设置权重，已加载默认模板。保存后将为该班级创建新的权重方案。');
         } else {
+          setError(err.message || '获取成绩权重失败，请稍后重试');
           setWeights(DEFAULT_WEIGHTS);
           setTempWeights(DEFAULT_WEIGHTS);
           setHasExistingPlan(false);
         }
-      } catch (err: any) {
-        setError(err.message || '获取成绩权重失败，将使用默认值');
-        setWeights(DEFAULT_WEIGHTS);
-        setTempWeights(DEFAULT_WEIGHTS);
-        setHasExistingPlan(false);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchWeights();
-  }, [teacherId]);
+  }, [selectedClassId]);
 
   const topLevelTotal = useMemo(() => tempWeights.exp_flow + tempWeights.knowledge_test + tempWeights.model_quality + tempWeights.report_quality, [tempWeights]);
   const flowTotal = useMemo(() => FLOW_ITEMS.reduce((sum, item) => sum + (tempWeights[item.key] ?? 0), 0), [tempWeights]);
@@ -149,6 +188,10 @@ const GradeWeights: React.FC = () => {
   };
 
   const saveWeights = async () => {
+    if (!selectedClassId) {
+      alert('请先选择一个班级。');
+      return;
+    }
     if (topLevelTotal !== 100) {
       alert('一级权重总和必须为 100%。');
       return;
@@ -161,12 +204,15 @@ const GradeWeights: React.FC = () => {
     try {
       setIsSaving(true);
       const payload: GradeWeightsApi = { ...tempWeights };
+      const endpoint = `/classes/${selectedClassId}/grade-weights`;
       const response = hasExistingPlan
-        ? await apiClient.put('/grade-weights', payload)
-        : await apiClient.post('/grade-weights', payload);
+        ? await apiClient.put(endpoint, payload)
+        : await apiClient.post(endpoint, payload);
+      
       setWeights(response as GradeWeightsApi);
       setTempWeights(response as GradeWeightsApi);
       setHasExistingPlan(true);
+      setInfoMessage(null); // Clear info message on successful save
       alert('成绩权重已保存');
     } catch (err: any) {
       alert(err.message || '保存成绩权重失败');
@@ -264,16 +310,45 @@ const GradeWeights: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 space-y-3 md:space-y-0">
-        <h1 className="text-2xl font-bold text-gray-900">成绩权重</h1>
-        <div className="flex space-x-3">
-          <Button onClick={resetToDefault} variant="outline">
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-gray-900">成绩权重</h1>
+          <p className="text-sm text-gray-500 mt-1">设置不同考核项在最终成绩中的占比。此设置将应用于指定班级。</p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <Button onClick={resetToDefault} variant="outline" disabled={!selectedClassId || isLoading}>
             <RotateCcw size={16} className="mr-2" />
-            使用默认值
+            恢复默认
           </Button>
-          <Button onClick={saveWeights} disabled={isSaving || isLoading}>
+          <Button onClick={saveWeights} disabled={!selectedClassId || isSaving || isLoading}>
             <Save size={16} className="mr-2" />
             {isSaving ? '保存中...' : '保存设置'}
           </Button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="w-full md:max-w-xs">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            选择班级
+          </label>
+          <select
+            value={selectedClassId}
+            onChange={(e) => setSelectedClassId(e.target.value)}
+            disabled={isLoadingClasses || classes.length === 0}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+          >
+            {isLoadingClasses ? (
+              <option>正在加载班级...</option>
+            ) : classes.length === 0 ? (
+              <option>暂无班级</option>
+            ) : (
+              classes.map((cls) => (
+                <option key={cls.class_id} value={cls.class_id}>
+                  {cls.class_name}
+                </option>
+              ))
+            )}
+          </select>
         </div>
       </div>
 
@@ -283,44 +358,60 @@ const GradeWeights: React.FC = () => {
         </div>
       )}
 
+      {infoMessage && !error && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm">
+          {infoMessage}
+        </div>
+      )}
+
+      {!selectedClassId && !isLoadingClasses && (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <p className="text-gray-500">
+            {classes.length > 0 ? '请选择一个班级以设置其成绩权重。' : '您当前没有管理的班级，请先创建或关联一个班级。'}
+          </p>
+        </div>
+      )}
+
+      <fieldset disabled={!selectedClassId || isLoading} className="space-y-6">
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">一级权重设置</h2>
-            <div
-              className={`px-3 py-1 rounded-full text-sm font-medium ${topLevelTotal === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
-            >
-            总计 {topLevelTotal}%
-          </div>
-        </div>
-        {renderTopLevelControls()}
-      </div>
-
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">权重分布图表</h3>
-        <div className="space-y-4">
-          <div className="w-full bg-gray-200 rounded-full h-8 overflow-hidden flex">
-            {TOP_LEVEL_ITEMS.map((item) => (
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">一级权重设置</h2>
               <div
-                key={item.key}
-                className={`${item.color} flex items-center justify-center text-white text-sm font-medium`}
-                style={{ width: `${weights[item.key]}%` }}
+                className={`px-3 py-1 rounded-full text-sm font-medium ${topLevelTotal === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
               >
-                {item.label} {weights[item.key]}%
-              </div>
-            ))}
+              总计 {topLevelTotal}%
+            </div>
           </div>
+          {renderTopLevelControls()}
+        </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-gray-600">
-            {TOP_LEVEL_ITEMS.map((item) => (
-              <div key={item.key} className="flex items-center space-x-2">
-                <span className={`inline-block w-3 h-3 rounded-full ${item.color}`}></span>
-                <span>{item.label}</span>
-                <span className="font-medium text-gray-900">{weights[item.key]}%</span>
-              </div>
-            ))}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">权重分布图表</h3>
+          <div className="space-y-4">
+            <div className="w-full bg-gray-200 rounded-full h-8 overflow-hidden flex">
+              {TOP_LEVEL_ITEMS.map((item) => (
+                <div
+                  key={item.key}
+                  className={`${item.color} flex items-center justify-center text-white text-sm font-medium`}
+                  style={{ width: `${weights[item.key]}%` }}
+                >
+                  {item.label} {weights[item.key]}%
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-gray-600">
+              {TOP_LEVEL_ITEMS.map((item) => (
+                <div key={item.key} className="flex items-center space-x-2">
+                  <span className={`inline-block w-3 h-3 rounded-full ${item.color}`}></span>
+                  <span>{item.label}</span>
+                  <span className="font-medium text-gray-900">{weights[item.key]}%</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      </fieldset>
 
       <Modal
         isOpen={isDetailModalOpen}

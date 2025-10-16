@@ -3,6 +3,7 @@ import shiyan from "./views/shiyan/shiyan.html";
 import jiaoshi from "./views/jiaoshi/jiaoshi.html";
 import login from "./views/login/login.html";
 import admin from "./views/admin/admin.html";
+import zhujiao from "./views/zhujiao/zhujiao.html";
 
 const server = serve({
   routes: {
@@ -10,6 +11,7 @@ const server = serve({
     "/login": login,
     "/admin": admin,
     "/jiaoshi": jiaoshi,
+    "/zhujiao": zhujiao,
     "/shiyan": shiyan,
     "/shiyan/*": shiyan,
 

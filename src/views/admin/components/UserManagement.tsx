@@ -29,6 +29,14 @@ const UserManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [currentAdminId, setCurrentAdminId] = useState<number | null>(null);
 
+  const [isAddTeacherModalOpen, setIsAddTeacherModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newTeacherData, setNewTeacherData] = useState({
+    username: "",
+    full_name: "",
+    email: "",
+  });
+
   const roleLabels: { [key: string]: string } = {
     student: "学生",
     teacher: "教师",
@@ -95,6 +103,23 @@ const UserManagement: React.FC = () => {
       } catch (err: any) {
         alert(`删除失败: ${err.message}`);
       }
+    }
+  };
+
+  const handleCreateTeacher = async () => {
+    if (!newTeacherData.username.trim() || !newTeacherData.full_name.trim() || !newTeacherData.email.trim()) {
+      alert("请填写所有必填字段。");
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await apiClient.post<User>("/users/teachers", newTeacherData);
+      setIsAddTeacherModalOpen(false);
+      setNewTeacherData({ username: "", full_name: "", email: "" });
+    } catch (err: any) {
+      alert(`添加教师失败: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -185,6 +210,17 @@ const UserManagement: React.FC = () => {
   return (
     <>
       <div className="space-y-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-800">用户列表</h2>
+          <button
+            onClick={() => setIsAddTeacherModalOpen(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <Edit size={16} />
+            <span>添加教师</span>
+          </button>
+        </div>
+
         {/* Users Table */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           <table className="w-full">
@@ -281,6 +317,65 @@ const UserManagement: React.FC = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Add Teacher Modal */}
+      <Modal
+        isOpen={isAddTeacherModalOpen}
+        onClose={() => setIsAddTeacherModalOpen(false)}
+        title="添加新教师"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">用户名</label>
+            <input
+              type="text"
+              value={newTeacherData.username}
+              onChange={(e) => setNewTeacherData({ ...newTeacherData, username: e.target.value })}
+              placeholder="教师的登录账号"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              disabled={isSubmitting}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">姓名</label>
+            <input
+              type="text"
+              value={newTeacherData.full_name}
+              onChange={(e) => setNewTeacherData({ ...newTeacherData, full_name: e.target.value })}
+              placeholder="教师的真实姓名"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              disabled={isSubmitting}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">邮箱</label>
+            <input
+              type="email"
+              value={newTeacherData.email}
+              onChange={(e) => setNewTeacherData({ ...newTeacherData, email: e.target.value })}
+              placeholder="教师的联系邮箱"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              disabled={isSubmitting}
+            />
+          </div>
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              onClick={() => setIsAddTeacherModalOpen(false)}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              disabled={isSubmitting}
+            >
+              取消
+            </button>
+            <button
+              onClick={handleCreateTeacher}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "添加中..." : "确认添加"}
+            </button>
+          </div>
+        </div>
       </Modal>
     </>
   );
