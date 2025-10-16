@@ -292,6 +292,9 @@ const ExperimentDataView: React.FC = () => {
                 <li>
                   <code className="bg-blue-100 px-1 rounded">销售数量</code>
                 </li>
+                <li>
+                  <code className="bg-blue-100 px-1 rounded">数量单位</code>
+                </li>
               </ul>
             </div>
           </div>
