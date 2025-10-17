@@ -4,7 +4,7 @@ import Sidebar from './components/Layout/Sidebar';
 import MainContent from './components/Layout/MainContent';
 import type { MenuItem } from './types';
 
-const STORAGE_KEY = 'jiaoshi_active_menu';
+const STORAGE_KEY = 'zhujiao_active_menu';
 const DEFAULT_MENU: MenuItem = 'experiment-progress';
 
 function App() {
