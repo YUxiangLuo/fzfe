@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Lock,
   CalendarRange,
+  type LucideIcon,
 } from 'lucide-react';
 import MovingAverageModel from './models/MovingAverageModel';
 import ExponentialSmoothingModel from './models/ExponentialSmoothingModel';
@@ -22,6 +23,57 @@ import LSTMModel from './models/LSTMModel';
 import ARIMAModel from './models/ARIMAModel';
 import { DOWNLOAD_SERVER_BASE_URL } from '../../../config/appConfig';
 import DataWindowSelection from './models/DataWindowSelection';
+
+// 常量配置
+const CURRENT_STEP = 5;
+const MIN_BASE_MODELS_FOR_ENSEMBLE = 2;
+const MIN_ENSEMBLE_MODELS_FOR_EVALUATION = 1;
+const TOTAL_BASE_MODELS = 4;
+const TOTAL_ENSEMBLE_MODELS = 3;
+
+// 路径常量
+const PATHS = {
+  MODEL_ROOT: '/model',
+  WINDOW: '/model/window',
+  EVALUATION: '/evaluation',
+} as const;
+
+// 模型配置类型
+interface ModelConfig {
+  id: string;
+  name: string;
+  path: string;
+  icon: LucideIcon;
+  type: 'basic' | 'ensemble';
+}
+
+interface DataPreparationRoute {
+  id: string;
+  name: string;
+  path: string;
+  icon: LucideIcon;
+}
+
+// 数据准备路由配置
+const DATA_PREPARATION_ROUTES: DataPreparationRoute[] = [
+  {
+    id: 'data_window',
+    name: '选择数据时段',
+    path: 'window',
+    icon: CalendarRange,
+  },
+];
+
+// 模型配置
+const MODELS: ModelConfig[] = [
+  { id: 'moving_average', name: '移动平均法', path: 'ma', icon: LineChart, type: 'basic' },
+  { id: 'exponential_smoothing', name: '指数平滑法', path: 'es', icon: ChartSpline, type: 'basic' },
+  { id: 'arima', name: 'ARIMA模型', path: 'arima', icon: Sigma, type: 'basic' },
+  { id: 'lstm', name: 'LSTM神经网络', path: 'lstm', icon: BrainCircuit, type: 'basic' },
+  { id: 'weighted_ensemble', name: '加权平均融合', path: 'weighted', icon: Scale, type: 'ensemble' },
+  { id: 'boosting_ensemble', name: 'Boosting融合', path: 'boosting', icon: Sparkles, type: 'ensemble' },
+  { id: 'stacking_ensemble', name: 'Stacking融合', path: 'stacking', icon: Layers, type: 'ensemble' },
+];
 
 const ModelBuilding: React.FC = () => {
   const location = useLocation();
@@ -38,8 +90,8 @@ const ModelBuilding: React.FC = () => {
     }
     prevHighestStepRef.current = state.highest_completed_step;
 
-    if (5 > state.highest_completed_step && !hasRecordedStartRef.current) {
-      recordStepEvent(5, 'STARTED');
+    if (CURRENT_STEP > state.highest_completed_step && !hasRecordedStartRef.current) {
+      recordStepEvent(CURRENT_STEP, 'STARTED');
       hasRecordedStartRef.current = true;
     }
   }, [state.highest_completed_step, recordStepEvent]);
@@ -53,25 +105,6 @@ const ModelBuilding: React.FC = () => {
     boosting_ensemble: state.ensemble_boosting_completed,
     stacking_ensemble: state.ensemble_stacking_completed,
   };
-
-  const dataPreparationRoutes = [
-    {
-      id: 'data_window',
-      name: '选择数据时段',
-      path: 'window',
-      icon: CalendarRange,
-    },
-  ] as const;
-
-  const models = [
-    { id: 'moving_average', name: '移动平均法', path: 'ma', icon: LineChart, type: 'basic' },
-    { id: 'exponential_smoothing', name: '指数平滑法', path: 'es', icon: ChartSpline, type: 'basic' },
-    { id: 'arima', name: 'ARIMA模型', path: 'arima', icon: Sigma, type: 'basic' },
-    { id: 'lstm', name: 'LSTM神经网络', path: 'lstm', icon: BrainCircuit, type: 'basic' },
-    { id: 'weighted_ensemble', name: '加权平均融合', path: 'weighted', icon: Scale, type: 'ensemble' },
-    { id: 'boosting_ensemble', name: 'Boosting融合', path: 'boosting', icon: Sparkles, type: 'ensemble' },
-    { id: 'stacking_ensemble', name: 'Stacking融合', path: 'stacking', icon: Layers, type: 'ensemble' },
-  ];
 
   const {
     data_window_train_start_index: trainStart,
@@ -89,23 +122,64 @@ const ModelBuilding: React.FC = () => {
     evalStart <= evalEnd &&
     trainEnd < evalStart;
 
-  const baseModelsCompletedCount = ['moving_average', 'exponential_smoothing', 'arima', 'lstm']
-    .filter((id) => completionMap[id]).length;
+  const baseModels = MODELS.filter(m => m.type === 'basic');
+  const ensembleModels = MODELS.filter(m => m.type === 'ensemble');
 
-  const ensembleModelsCompletedCount = ['weighted_ensemble', 'boosting_ensemble', 'stacking_ensemble']
-    .filter((id) => completionMap[id]).length;
+  const baseModelsCompletedCount = baseModels.filter((model) => completionMap[model.id]).length;
+  const ensembleModelsCompletedCount = ensembleModels.filter((model) => completionMap[model.id]).length;
 
-  const canAccessEnsemble = baseModelsCompletedCount >= 2;
-  const canAccessEvaluation = ensembleModelsCompletedCount >= 1;
+  const canAccessEnsemble = baseModelsCompletedCount >= MIN_BASE_MODELS_FOR_ENSEMBLE;
+  const canAccessEvaluation = ensembleModelsCompletedCount >= MIN_ENSEMBLE_MODELS_FOR_EVALUATION;
 
   const handleEvaluationClick = () => {
     if (canAccessEvaluation) {
-      updateState({ 
-          highest_completed_step: 5,
-          current_step: 6,
+      updateState({
+          highest_completed_step: CURRENT_STEP,
+          current_step: CURRENT_STEP + 1,
       });
-      navigate('/evaluation');
+      navigate(PATHS.EVALUATION);
     }
+  };
+
+  // 通用导航项渲染组件
+  const renderNavigationItem = (model: ModelConfig, isDisabled: boolean) => {
+    const isActive = location.pathname.endsWith('/' + model.path);
+    const Icon = model.icon;
+    const isCompleted = completionMap[model.id] ?? false;
+
+    const ItemContent = (
+      <div className="flex items-center gap-3">
+        <span className={`w-2 h-2 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-transparent'}`} />
+        <Icon className="w-5 h-5" />
+        <span>{model.name}</span>
+      </div>
+    );
+
+    const activeClasses = 'bg-blue-50 text-blue-700';
+    const normalClasses = 'text-gray-700 hover:bg-gray-50';
+    const disabledClasses = 'bg-gray-100 text-gray-400 cursor-not-allowed';
+
+    if (isDisabled) {
+      return (
+        <div
+          key={model.id}
+          className={`flex items-center justify-between p-3 rounded-lg ${disabledClasses}`}
+        >
+          {ItemContent}
+          <Lock className="w-4 h-4" />
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        key={model.id}
+        to={`/model/${model.path}`}
+        className={`flex items-center justify-between p-3 rounded-lg transition-all ${isActive ? activeClasses : normalClasses}`}
+      >
+        {ItemContent}
+      </Link>
+    );
   };
 
   const RoleIntroPanel = () => (
@@ -117,7 +191,7 @@ const ModelBuilding: React.FC = () => {
           className="w-full h-auto rounded-2xl shadow-xl object-contain"
         />
         <button
-          onClick={() => navigate('/model/window')}
+          onClick={() => navigate(PATHS.WINDOW)}
           className="absolute top-4 right-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md transition-colors"
         >
           我已了解，选择数据时段
@@ -144,13 +218,13 @@ const ModelBuilding: React.FC = () => {
   );
 
   const sanitizedPath = location.pathname.replace(/\/+$/, '');
-  const shouldShowRoleIntro = sanitizedPath === '/model';
+  const shouldShowRoleIntro = sanitizedPath === PATHS.MODEL_ROOT;
 
   useEffect(() => {
     if (!hasValidDataWindow) {
-      const isSetupRoute = sanitizedPath === '/model' || sanitizedPath === '/model/window';
+      const isSetupRoute = sanitizedPath === PATHS.MODEL_ROOT || sanitizedPath === PATHS.WINDOW;
       if (!isSetupRoute) {
-        navigate('/model/window', { replace: true });
+        navigate(PATHS.WINDOW, { replace: true });
       }
     }
   }, [hasValidDataWindow, sanitizedPath, navigate]);
@@ -187,7 +261,7 @@ const ModelBuilding: React.FC = () => {
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-2">数据准备</h2>
               <nav className="space-y-2">
-                {dataPreparationRoutes.map((route) => {
+                {DATA_PREPARATION_ROUTES.map((route) => {
                   const isActive = location.pathname.endsWith('/' + route.path);
                   const Icon = route.icon;
                   return (
@@ -206,45 +280,9 @@ const ModelBuilding: React.FC = () => {
 
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-2">基础模型</h2>
-              <p className="text-sm text-gray-500 mb-4">已完成: {baseModelsCompletedCount} / 4</p>
+              <p className="text-sm text-gray-500 mb-4">已完成: {baseModelsCompletedCount} / {TOTAL_BASE_MODELS}</p>
               <nav className="space-y-2">
-                {models
-                  .filter((model) => model.type === 'basic')
-                  .map((model) => {
-                    const isActive = location.pathname.endsWith('/' + model.path);
-                    const isDisabled = !hasValidDataWindow;
-                    const Icon = model.icon;
-                    const isCompleted = completionMap[model.id] ?? false;
-                    const ItemContent = (
-                      <div className="flex items-center gap-3">
-                        <span className={`w-2 h-2 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-transparent'}`} />
-                        <Icon className="w-5 h-5" />
-                        <span>{model.name}</span>
-                      </div>
-                    );
-
-                    if (isDisabled) {
-                      return (
-                        <div
-                          key={model.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
-                        >
-                          {ItemContent}
-                          <Lock className="w-4 h-4" />
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <Link
-                        key={model.id}
-                        to={`/model/${model.path}`}
-                        className={`flex items-center justify-between p-3 rounded-lg transition-all ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
-                      >
-                        {ItemContent}
-                      </Link>
-                    );
-                  })}
+                {baseModels.map((model) => renderNavigationItem(model, !hasValidDataWindow))}
               </nav>
               {!hasValidDataWindow && (
                 <p className="mt-2 text-xs text-gray-500">
@@ -255,45 +293,9 @@ const ModelBuilding: React.FC = () => {
 
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-2">融合模型</h2>
-              <p className="text-sm text-gray-500 mb-4">{canAccessEnsemble ? `已完成: ${ensembleModelsCompletedCount} / 3` : '完成2个基础模型后解锁'}</p>
+              <p className="text-sm text-gray-500 mb-4">{canAccessEnsemble ? `已完成: ${ensembleModelsCompletedCount} / ${TOTAL_ENSEMBLE_MODELS}` : `完成${MIN_BASE_MODELS_FOR_ENSEMBLE}个基础模型后解锁`}</p>
               <nav className="space-y-2">
-                {models
-                  .filter((model) => model.type === 'ensemble')
-                  .map((model) => {
-                    const isActive = location.pathname.endsWith('/' + model.path);
-                    const isDisabled = !canAccessEnsemble;
-                    const Icon = model.icon;
-                    const isCompleted = completionMap[model.id] ?? false;
-                    const ItemContent = (
-                      <div className="flex items-center gap-3">
-                        <span className={`w-2 h-2 rounded-full ${isCompleted ? 'bg-green-500' : 'bg-transparent'}`} />
-                        <Icon className="w-5 h-5" />
-                        <span>{model.name}</span>
-                      </div>
-                    );
-
-                    if (isDisabled) {
-                      return (
-                        <div
-                          key={model.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-gray-100 text-gray-400 cursor-not-allowed"
-                        >
-                          {ItemContent}
-                          <Lock className="w-4 h-4" />
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <Link
-                        key={model.id}
-                        to={`/model/${model.path}`}
-                        className={`flex items-center justify-between p-3 rounded-lg transition-all ${isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
-                      >
-                        {ItemContent}
-                      </Link>
-                    );
-                  })}
+                {ensembleModels.map((model) => renderNavigationItem(model, !canAccessEnsemble))}
               </nav>
             </div>
 
@@ -307,7 +309,7 @@ const ModelBuilding: React.FC = () => {
                 <span>进入结果评估</span>
               </button>
               <p className="text-xs text-gray-500 mt-2 text-center">
-                {!canAccessEvaluation && '完成1个融合模型后解锁'}
+                {!canAccessEvaluation && `完成${MIN_ENSEMBLE_MODELS_FOR_EVALUATION}个融合模型后解锁`}
               </p>
             </div>
           </div>

@@ -1,57 +1,117 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext';
 import { AlertTriangle, CalendarRange, CheckCircle2 } from 'lucide-react';
+import type { MonthlySalesRecord } from '../../data/historicalDatasets';
+
+// 常量配置
+const MIN_TRAINING_POINTS = 2; // 训练集至少需要2个数据点
+const MIN_EVALUATION_POINTS = 1; // 评估集至少需要1个数据点
+const MIN_TOTAL_POINTS = MIN_TRAINING_POINTS + MIN_EVALUATION_POINTS; // 总共至少需要3个数据点
+
+const PATHS = {
+  FIRST_MODEL: '/model/ma',
+} as const;
 
 interface RangeSelection {
   startIndex: number | null;
   endIndex: number | null;
 }
 
-interface MonthlySalesRecord {
-  month: string;
-  sales: number;
+interface ValidationError {
+  type: 'training' | 'evaluation' | 'separation' | 'blank_data' | 'size';
+  message: string;
 }
 
-const isValidRange = (range: RangeSelection) => {
-  if (range.startIndex === null || range.endIndex === null) return false;
-  return range.startIndex <= range.endIndex;
+// 检测数据是否为空白值
+const isBlankValue = (value: any): boolean => {
+  return (
+    value == null ||
+    (typeof value === 'number' && (isNaN(value) || !isFinite(value))) ||
+    (typeof value === 'string' && value.trim() === '')
+  );
 };
 
-const buildDefaultRanges = (
+// 填充缺失月份
+const fillMissingMonths = (data: MonthlySalesRecord[]): MonthlySalesRecord[] => {
+  if (data.length <= 1) return data;
+
+  const result: MonthlySalesRecord[] = [];
+
+  const parseMonth = (monthStr: string): Date => {
+    const [year, month] = monthStr.split('-').map(Number);
+    return new Date(year!, month! - 1, 1);
+  };
+
+  const formatMonth = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  };
+
+  const getNextMonth = (date: Date): Date => {
+    const nextMonth = new Date(date);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    return nextMonth;
+  };
+
+  result.push(data[0]!);
+
+  for (let i = 1; i < data.length; i++) {
+    const prevRecord = data[i - 1]!;
+    const currentRecord = data[i]!;
+
+    const prevDate = parseMonth(prevRecord.month);
+    const currentDate = parseMonth(currentRecord.month);
+
+    let checkDate = getNextMonth(prevDate);
+    while (checkDate < currentDate) {
+      result.push({
+        month: formatMonth(checkDate),
+        sales: null as any,
+      });
+      checkDate = getNextMonth(checkDate);
+    }
+
+    result.push(currentRecord);
+  }
+
+  return result;
+};
+
+// 检测区间内是否包含空白值
+const hasBlankInRange = (
   data: MonthlySalesRecord[],
-): { training: RangeSelection; evaluate: RangeSelection } | null => {
-  const total = data.length;
-  if (total < 2) { // Need at least 2 points to split
-    return null;
+  startIndex: number,
+  endIndex: number
+): { hasBlank: boolean; blankMonths: string[] } => {
+  const blankMonths: string[] = [];
+
+  for (let i = startIndex; i <= endIndex && i < data.length; i++) {
+    const record = data[i];
+    if (!record || isBlankValue(record.month) || isBlankValue(record.sales)) {
+      blankMonths.push(record?.month || '未知月份');
+    }
   }
 
-  // Default to ~70-80% for training, rest for evaluation, with a max of 6 for evaluation
-  const evaluateSize = Math.min(6, Math.max(1, Math.floor(total * 0.25)));
-  const trainingEndIndex = total - evaluateSize - 1;
-
-  const training: RangeSelection = {
-    startIndex: 0,
-    endIndex: trainingEndIndex,
+  return {
+    hasBlank: blankMonths.length > 0,
+    blankMonths,
   };
+};
 
-  const evaluate: RangeSelection = {
-    startIndex: trainingEndIndex + 1,
-    endIndex: total - 1,
-  };
-
-  if (!isValidRange(training) || !isValidRange(evaluate) || training.endIndex < training.startIndex) {
-     // Fallback for very small datasets
-     if (total >= 2) {
-       return {
-         training: { startIndex: 0, endIndex: 0 },
-         evaluate: { startIndex: 1, endIndex: total - 1 }
-       };
-     }
-     return null;
+// 验证区间是否有效
+const isValidRange = (range: RangeSelection, requireStrictGreater: boolean = false): boolean => {
+  if (range.startIndex === null || range.endIndex === null) return false;
+  if (requireStrictGreater) {
+    return range.startIndex < range.endIndex; // 严格大于（不能相等）
   }
+  return range.startIndex <= range.endIndex; // 大于或等于
+};
 
-  return { training, evaluate };
+// 检查数据是否足够划分区间
+const hasEnoughData = (data: MonthlySalesRecord[]): boolean => {
+  return data.length >= MIN_TOTAL_POINTS;
 };
 
 const DataWindowSelection: React.FC = () => {
@@ -64,19 +124,130 @@ const DataWindowSelection: React.FC = () => {
     salesDataError,
   } = useExperiment();
 
-  const points = productSalesData?.monthlySales ?? [];
-  const meta = productSalesData?.meta;
-  const { selected_industry, selected_company, selected_product } = state;
+  const [processedSalesData, setProcessedSalesData] = useState<typeof productSalesData>(null);
 
-  const defaultRanges = useMemo(() => buildDefaultRanges(points), [points]);
+  // 填充缺失月份
+  useEffect(() => {
+    if (productSalesData) {
+      const monthlySales = productSalesData.monthlySales || [];
+      const filledData = fillMissingMonths([...monthlySales]);
+
+      setProcessedSalesData({
+        ...productSalesData,
+        monthlySales: filledData,
+      });
+    } else {
+      setProcessedSalesData(null);
+    }
+  }, [productSalesData]);
+
+  const points = processedSalesData?.monthlySales ?? [];
+  const meta = processedSalesData?.meta;
+
   const trainingRange: RangeSelection = {
     startIndex: state.data_window_train_start_index,
     endIndex: state.data_window_train_end_index,
   };
+
   const evaluateRange: RangeSelection = {
     startIndex: state.data_window_evaluate_start_index,
     endIndex: state.data_window_evaluate_end_index,
   };
+
+  // 验证选择的区间
+  const validationErrors = useMemo((): ValidationError[] => {
+    const errors: ValidationError[] = [];
+
+    // 检查是否选择了完整的区间
+    if (
+      trainingRange.startIndex === null ||
+      trainingRange.endIndex === null ||
+      evaluateRange.startIndex === null ||
+      evaluateRange.endIndex === null
+    ) {
+      return errors; // 未完成选择，不显示错误
+    }
+
+    // 验证训练区间（必须严格大于）
+    if (!isValidRange(trainingRange, true)) {
+      errors.push({
+        type: 'training',
+        message: '训练区间的结束月份必须大于开始月份（至少跨越2个月）',
+      });
+    } else {
+      // 检查训练区间大小
+      const trainingSize = trainingRange.endIndex - trainingRange.startIndex + 1;
+      if (trainingSize < MIN_TRAINING_POINTS) {
+        errors.push({
+          type: 'size',
+          message: `训练区间至少需要 ${MIN_TRAINING_POINTS} 个数据点（当前只有 ${trainingSize} 个）`,
+        });
+      }
+
+      // 检查训练区间是否包含空白值
+      const trainingBlankCheck = hasBlankInRange(
+        points,
+        trainingRange.startIndex,
+        trainingRange.endIndex
+      );
+      if (trainingBlankCheck.hasBlank) {
+        errors.push({
+          type: 'blank_data',
+          message: `训练区间包含 ${trainingBlankCheck.blankMonths.length} 个空白数据月份：${trainingBlankCheck.blankMonths.join('、')}`,
+        });
+      }
+    }
+
+    // 验证评估区间
+    if (!isValidRange(evaluateRange)) {
+      errors.push({
+        type: 'evaluation',
+        message: '评估区间的结束月份必须晚于或等于开始月份',
+      });
+    } else {
+      // 检查评估区间大小
+      const evaluationSize = evaluateRange.endIndex - evaluateRange.startIndex + 1;
+      if (evaluationSize < MIN_EVALUATION_POINTS) {
+        errors.push({
+          type: 'size',
+          message: `评估区间至少需要 ${MIN_EVALUATION_POINTS} 个数据点（当前只有 ${evaluationSize} 个）`,
+        });
+      }
+
+      // 检查评估区间是否包含空白值
+      const evaluateBlankCheck = hasBlankInRange(
+        points,
+        evaluateRange.startIndex,
+        evaluateRange.endIndex
+      );
+      if (evaluateBlankCheck.hasBlank) {
+        errors.push({
+          type: 'blank_data',
+          message: `评估区间包含 ${evaluateBlankCheck.blankMonths.length} 个空白数据月份：${evaluateBlankCheck.blankMonths.join('、')}`,
+        });
+      }
+    }
+
+    // 验证区间分离
+    if (
+      isValidRange(trainingRange) &&
+      isValidRange(evaluateRange) &&
+      trainingRange.endIndex! >= evaluateRange.startIndex!
+    ) {
+      errors.push({
+        type: 'separation',
+        message: '评估区间必须在训练区间之后，不能重叠',
+      });
+    }
+
+    return errors;
+  }, [trainingRange, evaluateRange, points]);
+
+  const canProceed = validationErrors.length === 0 &&
+    trainingRange.startIndex !== null &&
+    trainingRange.endIndex !== null &&
+    evaluateRange.startIndex !== null &&
+    evaluateRange.endIndex !== null;
 
   if (isLoadingSales) {
     return (
@@ -107,20 +278,21 @@ const DataWindowSelection: React.FC = () => {
     );
   }
 
-  if (!defaultRanges) {
+  if (!hasEnoughData(points)) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 space-y-4">
         <h2 className="text-xl font-semibold text-gray-900">数据点不足</h2>
         <p className="text-gray-600">
-          当前产品的历史销量记录不足以划分训练与评估区间（至少需要 2 条数据）。请联系管理员补充数据后再尝试。
+          当前产品的历史销量记录不足以划分训练与评估区间（至少需要 {MIN_TOTAL_POINTS} 条数据）。请联系管理员补充数据后再尝试。
         </p>
       </div>
     );
   }
 
   const trainingOptions = points.map((record, index) => ({
-    label: `${record.month} (${record.sales.toLocaleString()} ${meta?.unit ?? ''})`,
+    label: `${record.month} (${record.sales != null && !isNaN(record.sales) ? record.sales.toLocaleString() : '空白'} ${meta?.unit ?? ''})`,
     value: index,
+    isBlank: isBlankValue(record.sales),
   }));
 
   const evaluateOptions = trainingOptions;
@@ -137,18 +309,9 @@ const DataWindowSelection: React.FC = () => {
     await updateState({ [field]: value } as Partial<typeof state>);
   };
 
-  const isTrainingValid = isValidRange(trainingRange);
-  const isEvaluateValid = isValidRange(evaluateRange);
-  const isSeparated =
-    isTrainingValid &&
-    isEvaluateValid &&
-    trainingRange.endIndex! < evaluateRange.startIndex!;
-
-  const canSave = isTrainingValid && isEvaluateValid && isSeparated;
-
   const handleProceed = () => {
-    if (!canSave) return;
-    navigate('/model/ma');
+    if (!canProceed) return;
+    navigate(PATHS.FIRST_MODEL);
   };
 
   return (
@@ -159,7 +322,7 @@ const DataWindowSelection: React.FC = () => {
           <span>选择历史销量数据时段</span>
         </h2>
         <p className="text-gray-600">
-          请选择用于训练预测模型的历史数据范围，以及用于评估模型表现的对比区间。所有字段默认为空，每次选择都会即时保存。
+          请选择用于训练预测模型的历史数据范围，以及用于评估模型表现的对比区间。每次选择都会即时保存。
         </p>
       </header>
 
@@ -177,6 +340,9 @@ const DataWindowSelection: React.FC = () => {
       <section className="space-y-6">
         <div>
           <h4 className="text-lg font-semibold text-gray-900 mb-3">训练数据区间</h4>
+          <p className="text-sm text-gray-600 mb-3">
+            训练区间用于训练预测模型，至少需要 {MIN_TRAINING_POINTS} 个数据点。
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block">
               <span className="text-sm text-gray-600">开始月份</span>
@@ -189,7 +355,11 @@ const DataWindowSelection: React.FC = () => {
               >
                 <option value="">请选择开始月份</option>
                 {trainingOptions.map((option) => (
-                  <option key={`train-start-${option.value}`} value={option.value}>
+                  <option
+                    key={`train-start-${option.value}`}
+                    value={option.value}
+                    className={option.isBlank ? 'text-red-600' : ''}
+                  >
                     {option.label}
                   </option>
                 ))}
@@ -206,23 +376,24 @@ const DataWindowSelection: React.FC = () => {
               >
                 <option value="">请选择结束月份</option>
                 {trainingOptions.map((option) => (
-                  <option key={`train-end-${option.value}`} value={option.value}>
+                  <option
+                    key={`train-end-${option.value}`}
+                    value={option.value}
+                    className={option.isBlank ? 'text-red-600' : ''}
+                  >
                     {option.label}
                   </option>
                 ))}
               </select>
             </label>
           </div>
-          {!isTrainingValid && (
-            <p className="mt-2 text-sm text-red-600 flex items-center space-x-2">
-              <AlertTriangle className="w-4 h-4" />
-              <span>结束月份必须晚于或等于开始月份。</span>
-            </p>
-          )}
         </div>
 
         <div>
           <h4 className="text-lg font-semibold text-gray-900 mb-3">评估数据区间</h4>
+          <p className="text-sm text-gray-600 mb-3">
+            评估区间用于验证模型表现，至少需要 {MIN_EVALUATION_POINTS} 个数据点，且必须在训练区间之后。
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className="block">
               <span className="text-sm text-gray-600">开始月份</span>
@@ -235,7 +406,11 @@ const DataWindowSelection: React.FC = () => {
               >
                 <option value="">请选择开始月份</option>
                 {evaluateOptions.map((option) => (
-                  <option key={`evaluate-start-${option.value}`} value={option.value}>
+                  <option
+                    key={`evaluate-start-${option.value}`}
+                    value={option.value}
+                    className={option.isBlank ? 'text-red-600' : ''}
+                  >
                     {option.label}
                   </option>
                 ))}
@@ -252,32 +427,38 @@ const DataWindowSelection: React.FC = () => {
               >
                 <option value="">请选择结束月份</option>
                 {evaluateOptions.map((option) => (
-                  <option key={`evaluate-end-${option.value}`} value={option.value}>
+                  <option
+                    key={`evaluate-end-${option.value}`}
+                    value={option.value}
+                    className={option.isBlank ? 'text-red-600' : ''}
+                  >
                     {option.label}
                   </option>
                 ))}
               </select>
             </label>
           </div>
-          {!isEvaluateValid && (
-            <p className="mt-2 text-sm text-red-600 flex items-center space-x-2">
-              <AlertTriangle className="w-4 h-4" />
-              <span>结束月份必须晚于或等于开始月份。</span>
-            </p>
-          )}
         </div>
 
-        {!isSeparated && isTrainingValid && isEvaluateValid && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-sm text-yellow-700 flex items-center space-x-2">
-            <AlertTriangle className="w-4 h-4" />
-            <span>评估区间应当晚于训练区间，以便使用未参与训练的数据验证模型表现。</span>
+        {/* 显示所有验证错误 */}
+        {validationErrors.length > 0 && (
+          <div className="space-y-2">
+            {validationErrors.map((error, index) => (
+              <div
+                key={index}
+                className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex items-start space-x-2"
+              >
+                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>{error.message}</span>
+              </div>
+            ))}
           </div>
         )}
       </section>
 
       <footer className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 space-y-3 md:space-y-0">
         <div className="text-sm text-gray-500 flex items-center space-x-2">
-          {canSave ? (
+          {canProceed ? (
             <>
               <CheckCircle2 className="w-4 h-4 text-green-600" />
               <span>
@@ -288,15 +469,15 @@ const DataWindowSelection: React.FC = () => {
               </span>
             </>
           ) : (
-            <span>完整选择训练与评估区间后即可前往模型训练。</span>
+            <span>请完整选择训练与评估区间，确保无空白数据且符合要求后即可前往模型训练。</span>
           )}
         </div>
 
         <div className="flex items-center space-x-3">
           <button
             onClick={handleProceed}
-            disabled={!canSave}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            disabled={!canProceed}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             type="button"
           >
             前往基础模型
