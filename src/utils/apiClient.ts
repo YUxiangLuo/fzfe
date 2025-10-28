@@ -1,4 +1,4 @@
-export const API_BASE_URL = "http://144.48.4.14:3001/api";
+export const API_BASE_URL = "http://localhost:3001/api";
 
 const BASE_URL = API_BASE_URL;
 
@@ -51,10 +51,9 @@ const handleResponse = async <T = any>(response: Response, endpoint: string): Pr
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    let error =
-      (data && (data as { error?: string }).error) || response.statusText;
-    if(typeof error == "object") error = error.message; 
-    throw new Error(error);
+    console.error(response.status);
+    console.error(data);
+    throw new Error(response.status + "");
   }
 
   return data as T;
@@ -131,22 +130,8 @@ export const createExperimentState = async (): Promise<ExperimentState> => {
 };
 
 export const getExperimentState = async (): Promise<ExperimentState> => {
-  try {
-    const existing = await apiClient.get<ExperimentState>("/experiment-status/me");
-    if (existing?.status === "Completed") {
-      return await createExperimentState();
-    }
-    return mergeWithInitial(existing);
-  } catch (error) {
-    console.error("Failed to fetch experiment state; creating a new experiment.", error);
-    // If no experiment exists for this user, create a new one
-    try {
-      return await createExperimentState();
-    } catch (createError) {
-      console.error("Failed to create new experiment; falling back to initial state.", createError);
-      return mergeWithInitial(initialState);
-    }
-  }
+  const existing = await apiClient.get<ExperimentState>("/experiment-status/me");
+  return mergeWithInitial(existing);
 };
 
 export const updateExperimentState = async (state: ExperimentState): Promise<ExperimentState> => {

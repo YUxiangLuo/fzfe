@@ -18,7 +18,9 @@ import {
   Save,
 } from "lucide-react";
 import { getRoleByBackendValue } from "../../../config/roles";
-import Button from "../components/Button"; // Assuming a shared or shiyan-specific Button exists
+
+const TOTAL_EXPERIMENT_STEPS = 7;
+const MIN_PASSWORD_LENGTH = 6;
 
 interface UserClassInfo {
   class_id: number;
@@ -97,8 +99,8 @@ const Profile: React.FC = () => {
       setPasswordError('新密码和确认密码不匹配。');
       return;
     }
-    if (!passwordData.newPassword || passwordData.newPassword.length < 6) {
-      setPasswordError('新密码长度不能少于6位。');
+    if (!passwordData.newPassword || passwordData.newPassword.length < MIN_PASSWORD_LENGTH) {
+      setPasswordError(`新密码长度不能少于${MIN_PASSWORD_LENGTH}位。`);
       return;
     }
 
@@ -110,23 +112,23 @@ const Profile: React.FC = () => {
       });
       setPasswordSuccess('密码修改成功！');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (err: any) {
-      if (err && err.message && err.message.includes('Invalid current password')) {
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '密码修改失败，请稍后重试。';
+      if (errorMessage.includes('Invalid current password')) {
         setPasswordError('当前密码不正确，请重新输入。');
       } else {
-        setPasswordError(err.message || '密码修改失败，请稍后重试。');
+        setPasswordError(errorMessage);
       }
     } finally {
       setIsSavingPassword(false);
     }
   };
 
+  // 计算返回路径
   const fromState = location.state as { from?: string } | null;
-  const rawFromPath = fromState?.from;
-  const sanitizedFromPath =
-    rawFromPath && !rawFromPath.startsWith("/profile") ? rawFromPath : null;
-  const returnPath = sanitizedFromPath ?? "/industry";
-  const shouldReplaceOnReturn = Boolean(sanitizedFromPath);
+  const fromPath = fromState?.from;
+  const isFromProfile = fromPath?.startsWith("/profile");
+  const returnPath = fromPath && !isFromProfile ? fromPath : "/industry";
 
   const isExperimentOngoing =
     experimentState.status !== "Not Started" ||
@@ -134,13 +136,12 @@ const Profile: React.FC = () => {
     experimentState.current_step > 1;
 
   const handleExit = () => {
-    navigate(returnPath, { replace: shouldReplaceOnReturn });
+    navigate(returnPath, { replace: !isFromProfile });
   };
 
-  const roleLabel =
-    profile?.role && getRoleByBackendValue(profile.role)?.displayName
-      ? getRoleByBackendValue(profile.role)!.displayName
-      : profile?.role ?? "—";
+  const roleLabel = profile?.role
+    ? getRoleByBackendValue(profile.role)?.displayName ?? profile.role
+    : "—";
 
   const createdDate = profile
     ? new Date(profile.created_at).toLocaleString("zh-CN", {
@@ -154,7 +155,7 @@ const Profile: React.FC = () => {
   const PrimaryIcon = isExperimentOngoing ? ArrowLeft : ArrowRight;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+    <div className="h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <button
         onClick={handleExit}
         className="absolute top-6 right-6 p-2 text-gray-600 hover:text-gray-900 hover:bg-white hover:shadow-md rounded-lg transition-all z-10"
@@ -162,7 +163,7 @@ const Profile: React.FC = () => {
         <X className="w-6 h-6" />
       </button>
 
-      <div className="min-h-screen flex flex-col">
+      <div className="h-full flex flex-col overflow-y-auto">
         <div className="bg-white border-b border-gray-200 px-8 pt-10 pb-6">
           <div className="max-w-6xl mx-auto text-center">
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
@@ -328,7 +329,7 @@ const Profile: React.FC = () => {
                         实验进度概览
                       </h3>
                       <span className="text-sm text-gray-500">
-                        当前解锁步骤：{experimentState.current_step} / 7
+                        当前解锁步骤：{experimentState.current_step} / {TOTAL_EXPERIMENT_STEPS}
                       </span>
                     </div>
                     <div className="space-y-4">
@@ -342,7 +343,7 @@ const Profile: React.FC = () => {
                         <div
                           className="bg-gradient-to-r from-blue-400 to-blue-600 h-3 rounded-full transition-all duration-500"
                           style={{
-                            width: `${Math.min(experimentState.highest_completed_step / 7, 1) * 100}%`,
+                            width: `${Math.min(experimentState.highest_completed_step / TOTAL_EXPERIMENT_STEPS, 1) * 100}%`,
                           }}
                         />
                       </div>
@@ -369,22 +370,59 @@ const Profile: React.FC = () => {
                     <form onSubmit={handlePasswordSubmit} className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">当前密码</label>
-                          <input type="text" name="currentPassword" value={passwordData.currentPassword} onChange={handlePasswordChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            当前密码
+                          </label>
+                          <input
+                            type="password"
+                            name="currentPassword"
+                            value={passwordData.currentPassword}
+                            onChange={handlePasswordChange}
+                            required
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                          />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">新密码</label>
-                          <input type="text" name="newPassword" value={passwordData.newPassword} onChange={handlePasswordChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            新密码
+                          </label>
+                          <input
+                            type="password"
+                            name="newPassword"
+                            value={passwordData.newPassword}
+                            onChange={handlePasswordChange}
+                            required
+                            minLength={MIN_PASSWORD_LENGTH}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                          />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">确认新密码</label>
-                          <input type="text" name="confirmPassword" value={passwordData.confirmPassword} onChange={handlePasswordChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            确认新密码
+                          </label>
+                          <input
+                            type="password"
+                            name="confirmPassword"
+                            value={passwordData.confirmPassword}
+                            onChange={handlePasswordChange}
+                            required
+                            minLength={MIN_PASSWORD_LENGTH}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                          />
                         </div>
                       </div>
-                      {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
-                      {passwordSuccess && <p className="text-sm text-green-600">{passwordSuccess}</p>}
+                      {passwordError && (
+                        <p className="text-sm text-red-600">{passwordError}</p>
+                      )}
+                      {passwordSuccess && (
+                        <p className="text-sm text-green-600">{passwordSuccess}</p>
+                      )}
                       <div className="flex justify-end pt-2">
-                        <button type="submit" disabled={isSavingPassword} className="flex items-center space-x-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm hover:shadow-md transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button
+                          type="submit"
+                          disabled={isSavingPassword}
+                          className="flex items-center space-x-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm hover:shadow-md transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
                           <Save size={16} />
                           <span>{isSavingPassword ? '保存中...' : '保存新密码'}</span>
                         </button>

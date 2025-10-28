@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import {
   getExperimentState,
   updateExperimentState as apiUpdateExperimentState,
-  createExperimentState,
   recordStepEvent,
 } from '../../../utils/apiClient';
 import { apiClient } from '../../../utils/apiClient';
@@ -351,7 +350,7 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
         const fetchedState = await getExperimentState();
         setState(fetchedState);
       } catch (error) {
-        console.error("Failed to initialize experiment state.", error);
+        console.error("No experiment record.", error);
         setState(buildInitialState());
       } finally {
         setLoading(false);

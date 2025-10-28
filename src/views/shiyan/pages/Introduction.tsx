@@ -1,108 +1,122 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useExperiment } from "../contexts/ExperimentContext";
-import { apiClient } from "../../../utils/apiClient";
+import { apiClient, createExperimentState } from "../../../utils/apiClient";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig";
 import {
   BookOpen,
   Target,
-  Users,
-  Clock,
-  Award,
   CheckCircle,
   Play,
-  X,
   ArrowRight,
   ArrowLeft,
-  Download,
   FileText,
   Loader2,
 } from "lucide-react";
-import { Document, Page, pdfjs } from "react-pdf";
-import "react-pdf/dist/Page/AnnotationLayer.css";
-import "react-pdf/dist/Page/TextLayer.css";
-
-pdfjs.GlobalWorkerOptions.workerSrc = `${DOWNLOAD_SERVER_BASE_URL}/js/pdf.worker.min.mjs`;
 
 interface Manual {
   file_name: string;
   file_path: string;
-  description: string | null;
 }
+
+const TOTAL_EXPERIMENT_STEPS = 7;
+
+// 实验步骤路由映射
+const STEP_ROUTES: Record<number, string> = {
+  1: "/industry",
+  2: "/company",
+  3: "/product",
+  4: "/data",
+  5: "/model",
+  6: "/evaluation",
+  7: "/production",
+  8: "/report",
+};
+
+// 导航步骤配置
+const NAVIGATION_STEPS = [
+  { id: 0, title: "实验概述", icon: BookOpen },
+  { id: 1, title: "实验流程", icon: Target },
+  { id: 2, title: "实验手册", icon: FileText },
+];
+
+// 实验流程步骤配置
+const EXPERIMENT_STEPS = [
+  { step: 1, title: "选择行业", icon: "🏭" },
+  { step: 2, title: "选择企业", icon: "🏢" },
+  { step: 3, title: "选择产品", icon: "📱" },
+  { step: 4, title: "历史数据", icon: "📊" },
+  { step: 5, title: "预测模型", icon: "🤖" },
+  { step: 6, title: "结果评估", icon: "📈" },
+  { step: 7, title: "生产计划", icon: "📋" },
+];
 
 const Introduction: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { state: experimentState } = useExperiment();
+  const { state: experimentState, updateState } = useExperiment();
   const [currentStep, setCurrentStep] = useState(0);
   const [manual, setManual] = useState<Manual | null>(null);
-  const [loadingManual, setLoadingManual] = useState(true);
-
-  // State for PDF viewer
-  const [numPages, setNumPages] = useState<number | null>(null);
-  const [pageNumber, setPageNumber] = useState(1);
+  const [showResumeDialog, setShowResumeDialog] = useState(false);
 
   useEffect(() => {
     const fetchManual = async () => {
       try {
-        setLoadingManual(true);
-        const manualData = await apiClient.get("/manuals/active");
+        const manualData = await apiClient.get<Manual>("/manuals/active");
         setManual(manualData);
       } catch (error) {
         console.error("Failed to fetch experiment manual:", error);
         setManual({
           file_name: "默认实验手册.pdf",
           file_path: "",
-          description: "无法加载实验手册，请联系管理员。",
         });
-      } finally {
-        setLoadingManual(false);
       }
     };
     fetchManual();
   }, []);
 
-  const steps = [
-    { id: 0, title: "实验概述", icon: BookOpen },
-    { id: 1, title: "实验流程", icon: Target },
-    { id: 2, title: "实验手册", icon: FileText },
-  ];
-
+  // 计算返回路径
   const fromState = location.state as { from?: string } | null;
-  const rawFromPath = fromState?.from;
-  const sanitizedFromPath =
-    rawFromPath && !rawFromPath.startsWith("/introduction") ? rawFromPath : null;
-  const stepToRoute: Record<number, string> = {
-    1: "/industry",
-    2: "/company",
-    3: "/product",
-    4: "/data",
-    5: "/model",
-    6: "/evaluation",
-    7: "/production",
-    8: "/report",
-  };
+  const fromPath = fromState?.from;
+  console.log(fromPath, experimentState);
+  const isFromIntroduction = fromPath?.startsWith("/introduction");
 
-  const deriveRouteByStep = (step: number): string => {
-    if (Number.isFinite(step) && stepToRoute[step]) {
-      return stepToRoute[step];
+  // 判断实验状态
+  const hasStartTime = experimentState.start_time !== null;
+  const isFromExperiment = fromPath !== undefined && !isFromIntroduction;
+
+  // 开始新实验
+  const startNewExperiment = async () => {
+    try {
+      const newState = await createExperimentState();
+      updateState(newState);
+      navigate("/industry");
+    } catch (error) {
+      console.error("Failed to create experiment:", error);
     }
-    return "/industry";
   };
 
-  const fallbackRoute = deriveRouteByStep(experimentState.current_step);
-  const returnPath = sanitizedFromPath ?? fallbackRoute;
-  const shouldReplaceOnReturn = Boolean(sanitizedFromPath);
-  const isExperimentOngoing =
-    experimentState.status !== "Not Started" ||
-    experimentState.highest_completed_step > 0 ||
-    experimentState.current_step > 1;
+  // 继续实验
+  const continueExperiment = () => {
+    const targetRoute = STEP_ROUTES[experimentState.current_step] || "/industry";
+    navigate(targetRoute);
+  };
 
   const handleNext = () => {
-    if (currentStep < steps.length - 1) {
+    if (currentStep < NAVIGATION_STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      navigate(returnPath, { replace: shouldReplaceOnReturn });
+      // 在最后一步，处理"开始实验/继续实验/回到实验"逻辑
+      if (!hasStartTime) {
+        // 情况1: start_time 为 null，开始新实验
+        startNewExperiment();
+      } else if (!isFromExperiment) {
+        // 情况2: start_time 不为 null 且 fromPath 为 undefined（刚登录）
+        setShowResumeDialog(true);
+      } else {
+        // 情况3: start_time 不为 null 且 fromPath 不为 undefined（从实验中来的）
+        navigate(fromPath);
+      }
     }
   };
 
@@ -112,58 +126,44 @@ const Introduction: React.FC = () => {
     }
   };
 
-  const handleExit = () => {
-    navigate(returnPath, { replace: shouldReplaceOnReturn });
+  // 获取按钮文本
+  const getButtonLabel = () => {
+    if (currentStep < NAVIGATION_STEPS.length - 1) {
+      return "下一步";
+    }
+    if (isFromExperiment) {
+      return "回到实验";
+    }
+    return "开始实验";
   };
 
-  const getDownloadUrl = () => {
+  const getPdfUrl = () => {
     if (!manual || !manual.file_path) return null;
     const filename = manual.file_path.split("/").pop();
+    if (!filename) return null;
     return `${DOWNLOAD_SERVER_BASE_URL}/manuals/${filename}`;
   };
-
-  const handleDownloadPDF = () => {
-    const downloadUrl = getDownloadUrl();
-    if (downloadUrl) {
-      window.open(downloadUrl, "_blank");
-    }
-  };
-
-  function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
-    setNumPages(numPages);
-    setPageNumber(1);
-  }
-
-  function goToPrevPage() {
-    setPageNumber((prev) => Math.max(prev - 1, 1));
-  }
-
-  function goToNextPage() {
-    setPageNumber((prev) => Math.min(prev + 1, numPages || 1));
-  }
 
   const renderStepContent = () => {
     switch (currentStep) {
       case 0:
         return (
-          <div className="space-y-8 animate-fade-in">
-            <div className="text-center">
-              <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-                面向企业多源需求融合预测的
-                <br />
-                <span className="text-blue-600">生产计划决策虚拟仿真系统</span>
-              </h1>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                通过7个循序渐进的实验步骤，学习企业需求预测的核心理论与实践方法，掌握多种预测算法的应用场景与效果评估。
-              </p>
-            </div>
+          <div className="text-center animate-fade-in">
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+              面向企业多源需求融合预测的
+              <br />
+              <span className="text-blue-600">生产计划决策虚拟仿真系统</span>
+            </h1>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              通过7个循序渐进的实验步骤，学习企业需求预测的核心理论与实践方法，掌握多种预测算法的应用场景与效果评估。
+            </p>
           </div>
         );
 
       case 1:
         return (
           <div className="space-y-8 animate-fade-in">
-            <div className="text-center mb-8">
+            <div className="text-center">
               <h2 className="text-4xl font-bold text-gray-900 mb-6">
                 实验流程概览
               </h2>
@@ -172,16 +172,8 @@ const Introduction: React.FC = () => {
               </p>
             </div>
             <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-              <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                {[
-                  { step: 1, title: "选择行业", icon: "🏭" },
-                  { step: 2, title: "选择企业", icon: "🏢" },
-                  { step: 3, title: "选择产品", icon: "📱" },
-                  { step: 4, title: "历史数据", icon: "📊" },
-                  { step: 5, title: "预测模型", icon: "🤖" },
-                  { step: 6, title: "结果评估", icon: "📈" },
-                  { step: 7, title: "生产计划", icon: "📋" },
-                ].map((item, index) => (
+              <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+                {EXPERIMENT_STEPS.map((item, index) => (
                   <div key={item.step} className="relative">
                     <div className="bg-gray-50 rounded-xl p-4 text-center hover:bg-blue-50 transition-colors">
                       <div className="text-3xl mb-3">{item.icon}</div>
@@ -192,8 +184,8 @@ const Introduction: React.FC = () => {
                         {item.title}
                       </div>
                     </div>
-                    {index < 6 && (
-                      <div className="hidden lg:block absolute top-1/2 -right-2 w-4 h-0.5 bg-blue-300 transform -translate-y-1/2"></div>
+                    {index < EXPERIMENT_STEPS.length - 1 && (
+                      <div className="hidden md:block absolute top-1/2 -right-2 w-4 h-0.5 bg-blue-300 -translate-y-1/2"></div>
                     )}
                   </div>
                 ))}
@@ -203,88 +195,16 @@ const Introduction: React.FC = () => {
         );
 
       case 2:
-        const downloadUrl = getDownloadUrl();
-        return (
-          <div className="space-y-8 animate-fade-in">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold text-gray-900 mb-6">
-                实验手册
-              </h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                {loadingManual
-                  ? "正在加载实验手册..."
-                  : manual?.description ||
-                    "详细的实验指导手册，包含理论知识、操作步骤和案例分析"}
-              </p>
-            </div>
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {loadingManual ? "加载中..." : manual?.file_name}
-                  </h3>
-                  <button
-                    onClick={handleDownloadPDF}
-                    disabled={loadingManual || !downloadUrl}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-                  >
-                    {loadingManual ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                    <span>下载PDF</span>
-                  </button>
-                </div>
-              </div>
-              <div className="h-[60vh] bg-gray-100 flex items-center justify-center overflow-y-auto">
-                {loadingManual ? (
-                  <Loader2 className="w-10 h-10 text-gray-400 animate-spin" />
-                ) : downloadUrl ? (
-                  <Document
-                    file={downloadUrl}
-                    onLoadSuccess={onDocumentLoadSuccess}
-                    loading={
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <Loader2 className="animate-spin" />
-                        <span>加载PDF预览...</span>
-                      </div>
-                    }
-                    error={
-                      <div className="text-red-600">无法加载PDF文件。</div>
-                    }
-                  >
-                    <Page pageNumber={pageNumber} />
-                  </Document>
-                ) : (
-                  <div className="text-center text-red-600">
-                    <FileText className="w-16 h-16 mx-auto mb-4" />
-                    <p>无法获取实验手册文件。</p>
-                  </div>
-                )}
-              </div>
-              {numPages && (
-                <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex items-center justify-center space-x-4">
-                  <button
-                    onClick={goToPrevPage}
-                    disabled={pageNumber <= 1}
-                    className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50"
-                  >
-                    上一页
-                  </button>
-                  <p className="text-sm font-medium">
-                    第 {pageNumber} 页 / 共 {numPages} 页
-                  </p>
-                  <button
-                    onClick={goToNextPage}
-                    disabled={pageNumber >= numPages}
-                    className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50"
-                  >
-                    下一页
-                  </button>
-                </div>
-              )}
-            </div>
+        const pdfUrl = getPdfUrl();
+        return pdfUrl ? (
+          <iframe
+            src={pdfUrl}
+            className="w-full h-full border-0"
+            title="实验手册 PDF 预览"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="w-10 h-10 text-gray-400 animate-spin" />
           </div>
         );
       default:
@@ -293,18 +213,12 @@ const Introduction: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <button
-        onClick={handleExit}
-        className="absolute top-6 right-6 p-2 text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg transition-all z-10"
-      >
-        <X className="w-6 h-6" />
-      </button>
-      <div className="min-h-screen flex flex-col">
+    <div className="h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <div className="h-full flex flex-col">
         <div className="bg-white border-b border-gray-200 px-8 pt-12 pb-4">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-4">
-              {steps.map((step, index) => {
+              {NAVIGATION_STEPS.map((step, index) => {
                 const Icon = step.icon;
                 const isActive = index === currentStep;
                 const isCompleted = index < currentStep;
@@ -326,7 +240,7 @@ const Introduction: React.FC = () => {
                         {step.title}
                       </span>
                     </div>
-                    {index < steps.length - 1 && (
+                    {index < NAVIGATION_STEPS.length - 1 && (
                       <div
                         className={`flex-1 h-0.5 mx-4 ${index < currentStep ? "bg-green-600" : "bg-gray-300"}`}
                       />
@@ -337,8 +251,8 @@ const Introduction: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="max-w-6xl mx-auto w-full">{renderStepContent()}</div>
+        <div className={`flex-1 ${currentStep === 2 ? '' : 'flex items-center justify-center p-8'}`}>
+          {currentStep === 2 ? renderStepContent() : <div className="max-w-6xl mx-auto w-full">{renderStepContent()}</div>}
         </div>
         <div className="bg-white border-t border-gray-200 px-8 py-6">
           <div className="max-w-6xl mx-auto flex justify-between items-center">
@@ -351,20 +265,14 @@ const Introduction: React.FC = () => {
               <span>上一步</span>
             </button>
             <span className="text-sm text-gray-500">
-              {currentStep + 1} / {steps.length}
+              {currentStep + 1} / {NAVIGATION_STEPS.length}
             </span>
             <button
               onClick={handleNext}
               className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md transition-all font-medium"
             >
-              <span>
-                {currentStep === steps.length - 1
-                  ? isExperimentOngoing
-                    ? "继续实验"
-                    : "开始实验"
-                  : "下一步"}
-              </span>
-              {currentStep === steps.length - 1 ? (
+              <span>{getButtonLabel()}</span>
+              {currentStep === NAVIGATION_STEPS.length - 1 ? (
                 <Play className="w-5 h-5" />
               ) : (
                 <ArrowRight className="w-5 h-5" />
@@ -373,6 +281,81 @@ const Introduction: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 继续实验/开始新实验弹窗 */}
+      {showResumeDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-5">
+              <h3 className="text-2xl font-bold text-white">检测到未完成的实验</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-600 mb-4">
+                我们检测到您有一个未完成的实验。您想继续之前的实验，还是开始一个新的实验？
+              </p>
+
+              {/* 实验信息 */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">开始时间：</span>
+                  <span className="font-medium text-gray-900">
+                    {experimentState.start_time
+                      ? new Date(experimentState.start_time).toLocaleString("zh-CN", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">最近活跃：</span>
+                  <span className="font-medium text-gray-900">
+                    {experimentState.last_activity_at
+                      ? new Date(experimentState.last_activity_at).toLocaleString("zh-CN", {
+                          year: "numeric",
+                          month: "2-digit",
+                          day: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">当前进度：</span>
+                  <span className="font-medium text-gray-900">
+                    步骤 {experimentState.current_step} / {TOTAL_EXPERIMENT_STEPS}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    setShowResumeDialog(false);
+                    continueExperiment();
+                  }}
+                  className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                >
+                  继续未完成的实验
+                </button>
+                <button
+                  onClick={() => {
+                    setShowResumeDialog(false);
+                    startNewExperiment();
+                  }}
+                  className="w-full px-6 py-3 bg-white text-gray-700 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                >
+                  开始新的实验
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
