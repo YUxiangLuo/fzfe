@@ -65,94 +65,51 @@ const ModelBuilding: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* 页面标题 */}
+      {/* 页面标题和横向导航 */}
       <div className="px-8 pt-6 pb-4 flex-shrink-0 bg-gray-50">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">步骤 5: 建立需求预测</h1>
-        <p className="text-lg text-gray-600">
-          通过五个阶段完成需求预测模型的学习、选择和应用
-        </p>
-      </div>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-bold text-gray-900 whitespace-nowrap">步骤 5: 建立需求预测</h1>
 
-      {/* 主内容区：左侧导航 + 右侧内容 */}
-      <div className="flex gap-6 flex-1 min-h-0 px-8 pb-6">
-        {/* 左侧二级步骤导航 */}
-        <div className="w-80 flex-shrink-0">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full flex flex-col">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex-shrink-0">实验流程</h2>
-            <nav className="space-y-3 flex-1 overflow-y-auto">
-              {SUB_STEPS.map((step, index) => {
-                const isActive = index === currentSubStepIndex;
-                const isCompleted = index < currentSubStepIndex;
-                const isFuture = index > currentSubStepIndex;
+          {/* 横向二级导航 */}
+          <div className="flex items-center gap-2 flex-1 overflow-x-auto">
+            {SUB_STEPS.map((step, index) => {
+              const isActive = index === currentSubStepIndex;
+              const isCompleted = index < currentSubStepIndex;
 
-                return (
-                  <div key={step.id} className="relative">
-                    {/* 步骤项 */}
-                    <div
-                      className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
+              return (
+                <React.Fragment key={step.id}>
+                  <div className="flex items-center gap-2 px-2 py-1 whitespace-nowrap">
+                    <span
+                      className={`text-sm font-medium transition-colors ${
                         isActive
-                          ? 'bg-blue-50 border-2 border-blue-500'
+                          ? 'text-gray-900 font-semibold'
                           : isCompleted
-                          ? 'bg-green-50 border border-green-200'
-                          : 'bg-gray-50 border border-gray-200'
+                          ? 'text-gray-600'
+                          : 'text-gray-400'
                       }`}
                     >
-                      {/* 步骤圆圈 */}
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold flex-shrink-0 ${
-                          isCompleted
-                            ? 'bg-green-500 text-white'
-                            : isActive
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-300 text-gray-600'
-                        }`}
-                      >
-                        {isCompleted ? (
-                          <Check className="w-4 h-4" />
-                        ) : (
-                          <span className="text-sm">{index + 1}</span>
-                        )}
-                      </div>
-
-                      {/* 步骤名称 */}
-                      <div
-                        className={`text-sm font-medium ${
-                          isActive
-                            ? 'text-blue-700'
-                            : isCompleted
-                            ? 'text-green-700'
-                            : 'text-gray-600'
-                        }`}
-                      >
-                        {step.name}
-                      </div>
-                    </div>
-
-                    {/* 连接线 */}
-                    {index < SUB_STEPS.length - 1 && (
-                      <div
-                        className={`absolute left-6 top-11 w-0.5 h-3 ${
-                          isCompleted ? 'bg-green-500' : 'bg-gray-300'
-                        }`}
-                      />
-                    )}
+                      {index + 1}. {step.name}
+                    </span>
                   </div>
-                );
-              })}
-            </nav>
+                  {index < SUB_STEPS.length - 1 && (
+                    <span className="text-gray-300 mx-1">/</span>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </div>
         </div>
+      </div>
 
-        {/* 右侧内容区域 */}
-        <div className="flex-1 min-w-0 overflow-y-auto">
-          <Routes>
-            <Route path="scenario" element={<ScenarioIntroduction />} />
-            <Route path="role-intro" element={<RoleIntroduction />} />
-            <Route path="window" element={<DataWindowSelection />} />
-            <Route path="model-intro" element={<ModelIntroduction />} />
-            <Route path="model-select" element={<ModelSelection />} />
-          </Routes>
-        </div>
+      {/* 主内容区域 */}
+      <div className="flex-1 min-h-0 px-8 pb-6 overflow-y-auto">
+        <Routes>
+          <Route path="scenario" element={<ScenarioIntroduction />} />
+          <Route path="role-intro" element={<RoleIntroduction />} />
+          <Route path="window" element={<DataWindowSelection />} />
+          <Route path="model-intro" element={<ModelIntroduction />} />
+          <Route path="model-select" element={<ModelSelection />} />
+        </Routes>
       </div>
     </div>
   );

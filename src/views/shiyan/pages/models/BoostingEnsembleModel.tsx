@@ -4,9 +4,9 @@ import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentConte
 import { apiClient } from "../../../../utils/apiClient";
 
 const steps = [
-  { id: 1, title: "方法简介" },
-  { id: 2, title: "选择基础模型" },
-  { id: 3, title: "运行并查看指标" },
+  { id: 1, title: "方法步骤" },
+  { id: 2, title: "模型选择" },
+  { id: 3, title: "计算结果" },
 ] as const;
 
 const BoostingEnsembleModel: React.FC = () => {
@@ -58,6 +58,7 @@ const BoostingEnsembleModel: React.FC = () => {
   const [selectedModels, setSelectedModels] = useState<string[]>(modelState.baseModels);
   const [isTraining, setIsTraining] = useState(false);
   const [trainingError, setTrainingError] = useState<string | null>(null);
+  const [showComparison, setShowComparison] = useState(false);
 
   const resetMetrics = () => ({
     ensemble_boosting_completed: false,
@@ -195,39 +196,64 @@ const BoostingEnsembleModel: React.FC = () => {
 
     if (activeStep === 2) {
       setActiveStep(3);
+      setShowComparison(false);
+      // Auto-trigger training when entering step 3
+      if (!modelState.completed) {
+        await handleTrainModel();
+      }
       return;
     }
 
-    if (activeStep === 3 && !modelState.completed && !isTraining) {
-      await handleTrainModel();
+    if (activeStep === 3) {
+      // Toggle comparison view when training is completed
+      if (modelState.completed) {
+        setShowComparison(!showComparison);
+      }
     }
   };
 
   const handleBack = () => {
     if (activeStep === 1) return;
+    setShowComparison(false);
     setActiveStep((prev) => Math.max(1, prev - 1));
   };
 
-  const renderIntro = () => (
+  const renderMethodSteps = () => (
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">Boosting 融合概览</h3>
-        <p className="text-sm text-gray-600 leading-relaxed">
-          Boosting 通过序列化训练多个弱学习器，每一轮聚焦上一轮的误差，逐步提高整体拟合能力。融合预测时，可对基础模型残差进行再学习，提升精度。
-        </p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="font-semibold text-blue-700 mb-2">前提条件</p>
-          <p className="text-sm text-blue-700">至少两种互补的基础模型已完成训练。</p>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="font-semibold text-blue-700 mb-2">优势</p>
-          <p className="text-sm text-blue-700">能够逐步减小偏差，提升预测精度。</p>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="font-semibold text-blue-700 mb-2">注意事项</p>
-          <p className="text-sm text-blue-700">需防止过拟合，合理控制迭代次数与学习率。</p>
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">Boosting融合法的操作步骤</h3>
+        <p className="text-sm text-gray-600 mb-4">Boosting融合法的一般步骤为：</p>
+        <div className="space-y-4">
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              1
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                选择至少两个已完成的基础模型作为弱学习器；
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              2
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                系统按序列化方式训练模型，每一轮聚焦上一轮的预测误差（残差），逐步提高整体拟合能力；
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              3
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                将各轮模型的预测结果按权重累加，生成最终的Boosting融合预测。
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -269,86 +295,207 @@ const BoostingEnsembleModel: React.FC = () => {
     </div>
   );
 
-  const renderTrainingStep = () => (
-    <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">运行 Boosting 并查看结果</h3>
-        {!modelState.completed && !isTraining && (
-          <p className="text-sm text-gray-600">
-            点击“开始训练并保存结果”后，系统将按序列训练基础模型并调整残差，输出融合指标。
-          </p>
-        )}
+  const renderModelComparison = () => {
+    const allModels = [
+      {
+        name: '移动平均法',
+        completed: state.moving_average_completed,
+        metrics: {
+          rmse: state.moving_average_metrics_rmse,
+          mae: state.moving_average_metrics_mae,
+          r2: state.moving_average_metrics_r2,
+        },
+      },
+      {
+        name: '指数平滑法',
+        completed: state.exponential_smoothing_completed,
+        metrics: {
+          rmse: state.exponential_smoothing_metrics_rmse,
+          mae: state.exponential_smoothing_metrics_mae,
+          r2: state.exponential_smoothing_metrics_r2,
+        },
+      },
+      {
+        name: 'ARIMA',
+        completed: state.arima_completed,
+        metrics: {
+          rmse: state.arima_metrics_rmse,
+          mae: state.arima_metrics_mae,
+          r2: state.arima_metrics_r2,
+        },
+      },
+      {
+        name: 'LSTM',
+        completed: state.lstm_completed,
+        metrics: {
+          rmse: state.lstm_metrics_rmse,
+          mae: state.lstm_metrics_mae,
+          r2: state.lstm_metrics_r2,
+        },
+      },
+      {
+        name: '加权融合',
+        completed: state.ensemble_weighted_completed,
+        metrics: {
+          rmse: state.ensemble_weighted_metrics_rmse,
+          mae: state.ensemble_weighted_metrics_mae,
+          r2: state.ensemble_weighted_metrics_r2,
+        },
+      },
+      {
+        name: 'Boosting融合',
+        completed: state.ensemble_boosting_completed,
+        metrics: {
+          rmse: state.ensemble_boosting_metrics_rmse,
+          mae: state.ensemble_boosting_metrics_mae,
+          r2: state.ensemble_boosting_metrics_r2,
+        },
+      },
+      {
+        name: 'Stacking融合',
+        completed: state.ensemble_stacking_completed,
+        metrics: {
+          rmse: state.ensemble_stacking_metrics_rmse,
+          mae: state.ensemble_stacking_metrics_mae,
+          r2: state.ensemble_stacking_metrics_r2,
+        },
+      },
+    ];
 
-        {isTraining && (
-          <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>Boosting 训练中，请稍候...</span>
-          </div>
-        )}
+    const completedModels = allModels.filter(m => m.completed);
 
-        {trainingError && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start space-x-3">
-            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-red-800 font-semibold">训练失败</p>
-              <p className="text-sm text-red-700 mt-1">{trainingError}</p>
+    return (
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">模型对比</h3>
+          {completedModels.length === 0 ? (
+            <p className="text-gray-600 text-center py-8">暂无已完成的模型可供对比</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">模型名称</th>
+                    <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">RMSE</th>
+                    <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">MAE</th>
+                    <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">R²</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {completedModels.map((model, index) => (
+                    <tr key={index} className={model.name === 'Boosting融合' ? 'bg-blue-50' : ''}>
+                      <td className="border border-gray-200 px-4 py-3 font-medium text-gray-900">
+                        {model.name}
+                        {model.name === 'Boosting融合' && (
+                          <span className="ml-2 text-xs bg-[#27579d] text-white px-2 py-1 rounded">当前</span>
+                        )}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                        {model.metrics.rmse?.toFixed(2) ?? '—'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                        {model.metrics.mae?.toFixed(2) ?? '—'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                        {model.metrics.r2?.toFixed(4) ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-        )}
-
-        {modelState.completed && !isTraining && (
-          <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              <div>
-                <p className="text-green-800 font-semibold">Boosting 融合已完成并保存。</p>
-                <p className="text-sm text-green-700">参与模型：{modelState.baseModels.length} 个</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
-                <p className="text-2xl font-semibold text-blue-700 mt-2">{modelState.metrics.rmse ?? '—'}</p>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
-                <p className="text-2xl font-semibold text-blue-700 mt-2">{modelState.metrics.mae ?? '—'}</p>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
-                <p className="text-2xl font-semibold text-blue-700 mt-2">{modelState.metrics.r2 ?? '—'}</p>
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
+
+  const renderResultsStep = () => {
+    if (showComparison) {
+      return renderModelComparison();
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">计算结果</h3>
+
+          {isTraining && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="w-12 h-12 text-[#27579d] animate-spin mb-4" />
+              <p className="text-lg text-gray-700 font-medium">正在训练Boosting融合模型...</p>
+              <p className="text-sm text-gray-500 mt-2">请稍候，系统正在按序列训练并调整残差</p>
+            </div>
+          )}
+
+          {trainingError && !isTraining && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-red-800 font-semibold">训练失败</p>
+                <p className="text-sm text-red-700">{trainingError}</p>
+              </div>
+            </div>
+          )}
+
+          {modelState.completed && !isTraining && !trainingError && (
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="text-green-800 font-semibold">模型已计算完成并保存</p>
+                  <p className="text-sm text-green-700">参与模型：{modelState.baseModels.length} 个</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
+                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{modelState.metrics.rmse?.toFixed(2) ?? '—'}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
+                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{modelState.metrics.mae?.toFixed(2) ?? '—'}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
+                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{modelState.metrics.r2?.toFixed(4) ?? '—'}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderStepContent = () => {
     switch (activeStep) {
       case 1:
-        return renderIntro();
+        return renderMethodSteps();
       case 2:
         return renderSelectionStep();
       case 3:
-        return renderTrainingStep();
+        return renderResultsStep();
       default:
         return null;
     }
   };
 
   const nextButtonLabel = (() => {
-    if (activeStep === 1) return "下一步：选择基础模型";
-    if (activeStep === 2) return "下一步：运行 Boosting";
-    if (modelState.completed) return "结果已保存";
-    if (isTraining) return "训练中...";
-    return "开始训练并保存结果";
+    if (activeStep === 1) return "下一步：模型选择";
+    if (activeStep === 2) return "下一步：计算结果";
+    if (activeStep === 3) {
+      if (modelState.completed) {
+        return showComparison ? "返回结果" : "下一步：模型对比";
+      }
+      if (isTraining) return "训练中...";
+    }
+    return "开始训练";
   })();
 
   const isNextDisabled =
     (activeStep === 2 && selectedModels.length < 2) ||
-    (activeStep === 3 && (isTraining || Boolean(modelState.completed)));
+    (activeStep === 3 && isTraining);
 
   return (
     <div className="bg-gray-50 rounded-xl border border-gray-200">
@@ -360,32 +507,25 @@ const BoostingEnsembleModel: React.FC = () => {
       </div>
 
       <div className="px-6 pt-4 pb-4 flex flex-col gap-6">
-        <div className="flex items-center gap-2">
+        <div className="flex items-stretch rounded-lg overflow-hidden">
           {steps.map((step, index) => {
             const isActive = step.id === activeStep;
-            const isCompleted = step.id < activeStep || (step.id === steps.length && modelState.completed);
+            const isCompleted = (step.id < activeStep) || (modelState.completed && step.id !== activeStep);
             return (
-              <React.Fragment key={step.id}>
-                <div
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
-                    isActive
-                      ? "border-blue-500 bg-blue-50"
-                      : isCompleted
-                      ? "border-green-500 bg-green-50"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}>
-                    {isCompleted ? <CheckCircle className="w-3.5 h-3.5" /> : step.id}
-                  </div>
-                  <span className={`text-sm font-medium whitespace-nowrap ${isActive ? "text-blue-700" : isCompleted ? "text-green-700" : "text-gray-600"}`}>
-                    {step.title}
-                  </span>
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`h-0.5 flex-1 ${isCompleted ? "bg-green-500" : "bg-gray-200"}`} />
-                )}
-              </React.Fragment>
+              <div
+                key={step.id}
+                className={`flex items-center justify-center px-5 py-6 flex-1 transition-all border-2 ${
+                  isActive
+                    ? "bg-[#27579d] text-white border-[#1e4275]"
+                    : isCompleted
+                    ? "bg-white text-gray-900 border-gray-300"
+                    : "bg-white text-gray-400 border-gray-200"
+                } ${index === 0 ? 'rounded-l-lg' : ''} ${index === steps.length - 1 ? 'rounded-r-lg' : ''} ${index > 0 ? '-ml-0.5' : ''}`}
+              >
+                <span className="text-2xl font-bold whitespace-nowrap">
+                  {step.title}
+                </span>
+              </div>
             );
           })}
         </div>

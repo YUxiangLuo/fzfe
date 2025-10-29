@@ -5,9 +5,10 @@ import { apiClient } from "../../../../utils/apiClient";
 import debounce from "lodash.debounce";
 
 const steps = [
-  { id: 1, title: "方法简介" },
-  { id: 2, title: "设置时间窗口" },
-  { id: 3, title: "运行并查看指标" },
+  { id: 1, title: "方法步骤" },
+  { id: 2, title: "计算公式" },
+  { id: 3, title: "时间窗口选取" },
+  { id: 4, title: "计算结果" },
 ] as const;
 
 const MovingAverageModel: React.FC = () => {
@@ -23,8 +24,8 @@ const MovingAverageModel: React.FC = () => {
   };
 
   const getInitialStep = () => {
-    if (modelState.completed) return 3;
-    if (modelState.window !== null) return 2;
+    if (modelState.completed) return 4;
+    if (modelState.window !== null) return 3;
     return 1;
   };
 
@@ -159,54 +160,127 @@ const MovingAverageModel: React.FC = () => {
     }
   };
 
+  const [showComparison, setShowComparison] = useState(false);
+
+  const validateWindow = () => {
+    const trainSize = (state.data_window_train_end_index ?? 0) - (state.data_window_train_start_index ?? 0) + 1;
+    if (windowSize < 2) {
+      setError("时间窗口必须至少为2个月");
+      return false;
+    }
+    if (windowSize > 12) {
+      setError("时间窗口不能超过12个月");
+      return false;
+    }
+    if (windowSize >= trainSize) {
+      setError(`时间窗口（${windowSize}）不能大于或等于训练数据长度（${trainSize}）`);
+      return false;
+    }
+    setError(null);
+    return true;
+  };
+
   const handleNext = async () => {
     if (activeStep === 1) {
       setActiveStep(2);
     } else if (activeStep === 2) {
       setActiveStep(3);
     } else if (activeStep === 3) {
+      // 验证窗口合法性
+      if (!validateWindow()) {
+        return;
+      }
+      // 验证通过，进入第4步并开始训练
+      setActiveStep(4);
+      setShowComparison(false);
       handleCalculate();
+    } else if (activeStep === 4 && modelState.completed) {
+      // 步骤4已完成，在结果和对比视图之间切换
+      setShowComparison(!showComparison);
     }
   };
 
   const handleBack = () => {
     if (activeStep > 1) {
+      if (activeStep === 4) {
+        setShowComparison(false);
+      }
       setActiveStep((prev) => prev - 1);
     }
   };
 
-  const renderIntro = () => (
+  const renderMethodSteps = () => (
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">什么是移动平均法？</h3>
-        <p className="text-sm text-gray-600 leading-relaxed">
-          移动平均法通过对固定时间窗口内的历史数据取平均，平滑短期波动、揭示需求趋势。窗口越大，对异常值越不敏感，但响应速度越慢；窗口越小，对最新变化更敏捷，但预测可能更波动。
-        </p>
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">移动平均法的操作步骤</h3>
+        <div className="space-y-4">
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              1
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-1">选择时间窗口并计算移动平均数</h4>
+              <p className="text-sm text-gray-600">
+                确定一个固定的时间窗口大小（如3个月、5个月等），然后对窗口内的历史销量数据求平均值，得到该时间点的移动平均预测值。
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              2
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-1">在原始数据表的末尾添加移动平均值</h4>
+              <p className="text-sm text-gray-600">
+                将计算得到的移动平均值追加到原始数据序列的末尾，作为对未来时间点的预测。随着窗口向前滑动，不断更新预测值。
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="font-semibold text-blue-700 mb-2">适用场景</p>
-          <p className="text-sm text-blue-700">需求相对稳定、季节波动不明显的产品线。</p>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="font-semibold text-blue-700 mb-2">优势</p>
-          <p className="text-sm text-blue-700">实现简单、易于解释，可作为其他算法的基准。</p>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="font-semibold text-blue-700 mb-2">注意事项</p>
-          <p className="text-sm text-blue-700">窗口选取不当会导致滞后或过度震荡，需要结合业务经验调整。</p>
+    </div>
+  );
+
+  const renderFormula = () => (
+    <div className="space-y-6">
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">移动平均法的计算公式</h3>
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            移动平均法的基本公式如下：
+          </p>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="text-center">
+              <p className="text-lg font-mono">
+                MA<sub>t</sub> = (Y<sub>t-n+1</sub> + Y<sub>t-n+2</sub> + ... + Y<sub>t</sub>) / n
+              </p>
+            </div>
+          </div>
+          <div className="space-y-2 text-sm text-gray-600">
+            <p><strong>其中：</strong></p>
+            <ul className="list-disc list-inside space-y-1 ml-4">
+              <li><strong>MA<sub>t</sub></strong>：时间点 t 的移动平均预测值</li>
+              <li><strong>Y<sub>t</sub></strong>：时间点 t 的实际观测值</li>
+              <li><strong>n</strong>：时间窗口大小（即参与平均计算的历史期数）</li>
+            </ul>
+          </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              <strong>示例：</strong>如果窗口大小 n=3，则第4个月的预测值 = (第1月销量 + 第2月销量 + 第3月销量) / 3
+            </p>
+          </div>
         </div>
       </div>
     </div>
   );
 
   const renderWindowStep = () => (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">设置时间窗口大小</h3>
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">选择时间窗口大小</h3>
         <p className="text-sm text-gray-600 mb-6">窗口大小决定了参与平均的历史期数，建议结合产品特性选择 3-6 个月作为起点。</p>
         <label className="block text-lg font-medium text-gray-700 mb-3">
-          窗口大小：<span className="text-blue-600 font-bold">{windowSize}</span> 个月
+          窗口大小：<span className="text-[#27579d] font-bold">{windowSize}</span> 个月
         </label>
         <input
           type="range"
@@ -217,94 +291,223 @@ const MovingAverageModel: React.FC = () => {
           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
         />
         <p className="text-xs text-gray-500 mt-2">提示：窗口越大，结果越平滑，但对最新变化的响应更慢。</p>
-      </div>
-    </div>
-  );
-
-  const renderTrainingStep = () => (
-    <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">运行模型并查看结果</h3>
-        {!modelState.completed && !isCalculating && (
-          <p className="text-sm text-gray-600">
-            点击“开始计算”后，系统将使用窗口大小 {modelState.window ?? windowSize} 个月的移动平均，输出误差指标帮助你评估模型效果。
-          </p>
-        )}
-
-        {isCalculating && (
-          <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>正在计算移动平均结果...</span>
-          </div>
-        )}
-
-        {error && !isCalculating && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
+        {error && (
+          <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-red-800 font-semibold">计算失败</p>
+              <p className="text-red-800 font-semibold">参数验证失败</p>
               <p className="text-sm text-red-700">{error}</p>
             </div>
           </div>
         )}
-
-        {modelState.completed && !isCalculating && !error && (
-          <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              <div>
-                <p className="text-green-800 font-semibold">模型已计算完成并保存。</p>
-                <p className="text-sm text-green-700">窗口大小：{modelState.window ?? windowSize} 个月</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
-                <p className="text-2xl font-semibold text-blue-700 mt-2">{modelState.metrics.rmse ?? '—'}</p>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
-                <p className="text-2xl font-semibold text-blue-700 mt-2">{modelState.metrics.mae ?? '—'}</p>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
-                <p className="text-2xl font-semibold text-blue-700 mt-2">{modelState.metrics.r2 ?? '—'}</p>
-              </div>
-            </div>
-            {shouldShowFusionUnlockedNotice && (
-              <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-800">
-                🎉 已完成至少两个基础模型，融合模型现已解锁！尝试组合不同算法，进一步提升预测表现。
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
 
+  const renderModelComparison = () => {
+    const allModels = [
+      {
+        name: '移动平均法',
+        completed: state.moving_average_completed,
+        metrics: {
+          rmse: state.moving_average_metrics_rmse,
+          mae: state.moving_average_metrics_mae,
+          r2: state.moving_average_metrics_r2,
+        },
+      },
+      {
+        name: '指数平滑法',
+        completed: state.exponential_smoothing_completed,
+        metrics: {
+          rmse: state.exponential_smoothing_metrics_rmse,
+          mae: state.exponential_smoothing_metrics_mae,
+          r2: state.exponential_smoothing_metrics_r2,
+        },
+      },
+      {
+        name: 'ARIMA',
+        completed: state.arima_completed,
+        metrics: {
+          rmse: state.arima_metrics_rmse,
+          mae: state.arima_metrics_mae,
+          r2: state.arima_metrics_r2,
+        },
+      },
+      {
+        name: 'LSTM',
+        completed: state.lstm_completed,
+        metrics: {
+          rmse: state.lstm_metrics_rmse,
+          mae: state.lstm_metrics_mae,
+          r2: state.lstm_metrics_r2,
+        },
+      },
+      {
+        name: '加权平均融合',
+        completed: state.ensemble_weighted_completed,
+        metrics: {
+          rmse: state.ensemble_weighted_metrics_rmse,
+          mae: state.ensemble_weighted_metrics_mae,
+          r2: state.ensemble_weighted_metrics_r2,
+        },
+      },
+      {
+        name: 'Boosting融合',
+        completed: state.ensemble_boosting_completed,
+        metrics: {
+          rmse: state.ensemble_boosting_metrics_rmse,
+          mae: state.ensemble_boosting_metrics_mae,
+          r2: state.ensemble_boosting_metrics_r2,
+        },
+      },
+      {
+        name: 'Stacking融合',
+        completed: state.ensemble_stacking_completed,
+        metrics: {
+          rmse: state.ensemble_stacking_metrics_rmse,
+          mae: state.ensemble_stacking_metrics_mae,
+          r2: state.ensemble_stacking_metrics_r2,
+        },
+      },
+    ];
+
+    const completedModels = allModels.filter(m => m.completed);
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">模型对比</h3>
+          {completedModels.length === 0 ? (
+            <p className="text-gray-600 text-center py-8">暂无已完成的模型可供对比</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">模型名称</th>
+                    <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">RMSE</th>
+                    <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">MAE</th>
+                    <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">R²</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {completedModels.map((model, index) => (
+                    <tr key={index} className={model.name === '移动平均法' ? 'bg-blue-50' : ''}>
+                      <td className="border border-gray-200 px-4 py-3 font-medium text-gray-900">
+                        {model.name}
+                        {model.name === '移动平均法' && (
+                          <span className="ml-2 text-xs bg-[#27579d] text-white px-2 py-1 rounded">当前</span>
+                        )}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                        {model.metrics.rmse?.toFixed(2) ?? '—'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                        {model.metrics.mae?.toFixed(2) ?? '—'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                        {model.metrics.r2?.toFixed(4) ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderResultsStep = () => {
+    if (showComparison) {
+      return renderModelComparison();
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">计算结果</h3>
+
+          {isCalculating && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="w-12 h-12 text-[#27579d] animate-spin mb-4" />
+              <p className="text-lg text-gray-700 font-medium">正在计算移动平均结果...</p>
+              <p className="text-sm text-gray-500 mt-2">请稍候，系统正在处理您的数据</p>
+            </div>
+          )}
+
+          {error && !isCalculating && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-red-800 font-semibold">计算失败</p>
+                <p className="text-sm text-red-700">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {modelState.completed && !isCalculating && !error && (
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="text-green-800 font-semibold">模型已计算完成并保存</p>
+                  <p className="text-sm text-green-700">窗口大小：{modelState.window ?? windowSize} 个月</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
+                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{modelState.metrics.rmse ?? '—'}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
+                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{modelState.metrics.mae ?? '—'}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
+                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{modelState.metrics.r2 ?? '—'}</p>
+                </div>
+              </div>
+              {shouldShowFusionUnlockedNotice && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-800">
+                  🎉 已完成至少两个基础模型，融合模型现已解锁！尝试组合不同算法，进一步提升预测表现。
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderStepContent = () => {
     switch (activeStep) {
       case 1:
-        return renderIntro();
+        return renderMethodSteps();
       case 2:
-        return renderWindowStep();
+        return renderFormula();
       case 3:
-        return renderTrainingStep();
+        return renderWindowStep();
+      case 4:
+        return renderResultsStep();
       default:
         return null;
     }
   };
 
   const nextButtonLabel = (() => {
-    if (activeStep === 1) return "下一步：设置窗口";
-    if (activeStep === 2) return "下一步：运行模型";
-    if (isCalculating) return "计算中...";
-    if (modelState.completed) return "结果已保存";
-    return "开始计算并保存结果";
+    if (activeStep === 1) return "下一步：计算公式";
+    if (activeStep === 2) return "下一步：时间窗口选取";
+    if (activeStep === 3) return "开始计算";
+    if (activeStep === 4 && showComparison) return "返回结果";
+    if (activeStep === 4 && modelState.completed) return "下一步：模型对比";
+    return "请等待...";
   })();
 
   const isNextDisabled =
-    isCalculating || (activeStep === 3 && Boolean(modelState.completed));
+    (activeStep === 4 && !modelState.completed) || isCalculating;
 
   return (
     <div className="bg-gray-50 rounded-xl border border-gray-200">
@@ -316,32 +519,25 @@ const MovingAverageModel: React.FC = () => {
       </div>
 
       <div className="px-6 pt-4 pb-4 flex flex-col gap-6">
-        <div className="flex items-center gap-2">
+        <div className="flex items-stretch rounded-lg overflow-hidden">
           {steps.map((step, index) => {
             const isActive = step.id === activeStep;
-            const isCompleted = step.id < activeStep || (step.id === steps.length && modelState.completed);
+            const isCompleted = (step.id < activeStep) || (modelState.completed && step.id !== activeStep);
             return (
-              <React.Fragment key={step.id}>
-                <div
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
-                    isActive
-                      ? "border-blue-500 bg-blue-50"
-                      : isCompleted
-                      ? "border-green-500 bg-green-50"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}>
-                    {isCompleted ? <CheckCircle className="w-3.5 h-3.5" /> : step.id}
-                  </div>
-                  <span className={`text-sm font-medium whitespace-nowrap ${isActive ? "text-blue-700" : isCompleted ? "text-green-700" : "text-gray-600"}`}>
-                    {step.title}
-                  </span>
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`h-0.5 flex-1 ${isCompleted ? "bg-green-500" : "bg-gray-200"}`} />
-                )}
-              </React.Fragment>
+              <div
+                key={step.id}
+                className={`flex items-center justify-center px-4 py-6 flex-1 transition-all border-2 ${
+                  isActive
+                    ? "bg-[#27579d] text-white border-[#1e4275]"
+                    : isCompleted
+                    ? "bg-white text-gray-900 border-gray-300"
+                    : "bg-white text-gray-400 border-gray-200"
+                } ${index === 0 ? 'rounded-l-lg' : ''} ${index === steps.length - 1 ? 'rounded-r-lg' : ''} ${index > 0 ? '-ml-0.5' : ''}`}
+              >
+                <span className="text-xl font-bold whitespace-nowrap">
+                  {step.title}
+                </span>
+              </div>
             );
           })}
         </div>
@@ -360,12 +556,12 @@ const MovingAverageModel: React.FC = () => {
         <button
           onClick={handleNext}
           disabled={isNextDisabled}
-          className={`flex items-center justify-center w-52 space-x-2 px-6 py-2 rounded-lg text-white whitespace-nowrap ${
+          className={`flex items-center justify-center space-x-2 px-6 py-2 rounded-lg text-white whitespace-nowrap ${
             isNextDisabled
               ? "bg-gray-400 cursor-not-allowed"
-              : modelState.completed
-              ? "bg-blue-600 hover:bg-blue-700"
-              : "bg-green-600 hover:bg-green-700"
+              : activeStep === 3
+              ? "bg-green-600 hover:bg-green-700"
+              : "bg-[#27579d] hover:bg-[#1e4275]"
           }`}
         >
           {isCalculating && <Loader2 className="w-5 h-5 animate-spin" />}

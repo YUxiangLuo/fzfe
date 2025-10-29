@@ -4,10 +4,10 @@ import { useExperiment, type AdfStationarityRow, type ModelMetrics } from "../..
 import { apiClient } from "../../../../utils/apiClient";
 
 const STEPS = [
-  { id: 1, title: "方法简介" },
-  { id: 2, title: "ADF 平稳性检验" },
-  { id: 3, title: "设定差分阶数 d" },
-  { id: 4, title: "训练模型并自动寻优" },
+  { id: 1, title: "方法步骤" },
+  { id: 2, title: "平稳性检验" },
+  { id: 3, title: "差分阶数选择" },
+  { id: 4, title: "自动参数寻优计算" },
 ] as const;
 
 const formatNumber = (value: number | null | undefined, fractionDigits = 3) =>
@@ -59,6 +59,7 @@ const ARIMAModel: React.FC = () => {
   const [dError, setDError] = useState<string | null>(null);
   const [isTraining, setIsTraining] = useState(false);
   const [trainingError, setTrainingError] = useState<string | null>(null);
+  const [showComparison, setShowComparison] = useState(false);
 
   const buildDownstreamReset = () => ({
     ensemble_weighted_completed: false,
@@ -275,13 +276,25 @@ const ARIMAModel: React.FC = () => {
           setDError("请选择差分阶数 d。");
           return;
         }
+        // Validate that selected d achieves stationarity
+        const selectedDResult = adfResults.find(row => row.diff_order === selectedD);
+        if (selectedDResult && !selectedDResult.stationary) {
+          setDError(`差分阶数 d=${selectedD} 无法使序列达到平稳，请选择其他差分阶数。`);
+          return;
+        }
         setDError(null);
         setActiveStep(4);
+        setShowComparison(false);
+        // Auto-trigger training when entering step 4
+        if (!trainingCompleted) {
+          await handleStartTraining();
+        }
         break;
       }
       case 4: {
-        if (!trainingCompleted && !isTraining) {
-          await handleStartTraining();
+        // Toggle comparison view when training is completed
+        if (trainingCompleted) {
+          setShowComparison(!showComparison);
         }
         break;
       }
@@ -294,39 +307,85 @@ const ARIMAModel: React.FC = () => {
     if (activeStep === 1) return;
     setAdfError(null);
     setDError(null);
+    setShowComparison(false);
     setActiveStep((prev) => Math.max(1, prev - 1));
   };
 
   const nextLabel = (() => {
-    if (activeStep === 1) return "下一步：ADF 平稳性检验";
-    if (activeStep === 2) return "下一步：设定差分阶数 d";
-    if (activeStep === 3) return "下一步：训练模型";
-    if (trainingCompleted) return "模型已保存";
-    if (isTraining) return "模型训练中...";
-    return "开始训练并保存结果";
+    if (activeStep === 1) return "下一步：平稳性检验";
+    if (activeStep === 2) return "下一步：差分阶数选择";
+    if (activeStep === 3) return "下一步：自动参数寻优计算";
+    if (activeStep === 4) {
+      if (trainingCompleted) {
+        return showComparison ? "返回结果" : "下一步：模型对比";
+      }
+      if (isTraining) return "模型训练中...";
+    }
+    return "开始训练";
   })();
 
   const isNextDisabled =
     (activeStep === 2 && (isRunningAdf || adfResults.length === 0)) ||
     (activeStep === 3 && (selectedD === null || selectedD === undefined)) ||
-    (activeStep === 4 && (isTraining || trainingCompleted));
+    (activeStep === 4 && isTraining);
 
-  const renderIntroStep = () => (
-    <div className="space-y-4">
+  const renderMethodSteps = () => (
+    <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-3">ARIMA 模型概览</h3>
-        <p className="text-sm text-gray-600 leading-relaxed">
-          ARIMA（AutoRegressive Integrated Moving Average）模型由自回归 (AR)、差分 (I) 与移动平均 (MA)
-          三个部分组成，适用于具有趋势或季节性但经过差分后可转化为平稳序列的时间序列预测任务。
-        </p>
-        <ul className="mt-4 space-y-2 text-sm text-gray-700 list-disc list-inside">
-          <li>AR：利用过去的观察值预测当前值。</li>
-          <li>I：通过差分消除趋势，使序列更加平稳。</li>
-          <li>MA：利用过去的误差项提升模型拟合能力。</li>
-        </ul>
-      </div>
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 text-sm text-blue-800">
-        请按照向导依次完成平稳性检验、差分设定与训练过程，最终得到推荐的参数与指标。
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">ARIMA 法的操作步骤</h3>
+        <p className="text-sm text-gray-600 mb-4">ARIMA 法的一般步骤为：</p>
+        <div className="space-y-4">
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              1
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                使用 ADF 单位根检验对原始数据进行平稳性检验；
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              2
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                若非平稳，进行差分处理（d 即为差分阶数），将非平稳时间序列转化为平稳时间序列；
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              3
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                确定模型的阶数。借助自相关 (AC) 系数和偏自相关 (PAC) 系数，初步识别模型的可能形式，然后根据 AIC 等定阶准则，从可供选择的模型中选择一个最佳模型；
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              4
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                参数估计与诊断检验。包括检验模型参数的显著性，模型本身的有效性以及检验残差序列是否为白噪声序列。如果模型通过检验，则模型设定基本正确，否则，必须重新确定模型的形式，并诊断检验，直至得到设定正确的模型形式；
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              5
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                用建立的 ARIMA 模型进行预测。
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -334,10 +393,27 @@ const ARIMAModel: React.FC = () => {
   const renderAdfStep = () => (
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-        <h3 className="text-xl font-semibold text-gray-900">ADF 平稳性检验</h3>
-        <p className="text-sm text-gray-600">
-          ADF（Augmented Dickey-Fuller）检验用于检测序列是否存在单位根。p 值越小，越倾向于接受“序列平稳”的结论。
-        </p>
+        <h3 className="text-xl font-semibold text-gray-900">平稳性检验</h3>
+
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3">
+          <h4 className="font-semibold text-gray-900">什么是自回归方程？</h4>
+          <p className="text-sm text-gray-600">
+            自回归 (AR) 模型是一种用当前值与历史观测值之间的线性关系进行预测的时间序列模型。其基本形式为：
+          </p>
+          <div className="bg-white border border-gray-200 rounded p-3 text-center">
+            <p className="font-mono text-sm">Y<sub>t</sub> = c + φ<sub>1</sub>Y<sub>t-1</sub> + φ<sub>2</sub>Y<sub>t-2</sub> + ... + φ<sub>p</sub>Y<sub>t-p</sub> + ε<sub>t</sub></p>
+          </div>
+          <p className="text-xs text-gray-500">
+            其中 Y<sub>t</sub> 是当前值，φ 是自回归系数，p 是自回归阶数，ε<sub>t</sub> 是误差项。
+          </p>
+        </div>
+
+        <div>
+          <h4 className="font-semibold text-gray-900 mb-2">ADF 平稳性检验</h4>
+          <p className="text-sm text-gray-600">
+            ADF（Augmented Dickey-Fuller）检验用于检测序列是否存在单位根。p 值越小，越倾向于接受"序列平稳"的结论。
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={handleRunAdf}
@@ -487,84 +563,194 @@ const ARIMAModel: React.FC = () => {
     </div>
   );
 
-  const renderTrainingStep = () => (
-    <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-        <h3 className="text-xl font-semibold text-gray-900">自动寻优与指标预览</h3>
-        <p className="text-sm text-gray-600">点击“开始训练并保存结果”将执行模型训练过程，训练完成后会展示误差指标。</p>
+  const renderModelComparison = () => {
+    const allModels = [
+      {
+        name: '移动平均法',
+        completed: state.moving_average_completed,
+        metrics: {
+          rmse: state.moving_average_metrics_rmse,
+          mae: state.moving_average_metrics_mae,
+          r2: state.moving_average_metrics_r2,
+        },
+      },
+      {
+        name: '指数平滑法',
+        completed: state.exponential_smoothing_completed,
+        metrics: {
+          rmse: state.exponential_smoothing_metrics_rmse,
+          mae: state.exponential_smoothing_metrics_mae,
+          r2: state.exponential_smoothing_metrics_r2,
+        },
+      },
+      {
+        name: 'ARIMA',
+        completed: state.arima_completed,
+        metrics: {
+          rmse: state.arima_metrics_rmse,
+          mae: state.arima_metrics_mae,
+          r2: state.arima_metrics_r2,
+        },
+      },
+      {
+        name: 'LSTM',
+        completed: state.lstm_completed,
+        metrics: {
+          rmse: state.lstm_metrics_rmse,
+          mae: state.lstm_metrics_mae,
+          r2: state.lstm_metrics_r2,
+        },
+      },
+      {
+        name: '加权融合',
+        completed: state.ensemble_weighted_completed,
+        metrics: {
+          rmse: state.ensemble_weighted_metrics_rmse,
+          mae: state.ensemble_weighted_metrics_mae,
+          r2: state.ensemble_weighted_metrics_r2,
+        },
+      },
+      {
+        name: 'Boosting融合',
+        completed: state.ensemble_boosting_completed,
+        metrics: {
+          rmse: state.ensemble_boosting_metrics_rmse,
+          mae: state.ensemble_boosting_metrics_mae,
+          r2: state.ensemble_boosting_metrics_r2,
+        },
+      },
+      {
+        name: 'Stacking融合',
+        completed: state.ensemble_stacking_completed,
+        metrics: {
+          rmse: state.ensemble_stacking_metrics_rmse,
+          mae: state.ensemble_stacking_metrics_mae,
+          r2: state.ensemble_stacking_metrics_r2,
+        },
+      },
+    ];
 
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          当前差分阶数 d：<span className="font-semibold text-blue-900">{storedD ?? "未设置"}</span>
+    const completedModels = allModels.filter(m => m.completed);
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">模型对比</h3>
+          {completedModels.length === 0 ? (
+            <p className="text-gray-600 text-center py-8">暂无已完成的模型可供对比</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">模型名称</th>
+                    <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">RMSE</th>
+                    <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">MAE</th>
+                    <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">R²</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {completedModels.map((model, index) => (
+                    <tr key={index} className={model.name === 'ARIMA' ? 'bg-blue-50' : ''}>
+                      <td className="border border-gray-200 px-4 py-3 font-medium text-gray-900">
+                        {model.name}
+                        {model.name === 'ARIMA' && (
+                          <span className="ml-2 text-xs bg-[#27579d] text-white px-2 py-1 rounded">当前</span>
+                        )}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                        {model.metrics.rmse?.toFixed(2) ?? '—'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                        {model.metrics.mae?.toFixed(2) ?? '—'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                        {model.metrics.r2?.toFixed(4) ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-
-        {!trainingCompleted && !isTraining && (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-            点击下方按钮开始训练并保存结果。
-          </div>
-        )}
-        {isTraining && (
-          <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>正在训练模型...</span>
-          </div>
-        )}
-
-        {trainingError && !isTraining && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
-            <div>
-              <p className="text-red-800 font-semibold">训练失败</p>
-              <p className="text-sm text-red-700">{trainingError}</p>
-            </div>
-          </div>
-        )}
-
-        {trainingCompleted && !trainingError && (
-          <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center space-x-3">
-            <CheckCircle className="w-5 h-5 text-green-600" />
-            <div>
-              <p className="text-green-900 font-semibold">模型已计算完成并保存。</p>
-              <p className="text-sm text-green-700">当前 (p, d, q) = ({state.arima_p ?? "?"}, {storedD ?? "?"}, {state.arima_q ?? "?"})</p>
-            </div>
-          </div>
-        )}
-
-        {trainingCompleted && (
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
-              <p className="text-2xl font-semibold text-blue-700 mt-2">{formatNumber(state.arima_metrics_rmse)}</p>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
-              <p className="text-2xl font-semibold text-blue-700 mt-2">{formatNumber(state.arima_metrics_mae)}</p>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
-              <p className="text-2xl font-semibold text-blue-700 mt-2">{formatNumber(state.arima_metrics_r2, 2)}</p>
-            </div>
-          </div>
-        )}
-
-        {trainingCompleted && shouldShowFusionUnlockedNotice && (
-          <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-800">
-            🎉 已完成至少两个基础模型，融合模型现已解锁！尝试组合不同算法，进一步提升预测表现。
-          </div>
-        )}
       </div>
-    </div>
-  );
+    );
+  };
+
+  const renderResultsStep = () => {
+    if (showComparison) {
+      return renderModelComparison();
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">计算结果</h3>
+
+          {isTraining && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="w-12 h-12 text-[#27579d] animate-spin mb-4" />
+              <p className="text-lg text-gray-700 font-medium">正在训练 ARIMA 模型...</p>
+              <p className="text-sm text-gray-500 mt-2">请稍候，系统正在自动寻找最优参数</p>
+            </div>
+          )}
+
+          {trainingError && !isTraining && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-red-800 font-semibold">训练失败</p>
+                <p className="text-sm text-red-700">{trainingError}</p>
+              </div>
+            </div>
+          )}
+
+          {trainingCompleted && !isTraining && !trainingError && (
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="text-green-800 font-semibold">模型已计算完成并保存</p>
+                  <p className="text-sm text-green-700">当前 (p, d, q) = ({state.arima_p ?? "?"}, {storedD ?? "?"}, {state.arima_q ?? "?"})</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
+                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{formatNumber(state.arima_metrics_rmse)}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
+                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{formatNumber(state.arima_metrics_mae)}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
+                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{formatNumber(state.arima_metrics_r2, 2)}</p>
+                </div>
+              </div>
+              {shouldShowFusionUnlockedNotice && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-800">
+                  🎉 已完成至少两个基础模型，融合模型现已解锁！尝试组合不同算法，进一步提升预测表现。
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderStepContent = () => {
     switch (activeStep) {
       case 1:
-        return renderIntroStep();
+        return renderMethodSteps();
       case 2:
         return renderAdfStep();
       case 3:
         return renderDiffStep();
       case 4:
-        return renderTrainingStep();
+        return renderResultsStep();
       default:
         return null;
     }
@@ -579,37 +765,32 @@ const ARIMAModel: React.FC = () => {
         </h2>
       </div>
 
-      <div className="px-6 pt-4 pb-4 flex items-center gap-2">
-        {STEPS.map((step, index) => {
-          const isActive = step.id === activeStep;
-          const isCompleted = step.id < activeStep || (step.id === 4 && trainingCompleted);
-          return (
-            <React.Fragment key={step.id}>
+      <div className="px-6 pt-4 pb-4 flex flex-col gap-6">
+        <div className="flex items-stretch rounded-lg overflow-hidden">
+          {STEPS.map((step, index) => {
+            const isActive = step.id === activeStep;
+            const isCompleted = (step.id < activeStep) || (trainingCompleted && step.id !== activeStep);
+            return (
               <div
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+                key={step.id}
+                className={`flex items-center justify-center px-5 py-6 flex-1 transition-all border-2 ${
                   isActive
-                    ? "border-blue-500 bg-blue-50"
+                    ? "bg-[#27579d] text-white border-[#1e4275]"
                     : isCompleted
-                    ? "border-green-500 bg-green-50"
-                    : "border-gray-200 bg-white"
-                }`}
+                    ? "bg-white text-gray-900 border-gray-300"
+                    : "bg-white text-gray-400 border-gray-200"
+                } ${index === 0 ? 'rounded-l-lg' : ''} ${index === STEPS.length - 1 ? 'rounded-r-lg' : ''} ${index > 0 ? '-ml-0.5' : ''}`}
               >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}>
-                  {isCompleted ? <CheckCircle className="w-3.5 h-3.5" /> : step.id}
-                </div>
-                <span className={`text-sm font-medium whitespace-nowrap ${isActive ? "text-blue-700" : isCompleted ? "text-green-700" : "text-gray-600"}`}>
+                <span className="text-2xl font-bold whitespace-nowrap">
                   {step.title}
                 </span>
               </div>
-              {index < STEPS.length - 1 && (
-                <div className={`h-0.5 flex-1 ${isCompleted ? "bg-green-500" : "bg-gray-200"}`} />
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      {renderStepContent()}
+        {renderStepContent()}
+      </div>
 
       <div className="bg-white border-t border-gray-200 rounded-b-xl px-6 py-4 flex justify-between items-center">
         <button

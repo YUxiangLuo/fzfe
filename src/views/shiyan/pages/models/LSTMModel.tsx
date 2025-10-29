@@ -3,10 +3,10 @@ import { BrainCircuit, CheckCircle, Loader2, AlertTriangle } from "lucide-react"
 import { useExperiment, type ModelMetrics } from "../../contexts/ExperimentContext";
 import { apiClient } from "../../../../utils/apiClient";
 const steps = [
-  { id: 1, title: "方法简介" },
-  { id: 2, title: "选择归一化方式" },
-  { id: 3, title: "配置特征与预测列" },
-  { id: 4, title: "训练并查看指标" },
+  { id: 1, title: "方法步骤" },
+  { id: 2, title: "数据预处理" },
+  { id: 3, title: "构建LSTM模型" },
+  { id: 4, title: "计算结果" },
 ] as const;
 
 const sanitizeFeatures = (features: string[], target: string | null): string[] =>
@@ -60,6 +60,7 @@ const LSTMModel: React.FC = () => {
   const [featureValidationAttempted, setFeatureValidationAttempted] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
   const [trainingError, setTrainingError] = useState<string | null>(null);
+  const [showComparison, setShowComparison] = useState(false);
   const prevDerivedStepRef = useRef(derivedStep);
 
   const buildDownstreamReset = () => ({
@@ -276,39 +277,64 @@ const LSTMModel: React.FC = () => {
         return;
       }
       setActiveStep(4);
+      setShowComparison(false);
+      // Auto-trigger training when entering step 4
+      if (!lstmState.completed) {
+        await handleTrainModel();
+      }
       return;
     }
 
-    if (activeStep === 4 && !lstmState.completed && !isTraining) {
-      await handleTrainModel();
+    if (activeStep === 4) {
+      // Toggle comparison view when training is completed
+      if (lstmState.completed) {
+        setShowComparison(!showComparison);
+      }
     }
   };
 
   const handleBack = () => {
     if (activeStep === 1) return;
+    setShowComparison(false);
     setActiveStep((prev) => Math.max(1, prev - 1));
   };
 
-  const renderIntro = () => (
+  const renderMethodSteps = () => (
     <div className="space-y-6">
       <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">LSTM 模型概览</h3>
-        <p className="text-sm text-gray-600 leading-relaxed">
-          LSTM（Long Short-Term Memory）是处理时间序列的循环神经网络，能够捕捉长短期依赖关系，适合需求预测、库存预测等任务，尤其是在特征维度丰富的场景中表现优异。
-        </p>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="font-semibold text-blue-700 mb-2">适用场景</p>
-          <p className="text-sm text-blue-700">需求波动复杂、存在多维影响因素的时间序列。</p>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="font-semibold text-blue-700 mb-2">优势</p>
-          <p className="text-sm text-blue-700">能够自动提取非线性特征，捕捉长期依赖关系。</p>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="font-semibold text-blue-700 mb-2">注意事项</p>
-          <p className="text-sm text-blue-700">需要合理的特征归一化与数据量支持，训练时间相对较长。</p>
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">LSTM 法的操作步骤</h3>
+        <p className="text-sm text-gray-600 mb-4">LSTM 法的一般步骤为：</p>
+        <div className="space-y-4">
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              1
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                对时序数据进行标准化或归一化处理；
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              2
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                构建和训练 LSTM 模型；使用训练集数据对模型进行训练通过优化算法调整模型参数，使其能够有效捕捉数据中的时间依赖关系；
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <div className="flex-shrink-0 w-8 h-8 bg-[#27579d] text-white rounded-full flex items-center justify-center font-bold">
+              3
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">
+                模型预测。
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -316,27 +342,44 @@ const LSTMModel: React.FC = () => {
 
   const renderNormalizationStep = () => (
     <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">归一化方式对比</h3>
+      <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-6">
+        <h3 className="text-xl font-semibold text-gray-900">数据预处理：归一化方法</h3>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className={`rounded-xl border p-6 space-y-3 ${selectedNormalization === "minmax" ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}>
-            <h4 className="text-lg font-semibold text-blue-700">Min-Max 归一化</h4>
-            <p className="text-sm text-blue-600">将特征缩放到 [0,1] 区间，对范围固定的数据集十分稳定。</p>
-            <ul className="text-sm text-blue-700 space-y-1">
+          <div className={`rounded-xl border-2 p-6 space-y-4 ${selectedNormalization === "minmax" ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}>
+            <h4 className="text-lg font-semibold text-gray-900">Min-Max 归一化</h4>
+            <p className="text-sm text-gray-600">将特征缩放到 [0,1] 区间，对范围固定的数据集十分稳定。</p>
+
+            <div className="bg-white border border-gray-300 rounded-lg p-4">
+              <p className="text-xs text-gray-500 mb-2">公式：</p>
+              <p className="font-mono text-sm text-center">x' = (x - x<sub>min</sub>) / (x<sub>max</sub> - x<sub>min</sub>)</p>
+              <p className="text-xs text-gray-500 mt-2">其中 x<sub>min</sub> 和 x<sub>max</sub> 分别为数据的最小值和最大值。</p>
+            </div>
+
+            <ul className="text-sm text-gray-700 space-y-1">
               <li>• 适用于边界明确的指标，例如销量、库存。</li>
               <li>• 对离群值敏感，容易受极端值影响。</li>
             </ul>
           </div>
-          <div className={`rounded-xl border p-6 space-y-3 ${selectedNormalization === "zscore" ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}>
-            <h4 className="text-lg font-semibold text-blue-700">Z-Score 标准化</h4>
-            <p className="text-sm text-blue-600">使特征均值为 0、方差为 1，便于梯度下降更快收敛。</p>
-            <ul className="text-sm text-blue-700 space-y-1">
+
+          <div className={`rounded-xl border-2 p-6 space-y-4 ${selectedNormalization === "zscore" ? "border-blue-500 bg-blue-50" : "border-gray-200"}`}>
+            <h4 className="text-lg font-semibold text-gray-900">Z-Score 标准化</h4>
+            <p className="text-sm text-gray-600">使特征均值为 0、方差为 1，便于梯度下降更快收敛。</p>
+
+            <div className="bg-white border border-gray-300 rounded-lg p-4">
+              <p className="text-xs text-gray-500 mb-2">公式：</p>
+              <p className="font-mono text-sm text-center">x' = (x - μ) / σ</p>
+              <p className="text-xs text-gray-500 mt-2">其中 μ 为数据的均值，σ 为数据的标准差。</p>
+            </div>
+
+            <ul className="text-sm text-gray-700 space-y-1">
               <li>• 更适合存在明显波动或含离群值的特征。</li>
               <li>• 可保持不同尺度变量的相对关系。</li>
             </ul>
           </div>
         </div>
       </div>
+
       <div className="flex flex-wrap gap-4">
         <button
           onClick={() => handleNormalizationSelect("minmax")}
@@ -359,6 +402,7 @@ const LSTMModel: React.FC = () => {
           选择 Z-Score 标准化
         </button>
       </div>
+
       <p className="text-xs text-gray-500">
         推荐从 <span className="text-blue-600 font-medium">{recommendedNormalization === "minmax" ? "Min-Max" : "Z-Score"}</span> 开始，根据模型效果再进行调整。
       </p>
@@ -504,134 +548,248 @@ const LSTMModel: React.FC = () => {
     );
   };
 
-  const renderTrainingStep = () => (
-    <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">运行模型并查看结果</h3>
-        {!lstmState.completed && !isTraining && (
-          <p className="text-sm text-gray-600">
-            点击“开始训练并保存结果”后，模型将使用 {selectedNormalization === "minmax" ? "Min-Max" : "Z-Score"} 归一化和选定特征训练 LSTM。
-          </p>
-        )}
+  const renderModelComparison = () => {
+    const allModels = [
+      {
+        name: '移动平均法',
+        completed: state.moving_average_completed,
+        metrics: {
+          rmse: state.moving_average_metrics_rmse,
+          mae: state.moving_average_metrics_mae,
+          r2: state.moving_average_metrics_r2,
+        },
+      },
+      {
+        name: '指数平滑法',
+        completed: state.exponential_smoothing_completed,
+        metrics: {
+          rmse: state.exponential_smoothing_metrics_rmse,
+          mae: state.exponential_smoothing_metrics_mae,
+          r2: state.exponential_smoothing_metrics_r2,
+        },
+      },
+      {
+        name: 'ARIMA',
+        completed: state.arima_completed,
+        metrics: {
+          rmse: state.arima_metrics_rmse,
+          mae: state.arima_metrics_mae,
+          r2: state.arima_metrics_r2,
+        },
+      },
+      {
+        name: 'LSTM',
+        completed: state.lstm_completed,
+        metrics: {
+          rmse: state.lstm_metrics_rmse,
+          mae: state.lstm_metrics_mae,
+          r2: state.lstm_metrics_r2,
+        },
+      },
+      {
+        name: '加权融合',
+        completed: state.ensemble_weighted_completed,
+        metrics: {
+          rmse: state.ensemble_weighted_metrics_rmse,
+          mae: state.ensemble_weighted_metrics_mae,
+          r2: state.ensemble_weighted_metrics_r2,
+        },
+      },
+      {
+        name: 'Boosting融合',
+        completed: state.ensemble_boosting_completed,
+        metrics: {
+          rmse: state.ensemble_boosting_metrics_rmse,
+          mae: state.ensemble_boosting_metrics_mae,
+          r2: state.ensemble_boosting_metrics_r2,
+        },
+      },
+      {
+        name: 'Stacking融合',
+        completed: state.ensemble_stacking_completed,
+        metrics: {
+          rmse: state.ensemble_stacking_metrics_rmse,
+          mae: state.ensemble_stacking_metrics_mae,
+          r2: state.ensemble_stacking_metrics_r2,
+        },
+      },
+    ];
 
-        {isTraining && (
-          <div className="flex items-center space-x-3 text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span>模型训练中，请稍候...</span>
-          </div>
-        )}
+    const completedModels = allModels.filter(m => m.completed);
 
-        {trainingError && !isTraining && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
-            <div>
-              <p className="text-red-800 font-semibold">训练失败</p>
-              <p className="text-sm text-red-700">{trainingError}</p>
+    return (
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">模型对比</h3>
+          {completedModels.length === 0 ? (
+            <p className="text-gray-600 text-center py-8">暂无已完成的模型可供对比</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">模型名称</th>
+                    <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">RMSE</th>
+                    <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">MAE</th>
+                    <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">R²</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {completedModels.map((model, index) => (
+                    <tr key={index} className={model.name === 'LSTM' ? 'bg-blue-50' : ''}>
+                      <td className="border border-gray-200 px-4 py-3 font-medium text-gray-900">
+                        {model.name}
+                        {model.name === 'LSTM' && (
+                          <span className="ml-2 text-xs bg-[#27579d] text-white px-2 py-1 rounded">当前</span>
+                        )}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                        {model.metrics.rmse?.toFixed(2) ?? '—'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                        {model.metrics.mae?.toFixed(2) ?? '—'}
+                      </td>
+                      <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                        {model.metrics.r2?.toFixed(4) ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-        )}
-
-        {lstmState.completed && !isTraining && !trainingError && (
-          <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-              <div>
-                <p className="text-green-800 font-semibold">模型已训练完成并保存。</p>
-                <p className="text-sm text-green-700">
-                  归一化方式：{(lstmState.normalization ?? selectedNormalization) === "minmax" ? "Min-Max" : "Z-Score"}；预测字段：{lstmState.targetField ?? selectedTarget ?? "未设置"}；输入特征：{lstmState.features.join(', ') || "未选择"}
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
-                <p className="text-2xl font-semibold text-blue-700 mt-2">{lstmState.metrics.rmse ?? '—'}</p>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
-                <p className="text-2xl font-semibold text-blue-700 mt-2">{lstmState.metrics.mae ?? '—'}</p>
-              </div>
-              <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
-                <p className="text-2xl font-semibold text-blue-700 mt-2">{lstmState.metrics.r2 ?? '—'}</p>
-              </div>
-            </div>
-            {shouldShowFusionUnlockedNotice && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
-                🎉 已完成至少两个基础模型，融合模型现已解锁！尝试组合不同算法，进一步提升预测表现。
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
+
+  const renderResultsStep = () => {
+    if (showComparison) {
+      return renderModelComparison();
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">计算结果</h3>
+
+          {isTraining && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="w-12 h-12 text-[#27579d] animate-spin mb-4" />
+              <p className="text-lg text-gray-700 font-medium">正在训练 LSTM 模型...</p>
+              <p className="text-sm text-gray-500 mt-2">请稍候，系统正在构建并训练神经网络</p>
+            </div>
+          )}
+
+          {trainingError && !isTraining && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-red-800 font-semibold">训练失败</p>
+                <p className="text-sm text-red-700">{trainingError}</p>
+              </div>
+            </div>
+          )}
+
+          {lstmState.completed && !isTraining && !trainingError && (
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <div>
+                  <p className="text-green-800 font-semibold">模型已计算完成并保存</p>
+                  <p className="text-sm text-green-700">
+                    归一化方式：{(lstmState.normalization ?? selectedNormalization) === "minmax" ? "Min-Max" : "Z-Score"}；预测字段：{lstmState.targetField ?? selectedTarget ?? "未设置"}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
+                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{lstmState.metrics.rmse?.toFixed(2) ?? '—'}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
+                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{lstmState.metrics.mae?.toFixed(2) ?? '—'}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
+                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{lstmState.metrics.r2?.toFixed(4) ?? '—'}</p>
+                </div>
+              </div>
+              {shouldShowFusionUnlockedNotice && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-800">
+                  🎉 已完成至少两个基础模型，融合模型现已解锁！尝试组合不同算法，进一步提升预测表现。
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderStepContent = () => {
     switch (activeStep) {
       case 1:
-        return renderIntro();
+        return renderMethodSteps();
       case 2:
         return renderNormalizationStep();
       case 3:
         return renderFeatureSelectionStep();
       case 4:
-        return renderTrainingStep();
+        return renderResultsStep();
       default:
         return null;
     }
   };
 
   const nextButtonLabel = (() => {
-    if (activeStep === 1) return "下一步：选择归一化";
-    if (activeStep === 2) return "下一步：配置特征";
-    if (activeStep === 3) return "下一步：训练模型";
-    if (lstmState.completed) return "模型已保存";
-    if (isTraining) return "模型训练中...";
-    return "开始训练并保存结果";
+    if (activeStep === 1) return "下一步：数据预处理";
+    if (activeStep === 2) return "下一步：构建LSTM模型";
+    if (activeStep === 3) return "下一步：计算结果";
+    if (activeStep === 4) {
+      if (lstmState.completed) {
+        return showComparison ? "返回结果" : "下一步：模型对比";
+      }
+      if (isTraining) return "模型训练中...";
+    }
+    return "开始训练";
   })();
 
   const isNextDisabled =
     (activeStep === 2 && !selectedNormalization) ||
     (activeStep === 3 && (!selectedTarget || selectedFeatures.length === 0)) ||
-    (activeStep === 4 && (isTraining || Boolean(lstmState.completed)));
+    (activeStep === 4 && isTraining);
 
   return (
     <div className="bg-gray-50 rounded-xl border border-gray-200">
       <div className="border-b border-gray-200 bg-white rounded-t-xl p-4">
         <h2 className="flex items-center gap-3 text-xl font-semibold text-gray-900">
           <BrainCircuit className="w-5 h-5 text-blue-600" />
-          LSTM 神经网络
+          LSTM 模型
         </h2>
       </div>
 
       <div className="px-6 pt-4 pb-4 flex flex-col gap-6">
-        <div className="flex items-center gap-2">
+        <div className="flex items-stretch rounded-lg overflow-hidden">
           {steps.map((step, index) => {
             const isActive = step.id === activeStep;
-            const isCompleted = step.id < activeStep || (step.id === steps.length && lstmState.completed);
+            const isCompleted = (step.id < activeStep) || (lstmState.completed && step.id !== activeStep);
             return (
-              <React.Fragment key={step.id}>
-                <div
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
-                    isActive
-                      ? "border-blue-500 bg-blue-50"
-                      : isCompleted
-                      ? "border-green-500 bg-green-50"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}>
-                    {isCompleted ? <CheckCircle className="w-3.5 h-3.5" /> : step.id}
-                  </div>
-                  <span className={`text-sm font-medium whitespace-nowrap ${isActive ? "text-blue-700" : isCompleted ? "text-green-700" : "text-gray-600"}`}>
-                    {step.title}
-                  </span>
-                </div>
-                {index < steps.length - 1 && (
-                  <div className={`h-0.5 flex-1 ${isCompleted ? "bg-green-500" : "bg-gray-200"}`} />
-                )}
-              </React.Fragment>
+              <div
+                key={step.id}
+                className={`flex items-center justify-center px-5 py-6 flex-1 transition-all border-2 ${
+                  isActive
+                    ? "bg-[#27579d] text-white border-[#1e4275]"
+                    : isCompleted
+                    ? "bg-white text-gray-900 border-gray-300"
+                    : "bg-white text-gray-400 border-gray-200"
+                } ${index === 0 ? 'rounded-l-lg' : ''} ${index === steps.length - 1 ? 'rounded-r-lg' : ''} ${index > 0 ? '-ml-0.5' : ''}`}
+              >
+                <span className="text-2xl font-bold whitespace-nowrap">
+                  {step.title}
+                </span>
+              </div>
             );
           })}
         </div>
