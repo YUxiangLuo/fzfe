@@ -18,7 +18,7 @@ const steps = [
   { id: 2, title: '选择企业', path: '/company', icon: Factory },
   { id: 3, title: '选择产品', path: '/product', icon: Package },
   { id: 4, title: '历史数据', path: '/data', icon: BarChart3 },
-  { id: 5, title: '预测模型', path: '/model', icon: Brain },
+  { id: 5, title: '需求预测', path: '/model', icon: Brain },
   { id: 6, title: '结果评估', path: '/evaluation', icon: TrendingUp },
   { id: 7, title: '生产计划', path: '/production', icon: Calendar },
 ];

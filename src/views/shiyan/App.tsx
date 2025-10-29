@@ -43,7 +43,7 @@ const MainLayout = () => {
       <Header />
       <div className="flex pt-20">
         <Sidebar />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto" style={{ height: 'calc(100vh - 5rem)' }}>
           <Routes>
             <Route path="/industry" element={<IndustrySelection />} />
             <Route path="/company" element={<ProtectedRoute step={2}><CompanySelection /></ProtectedRoute>} />

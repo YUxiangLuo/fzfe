@@ -675,7 +675,7 @@ const HistoricalData: React.FC = () => {
             onClick={handleNext}
             className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md"
           >
-            <span>下一步：建立预测模型</span>
+            <span>下一步：需求预测</span>
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>

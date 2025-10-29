@@ -46,7 +46,7 @@ const EXPERIMENT_STEPS = [
   { step: 2, title: "选择企业", icon: "🏢" },
   { step: 3, title: "选择产品", icon: "📱" },
   { step: 4, title: "历史数据", icon: "📊" },
-  { step: 5, title: "预测模型", icon: "🤖" },
+  { step: 5, title: "需求预测", icon: "🤖" },
   { step: 6, title: "结果评估", icon: "📈" },
   { step: 7, title: "生产计划", icon: "📋" },
 ];

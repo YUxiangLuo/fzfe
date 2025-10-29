@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext';
-import { AlertTriangle, CalendarRange, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { MonthlySalesRecord } from '../../data/historicalDatasets';
 
 // 常量配置
@@ -10,7 +10,8 @@ const MIN_EVALUATION_POINTS = 1; // 评估集至少需要1个数据点
 const MIN_TOTAL_POINTS = MIN_TRAINING_POINTS + MIN_EVALUATION_POINTS; // 总共至少需要3个数据点
 
 const PATHS = {
-  FIRST_MODEL: '/model/ma',
+  ROLE_INTRO: '/model/role-intro',
+  MODEL_INTRO: '/model/model-intro',
 } as const;
 
 interface RangeSelection {
@@ -309,9 +310,13 @@ const DataWindowSelection: React.FC = () => {
     await updateState({ [field]: value } as Partial<typeof state>);
   };
 
-  const handleProceed = () => {
+  const handlePrevious = () => {
+    navigate(PATHS.ROLE_INTRO);
+  };
+
+  const handleNext = () => {
     if (!canProceed) return;
-    navigate(PATHS.FIRST_MODEL);
+    navigate(PATHS.MODEL_INTRO);
   };
 
   return (
@@ -456,33 +461,47 @@ const DataWindowSelection: React.FC = () => {
         )}
       </section>
 
-      <footer className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 space-y-3 md:space-y-0">
-        <div className="text-sm text-gray-500 flex items-center space-x-2">
-          {canProceed ? (
-            <>
-              <CheckCircle2 className="w-4 h-4 text-green-600" />
-              <span>
-                已选择训练区间{' '}
-                {`${trainingOptions[trainingRange.startIndex!]?.label} 至 ${trainingOptions[trainingRange.endIndex!]?.label}`}
-                ，评估区间{' '}
-                {`${evaluateOptions[evaluateRange.startIndex!]?.label} 至 ${evaluateOptions[evaluateRange.endIndex!]?.label}`}。
-              </span>
-            </>
-          ) : (
-            <span>请完整选择训练与评估区间，确保无空白数据且符合要求后即可前往模型训练。</span>
+      {/* 验证状态提示 */}
+      {canProceed && (
+        <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700 flex items-start space-x-2">
+          <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>
+            已选择训练区间{' '}
+            {`${trainingOptions[trainingRange.startIndex!]?.label} 至 ${trainingOptions[trainingRange.endIndex!]?.label}`}
+            ，评估区间{' '}
+            {`${evaluateOptions[evaluateRange.startIndex!]?.label} 至 ${evaluateOptions[evaluateRange.endIndex!]?.label}`}。
+          </span>
+        </div>
+      )}
+
+      {/* 底部导航按钮 */}
+      <footer className="flex justify-between items-center pt-6 border-t border-gray-200">
+        <button
+          onClick={handlePrevious}
+          className="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium"
+          type="button"
+        >
+          <ChevronLeft className="w-5 h-5" />
+          上一步
+        </button>
+
+        <div className="text-center">
+          {!canProceed && (
+            <p className="text-sm text-gray-600">
+              请完整选择训练与评估区间，确保无空白数据且符合要求
+            </p>
           )}
         </div>
 
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={handleProceed}
-            disabled={!canProceed}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            type="button"
-          >
-            前往基础模型
-          </button>
-        </div>
+        <button
+          onClick={handleNext}
+          disabled={!canProceed}
+          className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
+          type="button"
+        >
+          下一步
+          <ChevronRight className="w-5 h-5" />
+        </button>
       </footer>
     </div>
   );

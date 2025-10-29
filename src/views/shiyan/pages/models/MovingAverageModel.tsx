@@ -5,9 +5,9 @@ import { apiClient } from "../../../../utils/apiClient";
 import debounce from "lodash.debounce";
 
 const steps = [
-  { id: 1, title: "方法简介", description: "了解移动平均法的基本概念及其适用场景。" },
-  { id: 2, title: "设置时间窗口", description: "调整时间窗口大小，平衡平滑度与敏感性。" },
-  { id: 3, title: "运行并查看指标", description: "执行模型计算并查看 RMSE / MAE / R² 指标。" },
+  { id: 1, title: "方法简介" },
+  { id: 2, title: "设置时间窗口" },
+  { id: 3, title: "运行并查看指标" },
 ] as const;
 
 const MovingAverageModel: React.FC = () => {
@@ -308,33 +308,22 @@ const MovingAverageModel: React.FC = () => {
 
   return (
     <div className="bg-gray-50 rounded-xl border border-gray-200">
-      <div className="border-b border-gray-200 bg-white rounded-t-xl p-6">
-        <div className="flex items-center space-x-3 text-sm text-gray-500">
+      <div className="border-b border-gray-200 bg-white rounded-t-xl p-4">
+        <h2 className="flex items-center gap-3 text-xl font-semibold text-gray-900">
           <LineChart className="w-5 h-5 text-blue-600" />
-          <span>移动平均法分步指导</span>
-        </div>
-        <h2 className="mt-2 text-2xl font-semibold text-gray-900">移动平均模型</h2>
-        <p className="text-gray-600">按照向导依次完成方法了解、参数设置与模型运行。</p>
+          移动平均模型
+        </h2>
       </div>
 
-      <div className="px-6 pt-6 pb-4 flex flex-col gap-6">
-        <div className="relative">
-          <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 hidden md:block">
-            <div className="h-1 rounded-full bg-gray-200">
-              <div
-                className="h-1 rounded-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
-                style={{ width: `${((activeStep - 1) / (steps.length - 1)) * 100}%` }}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {steps.map((step) => {
-              const isActive = step.id === activeStep;
-              const isCompleted = step.id < activeStep || (step.id === steps.length && modelState.completed);
-              return (
+      <div className="px-6 pt-4 pb-4 flex flex-col gap-6">
+        <div className="flex items-center gap-2">
+          {steps.map((step, index) => {
+            const isActive = step.id === activeStep;
+            const isCompleted = step.id < activeStep || (step.id === steps.length && modelState.completed);
+            return (
+              <React.Fragment key={step.id}>
                 <div
-                  key={step.id}
-                  className={`relative rounded-xl border p-5 transition-all shadow-sm text-center ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
                     isActive
                       ? "border-blue-500 bg-blue-50"
                       : isCompleted
@@ -342,18 +331,19 @@ const MovingAverageModel: React.FC = () => {
                       : "border-gray-200 bg-white"
                   }`}
                 >
-                  <div className="flex flex-col items-center gap-2 mb-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold leading-none ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}>
-                      {step.id}
-                    </div>
-                    {isCompleted && <CheckCircle className="w-4 h-4 text-green-600" />}
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${isCompleted ? "bg-green-500 text-white" : isActive ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"}`}>
+                    {isCompleted ? <CheckCircle className="w-3.5 h-3.5" /> : step.id}
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{step.title}</h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">{step.description}</p>
+                  <span className={`text-sm font-medium whitespace-nowrap ${isActive ? "text-blue-700" : isCompleted ? "text-green-700" : "text-gray-600"}`}>
+                    {step.title}
+                  </span>
                 </div>
-              );
-            })}
-          </div>
+                {index < steps.length - 1 && (
+                  <div className={`h-0.5 flex-1 ${isCompleted ? "bg-green-500" : "bg-gray-200"}`} />
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
 
         {renderStepContent()}
