@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle, Circle, Lock } from 'lucide-react';
 import { ProductionPlanProvider, useProductionPlan } from './ProductionPlanContextV2';
+import { useExperiment } from '../../contexts/ExperimentContext';
 import MPSTableView from './components/MPSTableView';
 import ConceptStep1 from './steps/ConceptStep1';
 import ConceptStep2 from './steps/ConceptStep2';
@@ -61,43 +62,41 @@ const ProductionPlanContent: React.FC = () => {
         </p>
       </div>
 
-      <div className="flex gap-6">
-        {/* 左侧：步骤导航 + 概念学习区 */}
-        <div className="w-1/3 space-y-6">
-          {/* 步骤导航 */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">学习步骤</h2>
-            <div className="space-y-2">
-              {steps.map((step) => (
-                <button
-                  key={step.id}
-                  onClick={() => {
-                    const status = getStepStatus(step.id);
-                    if (status !== 'locked') goToStep(step.id);
-                  }}
-                  disabled={getStepStatus(step.id) === 'locked'}
-                  className={`w-full flex items-center space-x-3 p-3 rounded-lg border transition-all ${getStepStyles(step.id)}`}
-                >
-                  {getStepIcon(step.id)}
-                  <div className="flex-1 text-left">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs font-medium opacity-60">步骤 {step.id}</span>
-                    </div>
-                    <p className="font-medium text-sm">{step.title}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+      {/* 横向步骤导航 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-3">学习步骤</h2>
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {steps.map((step) => (
+            <button
+              key={step.id}
+              onClick={() => {
+                const status = getStepStatus(step.id);
+                if (status !== 'locked') goToStep(step.id);
+              }}
+              disabled={getStepStatus(step.id) === 'locked'}
+              className={`flex-shrink-0 flex flex-col items-center space-y-2 px-4 py-3 rounded-lg border transition-all min-w-[110px] ${getStepStyles(step.id)}`}
+            >
+              {getStepIcon(step.id)}
+              <div className="text-center">
+                <div className="text-xs font-medium opacity-60 mb-1">步骤 {step.id}</div>
+                <p className="font-medium text-xs leading-tight">{step.title}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
 
-          {/* 概念学习区 */}
+      {/* 下方：概念学习 + MPS表格 */}
+      <div className="flex gap-6">
+        {/* 左侧：概念学习区（60%） */}
+        <div className="w-3/5">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <CurrentStepComponent />
           </div>
         </div>
 
-        {/* 右侧：MPS表格（始终可见，渐进式填充） */}
-        <div className="flex-1">
+        {/* 右侧：MPS表格（40%） */}
+        <div className="w-2/5">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="mb-4">
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
@@ -115,10 +114,62 @@ const ProductionPlanContent: React.FC = () => {
   );
 };
 
-// 包装Provider
+// 包装Provider，从全局状态获取真实数据
 const ProductionPlanPageV2: React.FC = () => {
+  const { state: experimentState, productSalesData, isLoadingSales } = useExperiment();
+
+  // 从全局状态获取真实模型
+  const selectedBestModel = experimentState.selected_best_model || 'lstm';
+
+  // 📊 从历史销量数据计算真实的平均需求
+  const avgDemand = React.useMemo(() => {
+    if (!productSalesData?.monthlySales || productSalesData.monthlySales.length === 0) {
+      console.warn('⚠️ 无历史销量数据，使用默认平均需求 1050');
+      return 1050; // 后备默认值
+    }
+
+    const totalSales = productSalesData.monthlySales.reduce((sum, item) => sum + item.sales, 0);
+    const average = totalSales / productSalesData.monthlySales.length;
+
+    console.log(`📊 计算真实平均需求: ${average.toFixed(2)} (基于${productSalesData.monthlySales.length}个月的历史数据)`);
+    console.log(`📦 产品信息: ${productSalesData.meta.name} (${productSalesData.meta.unit})`);
+    return Math.round(average);
+  }, [productSalesData]);
+
+  // 📊 计算标准差（用于演示数据）
+  const stdDevDemand = React.useMemo(() => {
+    if (!productSalesData?.monthlySales || productSalesData.monthlySales.length < 2) {
+      return Math.round(avgDemand * 0.05); // 默认使用平均值的5%
+    }
+
+    const sales = productSalesData.monthlySales.map(item => item.sales);
+    const mean = avgDemand;
+    const variance = sales.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / sales.length;
+    const stdDev = Math.sqrt(variance);
+
+    console.log(`📊 计算历史标准差: ${stdDev.toFixed(2)}`);
+    return Math.round(stdDev);
+  }, [productSalesData, avgDemand]);
+
+  // 🔄 等待销量数据加载完成
+  if (isLoadingSales) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-lg font-medium text-gray-700">正在加载产品销量数据...</p>
+          <p className="text-sm text-gray-500 mt-2">准备生产计划参数</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <ProductionPlanProvider>
+    <ProductionPlanProvider
+      initialModel={selectedBestModel}
+      avgDemand={avgDemand}
+      stdDevDemand={stdDevDemand}
+    >
       <ProductionPlanContent />
     </ProductionPlanProvider>
   );

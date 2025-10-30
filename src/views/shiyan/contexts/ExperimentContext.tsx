@@ -135,6 +135,11 @@ export interface ExperimentState {
   production_safety_stock_z_score: number | null;
   production_forecast_results: Array<{ prediction: number; std_dev: number }> | null;
   production_mps_table: MPSTableRow[];
+  // 🆕 产能约束参数（重构后新增）
+  production_capacity_mode: 'scenario' | 'auto' | 'custom' | null;
+  production_capacity_scenario: 'tight' | 'normal' | 'abundant' | null;
+  production_capacity: number | null;
+  production_custom_capacity: number | null;
 
   start_time: string | null;
   last_activity_at: string | null;
@@ -216,6 +221,11 @@ const buildInitialState = (): ExperimentState => ({
   production_safety_stock_z_score: null,
   production_forecast_results: null,
   production_mps_table: [],
+  // 🆕 产能约束初始值
+  production_capacity_mode: null,
+  production_capacity_scenario: null,
+  production_capacity: null,
+  production_custom_capacity: null,
 
   start_time: null,
   last_activity_at: null,
@@ -295,6 +305,11 @@ const resetModelingFields = (
   target.production_safety_stock_z_score = null;
   target.production_forecast_results = null;
   target.production_mps_table = [];
+  // 🆕 重置产能约束参数
+  target.production_capacity_mode = null;
+  target.production_capacity_scenario = null;
+  target.production_capacity = null;
+  target.production_custom_capacity = null;
 
   if (resetQuizzes) {
     target.quiz_about_model_completed = false;
@@ -310,6 +325,11 @@ const resetProductionPlanFields = (target: ExperimentState) => {
   target.production_safety_stock_z_score = null;
   target.production_forecast_results = null;
   target.production_mps_table = [];
+  // 🆕 重置产能约束参数
+  target.production_capacity_mode = null;
+  target.production_capacity_scenario = null;
+  target.production_capacity = null;
+  target.production_custom_capacity = null;
   target.quiz_about_plan_completed = false;
 };
 

@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BarChart3, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
+import { useExperiment, type MPSTableRow as GlobalMPSTableRow } from '../../../contexts/ExperimentContext';
 import { apiClient } from '../../../../../utils/apiClient';
 import { useNavigate } from 'react-router-dom';
+import type { MPSTableRow as LocalMPSTableRow } from '../ProductionPlanContextV2';
 
-// 模型类型映射
+// 模型类型映射：前端模型ID -> 后端API参数
 const MODEL_TYPE_MAP: Record<string, string> = {
   'ma': 'ma',
   'exp': 'es',
@@ -15,23 +17,97 @@ const MODEL_TYPE_MAP: Record<string, string> = {
   'ensemble_stacking': 'stacking',
 };
 
+// 🔄 将本地MPS表格数据转换为全局类型（去除null）
+const convertToGlobalMPSTable = (localTable: LocalMPSTableRow[]): GlobalMPSTableRow[] => {
+  return localTable.map(row => ({
+    period: row.period,
+    period_label: row.period_label,
+    demand_forecast: row.demand_forecast ?? 0,
+    safety_stock: row.safety_stock ?? 0,
+    planned_production: row.planned_production ?? 0,
+    beginning_inventory: row.beginning_inventory ?? 0,
+    production_output: row.production_output ?? 0,
+    ending_inventory: row.ending_inventory ?? 0,
+    stockout: row.stockout ?? 0,
+    service_level: row.service_level ?? 0,
+  }));
+};
+
 const ConceptStep9: React.FC = () => {
   const navigate = useNavigate();
   const { state, generateFullMPS } = useProductionPlan();
+  const { state: experimentState, updateState, recordStepEvent } = useExperiment();
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const hasRecordedStartRef = useRef(false);
+  const prevHighestStepRef = useRef(experimentState.highest_completed_step);
+  const hasSavedMPSRef = useRef(false);
+  const latestPredictionsRef = useRef<Array<{ prediction: number; std_dev: number }> | null>(null);
+
+  // 📝 记录步骤开始事件
+  useEffect(() => {
+    if (experimentState.highest_completed_step < prevHighestStepRef.current) {
+      hasRecordedStartRef.current = false;
+    }
+    prevHighestStepRef.current = experimentState.highest_completed_step;
+
+    if (7 > experimentState.highest_completed_step && !hasRecordedStartRef.current) {
+      recordStepEvent(7, 'STARTED');
+      hasRecordedStartRef.current = true;
+    }
+  }, [experimentState.highest_completed_step, recordStepEvent]);
+
+  // 💾 当MPS表生成完成后，保存到全局状态
+  useEffect(() => {
+    if (state.isFullPlanGenerated && !hasSavedMPSRef.current && latestPredictionsRef.current) {
+      const saveMPSData = async () => {
+        try {
+          console.log('💾 保存生产计划数据到全局状态');
+
+          // 转换MPS表格数据类型
+          const globalMPSTable = convertToGlobalMPSTable(state.fullMPSTable);
+
+          await updateState({
+            production_plan_completed: true,
+            production_forecast_periods: state.forecastPeriods,
+            production_initial_inventory: state.initialInventory,
+            production_target_service_level: state.targetServiceLevel,
+            production_safety_stock_z_score: state.safetyStockZScore,
+            production_forecast_results: latestPredictionsRef.current,
+            production_mps_table: globalMPSTable,
+            // 🆕 保存产能约束参数
+            production_capacity_mode: state.capacityMode,
+            production_capacity_scenario: state.capacityScenario,
+            production_capacity: state.productionCapacity,
+            production_custom_capacity: state.customCapacity,
+          });
+          console.log('✅ 生产计划数据已保存到全局状态');
+          hasSavedMPSRef.current = true;
+        } catch (err) {
+          console.error('保存生产计划数据失败:', err);
+        }
+      };
+
+      saveMPSData();
+    }
+  }, [state.isFullPlanGenerated, state.fullMPSTable, state.forecastPeriods, state.initialInventory, state.targetServiceLevel, state.safetyStockZScore, updateState]);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
     setError(null);
 
     try {
-      // 调用预测API
+      // 🔧 使用真实的最佳模型（从全局状态获取）
+      console.log('📌 使用的最佳模型:', state.selectedBestModel);
+
       const modelType = MODEL_TYPE_MAP[state.selectedBestModel];
       if (!modelType) {
-        throw new Error('无效的模型类型');
+        throw new Error(`无效的模型类型: ${state.selectedBestModel}`);
       }
+
+      console.log('🚀 调用预测API:', { model_type: modelType, forecast_steps: state.forecastPeriods });
 
       const response = await apiClient.post<{
         status: string;
@@ -42,6 +118,32 @@ const ConceptStep9: React.FC = () => {
       });
 
       if (response.status === 'success' && response.results?.predictions) {
+        // 🐛 调试：打印API返回的预测数据
+        console.log('🔍 API返回的预测数据:', response.results.predictions);
+        console.log('📊 预测期数:', response.results.predictions.length);
+
+        // 数据质量检查
+        let anomalyCount = 0;
+        response.results.predictions.forEach((pred, idx) => {
+          const ratio = pred.prediction > 0 ? (pred.std_dev / pred.prediction) : 0;
+          const isAnomaly = pred.std_dev === 0 || ratio > 0.3 || pred.std_dev < 0 || !isFinite(pred.std_dev);
+
+          console.log(
+            `期 ${idx + 1}: 预测值=${pred.prediction.toFixed(2)}, 标准差=${pred.std_dev.toFixed(2)} (${(ratio * 100).toFixed(1)}%)${isAnomaly ? ' ⚠️异常' : ' ✓'}`
+          );
+
+          if (isAnomaly) anomalyCount++;
+        });
+
+        if (anomalyCount > 0) {
+          console.warn(`⚠️ 发现 ${anomalyCount}/${response.results.predictions.length} 期的标准差数据异常，已自动清洗为预测值的5%`);
+        } else {
+          console.log('✅ 所有预测数据的标准差都在合理范围内');
+        }
+
+        // 保存预测结果到ref（供后续保存到全局状态使用）
+        latestPredictionsRef.current = response.results.predictions;
+
         // 生成完整MPS表
         generateFullMPS(response.results.predictions);
       } else {
@@ -55,8 +157,23 @@ const ConceptStep9: React.FC = () => {
     }
   };
 
-  const handleComplete = () => {
-    navigate('/quiz-plan');
+  const handleComplete = async () => {
+    try {
+      // 📊 更新步骤进度：完成步骤7
+      console.log('📊 更新步骤进度：完成步骤7');
+      await updateState({
+        highest_completed_step: 7,
+        current_step: 7, // max step is 7
+      });
+      console.log('✅ 步骤进度已更新');
+
+      // 导航到生产计划测验
+      navigate('/quiz-plan');
+    } catch (err) {
+      console.error('更新步骤进度失败:', err);
+      // 即使失败也继续导航
+      navigate('/quiz-plan');
+    }
   };
 
   return (

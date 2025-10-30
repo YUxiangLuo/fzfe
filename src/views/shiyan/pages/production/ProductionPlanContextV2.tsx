@@ -86,6 +86,9 @@ interface ProductionPlanContextValue {
   // 第2期数据填充（每完成一个概念就填充对应字段）
   fillPeriod2Field: (field: keyof Period2Data, value: number) => void;
 
+  // 🆕 更新演示预测数据（从API获取真实预测值）
+  updateDemoPrediction: (prediction: number, stdDev: number) => void;
+
   // 生成完整MPS表
   generateFullMPS: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
 
@@ -96,9 +99,16 @@ interface ProductionPlanContextValue {
 const ProductionPlanContext = createContext<ProductionPlanContextValue | undefined>(undefined);
 
 // 默认状态
-const getDefaultState = (): ProductionPlanState => {
-  // 计算默认产能（基于演示数据）
-  const demoPrediction = 1050;
+const getDefaultState = (
+  initialModel?: string,
+  avgDemand?: number,
+  stdDevDemand?: number
+): ProductionPlanState => {
+  // 使用真实的平均需求（基于历史数据）或默认值
+  const demoPrediction = avgDemand || 1050;
+  const demoStdDev = stdDevDemand || 52;
+
+  // 计算默认产能（基于真实需求）
   const defaultCapacity = Math.round(demoPrediction * 1.3); // normal场景：130%
 
   return {
@@ -109,7 +119,7 @@ const getDefaultState = (): ProductionPlanState => {
     initialInventory: 100,
     targetServiceLevel: 0.95,
     safetyStockZScore: 1.65,
-    selectedBestModel: 'lstm',
+    selectedBestModel: initialModel || 'lstm',
 
     // 🆕 产能参数（默认使用场景模式）
     capacityMode: 'scenario',
@@ -117,9 +127,9 @@ const getDefaultState = (): ProductionPlanState => {
     productionCapacity: defaultCapacity,
     customCapacity: null,
 
-    // 演示数据（第2期的预测值，用于教学）
-    demoPrediction: 1050,
-    demoStdDev: 52,
+    // 演示数据（第2期的预测值，用于教学）- 使用真实历史数据
+    demoPrediction: demoPrediction,
+    demoStdDev: demoStdDev,
 
     period2Data: {
       demandForecast: null,
@@ -137,8 +147,15 @@ const getDefaultState = (): ProductionPlanState => {
   };
 };
 
-export const ProductionPlanProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<ProductionPlanState>(getDefaultState());
+export const ProductionPlanProvider: React.FC<{
+  children: ReactNode;
+  initialModel?: string;
+  avgDemand?: number;
+  stdDevDemand?: number;
+}> = ({ children, initialModel, avgDemand, stdDevDemand }) => {
+  const [state, setState] = useState<ProductionPlanState>(
+    getDefaultState(initialModel, avgDemand, stdDevDemand)
+  );
 
   const goToStep = (step: number) => {
     if (step >= 1 && step <= 9) {
@@ -216,6 +233,15 @@ export const ProductionPlanProvider: React.FC<{ children: ReactNode }> = ({ chil
     }));
   };
 
+  // 🆕 更新演示预测数据（从API获取的真实预测值）
+  const updateDemoPrediction = (prediction: number, stdDev: number) => {
+    setState((prev) => ({
+      ...prev,
+      demoPrediction: prediction,
+      demoStdDev: stdDev,
+    }));
+  };
+
   const generateFullMPS = (predictions: Array<{ prediction: number; std_dev: number }>) => {
     const generatedTable: MPSTableRow[] = [];
     let previousEndingInventory = state.initialInventory;
@@ -226,7 +252,32 @@ export const ProductionPlanProvider: React.FC<{ children: ReactNode }> = ({ chil
       if (!prediction) continue;
 
       const demandForecast = Math.round(prediction.prediction);
-      const safetyStock = Math.round(state.safetyStockZScore * prediction.std_dev);
+
+      // 🛡️ 数据验证：清洗异常的std_dev值
+      let stdDev = prediction.std_dev;
+      let stdDevSource = 'API';
+
+      // 1. 检查是否为0（MA等模型可能返回0）
+      if (stdDev === 0) {
+        stdDev = demandForecast * 0.05; // 使用预测值的5%
+        stdDevSource = '默认(原值为0)';
+        console.warn(`⚠️ 期 ${i + 1} 的std_dev为0，使用默认值 ${stdDev.toFixed(2)} (预测值的5%)`);
+      }
+      // 2. 检查是否异常大（超过预测值的30%）
+      else if (stdDev > demandForecast * 0.3) {
+        const originalStdDev = stdDev;
+        stdDev = demandForecast * 0.05;
+        stdDevSource = '默认(原值过大)';
+        console.warn(`⚠️ 期 ${i + 1} 的std_dev异常大 (${originalStdDev.toFixed(2)}，占预测值${((originalStdDev/demandForecast)*100).toFixed(1)}%)，使用默认值 ${stdDev.toFixed(2)} (预测值的5%)`);
+      }
+      // 3. 检查是否为负数或非法值
+      else if (stdDev < 0 || !isFinite(stdDev)) {
+        stdDev = demandForecast * 0.05;
+        stdDevSource = '默认(非法值)';
+        console.warn(`⚠️ 期 ${i + 1} 的std_dev非法 (${stdDev})，使用默认值 ${stdDev.toFixed(2)} (预测值的5%)`);
+      }
+
+      const safetyStock = Math.round(state.safetyStockZScore * stdDev);
       const plannedProduction = demandForecast + safetyStock;
 
       const beginningInventory = previousEndingInventory;
@@ -285,6 +336,7 @@ export const ProductionPlanProvider: React.FC<{ children: ReactNode }> = ({ chil
         updateParameters,
         updateCapacity,
         fillPeriod2Field,
+        updateDemoPrediction,
         generateFullMPS,
         resetAll,
       }}
