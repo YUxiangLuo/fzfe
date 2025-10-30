@@ -9,7 +9,7 @@ import ProductSelection from './pages/ProductSelection';
 import HistoricalData from './pages/HistoricalData';
 import ModelBuilding from './pages/ModelBuilding';
 import ResultEvaluation from './pages/ResultEvaluation';
-import ProductionPlan from './pages/ProductionPlan';
+import ProductionPlan from './pages/production/ProductionPlanPageV2';
 import Introduction from './pages/Introduction';
 import Profile from './pages/Profile';
 import ModelQuiz from './pages/ModelQuiz';

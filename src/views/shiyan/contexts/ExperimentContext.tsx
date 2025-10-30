@@ -458,45 +458,6 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       Object.prototype.hasOwnProperty.call(updates, 'selected_best_model') &&
       updates.selected_best_model !== previousState.selected_best_model;
 
-    // Distinguish between production parameter changes and result updates
-    const productionParamFields: Array<
-      | 'production_forecast_periods'
-      | 'production_initial_inventory'
-      | 'production_target_service_level'
-      | 'production_safety_stock_z_score'
-    > = [
-      'production_forecast_periods',
-      'production_initial_inventory',
-      'production_target_service_level',
-      'production_safety_stock_z_score',
-    ];
-
-    const productionResultFields: Array<
-      | 'production_forecast_results'
-      | 'production_mps_table'
-      | 'production_plan_completed'
-    > = [
-      'production_forecast_results',
-      'production_mps_table',
-      'production_plan_completed',
-    ];
-
-    // Check if production parameters changed (not results)
-    const productionParamsChanged = productionParamFields.some((field) => {
-      if (!Object.prototype.hasOwnProperty.call(updates, field)) {
-        return false;
-      }
-      return updates[field] !== previousState[field];
-    });
-
-    // Check if any production field changed (for sync detection)
-    const productionStateChanged = [...productionParamFields, ...productionResultFields].some((field) => {
-      if (!Object.prototype.hasOwnProperty.call(updates, field)) {
-        return false;
-      }
-      return updates[field] !== previousState[field];
-    });
-
     if (industryChanged) {
       nextState.selected_company = null;
       nextState.selected_product = null;
@@ -544,28 +505,6 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       resetProductionPlanFields(nextState);
       nextState.highest_completed_step = Math.min(nextState.highest_completed_step, 6);
       nextState.current_step = Math.min(nextState.current_step, 7);
-    }
-
-    // Only clear results when production parameters change, not when results are being updated
-    if (productionParamsChanged) {
-      // Check if this update also includes new results (indicating a fresh calculation)
-      const hasNewForecastResults = Object.prototype.hasOwnProperty.call(updates, 'production_forecast_results')
-        && updates.production_forecast_results !== null;
-      const hasNewMpsTable = Object.prototype.hasOwnProperty.call(updates, 'production_mps_table')
-        && Array.isArray(updates.production_mps_table)
-        && updates.production_mps_table.length > 0;
-
-      // If production parameters changed, invalidate the old results
-      // BUT: Don't clear results that are being set in this same update (fresh calculation)
-      nextState.production_plan_completed = false;
-
-      if (!hasNewForecastResults) {
-        nextState.production_forecast_results = null;
-      }
-
-      if (!hasNewMpsTable) {
-        nextState.production_mps_table = [];
-      }
     }
 
     if (nextState.status === 'Not Started' && Object.keys(updates).length > 0) {
@@ -618,13 +557,8 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       nextState.status === 'Completed' &&
       previousState.status !== 'Completed';
 
-    // Check if production plan was completed
-    const productionPlanCompleted =
-      Object.prototype.hasOwnProperty.call(updates, 'production_plan_completed') &&
-      nextState.production_plan_completed === true &&
-      previousState.production_plan_completed === false;
 
-    const shouldSyncToBackend = stepCompleted || criticalStateChanged || modelCompleted || experimentCompleted || productionPlanCompleted || productionStateChanged || bestModelChanged;
+    const shouldSyncToBackend = stepCompleted || criticalStateChanged || modelCompleted || experimentCompleted || bestModelChanged;
 
     if (shouldSyncToBackend) {
       try {
