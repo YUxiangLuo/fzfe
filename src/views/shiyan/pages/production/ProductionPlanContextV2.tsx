@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { CapacityMode, CapacityScenario } from './utils/productionCapacityHelper';
 
@@ -16,8 +16,8 @@ export interface MPSTableRow {
   service_level: number | null;
 }
 
-// 第2期的渐进式数据
-export interface Period2Data {
+// 单期数据接口（用于第1期和第2期）
+export interface PeriodData {
   demandForecast: number | null;
   safetyStock: number | null;
   plannedProduction: number | null;
@@ -27,6 +27,9 @@ export interface Period2Data {
   stockout: number | null;
   serviceLevel: number | null;
 }
+
+// 为了兼容性，保留Period2Data别名
+export type Period2Data = PeriodData;
 
 // 生产计划状态接口
 export interface ProductionPlanState {
@@ -51,7 +54,10 @@ export interface ProductionPlanState {
   demoPrediction: number;
   demoStdDev: number;
 
-  // 第2期的渐进式填充数据
+  // 第1期的完整数据（作为参考，自动计算）
+  period1Data: PeriodData;
+
+  // 第2期的渐进式填充数据（用于教学演示）
   period2Data: Period2Data;
 
   // 完整MPS表（生成后）
@@ -82,6 +88,9 @@ interface ProductionPlanContextValue {
     customValue?: number;
     calculatedValue?: number;
   }) => void;
+
+  // 第1期数据填充（一次性填充完整数据，用于显示参考）
+  fillPeriod1Data: (data: PeriodData) => void;
 
   // 第2期数据填充（每完成一个概念就填充对应字段）
   fillPeriod2Field: (field: keyof Period2Data, value: number) => void;
@@ -131,6 +140,19 @@ const getDefaultState = (
     demoPrediction: demoPrediction,
     demoStdDev: demoStdDev,
 
+    // 第1期的完整数据（初始为空，后续自动填充）
+    period1Data: {
+      demandForecast: null,
+      safetyStock: null,
+      plannedProduction: null,
+      beginningInventory: null,
+      productionOutput: null,
+      endingInventory: null,
+      stockout: null,
+      serviceLevel: null,
+    },
+
+    // 第2期的渐进式数据（用于教学演示）
     period2Data: {
       demandForecast: null,
       safetyStock: null,
@@ -153,9 +175,19 @@ export const ProductionPlanProvider: React.FC<{
   avgDemand?: number;
   stdDevDemand?: number;
 }> = ({ children, initialModel, avgDemand, stdDevDemand }) => {
-  const [state, setState] = useState<ProductionPlanState>(
+  const initialPropsRef = useRef({
+    initialModel,
+    avgDemand,
+    stdDevDemand,
+  });
+
+  const [state, setState] = useState<ProductionPlanState>(() =>
     getDefaultState(initialModel, avgDemand, stdDevDemand)
   );
+
+  useEffect(() => {
+    initialPropsRef.current = { initialModel, avgDemand, stdDevDemand };
+  }, [initialModel, avgDemand, stdDevDemand]);
 
   const goToStep = (step: number) => {
     if (step >= 1 && step <= 9) {
@@ -223,6 +255,13 @@ export const ProductionPlanProvider: React.FC<{
     });
   };
 
+  const fillPeriod1Data = (data: PeriodData) => {
+    setState((prev) => ({
+      ...prev,
+      period1Data: data,
+    }));
+  };
+
   const fillPeriod2Field = (field: keyof Period2Data, value: number) => {
     setState((prev) => ({
       ...prev,
@@ -243,6 +282,9 @@ export const ProductionPlanProvider: React.FC<{
   };
 
   const generateFullMPS = (predictions: Array<{ prediction: number; std_dev: number }>) => {
+    console.log('🏭 ===== 开始生成完整MPS表 =====');
+    console.log(`📊 参数: 预测期数=${predictions.length}, 初始库存=${state.initialInventory}, 产能=${state.productionCapacity}, 服务水平目标=${state.targetServiceLevel}, Z值=${state.safetyStockZScore}`);
+
     const generatedTable: MPSTableRow[] = [];
     let previousEndingInventory = state.initialInventory;
     let previousStockout = 0;
@@ -253,40 +295,45 @@ export const ProductionPlanProvider: React.FC<{
 
       const demandForecast = Math.round(prediction.prediction);
 
-      // 🛡️ 数据验证：清洗异常的std_dev值
+      // 🛡️ 数据验证和修正：检查std_dev是否异常
       let stdDev = prediction.std_dev;
-      let stdDevSource = 'API';
 
-      // 1. 检查是否为0（MA等模型可能返回0）
-      if (stdDev === 0) {
-        stdDev = demandForecast * 0.05; // 使用预测值的5%
-        stdDevSource = '默认(原值为0)';
-        console.warn(`⚠️ 期 ${i + 1} 的std_dev为0，使用默认值 ${stdDev.toFixed(2)} (预测值的5%)`);
+      // 1. 检查是否为负数或非法值（必须修正，否则会导致NaN）
+      if (stdDev < 0 || !isFinite(stdDev) || isNaN(stdDev)) {
+        console.warn(`⚠️ 期 ${i + 1} 的std_dev非法: ${stdDev}，使用需求的5%作为替代`);
+        stdDev = demandForecast * 0.05;
       }
-      // 2. 检查是否异常大（超过预测值的30%）
+      // 2. 检查是否为0（MA等模型可能返回0）
+      else if (stdDev === 0) {
+        console.warn(`⚠️ 期 ${i + 1} 的std_dev为0，安全库存将为0`);
+      }
+      // 3. 检查是否异常大（超过预测值的30%）- 仅警告
       else if (stdDev > demandForecast * 0.3) {
-        const originalStdDev = stdDev;
-        stdDev = demandForecast * 0.05;
-        stdDevSource = '默认(原值过大)';
-        console.warn(`⚠️ 期 ${i + 1} 的std_dev异常大 (${originalStdDev.toFixed(2)}，占预测值${((originalStdDev/demandForecast)*100).toFixed(1)}%)，使用默认值 ${stdDev.toFixed(2)} (预测值的5%)`);
-      }
-      // 3. 检查是否为负数或非法值
-      else if (stdDev < 0 || !isFinite(stdDev)) {
-        stdDev = demandForecast * 0.05;
-        stdDevSource = '默认(非法值)';
-        console.warn(`⚠️ 期 ${i + 1} 的std_dev非法 (${stdDev})，使用默认值 ${stdDev.toFixed(2)} (预测值的5%)`);
+        console.warn(`⚠️ 期 ${i + 1} 的std_dev异常大: ${stdDev.toFixed(2)}，占预测值 ${((stdDev/demandForecast)*100).toFixed(1)}%`);
       }
 
       const safetyStock = Math.round(state.safetyStockZScore * stdDev);
-      const plannedProduction = demandForecast + safetyStock;
 
       const beginningInventory = previousEndingInventory;
-      const productionInput = plannedProduction - beginningInventory + previousStockout;
+      const backlogToRecover = previousStockout;
+
+      // 计划生产量 = 预测需求 + 安全库存 + 上期缺货 - 期初库存
+      const requiredProduction = Math.max(
+        0,
+        demandForecast + safetyStock + backlogToRecover - beginningInventory
+      );
 
       // 🆕 应用产能约束
-      const productionOutput = Math.max(0, Math.min(productionInput, state.productionCapacity));
+      const productionOutput = Math.max(0, Math.min(requiredProduction, state.productionCapacity));
+      const isCapacityConstrained = requiredProduction > state.productionCapacity;
 
-      let endingInventory = beginningInventory + productionOutput - demandForecast;
+      // 可用库存 = 期初库存 + 实际产出
+      const availableInventory = beginningInventory + productionOutput;
+      // 总需求 = 上期缺货（需要补） + 本期需求
+      const totalDemand = backlogToRecover + demandForecast;
+
+      // 期末库存 = 可用库存 - 总需求
+      let endingInventory = availableInventory - totalDemand;
       let stockout = 0;
 
       if (endingInventory < 0) {
@@ -294,15 +341,26 @@ export const ProductionPlanProvider: React.FC<{
         endingInventory = 0;
       }
 
-      // 修正：服务水平基于预测需求，而非"实际需求"
+      // 服务水平：基于本期需求（不包括补上期缺货）
       const serviceLevel = demandForecast > 0 ? 1 - (stockout / demandForecast) : 1;
+
+      // 🐛 调试日志
+      console.log(`\n📦 期 ${i + 1}:`);
+      console.log(`  需求预测: ${demandForecast}, 标准差: ${stdDev.toFixed(2)}`);
+      console.log(`  安全库存: ${safetyStock}`);
+      console.log(`  期初库存: ${beginningInventory}, 上期缺货: ${backlogToRecover}`);
+      console.log(`  计划生产: ${requiredProduction}, 产能上限: ${state.productionCapacity}`);
+      console.log(`  ${isCapacityConstrained ? '⚠️ 产能受限！' : '✅ 产能充足'} 实际产出: ${productionOutput}`);
+      console.log(`  可用库存: ${availableInventory} (期初${beginningInventory} + 产出${productionOutput})`);
+      console.log(`  总需求: ${totalDemand} (补上期${backlogToRecover} + 本期${demandForecast})`);
+      console.log(`  期末库存: ${endingInventory}, 本期缺货: ${stockout}, 服务水平: ${(serviceLevel * 100).toFixed(1)}%`);
 
       const row: MPSTableRow = {
         period: i + 1,
         period_label: `期 ${i + 1}`,
         demand_forecast: demandForecast,
         safety_stock: safetyStock,
-        planned_production: plannedProduction,
+        planned_production: requiredProduction,
         beginning_inventory: beginningInventory,
         production_output: productionOutput,
         ending_inventory: endingInventory,
@@ -324,7 +382,8 @@ export const ProductionPlanProvider: React.FC<{
   };
 
   const resetAll = () => {
-    setState(getDefaultState());
+    const { initialModel: model, avgDemand: avg, stdDevDemand: std } = initialPropsRef.current;
+    setState(getDefaultState(model, avg, std));
   };
 
   return (
@@ -335,6 +394,7 @@ export const ProductionPlanProvider: React.FC<{
         completeCurrentStep,
         updateParameters,
         updateCapacity,
+        fillPeriod1Data,
         fillPeriod2Field,
         updateDemoPrediction,
         generateFullMPS,

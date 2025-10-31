@@ -41,13 +41,13 @@ const MPSTableView: React.FC = () => {
             <th className="py-3 px-4 text-right font-semibold text-gray-700 border-b-2 border-gray-300">
               安全库存
             </th>
-            <th className="py-3 px-4 text-right font-semibold text-gray-700 border-b-2 border-gray-300 bg-blue-50">
+            <th className="py-3 px-4 text-right font-semibold text-gray-700 border-b-2 border-gray-300">
               计划生产
             </th>
             <th className="py-3 px-4 text-right font-semibold text-gray-700 border-b-2 border-gray-300">
               期初库存
             </th>
-            <th className="py-3 px-4 text-right font-semibold text-gray-700 border-b-2 border-gray-300 bg-green-50">
+            <th className="py-3 px-4 text-right font-semibold text-gray-700 border-b-2 border-gray-300">
               产出量
             </th>
             <th className="py-3 px-4 text-right font-semibold text-gray-700 border-b-2 border-gray-300">
@@ -62,16 +62,39 @@ const MPSTableView: React.FC = () => {
           </tr>
         </thead>
         <tbody>
-          {/* 第1期：期初状态（参考） */}
+          {/* 第1期：完整数据（作为参考，自动计算） */}
           <tr className="border-b border-gray-200 bg-gray-50">
-            <td className="py-3 px-4 text-left text-gray-600 font-medium">期初</td>
-            <td colSpan={4} className="py-3 px-4 text-center text-gray-500 text-xs">
-              起始状态
+            <td className="py-3 px-4 text-left text-gray-600 font-medium">
+              期 1 <span className="text-xs text-gray-500">(参考)</span>
+            </td>
+            <td className={getCellStyle(state.period1Data.demandForecast)}>
+              {formatValue(state.period1Data.demandForecast)}
+            </td>
+            <td className={getCellStyle(state.period1Data.safetyStock)}>
+              {formatValue(state.period1Data.safetyStock)}
+            </td>
+            <td className={getCellStyle(state.period1Data.plannedProduction)}>
+              {formatValue(state.period1Data.plannedProduction)}
             </td>
             <td className="py-3 px-4 text-right text-gray-700 font-medium">
               {formatValue(state.initialInventory)}
             </td>
-            <td colSpan={3} className="py-3 px-4"></td>
+            <td className={getCellStyle(state.period1Data.productionOutput)}>
+              {formatValue(state.period1Data.productionOutput)}
+            </td>
+            <td className={getCellStyle(state.period1Data.endingInventory)}>
+              {formatValue(state.period1Data.endingInventory)}
+            </td>
+            <td className={getCellStyle(state.period1Data.stockout)}>
+              {state.period1Data.stockout !== null && state.period1Data.stockout > 0 ? (
+                <span className="text-red-600 font-semibold">{formatValue(state.period1Data.stockout)}</span>
+              ) : (
+                formatValue(state.period1Data.stockout)
+              )}
+            </td>
+            <td className={getCellStyle(state.period1Data.serviceLevel)}>
+              {formatPercent(state.period1Data.serviceLevel)}
+            </td>
           </tr>
 
           {/* 第2期：渐进式填充（学习重点） */}
@@ -122,8 +145,12 @@ const MPSTableView: React.FC = () => {
                 <td className="py-3 px-4 text-right text-gray-800">{formatValue(row.production_output)}</td>
                 <td className="py-3 px-4 text-right text-gray-800">{formatValue(row.ending_inventory)}</td>
                 <td className="py-3 px-4 text-right">
-                  {row.stockout !== null && row.stockout > 0 ? (
-                    <span className="text-red-600 font-semibold">{formatValue(row.stockout)}</span>
+                  {row.stockout !== null ? (
+                    row.stockout > 0 ? (
+                      <span className="text-red-600 font-semibold">{formatValue(row.stockout)}</span>
+                    ) : (
+                      <span className="text-gray-600">{formatValue(row.stockout)}</span>
+                    )
                   ) : (
                     <span className="text-gray-400">-</span>
                   )}
@@ -161,7 +188,7 @@ const MPSTableView: React.FC = () => {
           <strong>💡 提示：</strong>
           {state.isFullPlanGenerated
             ? '完整的生产计划已生成！您已掌握MPS制定的全过程。'
-            : '随着您逐步学习每个概念，第2期（期2）的数据会自动填充。学完所有概念后，您将能够生成完整的生产计划表。'}
+            : `第1期作为参考示例，第2期用于渐进式学习。随着您逐步学习每个概念，第2期的数据会自动填充。学完所有概念后，您将能够生成期3-${state.forecastPeriods}的完整计划。`}
         </p>
       </div>
     </div>

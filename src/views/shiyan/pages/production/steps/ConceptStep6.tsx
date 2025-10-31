@@ -12,25 +12,48 @@ const ConceptStep6: React.FC = () => {
     shortfall: number;
   } | null>(null);
 
+  const plannedProduction = state.period2Data.plannedProduction ?? 0;
+  const beginningInventory =
+    state.period2Data.beginningInventory ??
+    state.period1Data.endingInventory ??
+    state.initialInventory;
+  const previousStockout = state.period1Data.stockout ?? 0;
+
   useEffect(() => {
-    if (state.period2Data.productionOutput === null) {
-      const planned = state.period2Data.plannedProduction || 0;
-      const beginning = state.period2Data.beginningInventory || 0;
+    if (state.period2Data.plannedProduction === null) {
+      return;
+    }
 
-      // 计算生产投入量
-      const productionInput = Math.max(0, planned - beginning);
+    const result = applyCapacityConstraint(
+      state.period2Data.plannedProduction,
+      state.productionCapacity
+    );
 
-      // 🆕 应用产能约束
-      const result = applyCapacityConstraint(productionInput, state.productionCapacity);
-
+    if (state.period2Data.productionOutput !== result.actualOutput) {
       fillPeriod2Field('productionOutput', result.actualOutput);
-      setConstraintInfo({
+    }
+
+    setConstraintInfo((prev) => {
+      if (
+        prev &&
+        prev.isConstrained === result.isConstrained &&
+        Math.abs(prev.capacityUtilization - result.capacityUtilization) < 1e-6 &&
+        Math.abs(prev.shortfall - result.shortfall) < 1e-6
+      ) {
+        return prev;
+      }
+      return {
         isConstrained: result.isConstrained,
         capacityUtilization: result.capacityUtilization,
         shortfall: result.shortfall,
-      });
-    }
-  }, []);
+      };
+    });
+  }, [
+    fillPeriod2Field,
+    state.period2Data.plannedProduction,
+    state.period2Data.productionOutput,
+    state.productionCapacity,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -44,18 +67,36 @@ const ConceptStep6: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-        <h4 className="font-semibold text-indigo-800 mb-2">📊 什么是产出量？</h4>
-        <p className="text-sm text-indigo-700 mb-3">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h4 className="font-semibold text-gray-800 mb-2">📊 什么是产出量？</h4>
+        <p className="text-sm text-gray-700 mb-3">
           产出量是考虑了<strong>产能约束</strong>后，工厂实际能够生产的数量。它与"需要生产的量"可能不同，因为工厂的产能是有限的。
         </p>
-        <div className="bg-white p-3 rounded border border-indigo-300">
-          <p className="text-xs text-gray-700 mb-2"><strong>计算步骤：</strong></p>
-          <p className="text-xs text-gray-700 mb-1">
-            1️⃣ 生产投入量 = 计划生产量 - 期初库存 = {state.period2Data.plannedProduction || 0} - {state.period2Data.beginningInventory || 0} = {Math.max(0, (state.period2Data.plannedProduction || 0) - (state.period2Data.beginningInventory || 0))}
+        <div className="bg-white p-3 rounded border border-gray-200">
+          <p className="text-xs text-gray-700 mb-2">
+            <strong>计算步骤：</strong>
           </p>
+          <p className="text-xs text-gray-700 mb-1">
+            1️⃣ 计划生产量（上一步已计算） ={' '}
+            {state.period2Data.plannedProduction !== null
+              ? state.period2Data.plannedProduction.toLocaleString()
+              : plannedProduction.toLocaleString()}{' '}
+            件
+          </p>
+          {previousStockout > 0 && (
+            <p className="text-xs text-orange-600 mb-1 ml-4">
+              ⚠️ 含上期缺货 {previousStockout.toLocaleString()} 件，需要在本期补足
+            </p>
+          )}
           <p className="text-xs text-gray-700">
-            2️⃣ <strong>产出量 = min(生产投入量, 产能)</strong> = min({Math.max(0, (state.period2Data.plannedProduction || 0) - (state.period2Data.beginningInventory || 0))}, {state.productionCapacity}) = <strong className="text-indigo-600">{state.period2Data.productionOutput}</strong>
+            2️⃣ <strong>实际产出 = min(计划生产量, 产能)</strong> = min(
+            {state.period2Data.plannedProduction !== null
+              ? state.period2Data.plannedProduction.toLocaleString()
+              : plannedProduction.toLocaleString()}
+            , {state.productionCapacity.toLocaleString()}) ={' '}
+            <strong className="text-indigo-600">
+              {state.period2Data.productionOutput?.toLocaleString() ?? '0'}
+            </strong>
           </p>
         </div>
       </div>
@@ -63,27 +104,35 @@ const ConceptStep6: React.FC = () => {
       {constraintInfo && (
         <>
           {constraintInfo.isConstrained ? (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <div className="bg-white border border-red-200 rounded-lg p-4">
               <div className="flex items-start space-x-2">
                 <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-semibold text-orange-900 mb-1">⚠️ 产能约束生效</h4>
-                  <p className="text-sm text-orange-700 mb-2">
-                    本期需要生产 {Math.max(0, (state.period2Data.plannedProduction || 0) - (state.period2Data.beginningInventory || 0))} 件，但产能只有 {state.productionCapacity} 件。
-                    实际只能生产 {state.period2Data.productionOutput} 件，<strong>产能缺口 {constraintInfo.shortfall} 件</strong>。
+                  <h4 className="font-semibold text-gray-900 mb-1">⚠️ 产能约束生效</h4>
+                  <p className="text-sm text-gray-700 mb-2">
+                    本期需要生产 {plannedProduction.toLocaleString()} 件，但产能只有{' '}
+                    {state.productionCapacity.toLocaleString()} 件。
+                    实际只能生产 {state.period2Data.productionOutput?.toLocaleString() ?? '0'} 件，
+                    <strong> 产能缺口 {constraintInfo.shortfall.toLocaleString()} 件</strong>。
                   </p>
-                  <p className="text-xs text-orange-600">
+                  {previousStockout > 0 && (
+                    <p className="text-xs text-gray-600 mb-1">
+                      （含上期缺货 {previousStockout.toLocaleString()} 件需要补货）
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-600">
                     💡 这会导致库存不足，可能出现缺货，影响服务水平。
                   </p>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h4 className="font-semibold text-green-800 mb-1">✓ 产能充足</h4>
-              <p className="text-sm text-green-700">
-                本期需要生产 {Math.max(0, (state.period2Data.plannedProduction || 0) - (state.period2Data.beginningInventory || 0))} 件，产能为 {state.productionCapacity} 件，
-                产能利用率为 <strong>{(constraintInfo.capacityUtilization * 100).toFixed(1)}%</strong>，生产能力充足。
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <h4 className="font-semibold text-gray-800 mb-1">✓ 产能充足</h4>
+              <p className="text-sm text-gray-700">
+                本期需要生产 {plannedProduction.toLocaleString()} 件，产能为{' '}
+                {state.productionCapacity.toLocaleString()} 件，产能利用率为{' '}
+                <strong>{(constraintInfo.capacityUtilization * 100).toFixed(1)}%</strong>，生产能力充足。
               </p>
             </div>
           )}

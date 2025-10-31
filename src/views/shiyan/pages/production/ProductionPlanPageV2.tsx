@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, Circle, Lock } from 'lucide-react';
+import { CheckCircle, Circle, Lock, RotateCcw } from 'lucide-react';
 import { ProductionPlanProvider, useProductionPlan } from './ProductionPlanContextV2';
 import { useExperiment } from '../../contexts/ExperimentContext';
 import MPSTableView from './components/MPSTableView';
@@ -14,7 +14,7 @@ import ConceptStep8 from './steps/ConceptStep8';
 import ConceptStep9 from './steps/ConceptStep9';
 
 const ProductionPlanContent: React.FC = () => {
-  const { state, goToStep } = useProductionPlan();
+  const { state, goToStep, resetAll } = useProductionPlan();
 
   const steps = [
     { id: 1, title: 'MPS概述', component: ConceptStep1 },
@@ -64,7 +64,17 @@ const ProductionPlanContent: React.FC = () => {
 
       {/* 横向步骤导航 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">学习步骤</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-gray-900">学习步骤</h2>
+          <button
+            type="button"
+            onClick={() => resetAll()}
+            className="inline-flex items-center space-x-1 px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>重置</span>
+          </button>
+        </div>
         <div className="flex gap-2 overflow-x-auto pb-2">
           {steps.map((step) => (
             <button
@@ -78,8 +88,7 @@ const ProductionPlanContent: React.FC = () => {
             >
               {getStepIcon(step.id)}
               <div className="text-center">
-                <div className="text-xs font-medium opacity-60 mb-1">步骤 {step.id}</div>
-                <p className="font-medium text-xs leading-tight">{step.title}</p>
+                <p className="font-medium text-sm leading-tight">{step.title}</p>
               </div>
             </button>
           ))}
@@ -87,23 +96,23 @@ const ProductionPlanContent: React.FC = () => {
       </div>
 
       {/* 下方：概念学习 + MPS表格 */}
-      <div className="flex gap-6">
-        {/* 左侧：概念学习区（60%） */}
-        <div className="w-3/5">
+      <div className="flex gap-6 items-start">
+        {/* 左侧：概念学习区 */}
+        <div className="flex-1 min-w-0">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <CurrentStepComponent />
           </div>
         </div>
 
-        {/* 右侧：MPS表格（40%） */}
-        <div className="w-2/5">
+        {/* 右侧：MPS表格 */}
+        <div className="flex-1 min-w-0 sticky top-8 self-start">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="mb-4">
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
                 主生产计划表（MPS）
               </h2>
               <p className="text-sm text-gray-600">
-                随着您的学习进度，第2期的数据会逐步填充完整
+                期1作为参考示例，期2用于渐进式学习，随着学习进度逐步填充完整
               </p>
             </div>
             <MPSTableView />

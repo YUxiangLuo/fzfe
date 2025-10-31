@@ -30,8 +30,8 @@ export const CAPACITY_SCENARIOS: ScenarioConfig[] = [
   {
     id: 'tight',
     name: '产能紧张',
-    description: '产能仅为平均需求的 110%',
-    multiplier: 1.1,
+    description: '产能仅为平均需求的 90%',
+    multiplier: 0.9,
     riskLevel: 'high',
     badge: '高风险',
     color: 'red',
@@ -50,8 +50,8 @@ export const CAPACITY_SCENARIOS: ScenarioConfig[] = [
   {
     id: 'abundant',
     name: '产能充裕',
-    description: '产能为平均需求的 150%',
-    multiplier: 1.5,
+    description: '产能为平均需求的 180%',
+    multiplier: 1.8,
     riskLevel: 'low',
     badge: '低风险',
     color: 'green',

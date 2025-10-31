@@ -6,16 +6,25 @@ const ConceptStep8: React.FC = () => {
   const { state, fillPeriod2Field, completeCurrentStep } = useProductionPlan();
 
   useEffect(() => {
-    if (state.period2Data.serviceLevel === null) {
-      const demand = state.period2Data.demandForecast || 0;
-      const stockout = state.period2Data.stockout || 0;
+    if (state.period2Data.demandForecast === null || state.period2Data.stockout === null) {
+      return;
+    }
 
-      // ⚠️ 关键修正：基于预测需求，不是实际需求
-      const serviceLevel = demand > 0 ? 1 - (stockout / demand) : 1;
+    const demand = state.period2Data.demandForecast;
+    const stockout = state.period2Data.stockout;
 
+    // ⚠️ 关键修正：基于预测需求，不是实际需求
+    const serviceLevel = demand > 0 ? 1 - stockout / demand : 1;
+
+    if (state.period2Data.serviceLevel !== serviceLevel) {
       fillPeriod2Field('serviceLevel', serviceLevel);
     }
-  }, []);
+  }, [
+    fillPeriod2Field,
+    state.period2Data.demandForecast,
+    state.period2Data.serviceLevel,
+    state.period2Data.stockout,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -29,14 +38,14 @@ const ConceptStep8: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <h4 className="font-semibold text-green-800 mb-2">⚠️ 计算公式（已修正）</h4>
-        <div className="bg-white p-3 rounded border border-green-300 text-center mb-2">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h4 className="font-semibold text-gray-800 mb-2">⚠️ 计算公式（已修正）</h4>
+        <div className="bg-white p-3 rounded border border-gray-200 text-center mb-2">
           <p className="font-mono text-gray-800">
             服务水平 = 1 - (缺货量 / <strong className="text-green-600">预测需求量</strong>)
           </p>
         </div>
-        <p className="text-sm text-green-700">
+        <p className="text-sm text-gray-700">
           <strong>注意</strong>：我们使用<strong>预测需求量</strong>作为基准，而不是"实际需求量"。因为MPS是事前计划工具，所有计算都基于预测数据。
         </p>
       </div>

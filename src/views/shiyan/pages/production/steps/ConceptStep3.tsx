@@ -40,18 +40,23 @@ const ConceptStep3: React.FC = () => {
           <p className="text-lg font-mono text-gray-800">
             <span className="font-bold text-orange-600">安全库存</span> ={' '}
             <span className="font-bold text-blue-600">Z分数</span> ×{' '}
-            <span className="font-bold text-purple-600">预测标准差</span>
+            <span className="font-bold text-purple-600">预测标准差 σ</span>
           </p>
         </div>
         <div className="space-y-2 text-sm text-gray-700">
-          <p>• <strong>Z分数</strong>：根据目标服务水平{(state.targetServiceLevel * 100).toFixed(0)}%确定，Z = {state.safetyStockZScore}</p>
-          <p>• <strong>预测标准差</strong>：模型预测的不确定性，σ = {state.demoStdDev.toFixed(2)}</p>
+          <p>
+            • <strong>Z分数</strong>：根据目标服务水平{(state.targetServiceLevel * 100).toFixed(0)}%确定，Z = {state.safetyStockZScore}
+          </p>
+          <p>
+            • <strong>预测标准差 σ</strong>：来自 <strong>步骤2</strong> 中模型的预测区间，衡量预测值的波动性。
+            当前模型给出的 σ = {state.demoStdDev.toFixed(2)}
+          </p>
         </div>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg p-4">
         <h4 className="font-semibold text-gray-800 mb-3">第2期的安全库存</h4>
-        <div className="bg-orange-50 p-4 rounded-lg">
+        <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">计算结果：</p>
@@ -69,9 +74,9 @@ const ConceptStep3: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-800 mb-2">👉 查看右侧表格</h4>
-        <p className="text-sm text-blue-700">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h4 className="font-semibold text-gray-800 mb-2">👉 查看右侧表格</h4>
+        <p className="text-sm text-gray-700">
           现在查看右侧MPS表格的<strong className="text-blue-900">第2期第2列（安全库存）</strong>，已经自动填充了 {safetyStock} 件！
         </p>
       </div>

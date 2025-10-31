@@ -7,11 +7,11 @@ const ConceptStep5: React.FC = () => {
   const { state, fillPeriod2Field, completeCurrentStep } = useProductionPlan();
 
   useEffect(() => {
-    if (state.period2Data.beginningInventory === null) {
-      // 第2期的期初库存就是设置的期初库存
-      fillPeriod2Field('beginningInventory', state.initialInventory);
+    if (state.period2Data.beginningInventory === null && state.period1Data.endingInventory !== null) {
+      // 🔄 第2期的期初库存 = 第1期的期末库存（体现MPS的连续性）
+      fillPeriod2Field('beginningInventory', state.period1Data.endingInventory);
     }
-  }, []);
+  }, [state.period1Data.endingInventory]);
 
   return (
     <div className="space-y-6">
@@ -25,10 +25,22 @@ const ConceptStep5: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-        <p className="text-sm text-purple-700">
-          期初库存是每期开始时的可用库存量。对于第2期，它等于我们设置的期初库存 {state.initialInventory} 件。
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h4 className="font-semibold text-gray-800 mb-2">📦 什么是期初库存？</h4>
+        <p className="text-sm text-gray-700 mb-3">
+          期初库存是每期开始时的可用库存量。它体现了MPS的<strong>连续性</strong>：每期的期初库存等于上一期的期末库存。
         </p>
+        <div className="bg-white p-3 rounded border border-gray-200">
+          <p className="text-xs text-gray-700 mb-2">
+            <strong>📊 第2期的期初库存计算：</strong>
+          </p>
+          <p className="text-sm text-gray-800">
+            第2期期初库存 = 第1期期末库存 = <strong>{state.period1Data.endingInventory !== null ? state.period1Data.endingInventory.toLocaleString() : '-'} 件</strong>
+          </p>
+          <p className="text-xs text-gray-600 mt-2">
+            💡 这就是为什么第1期的运营结果会影响第2期的计划！
+          </p>
+        </div>
       </div>
 
       <button

@@ -14,6 +14,7 @@ const ConceptStep1: React.FC = () => {
   const [initialInventory, setInitialInventory] = useState(state.initialInventory);
   const [targetServiceLevel, setTargetServiceLevel] = useState(state.targetServiceLevel);
   const [selectedScenario, setSelectedScenario] = useState<CapacityScenario>(state.capacityScenario);
+  const [hasTouchedForecast, setHasTouchedForecast] = useState(false);
 
   // 计算平均需求（基于演示数据）
   const avgDemand = state.demoPrediction;
@@ -29,7 +30,15 @@ const ConceptStep1: React.FC = () => {
     return 'border border-gray-200 hover:bg-gray-50';
   };
 
+  const isForecastPeriodValid = forecastPeriods >= 2;
+
   const handleNext = () => {
+    setHasTouchedForecast(true);
+
+    if (!isForecastPeriodValid) {
+      return;
+    }
+
     // 保存参数
     const zScore = {
       0.90: 1.28,
@@ -68,9 +77,9 @@ const ConceptStep1: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-800 mb-2">🎯 什么是MPS？</h4>
-        <p className="text-sm text-blue-700">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h4 className="font-semibold text-gray-800 mb-2">🎯 什么是MPS？</h4>
+        <p className="text-sm text-gray-700">
           主生产计划（MPS）是连接企业战略目标与生产执行的桥梁。它详细规定了在特定时间段内，<strong>需要生产哪些产品、生产多少、何时生产</strong>。MPS综合考虑了市场需求、库存水平和生产能力，是企业生产管理的核心工具。
         </p>
       </div>
@@ -85,13 +94,21 @@ const ConceptStep1: React.FC = () => {
             </label>
             <input
               type="number"
-              min="3"
+              min="2"
               max="12"
               value={forecastPeriods}
-              onChange={(e) => setForecastPeriods(Number(e.target.value))}
+              onChange={(e) => {
+                setHasTouchedForecast(true);
+                const value = Math.max(2, Math.min(12, Number(e.target.value)));
+                setForecastPeriods(value);
+                updateParameters({ forecastPeriods: value });
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
             <p className="text-xs text-gray-500 mt-1">通常选择6-12期（月）</p>
+            {hasTouchedForecast && !isForecastPeriodValid && (
+              <p className="text-xs text-red-600 mt-1">预测期数至少需要 2 期。</p>
+            )}
           </div>
 
           <div>
@@ -102,7 +119,11 @@ const ConceptStep1: React.FC = () => {
               type="number"
               min="0"
               value={initialInventory}
-              onChange={(e) => setInitialInventory(Number(e.target.value))}
+              onChange={(e) => {
+                const value = Math.max(0, Number(e.target.value));
+                setInitialInventory(value);
+                updateParameters({ initialInventory: value });
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
             <p className="text-xs text-gray-500 mt-1">当前仓库中的产品数量</p>
@@ -190,16 +211,16 @@ const ConceptStep1: React.FC = () => {
           })}
         </div>
 
-        <div className="mt-3 bg-blue-50 border border-blue-200 rounded p-3">
-          <p className="text-xs text-blue-700">
-            💡 <strong>提示</strong>：选择"产能正常"场景可以获得最佳的学习体验。产能紧张会导致频繁缺货，产能充裕则很少遇到约束。
-          </p>
-        </div>
       </div>
 
       <button
         onClick={handleNext}
-        className="w-full flex items-center justify-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all font-medium"
+        className={`w-full flex items-center justify-center space-x-2 px-6 py-3 rounded-lg shadow-md transition-all font-medium ${
+          isForecastPeriodValid
+            ? 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg'
+            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+        }`}
+        disabled={!isForecastPeriodValid}
       >
         <span>开始学习第一个变量：需求预测</span>
         <ArrowRight className="w-5 h-5" />

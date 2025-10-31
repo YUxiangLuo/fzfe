@@ -136,7 +136,7 @@ const ConceptStep9: React.FC = () => {
         });
 
         if (anomalyCount > 0) {
-          console.warn(`⚠️ 发现 ${anomalyCount}/${response.results.predictions.length} 期的标准差数据异常，已自动清洗为预测值的5%`);
+          console.warn(`⚠️ 发现 ${anomalyCount}/${response.results.predictions.length} 期的标准差数据异常，将使用原始值进行计算`);
         } else {
           console.log('✅ 所有预测数据的标准差都在合理范围内');
         }
@@ -188,12 +188,12 @@ const ConceptStep9: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <h4 className="font-semibold text-green-800 mb-2">🎉 恭喜！您已掌握MPS的核心概念</h4>
-        <p className="text-sm text-green-700 mb-3">
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h4 className="font-semibold text-gray-800 mb-2">🎉 恭喜！您已掌握MPS的核心概念</h4>
+        <p className="text-sm text-gray-700 mb-3">
           您已经通过第2期的渐进式学习，理解了MPS表每一列的含义和计算方法。现在，让我们将所学应用到所有 {state.forecastPeriods} 期，生成完整的生产计划表。
         </p>
-        <div className="bg-white p-3 rounded border border-green-300">
+        <div className="bg-white p-3 rounded border border-gray-200">
           <p className="text-xs text-gray-700">
             <strong>学习总结</strong>：您理解了预测需求、安全库存、计划生产、期初/期末库存、产出量、缺货和服务水平的计算逻辑。所有计算都基于<strong>预测需求</strong>，保持了逻辑的一致性。
           </p>
@@ -219,18 +219,18 @@ const ConceptStep9: React.FC = () => {
           )}
         </button>
       ) : (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
           <div className="flex items-center space-x-2 mb-3">
             <CheckCircle className="w-6 h-6 text-green-600" />
-            <h4 className="font-semibold text-green-800">完整MPS表已生成！</h4>
+            <h4 className="font-semibold text-gray-800">完整MPS表已生成！</h4>
           </div>
-          <p className="text-sm text-green-700 mb-4">
+          <p className="text-sm text-gray-700 mb-4">
             请查看右侧表格，现在所有 {state.forecastPeriods} 期的数据都已填充完整。您可以分析整体的生产计划，包括总需求、平均服务水平等指标。
           </p>
 
           {/* 汇总统计 */}
           {state.fullMPSTable.length > 0 && (
-            <div className="bg-white p-4 rounded border border-green-300 mb-4">
+            <div className="bg-white p-4 rounded border border-gray-200 mb-4">
               <h5 className="font-semibold text-gray-800 mb-2">📊 计划摘要</h5>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
