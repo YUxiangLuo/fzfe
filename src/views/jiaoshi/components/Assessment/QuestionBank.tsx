@@ -85,7 +85,7 @@ const QuestionBank: React.FC = () => {
     if (window.confirm('确定要永久删除这道题目吗？此操作不可撤销。')) {
       setIsDeleting(questionId);
       try {
-        await apiClient.delete(`/question-bank/${questionId}`);
+        await apiClient.delete(`/question-bank/questions/${questionId}`);
         setQuestions((prev) => prev.filter((q) => q.question_id !== questionId));
       } catch (err: any) {
         alert(`删除失败: ${err.message}`);
@@ -113,7 +113,7 @@ const QuestionBank: React.FC = () => {
     setIsRefreshing(true);
     setError(null);
     try {
-      const response = await apiClient.get('/question-bank');
+      const response = await apiClient.get('/question-bank/questions');
       if (Array.isArray(response)) {
         setQuestions(response as Question[]);
       } else {
@@ -355,7 +355,7 @@ const QuestionBank: React.FC = () => {
     try {
       setIsSaving(true);
       if (editingQuestion) {
-        const updated = await apiClient.put(`/question-bank/${editingQuestion.question_id}`, payload);
+        const updated = await apiClient.put(`/question-bank/questions/${editingQuestion.question_id}`, payload);
         setQuestions((prev) =>
           prev.map((question) =>
             question.question_id === editingQuestion.question_id
@@ -364,7 +364,7 @@ const QuestionBank: React.FC = () => {
           ),
         );
       } else {
-        await apiClient.post('/question-bank', payload);
+        await apiClient.post('/question-bank/questions', payload);
         await fetchQuestions();
       }
       closeEditor();

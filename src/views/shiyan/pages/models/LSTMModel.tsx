@@ -238,7 +238,7 @@ const LSTMModel: React.FC = () => {
           saved_model?: string;
         };
         inferred_feature_types?: Record<string, string>;
-      }>("/model/lstm/train", requestBody);
+      }>("/models/lstm/training", requestBody);
 
       if (response.status === "success") {
         const metrics = response.results?.metrics ?? { rmse: null, mae: null, r2: null };

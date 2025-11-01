@@ -324,8 +324,7 @@ const ExperimentReport: React.FC = () => {
 
       const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
 
-      const response = await apiClient.post<{ message: string; report_id: number; pdf_path: string }>('/reports', {
-        experiment_id: state.experiment_id,
+      const response = await apiClient.post<{ message: string; report_id: number; pdf_path: string }>(`/experiment-runs/${state.experiment_id}/report`, {
         report_content: base64Content,
       });
 

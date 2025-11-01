@@ -142,7 +142,7 @@ const MovingAverageModel: React.FC = () => {
           };
           saved_model?: string;
         };
-      }>("/model/ma/train", requestBody);
+      }>("/models/ma/training", requestBody);
 
       if (response.status === "success") {
         const metrics = response.results?.metrics ?? { rmse: null, mae: null, r2: null };

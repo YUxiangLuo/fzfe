@@ -108,7 +108,7 @@ const ExperimentLogs: React.FC = () => {
       setIsLoadingStatuses(true);
       setError(null);
       try {
-        const response = await apiClient.get(`/classes/${selectedClassId}/experiment-status`);
+        const response = await apiClient.get(`/classes/${selectedClassId}/experiment-runs`);
         const records = Array.isArray(response) ? (response as ClassExperimentStatus[]) : [];
         setRawStatuses(records);
       } catch (err: any) {

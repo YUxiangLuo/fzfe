@@ -32,7 +32,7 @@ const ModelQuiz: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await apiClient.get<Question[]>('/quiz/model-questions');
+        const response = await apiClient.get<Question[]>('/quizzes/model/questions');
         setQuestions(response);
       } catch (err: any) {
         setError(err.message || '加载题目失败，请刷新页面重试');
@@ -83,7 +83,7 @@ const ModelQuiz: React.FC = () => {
         })),
       };
 
-      await apiClient.post('/quiz/answers', submitData);
+      await apiClient.post('/quizzes/answers', submitData);
 
       // 导航到生产计划页面
       navigate('/production');

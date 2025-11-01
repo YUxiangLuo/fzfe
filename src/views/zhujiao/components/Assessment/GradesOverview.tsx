@@ -82,7 +82,7 @@ const GradesOverview: React.FC = () => {
       setIsLoadingGrades(true);
       setError(null);
       try {
-        const response = await apiClient.get<StudentGradeOverview[]>(`/classes/${selectedClassId}/latest-grades`);
+        const response = await apiClient.get<StudentGradeOverview[]>(`/classes/${selectedClassId}/grade-summaries`);
         setGrades(Array.isArray(response) ? response : []);
         if (!Array.isArray(response) || response.length === 0) {
           setError('该班级暂无成绩记录。');

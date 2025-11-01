@@ -32,7 +32,7 @@ const PlanQuiz: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await apiClient.get<Question[]>('/quiz/plan-questions');
+        const response = await apiClient.get<Question[]>('/quizzes/plan/questions');
         setQuestions(response);
       } catch (err: any) {
         setError(err.message || '加载题目失败，请刷新页面重试');
@@ -83,7 +83,7 @@ const PlanQuiz: React.FC = () => {
         })),
       };
 
-      await apiClient.post('/quiz/answers', submitData);
+      await apiClient.post('/quizzes/answers', submitData);
 
       // 导航到实验报告页面
       navigate('/report');

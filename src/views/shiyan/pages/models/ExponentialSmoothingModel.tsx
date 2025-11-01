@@ -160,7 +160,7 @@ const ExponentialSmoothingModel: React.FC = () => {
           notes?: string[];
           saved_model?: string;
         };
-      }>("/model/es/train", requestBody);
+      }>("/models/es/training", requestBody);
 
       if (response.status === "success") {
         const metrics = response.results?.metrics ?? { rmse: null, mae: null, r2: null };

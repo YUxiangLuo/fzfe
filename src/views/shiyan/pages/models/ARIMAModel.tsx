@@ -234,7 +234,7 @@ const ARIMAModel: React.FC = () => {
           };
           notes?: string[];
         };
-      }>("/model/arima/train", requestBody);
+      }>("/models/arima/training", requestBody);
 
       if (response.status === "success") {
         const { best_order, metrics } = response.results;

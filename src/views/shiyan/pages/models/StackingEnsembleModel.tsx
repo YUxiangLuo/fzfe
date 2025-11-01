@@ -158,7 +158,7 @@ const StackingEnsembleModel: React.FC = () => {
           notes?: string[];
           saved_ensemble?: string;
         };
-      }>("/model/stacking/train", requestBody);
+      }>("/models/stacking/training", requestBody);
 
       if (response.status === "success") {
         const metrics = response.results?.metrics;

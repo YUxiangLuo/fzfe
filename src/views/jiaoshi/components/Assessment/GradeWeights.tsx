@@ -17,7 +17,7 @@ type FlowKey = keyof Pick<GradeWeightsApi,
   'exp_flow_production_plan_creation' |
   'exp_flow_report_submission'>;
 
-type TopLevelKey = keyof Pick<GradeWeightsApi, 'exp_flow' | 'knowledge_test' | 'model_quality' | 'report_quality'>;
+type TopLevelKey = keyof Pick<GradeWeightsApi, 'exp_flow_weight' | 'knowledge_test_weight' | 'model_quality_weight' | 'report_quality_weight'>;
 
 interface FlowItem {
   key: FlowKey;
@@ -43,14 +43,14 @@ const FLOW_ITEMS: FlowItem[] = [
 ];
 
 const TOP_LEVEL_ITEMS: TopLevelItem[] = [
-  { key: 'exp_flow', label: '实验流程', color: 'bg-blue-500' },
-  { key: 'knowledge_test', label: '知识点测试', color: 'bg-green-500' },
-  { key: 'model_quality', label: '模型质量', color: 'bg-yellow-500' },
-  { key: 'report_quality', label: '实验报告质量', color: 'bg-purple-500' },
+  { key: 'exp_flow_weight', label: '实验流程', color: 'bg-blue-500' },
+  { key: 'knowledge_test_weight', label: '知识点测试', color: 'bg-green-500' },
+  { key: 'model_quality_weight', label: '模型质量', color: 'bg-yellow-500' },
+  { key: 'report_quality_weight', label: '实验报告质量', color: 'bg-purple-500' },
 ];
 
 const DEFAULT_WEIGHTS: GradeWeightsApi = {
-  exp_flow: 40,
+  exp_flow_weight: 40,
   exp_flow_demand_data_preparation: 12,
   exp_flow_demand_descriptive_stats: 10,
   exp_flow_demand_model_selection: 8,
@@ -60,9 +60,9 @@ const DEFAULT_WEIGHTS: GradeWeightsApi = {
   exp_flow_production_variable_calc: 10,
   exp_flow_production_plan_creation: 15,
   exp_flow_report_submission: 15,
-  knowledge_test: 20,
-  model_quality: 20,
-  report_quality: 20,
+  knowledge_test_weight: 20,
+  model_quality_weight: 20,
+  report_quality_weight: 20,
 };
 
 const GradeWeights: React.FC = () => {
@@ -136,7 +136,7 @@ const GradeWeights: React.FC = () => {
       setError(null);
       setInfoMessage(null);
       try {
-        const response = await apiClient.get<GradeWeightsApi>(`/classes/${selectedClassId}/grade-weights`);
+        const response = await apiClient.get<GradeWeightsApi>(`/classes/${selectedClassId}/grading-policy`);
         setWeights(response);
         setTempWeights(response);
         setHasExistingPlan(true);
@@ -160,7 +160,7 @@ const GradeWeights: React.FC = () => {
     fetchWeights();
   }, [selectedClassId]);
 
-  const topLevelTotal = useMemo(() => tempWeights.exp_flow + tempWeights.knowledge_test + tempWeights.model_quality + tempWeights.report_quality, [tempWeights]);
+  const topLevelTotal = useMemo(() => tempWeights.exp_flow_weight + tempWeights.knowledge_test_weight + tempWeights.model_quality_weight + tempWeights.report_quality_weight, [tempWeights]);
   const flowTotal = useMemo(() => FLOW_ITEMS.reduce((sum, item) => sum + (tempWeights[item.key] ?? 0), 0), [tempWeights]);
 
   const handleTopLevelChange = (key: TopLevelKey, value: number) => {
@@ -204,7 +204,7 @@ const GradeWeights: React.FC = () => {
     try {
       setIsSaving(true);
       const payload: GradeWeightsApi = { ...tempWeights };
-      const endpoint = `/classes/${selectedClassId}/grade-weights`;
+      const endpoint = `/classes/${selectedClassId}/grading-policy`;
       const response = hasExistingPlan
         ? await apiClient.put(endpoint, payload)
         : await apiClient.post(endpoint, payload);
@@ -227,7 +227,7 @@ const GradeWeights: React.FC = () => {
         <div key={item.key} className="bg-gray-50 rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <span className="font-medium text-gray-900">{item.label}</span>
-            {item.key === 'exp_flow' && (
+            {item.key === 'exp_flow_weight' && (
               <Button size="sm" variant="outline" onClick={() => setIsDetailModalOpen(true)}>
                 细分调整
               </Button>

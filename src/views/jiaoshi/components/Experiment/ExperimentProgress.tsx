@@ -102,7 +102,7 @@ const ExperimentProgress: React.FC = () => {
       setError(null);
 
       try {
-        const progressData = await apiClient.get<StudentExperimentProgress[]>(`/classes/${selectedClassId}/step-events`);
+        const progressData = await apiClient.get<StudentExperimentProgress[]>(`/classes/${selectedClassId}/experiment-events`);
         
         if (Array.isArray(progressData)) {
           const parsedData = progressData.map(student => {

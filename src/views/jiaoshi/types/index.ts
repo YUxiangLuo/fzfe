@@ -43,7 +43,7 @@ export type MenuItem =
   | 'assessment-grades';
 
 export interface GradeWeights {
-  exp_flow: number;
+  exp_flow_weight: number;
   exp_flow_demand_data_preparation: number;
   exp_flow_demand_descriptive_stats: number;
   exp_flow_demand_model_selection: number;
@@ -53,9 +53,9 @@ export interface GradeWeights {
   exp_flow_production_variable_calc: number;
   exp_flow_production_plan_creation: number;
   exp_flow_report_submission: number;
-  knowledge_test: number;
-  model_quality: number;
-  report_quality: number;
+  knowledge_test_weight: number;
+  model_quality_weight: number;
+  report_quality_weight: number;
 }
 
 export interface StudentGradeOverview {

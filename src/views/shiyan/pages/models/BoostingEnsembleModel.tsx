@@ -171,7 +171,7 @@ const BoostingEnsembleModel: React.FC = () => {
           notes?: string[];
           saved_ensemble?: string;
         };
-      }>("/model/boosting/train", requestBody);
+      }>("/models/boosting/training", requestBody);
 
       if (response.status === "success") {
         const metrics = response.results?.metrics;

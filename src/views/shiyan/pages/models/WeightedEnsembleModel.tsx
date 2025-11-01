@@ -152,7 +152,7 @@ const WeightedEnsembleModel: React.FC = () => {
           notes?: string[];
           saved_ensemble?: string;
         };
-      }>("/model/weighted-average/train", requestBody);
+      }>("/models/weighted-average/training", requestBody);
 
       if (response.status === "success") {
         const metrics = response.results?.metrics;

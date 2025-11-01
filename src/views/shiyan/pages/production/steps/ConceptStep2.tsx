@@ -106,7 +106,7 @@ const ConceptStep2: React.FC = () => {
       const response = await apiClient.post<{
         status: string;
         results: { predictions: Array<{ prediction: number; std_dev: number }> };
-      }>('/model/predict', {
+      }>('/models/predictions', {
         model_type: modelType,
         forecast_steps: 2,
       });
