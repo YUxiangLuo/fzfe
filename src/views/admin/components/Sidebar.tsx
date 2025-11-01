@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  ChevronDown, 
-  ChevronRight, 
-  FlaskConical, 
-  Settings, 
-  BookOpen, 
-  Database 
+import {
+  ChevronDown,
+  FlaskConical,
+  Settings,
+  BookOpen,
+  Database
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -42,84 +41,66 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange }) => {
   ];
 
   return (
-    <aside className="bg-white border-r border-gray-200 w-64 fixed left-0 top-16 bottom-0 z-30 overflow-y-auto shadow-sm">
-      <nav className="p-4">
-        <ul className="space-y-2">
+    <aside className="w-80 bg-white border-r border-gray-200 fixed left-0 top-16 bottom-0 z-30 overflow-y-auto">
+      <nav className="flex-1 p-6 pt-8">
+        <div className="space-y-2">
           {menuItems.map((item) => (
-            <li key={item.id}>
+            <div key={item.id}>
               {item.children ? (
                 <>
                   <button
                     onClick={() => toggleMenu(item.id)}
-                    className="w-full flex items-center justify-between px-4 py-3 text-left text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-all duration-200 group"
+                    className={`flex items-center w-full px-3 py-3 text-left rounded-lg transition-colors ${
+                      expandedMenus.includes(item.id)
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+                    }`}
                   >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gray-100 group-hover:bg-blue-100 rounded-lg flex items-center justify-center transition-colors duration-200">
-                        <item.icon size={18} className="text-gray-600 group-hover:text-blue-600" />
-                      </div>
-                      <span className="font-medium">{item.label}</span>
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    <div className="ml-3 flex-1">
+                      <p className="font-medium text-sm">{item.label}</p>
                     </div>
-                    <div className="w-6 h-6 bg-gray-100 group-hover:bg-gray-200 rounded-md flex items-center justify-center transition-colors duration-200">
-                      {expandedMenus.includes(item.id) ? (
-                        <ChevronDown size={14} className="text-gray-500" />
-                      ) : (
-                        <ChevronRight size={14} className="text-gray-500" />
-                      )}
+                    <div className={`transition-transform duration-200 ${expandedMenus.includes(item.id) ? 'rotate-180' : ''}`}>
+                      <ChevronDown className="w-4 h-4" />
                     </div>
                   </button>
-                  
                   {expandedMenus.includes(item.id) && (
-                    <ul className="mt-2 ml-4 space-y-1">
+                    <div className="mt-1 ml-8 space-y-1">
                       {item.children.map((child) => (
-                        <li key={child.id}>
-                          <button
-                            onClick={() => onViewChange(child.id)}
-                            className={`w-full flex items-center space-x-3 px-4 py-2.5 text-left text-sm rounded-lg transition-all duration-200 group ${
-                              activeView === child.id
-                                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-200 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                            }`}
-                          >
-                            <div className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors duration-200 ${
-                              activeView === child.id
-                                ? 'bg-blue-100'
-                                : 'bg-gray-100 group-hover:bg-gray-200'
-                            }`}>
-                              <child.icon size={14} className={
-                                activeView === child.id ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-700'
-                              } />
-                            </div>
-                            <span className="font-medium">{child.label}</span>
-                          </button>
-                        </li>
+                        <button
+                          key={child.id}
+                          onClick={() => onViewChange(child.id)}
+                          className={`flex items-center w-full px-3 py-2 text-sm text-left rounded-lg transition-colors ${
+                            activeView === child.id
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : 'text-gray-600 hover:bg-gray-50 border border-transparent'
+                          }`}
+                        >
+                          <child.icon className="w-4 h-4 flex-shrink-0" />
+                          <span className="ml-2 font-medium">{child.label}</span>
+                        </button>
                       ))}
-                    </ul>
+                    </div>
                   )}
                 </>
               ) : (
                 <button
                   onClick={() => onViewChange(item.id)}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 text-left rounded-xl transition-all duration-200 group ${
+                  className={`flex items-center w-full px-3 py-3 text-left rounded-lg transition-colors ${
                     activeView === item.id
-                      ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 border border-blue-200 shadow-sm'
-                      : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : 'text-gray-700 hover:bg-gray-50 border border-transparent'
                   }`}
                 >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors duration-200 ${
-                    activeView === item.id
-                      ? 'bg-blue-100'
-                      : 'bg-gray-100 group-hover:bg-blue-100'
-                  }`}>
-                    <item.icon size={18} className={
-                      activeView === item.id ? 'text-blue-600' : 'text-gray-600 group-hover:text-blue-600'
-                    } />
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <div className="ml-3">
+                    <p className="font-medium text-sm">{item.label}</p>
                   </div>
-                  <span className="font-medium">{item.label}</span>
                 </button>
               )}
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       </nav>
     </aside>
   );

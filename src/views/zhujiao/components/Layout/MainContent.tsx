@@ -41,8 +41,8 @@ const MainContent: React.FC<MainContentProps> = ({ activeMenuItem }) => {
   };
 
   return (
-    <main className="flex-1 p-6 overflow-y-auto">
-      <div className="max-w-7xl mx-auto">
+    <main className="flex-1 overflow-auto bg-gray-50" style={{ height: 'calc(100vh - 5rem)' }}>
+      <div className="p-6">
         {renderContent()}
       </div>
     </main>

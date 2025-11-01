@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, LogOut } from 'lucide-react';
 import { decodeToken, type DecodedToken } from '../../../../utils/auth';
+import { getRoleByBackendValue } from '../../../../config/roles';
 
 const Header: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
@@ -17,53 +18,42 @@ const Header: React.FC = () => {
     window.location.href = '/login';
   };
 
-  const getRoleDisplayName = (role: string) => {
-    const roleMap: { [key: string]: string } = {
-      admin: '系统管理员',
-      teacher: '教师',
-      assistant: '助教',
-      student: '学生',
-    };
-    return roleMap[role.toLowerCase()] || '未知角色';
-  };
+  const roleDisplay = currentUser
+    ? getRoleByBackendValue(currentUser.role)?.displayName ?? currentUser.role
+    : null;
 
   return (
-    <header className="h-20 bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 text-white shadow-2xl border-b border-white/10">
-      <div className="flex items-center justify-between h-full px-6">
-        {/* Restructured Title */}
-        <div className="flex-1 flex items-center space-x-4">
-          <div>
-            <h1 className="text-2xl font-bold leading-tight bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
-              虚拟仿真系统
-            </h1>
-            <p className="text-xs text-blue-200/70 -mt-1">教师端</p>
-          </div>
-        </div>
-        
-        {/* User Info and Logout */}
+    <header className="w-full bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50">
+      <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center space-x-4">
-          {currentUser ? (
-            <div className="flex items-center space-x-3 px-4 py-2 rounded-xl bg-white/5">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center">
-                <User size={18} className="text-white" />
+          <h1 className="text-xl font-bold text-gray-900">
+            面向企业多源需求融合的生产计划决策虚拟仿真系统
+          </h1>
+        </div>
+
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3 border-l pl-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-blue-600" />
               </div>
-              <div>
-                <p className="text-sm font-medium">{currentUser.full_name || currentUser.username}</p>
-                <p className="text-xs text-blue-200/70">{getRoleDisplayName(currentUser.role)}</p>
+              <div className="text-sm">
+                <p className="font-medium text-gray-900">
+                  {currentUser?.full_name || currentUser?.username || "未知用户"}
+                </p>
+                <p className="text-gray-500">
+                  {roleDisplay || ""}
+                </p>
               </div>
             </div>
-          ) : (
-            // Placeholder while loading
-            <div className="w-40 h-10 bg-white/5 rounded-xl animate-pulse"></div>
-          )}
 
-          <button 
-            onClick={handleLogout}
-            className="flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-red-500/20 hover:text-red-200 transition-all duration-200 group"
-          >
-            <LogOut size={18} className="group-hover:scale-110 transition-transform" />
-            <span className="text-sm font-medium">退出</span>
-          </button>
+            <button
+              onClick={handleLogout}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </header>

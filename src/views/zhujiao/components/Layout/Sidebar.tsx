@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  User, 
-  Users, 
-  GraduationCap, 
-  FlaskConical, 
+import {
+  GraduationCap,
+  FlaskConical,
   ClipboardCheck,
   ChevronDown,
-  ChevronRight,
-  Menu,
   UserCog,
   School,
   Activity,
@@ -15,9 +11,7 @@ import {
   History,
   Brain,
   Settings,
-  BarChart3,
-  Home,
-  Sparkles
+  BarChart3
 } from 'lucide-react';
 import type { MenuItem } from '../../types';
 
@@ -90,96 +84,67 @@ const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-80 bg-gradient-to-b from-slate-50 to-white shadow-2xl transition-all duration-300 flex flex-col border-r border-gray-200/50">
-      
-      <nav className="flex-1 py-6 overflow-y-auto">
-        {menuItems.map((item) => (
-          <div key={item.key} className="mb-2 px-4">
-            {item.children ? (
-              <>
+    <aside className="w-80 bg-white border-r border-gray-200 flex flex-col">
+
+      <nav className="flex-1 p-6 pt-8 overflow-y-auto">
+        <div className="space-y-2">
+          {menuItems.map((item) => (
+            <div key={item.key}>
+              {item.children ? (
+                <>
+                  <button
+                    onClick={() => toggleMenu(item.key)}
+                    className={`flex items-center w-full px-3 py-3 text-left rounded-lg transition-colors ${
+                      expandedMenus.includes(item.key)
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5 flex-shrink-0" />
+                    <div className="ml-3 flex-1">
+                      <p className="font-medium text-sm">{item.label}</p>
+                    </div>
+                    <div className={`transition-transform duration-200 ${expandedMenus.includes(item.key) ? 'rotate-180' : ''}`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </button>
+                  {expandedMenus.includes(item.key) && (
+                    <div className="mt-1 ml-8 space-y-1">
+                      {item.children.map((child) => (
+                        <button
+                          key={child.key}
+                          onClick={() => onMenuItemClick(child.key as MenuItem)}
+                          className={`flex items-center w-full px-3 py-2 text-sm text-left rounded-lg transition-colors ${
+                            activeMenuItem === child.key
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : 'text-gray-600 hover:bg-gray-50 border border-transparent'
+                          }`}
+                        >
+                          <child.icon className="w-4 h-4 flex-shrink-0" />
+                          <span className="ml-2 font-medium">{child.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
                 <button
-                  onClick={() => toggleMenu(item.key)}
-                  className={`flex items-center w-full px-4 py-4 text-left rounded-2xl transition-all duration-200 group ${
-                    expandedMenus.includes(item.key) 
-                      ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm' 
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                  onClick={() => onMenuItemClick(item.key as MenuItem)}
+                  className={`flex items-center w-full px-3 py-3 text-left rounded-lg transition-colors ${
+                    activeMenuItem === item.key
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : 'text-gray-700 hover:bg-gray-50 border border-transparent'
                   }`}
                 >
-                  <div className={`p-2 rounded-xl transition-all duration-200 ${
-                    expandedMenus.includes(item.key) 
-                      ? 'bg-blue-100 text-blue-600' 
-                      : 'bg-gray-100 text-gray-600 group-hover:bg-gray-200'
-                  }`}>
-                    <item.icon size={20} className="flex-shrink-0" />
-                  </div>
-                  <div className="ml-4 flex-1">
-                    <p className="font-semibold text-sm">{item.label}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
-                  </div>
-                  <div className={`transition-transform duration-200 ${expandedMenus.includes(item.key) ? 'rotate-180' : ''}`}>
-                    <ChevronDown size={18} />
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <div className="ml-3">
+                    <p className="font-medium text-sm">{item.label}</p>
                   </div>
                 </button>
-                {expandedMenus.includes(item.key) && (
-                  <div className="mt-2 ml-4 space-y-1">
-                    {item.children.map((child) => (
-                      <button
-                        key={child.key}
-                        onClick={() => onMenuItemClick(child.key as MenuItem)}
-                        className={`flex items-center w-full px-4 py-3 text-sm text-left rounded-xl transition-all duration-200 group ${
-                          activeMenuItem === child.key
-                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg transform scale-[1.02]'
-                            : 'text-gray-600 hover:bg-white hover:text-gray-900 hover:shadow-sm'
-                        }`}
-                      >
-                        <div className={`p-1.5 rounded-lg transition-all duration-200 ${
-                          activeMenuItem === child.key
-                            ? 'bg-white/20 text-white'
-                            : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
-                        }`}>
-                          <child.icon size={16} className="flex-shrink-0" />
-                        </div>
-                        <div className="ml-3">
-                          <p className="font-medium">{child.label}</p>
-                          <p className={`text-xs mt-0.5 ${
-                            activeMenuItem === child.key ? 'text-blue-100' : 'text-gray-400'
-                          }`}>
-                            {child.description}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <button
-                onClick={() => onMenuItemClick(item.key as MenuItem)}
-                className={`flex items-center w-full px-4 py-4 text-left rounded-2xl transition-all duration-200 group ${
-                  activeMenuItem === item.key
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg transform scale-[1.02]'
-                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                }`}
-              >
-                <div className={`p-2 rounded-xl transition-all duration-200 ${
-                  activeMenuItem === item.key
-                    ? 'bg-white/20 text-white'
-                    : 'bg-gray-100 text-gray-600 group-hover:bg-gray-200'
-                }`}>
-                  <item.icon size={20} className="flex-shrink-0" />
-                </div>
-                <div className="ml-4">
-                  <p className="font-semibold text-sm">{item.label}</p>
-                  <p className={`text-xs mt-0.5 ${
-                    activeMenuItem === item.key ? 'text-blue-100' : 'text-gray-500'
-                  }`}>
-                    {item.description}
-                  </p>
-                </div>
-              </button>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          ))}
+        </div>
       </nav>
     </aside>
   );

@@ -28,9 +28,9 @@ function App() {
   }, [activeMenuItem]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30">
+    <div className="min-h-screen bg-gray-50">
       <Header />
-      <div className="flex h-[calc(100vh-80px)]">
+      <div className="flex pt-16">
         <Sidebar
           activeMenuItem={activeMenuItem}
           onMenuItemClick={setActiveMenuItem}

@@ -24,13 +24,15 @@ const Layout: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      <Sidebar activeView={activeView} onViewChange={setActiveView} />
-      
-      <main className="ml-64 pt-16 min-h-screen">
-        <div className="h-full p-6">
-          {renderContent()}
-        </div>
-      </main>
+      <div className="flex pt-16">
+        <Sidebar activeView={activeView} onViewChange={setActiveView} />
+
+        <main className="flex-1 overflow-auto bg-gray-50 ml-80" style={{ height: 'calc(100vh - 5rem)' }}>
+          <div className="p-6">
+            {renderContent()}
+          </div>
+        </main>
+      </div>
     </div>
   );
 };
