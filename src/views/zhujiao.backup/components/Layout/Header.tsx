@@ -36,7 +36,7 @@ const Header: React.FC = () => {
             <h1 className="text-2xl font-bold leading-tight bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
               虚拟仿真系统
             </h1>
-            <p className="text-xs text-blue-200/70 -mt-1">教师端</p>
+            <p className="text-xs text-blue-200/70 -mt-1">助教端</p>
           </div>
         </div>
         

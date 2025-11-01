@@ -30,15 +30,12 @@ export interface Assistant {
 }
 
 // For sidebar navigation
-export type MenuItem =
-  | 'account-personal'
-  | 'class-management'
+export type MenuItem = 
+  | 'account-personal' 
   | 'student-management'
   | 'experiment-progress'
   | 'experiment-reports'
   | 'experiment-logs'
-  | 'assessment-questions'
-  | 'assessment-weights'
   | 'assessment-grades';
 
 export interface GradeWeights {
