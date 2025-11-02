@@ -22,18 +22,25 @@ const Modal: React.FC<ModalProps> = ({
     small: "max-w-md",
     medium: "max-w-2xl",
     large: "max-w-6xl",
-    fullscreen: "w-screen h-screen max-w-none max-h-none rounded-none",
+    fullscreen: "w-full h-full",
   };
+
+  const containerPadding =
+    size === "fullscreen"
+      ? "p-6 sm:p-10 md:p-16 lg:p-[100px]"
+      : "p-0";
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-0">
+      <div
+        className={`flex min-h-screen items-center justify-center ${containerPadding}`}
+      >
         <div
           className="fixed inset-0 bg-black/50 transition-opacity"
           onClick={onClose}
         ></div>
         <div
-          className={`relative bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} flex flex-col`}
+          className={`relative bg-white rounded-lg shadow-xl w-full max-h-full ${sizeClasses[size]} flex flex-col`}
         >
           <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
             <h2 className="text-xl font-semibold text-gray-900">{title}</h2>

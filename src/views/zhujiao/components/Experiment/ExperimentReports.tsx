@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FileText,
   Download,
@@ -6,17 +6,18 @@ import {
   MessageCircle,
   Loader,
   AlertTriangle,
+  Search,
 } from "lucide-react";
 import type { Class, ExperimentReport } from "../../types";
 import Modal from "../Common/Modal";
 import Button from "../Common/Button";
-import { apiClient } from "../../../../utils/apiClient";
+import { API_BASE_URL, apiClient } from "../../../../utils/apiClient";
 import { decodeToken } from "../../../../utils/auth";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../../config/appConfig";
 
 const extractFileName = (filePath: string | null) => {
   if (!filePath) return "在线填写";
-  const parts = filePath.split(/[\\/]/);
+  const parts = filePath.split(/[\\/\\\\]/);
   return parts[parts.length - 1] || filePath;
 };
 
@@ -44,6 +45,7 @@ const ExperimentReports: React.FC = () => {
   const [tempScore, setTempScore] = useState("");
   const [tempComments, setTempComments] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [isExportingReports, setIsExportingReports] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -161,8 +163,8 @@ const ExperimentReports: React.FC = () => {
     if (!query) return reports;
     return reports.filter(
       (report) =>
-        report.student_full_name.toLowerCase().includes(query) ||
-        report.student_username.toLowerCase().includes(query),
+        report.full_name.toLowerCase().includes(query) ||
+        report.username.toLowerCase().includes(query),
     );
   }, [reports, debouncedSearchTerm]);
 
@@ -183,7 +185,8 @@ const ExperimentReports: React.FC = () => {
     setIsSubmittingReview(false);
   };
 
-  const handleReview = (report: ExperimentReport) => {
+  const handleReview = useCallback((report: ExperimentReport) => {
+    if (!report.report_id) return;
     setSelectedReport(report);
     setTempScore(
       report.grade !== null && report.grade !== undefined
@@ -192,7 +195,7 @@ const ExperimentReports: React.FC = () => {
     );
     setTempComments(report.feedback ?? "");
     setShowReviewModal(true);
-  };
+  }, []);
 
   const isScoreValid = useMemo(() => {
     if (!tempScore.trim()) return true;
@@ -215,7 +218,7 @@ const ExperimentReports: React.FC = () => {
   ]);
 
   const handleSaveReview = async () => {
-    if (!selectedReport) return;
+    if (!selectedReport || !selectedReport.report_id) return;
 
     const payload: { grade?: number; feedback?: string } = {};
     if (tempScore.trim()) {
@@ -243,7 +246,7 @@ const ExperimentReports: React.FC = () => {
       );
       setReports((prev) =>
         prev.map((report) =>
-          report.report_id === selectedReport.report_id
+          report.user_id === selectedReport.user_id
             ? { ...(updatedReport as ExperimentReport) }
             : report,
         ),
@@ -256,7 +259,7 @@ const ExperimentReports: React.FC = () => {
     }
   };
 
-  const handleDownload = (report: ExperimentReport) => {
+  const handleDownload = useCallback((report: ExperimentReport) => {
     if (!report.pdf_file_path) {
       alert("该报告暂未提供可下载的文件。");
       return;
@@ -264,13 +267,48 @@ const ExperimentReports: React.FC = () => {
 
     const url = buildDownloadUrl(report.pdf_file_path);
     window.open(url, "_blank");
-  };
+  }, []);
 
   const handleClassChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedClassId(event.target.value);
   };
 
-  const getStatusMeta = (report: ExperimentReport) => {
+  const handleExportReports = useCallback(async () => {
+    if (!selectedClassId || filteredReports.length === 0 || isExportingReports) return;
+    setIsExportingReports(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_BASE_URL}/classes/${selectedClassId}/report-archive`, {
+        method: "GET",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Accept: "application/zip",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("导出实验报告失败，请稍后再试。");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const sanitizedName = (currentClassName ?? "class").replace(/\s+/g, "_");
+      const timestamp = new Date().toISOString().replace(/[.:TZ-]/g, "").slice(0, 14);
+      link.href = url;
+      link.download = `${sanitizedName || "class"}-reports-${timestamp}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert(err.message || "导出实验报告失败，请稍后再试。");
+    } finally {
+      setIsExportingReports(false);
+    }
+  }, [selectedClassId, filteredReports.length, isExportingReports, currentClassName]);
+
+  const getStatusMeta = useCallback((report: ExperimentReport) => {
     if (report.report_id === null) {
       return { text: "未提交", className: "bg-gray-100 text-gray-500" };
     }
@@ -278,9 +316,9 @@ const ExperimentReports: React.FC = () => {
       return { text: "已评阅", className: "bg-green-100 text-green-800" };
     }
     return { text: "待评阅", className: "bg-yellow-100 text-yellow-800" };
-  };
+  }, []);
 
-  const renderReportsRows = () => {
+  const tableBody = useMemo<React.ReactNode>(() => {
     if (!selectedClassId) {
       return (
         <tr>
@@ -334,15 +372,15 @@ const ExperimentReports: React.FC = () => {
         ? new Date(report.submitted_at).toLocaleString("zh-CN")
         : "—";
       return (
-        <tr key={report.student_id} className="hover:bg-gray-50">
+        <tr key={report.user_id} className="hover:bg-gray-50">
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
             {index + 1}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-            {report.student_full_name}
+            {report.full_name}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-            {report.student_username}
+            {report.username}
           </td>
           <td className="px-6 py-4 text-sm text-gray-900">
             <div className="max-w-xs">
@@ -391,7 +429,16 @@ const ExperimentReports: React.FC = () => {
         </tr>
       );
     });
-  };
+  }, [
+    selectedClassId,
+    isLoadingReports,
+    reports,
+    filteredReports,
+    debouncedSearchTerm,
+    getStatusMeta,
+    handleReview,
+    handleDownload,
+  ]);
 
   return (
     <div className="space-y-6">
@@ -434,13 +481,19 @@ const ExperimentReports: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               按学号/姓名搜索
             </label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="输入学号或姓名进行筛选"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+            <div className="relative">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={16}
+              />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="输入学号或姓名进行筛选"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -512,8 +565,32 @@ const ExperimentReports: React.FC = () => {
       )}
 
       <div className="bg-white rounded-lg shadow-md">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">实验报告列表</h2>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <FileText size={16} />
+              <span>共 {filteredReports.length} 条记录</span>
+            </div>
+            <Button
+              onClick={handleExportReports}
+              disabled={!selectedClassId || filteredReports.length === 0 || isExportingReports}
+              variant="outline"
+              className="flex items-center space-x-2"
+            >
+              {isExportingReports ? (
+                <>
+                  <Loader size={16} className="animate-spin" />
+                  <span>正在导出...</span>
+                </>
+              ) : (
+                <>
+                  <Download size={16} />
+                  <span>导出所有报告</span>
+                </>
+              )}
+            </Button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -546,7 +623,7 @@ const ExperimentReports: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {renderReportsRows()}
+              {tableBody}
             </tbody>
           </table>
         </div>
@@ -563,11 +640,10 @@ const ExperimentReports: React.FC = () => {
             {/* PDF Preview Area */}
             <div className="lg:col-span-3 h-full flex flex-col">
               {selectedReport.pdf_file_path ? (
-                <embed
+                <iframe
                   src={buildDownloadUrl(selectedReport.pdf_file_path)}
-                  type="application/pdf"
-                  width="100%"
-                  height="100%"
+                  title="report-preview"
+                  className="w-full h-full rounded-lg border border-gray-200"
                 />
               ) : (
                 <div className="h-full bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
@@ -584,10 +660,10 @@ const ExperimentReports: React.FC = () => {
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="font-medium text-gray-900">
-                    {selectedReport.student_full_name}
+                    {selectedReport.full_name}
                   </h3>
                   <p className="text-sm text-gray-600">
-                    ({selectedReport.student_username})
+                    ({selectedReport.username})
                   </p>
                 </div>
                 <Button

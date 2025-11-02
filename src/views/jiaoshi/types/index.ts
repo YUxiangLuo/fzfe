@@ -84,29 +84,32 @@ export interface Question {
 }
 
 export interface ExperimentReport {
+  user_id: number;
+  username: string;
+  full_name: string;
   report_id: number | null;
   experiment_id: number | null;
-  student_id: number;
-  student_username: string;
-  student_full_name: string;
-  report_content: string | null;
-  pdf_file_path: string | null;
   submitted_at: string | null;
+  pdf_file_path: string | null;
   grade: number | null;
   feedback: string | null;
-  graded_by: number | null;
-  graded_by_full_name: string | null;
-  experiment_status: string | null;
-  selected_industry: string | null;
-  selected_company: string | null;
-  selected_product: string | null;
 }
 
 // New types for the refactored experiment progress endpoint
+export interface ExperimentTimelineEvent {
+  event_id: number;
+  experiment_id: number;
+  student_id: number;
+  step_order: number;
+  event_type: 'STARTED' | 'COMPLETED';
+  event_timestamp: string;
+}
+
 export interface ExperimentStep {
   step_order: number;
   started_at: string | null;
   completed_at: string | null;
+  latest_event_type: 'STARTED' | 'COMPLETED' | null;
 }
 
 export interface StudentExperimentProgress {
@@ -114,7 +117,14 @@ export interface StudentExperimentProgress {
   username: string;
   full_name: string;
   experiment_id: number | null;
-  steps: ExperimentStep[] | string | null;
+  status: string;
+  current_step: number | null;
+  highest_completed_step: number | null;
+  start_time: string | null;
+  last_activity_at: string | null;
+  completion_time: string | null;
+  timeline: ExperimentTimelineEvent[] | null;
+  steps: ExperimentStep[] | null;
 }
 
 

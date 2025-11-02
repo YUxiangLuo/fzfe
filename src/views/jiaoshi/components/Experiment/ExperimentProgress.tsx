@@ -1,19 +1,20 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Loader,
-  Search,
-  AlertTriangle,
   Clock,
-  CheckCircle2,
+  Loader,
   PlayCircle,
+  Search,
+  Users,
+  Activity,
 } from "lucide-react";
-import type { Class, StudentExperimentProgress, ExperimentStep } from "../../types";
+import type { Class, StudentExperimentProgress, ExperimentStep, ExperimentTimelineEvent } from "../../types";
 import { apiClient } from "../../../../utils/apiClient";
 import { decodeToken } from "../../../../utils/auth";
 
-// This serves as the base structure and ordering for the experiment steps.
 const STEP_DEFINITIONS: { id: string; label: string; order: number }[] = [
   { id: "industry_selection", label: "选择行业", order: 1 },
   { id: "company_selection", label: "选择企业", order: 2 },
@@ -24,11 +25,39 @@ const STEP_DEFINITIONS: { id: string; label: string; order: number }[] = [
   { id: "production_planning", label: "生产计划", order: 7 },
 ];
 
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; badge: string; dot: string }
+> = {
+  Completed: {
+    label: "已完成",
+    badge: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+    dot: "bg-emerald-500",
+  },
+  "In Progress": {
+    label: "进行中",
+    badge: "bg-blue-50 text-blue-700 border border-blue-200",
+    dot: "bg-blue-500",
+  },
+  "Not Started": {
+    label: "未开始",
+    badge: "bg-slate-50 text-slate-600 border border-slate-200",
+    dot: "bg-slate-400",
+  },
+};
+
+const getStatusConfig = (status: string) =>
+  STATUS_CONFIG[status] ?? {
+    label: status || "未知状态",
+    badge: "bg-slate-50 text-slate-600 border border-slate-200",
+    dot: "bg-slate-400",
+  };
+
 const ExperimentProgress: React.FC = () => {
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>("");
   const [studentProgress, setStudentProgress] = useState<StudentExperimentProgress[]>([]);
-  
+
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
@@ -65,11 +94,7 @@ const ExperimentProgress: React.FC = () => {
         const classList = Array.isArray(response) ? (response as Class[]) : [];
         setClasses(classList);
         const firstClass = classList[0];
-        if (firstClass) {
-          setSelectedClassId(String(firstClass.class_id));
-        } else {
-          setSelectedClassId("");
-        }
+        setSelectedClassId(firstClass ? String(firstClass.class_id) : "");
       } catch (err: any) {
         setError(err.message || "获取班级列表失败");
       } finally {
@@ -102,21 +127,17 @@ const ExperimentProgress: React.FC = () => {
       setError(null);
 
       try {
-        const progressData = await apiClient.get<StudentExperimentProgress[]>(`/classes/${selectedClassId}/experiment-events`);
-        
+        const progressData = await apiClient.get<StudentExperimentProgress[]>(
+          `/classes/${selectedClassId}/experiment-events`,
+        );
+
         if (Array.isArray(progressData)) {
-          const parsedData = progressData.map(student => {
-            if (typeof student.steps === 'string') {
-              try {
-                return { ...student, steps: JSON.parse(student.steps) };
-              } catch (e) {
-                console.error(`Failed to parse steps for student ${student.student_id}:`, e);
-                return { ...student, steps: [] }; // Gracefully handle parsing errors
-              }
-            }
-            return student;
-          });
-          setStudentProgress(parsedData);
+          const normalized = progressData.map((student) => ({
+            ...student,
+            steps: Array.isArray(student.steps) ? student.steps : [],
+            timeline: Array.isArray(student.timeline) ? student.timeline : [],
+          }));
+          setStudentProgress(normalized);
         } else {
           setStudentProgress([]);
         }
@@ -136,13 +157,44 @@ const ExperimentProgress: React.FC = () => {
     const query = debouncedSearchTerm.toLowerCase();
     return studentProgress.filter(
       (student) =>
-        student.username.toLowerCase().includes(query) || student.full_name.toLowerCase().includes(query),
+        student.username.toLowerCase().includes(query) ||
+        student.full_name.toLowerCase().includes(query),
     );
   }, [studentProgress, debouncedSearchTerm]);
 
-  const currentClassName = useMemo(() => {
-    return classes.find((cls) => String(cls.class_id) === selectedClassId)?.class_name ?? "—";
-  }, [classes, selectedClassId]);
+  const currentClass = useMemo(
+    () => classes.find((cls) => String(cls.class_id) === selectedClassId) ?? null,
+    [classes, selectedClassId],
+  );
+
+  const summaryStats = useMemo(() => {
+    if (studentProgress.length === 0) {
+      return {
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        notStarted: 0,
+        averageCompletion: 0,
+      };
+    }
+
+    const total = studentProgress.length;
+    const completed = studentProgress.filter((s) => s.status === "Completed").length;
+    const inProgress = studentProgress.filter((s) => s.status === "In Progress").length;
+    const notStarted = studentProgress.filter((s) => s.status === "Not Started").length;
+
+    const completionPercents = studentProgress.map((student) => {
+      const steps = student.steps ?? [];
+      const completedSteps = steps.filter((step) => step?.completed_at).length;
+      return Math.round((completedSteps / STEP_DEFINITIONS.length) * 100);
+    });
+
+    const averageCompletion = Math.round(
+      completionPercents.reduce((acc, val) => acc + val, 0) / completionPercents.length,
+    );
+
+    return { total, completed, inProgress, notStarted, averageCompletion };
+  }, [studentProgress]);
 
   const toggleRow = (studentId: number) => {
     setExpandedRows((prev) =>
@@ -152,40 +204,39 @@ const ExperimentProgress: React.FC = () => {
     );
   };
 
-  const getStudentStatus = (student: StudentExperimentProgress) => {
-    if (!Array.isArray(student.steps) || student.steps.length === 0) {
-      return {
-        completedSteps: 0,
-        totalSteps: STEP_DEFINITIONS.length,
-        completionPercent: 0,
-        latestCompleted: null,
-        currentStep: STEP_DEFINITIONS[0],
-        statusLabel: "未开始",
-      };
-    }
-
-    const completedSteps = student.steps.filter(step => step.completed_at).length;
+  const getCompletionMeta = (student: StudentExperimentProgress) => {
+    const steps = student.steps ?? [];
+    const completedSteps = steps.filter((step) => step?.completed_at).length;
     const totalSteps = STEP_DEFINITIONS.length;
     const completionPercent = Math.round((completedSteps / totalSteps) * 100);
-    
-    const latestCompletedStepOrder = Math.max(0, ...student.steps.filter(s => s.completed_at).map(s => s.step_order));
-    const latestCompleted = STEP_DEFINITIONS.find(def => def.order === latestCompletedStepOrder) || null;
 
-    const currentStepOrder = Math.max(1, ...student.steps.map(s => s.step_order));
-    let currentStep = STEP_DEFINITIONS.find(def => def.order === currentStepOrder) || null;
-    if (student.steps.find(s => s.step_order === currentStepOrder)?.completed_at) {
-      currentStep = STEP_DEFINITIONS.find(def => def.order === currentStepOrder + 1) || null;
+    const latestCompletedStep = [...steps]
+      .filter((step) => step?.completed_at)
+      .sort((a, b) => (b?.step_order ?? 0) - (a?.step_order ?? 0))[0];
+
+    const latestCompleted = latestCompletedStep
+      ? STEP_DEFINITIONS.find((def) => def.order === latestCompletedStep.step_order) ?? null
+      : null;
+
+    let currentStep = student.current_step
+      ? STEP_DEFINITIONS.find((def) => def.order === student.current_step) ?? null
+      : null;
+
+    if (!currentStep && student.status !== "Completed") {
+      const highestStarted = [...steps]
+        .filter((step) => step?.started_at && !step?.completed_at)
+        .sort((a, b) => (b?.step_order ?? 0) - (a?.step_order ?? 0))[0];
+      if (highestStarted) {
+        currentStep = STEP_DEFINITIONS.find((def) => def.order === highestStarted.step_order) ?? null;
+      }
     }
-    
-    const statusLabel = completionPercent === 100 ? "已完成" : (completedSteps > 0 ? "进行中" : "已开始");
 
     return {
       completedSteps,
       totalSteps,
-      completionPercent,
+      completionPercent: Math.min(100, Math.max(0, completionPercent)),
       latestCompleted,
       currentStep,
-      statusLabel,
     };
   };
 
@@ -193,7 +244,7 @@ const ExperimentProgress: React.FC = () => {
     if (!selectedClassId) {
       return (
         <tr>
-          <td colSpan={7} className="py-12 text-center text-gray-500">
+          <td colSpan={8} className="py-12 text-center text-gray-500">
             请先选择一个班级查看学生的实验进度。
           </td>
         </tr>
@@ -203,7 +254,7 @@ const ExperimentProgress: React.FC = () => {
     if (isLoadingProgress) {
       return (
         <tr>
-          <td colSpan={7} className="py-12 text-center text-gray-500">
+          <td colSpan={8} className="py-12 text-center text-gray-500">
             <div className="flex items-center justify-center space-x-2">
               <Loader className="animate-spin" size={18} />
               <span>正在加载实验进度...</span>
@@ -216,7 +267,7 @@ const ExperimentProgress: React.FC = () => {
     if (filteredStudents.length === 0) {
       return (
         <tr>
-          <td colSpan={7} className="py-12 text-center text-gray-500">
+          <td colSpan={8} className="py-12 text-center text-gray-500">
             {studentProgress.length === 0 ? "该班级暂无学生或实验数据。" : "未找到符合条件的学生。"}
           </td>
         </tr>
@@ -224,90 +275,81 @@ const ExperimentProgress: React.FC = () => {
     }
 
     return filteredStudents.map((student, index) => {
-      const {
-        completedSteps,
-        totalSteps,
-        completionPercent,
-        latestCompleted,
-        currentStep,
-      } = getStudentStatus(student);
+      const { completionPercent, completedSteps, totalSteps, latestCompleted, currentStep } =
+        getCompletionMeta(student);
       const isExpanded = expandedRows.includes(student.student_id);
+      const statusConfig = getStatusConfig(student.status);
 
       return (
         <React.Fragment key={student.student_id}>
           <tr className="hover:bg-slate-50">
             <td className="w-12 text-center text-sm text-gray-500">{index + 1}</td>
-            <td className="px-4 py-4 text-sm text-gray-900 font-medium">
-              <div className="flex items-center space-x-2">
-                <span>{student.full_name}</span>
-                <span className="text-xs text-gray-500">({student.username})</span>
+            <td className="px-4 py-4 text-sm text-gray-900">
+              <div className="flex items-center justify-between space-x-3">
+                <div>
+                  <div className="font-semibold">{student.full_name}</div>
+                  <div className="text-xs text-gray-500">{student.username}</div>
+                </div>
+                <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.badge}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
+                  <span>{statusConfig.label}</span>
+                </span>
               </div>
             </td>
             <td className="px-4 py-4">
               <div className="flex items-center space-x-2">
                 <div className="flex-1 h-2 rounded-full bg-slate-200">
                   <div
-                    className={`h-2 rounded-full ${completionPercent === 100 ? 'bg-green-500' : 'bg-blue-500'}`}
+                    className={`h-2 rounded-full ${
+                      completionPercent === 100 ? "bg-emerald-500" : "bg-blue-500"
+                    }`}
                     style={{ width: `${completionPercent}%` }}
                   />
                 </div>
                 <span className="text-sm text-gray-600 w-12 text-right">{completionPercent}%</span>
               </div>
             </td>
-            <td className="px-4 py-4 text-sm text-gray-700">{latestCompleted ? latestCompleted.label : "—"}</td>
-            <td className="px-4 py-4 text-sm text-gray-700">{currentStep ? currentStep.label : "已完成"}</td>
-            <td className="px-4 py-4 text-sm text-gray-500 text-right">{completedSteps}/{totalSteps} 步</td>
+            <td className="px-4 py-4 text-sm text-gray-700">
+              {latestCompleted ? latestCompleted.label : "—"}
+            </td>
+            <td className="px-4 py-4 text-sm text-gray-700">
+              {student.status === "Completed"
+                ? "已完成全部节点"
+                : currentStep
+                ? currentStep.label
+                : "—"}
+            </td>
+            <td className="px-4 py-4 text-sm text-gray-500 text-right">
+              {completedSteps}/{totalSteps} 步
+            </td>
+            <td className="px-4 py-4 text-sm text-gray-500 text-right">
+              {formatTime(student.last_activity_at)}
+            </td>
             <td className="px-4 py-4 text-center">
               <button
                 onClick={() => toggleRow(student.student_id)}
                 className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition-all duration-200"
               >
                 {isExpanded ? (
-                  <><ChevronDown size={14} className="mr-1" />收起</>
+                  <>
+                    <ChevronDown size={14} className="mr-1" />
+                    收起
+                  </>
                 ) : (
-                  <><ChevronRight size={14} className="mr-1" />详情</>
+                  <>
+                    <ChevronRight size={14} className="mr-1" />
+                    详情
+                  </>
                 )}
               </button>
             </td>
           </tr>
           {isExpanded && (
             <tr className="bg-slate-50">
-              <td colSpan={7} className="px-8 py-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                  {STEP_DEFINITIONS.map((stepDef) => {
-                    const stepData = student.steps?.find(s => s.step_order === stepDef.order);
-                    const status = stepData?.completed_at ? 'completed' : (stepData?.started_at ? 'started' : 'pending');
-                    
-                    return (
-                      <div
-                        key={stepDef.id}
-                        className={`rounded-xl border p-4 flex items-start space-x-3 bg-white ${
-                          status === 'completed' ? "border-green-200" : "border-slate-200"
-                        }`}
-                      >
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            status === 'completed' ? "bg-green-500 text-white" : 
-                            status === 'started' ? "bg-blue-500 text-white" :
-                            "bg-slate-200 text-slate-500"
-                          }`}
-                        >
-                          {status === 'completed' ? <CheckCircle2 size={18} /> : 
-                           status === 'started' ? <PlayCircle size={18} /> : 
-                           <Clock size={18} />}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{stepDef.label}</p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {status === 'completed' ? `完成: ${formatTime(stepData!.completed_at)}` :
-                             status === 'started' ? `开始: ${formatTime(stepData!.started_at)}` :
-                             "尚未开始"}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <td colSpan={8} className="px-8 py-6 space-y-6">
+                <StudentSummary student={student} />
+                <StepOverview steps={student.steps ?? []} />
+                <Timeline timeline={student.timeline ?? []} />
               </td>
             </tr>
           )}
@@ -318,11 +360,15 @@ const ExperimentProgress: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">实验进度</h1>
-          <p className="text-sm text-gray-500 mt-1">这里显示的是学生最新的一次实验的进度。</p>
-          {selectedClassId && <p className="text-sm text-gray-500 mt-1">当前班级：{currentClassName}</p>}
+          <p className="text-sm text-gray-500 mt-1">查看每位学生最近一次实验的完成情况与操作时间线。</p>
+          {currentClass && (
+            <p className="text-sm text-gray-500 mt-1">
+              当前班级：<span className="font-medium text-gray-900">{currentClass.class_name}</span>
+            </p>
+          )}
         </div>
       </div>
 
@@ -337,10 +383,14 @@ const ExperimentProgress: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             >
               {classes.length === 0 ? (
-                <option value="" disabled>{isLoadingClasses ? "加载中..." : "暂无班级"}</option>
+                <option value="" disabled>
+                  {isLoadingClasses ? "加载中..." : "暂无班级"}
+                </option>
               ) : (
                 classes.map((cls) => (
-                  <option key={cls.class_id} value={cls.class_id}>{cls.class_name}</option>
+                  <option key={cls.class_id} value={cls.class_id}>
+                    {cls.class_name}
+                  </option>
                 ))
               )}
             </select>
@@ -368,6 +418,37 @@ const ExperimentProgress: React.FC = () => {
         </div>
       )}
 
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <SummaryCard
+          icon={Users}
+          title="学生总数"
+          value={summaryStats.total}
+          description="当前班级的总学生数"
+          accent="bg-blue-100 text-blue-600"
+        />
+        <SummaryCard
+          icon={CheckCircle2}
+          title="已完成"
+          value={summaryStats.completed}
+          description="已完成全部步骤"
+          accent="bg-emerald-100 text-emerald-600"
+        />
+        <SummaryCard
+          icon={PlayCircle}
+          title="进行中"
+          value={summaryStats.inProgress}
+          description="正在执行实验流程"
+          accent="bg-blue-100 text-blue-600"
+        />
+        <SummaryCard
+          icon={Activity}
+          title="平均完成度"
+          value={`${summaryStats.averageCompletion}%`}
+          description="所有学生的平均完成比例"
+          accent="bg-purple-100 text-purple-600"
+        />
+      </div>
+
       <div className="bg-white rounded-lg shadow-md">
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">学生实验进度</h2>
@@ -382,6 +463,7 @@ const ExperimentProgress: React.FC = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最新完成</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">当前节点</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">完成步数</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">最近操作时间</th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
@@ -393,11 +475,166 @@ const ExperimentProgress: React.FC = () => {
   );
 };
 
+const SummaryCard: React.FC<{
+  icon: React.ElementType;
+  title: string;
+  value: number | string;
+  description: string;
+  accent: string;
+}> = ({ icon: Icon, title, value, description, accent }) => (
+  <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center space-x-4">
+    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${accent}`}>
+      <Icon size={18} />
+    </div>
+    <div>
+      <p className="text-sm text-gray-500">{title}</p>
+      <p className="text-2xl font-semibold text-gray-900">{value}</p>
+      <p className="text-xs text-gray-400 mt-1">{description}</p>
+    </div>
+  </div>
+);
+
+const StudentSummary: React.FC<{ student: StudentExperimentProgress }> = ({ student }) => {
+  const statusConfig = {
+    label: getStatusConfig(student.status).label,
+    className: getStatusConfig(student.status).badge,
+  };
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <SummaryItem label="实验状态" value={statusConfig.label} badgeClass={statusConfig.className} />
+      <SummaryItem label="开始时间" value={formatTime(student.start_time)} />
+      <SummaryItem label="最近操作" value={formatTime(student.last_activity_at)} />
+      <SummaryItem label="完成时间" value={formatTime(student.completion_time)} />
+    </div>
+  );
+};
+
+const SummaryItem: React.FC<{ label: string; value: string; badgeClass?: string }> = ({
+  label,
+  value,
+  badgeClass,
+}) => (
+  <div className="bg-white border border-gray-200 rounded-xl p-4">
+    <p className="text-xs text-gray-500">{label}</p>
+    {badgeClass ? (
+      <span className={`inline-flex items-center px-2.5 py-1 mt-2 rounded-full text-xs font-medium ${badgeClass}`}>
+        {value}
+      </span>
+    ) : (
+      <p className="text-sm font-medium text-gray-900 mt-1">{value}</p>
+    )}
+  </div>
+);
+
+const StepOverview: React.FC<{ steps: ExperimentStep[] }> = ({ steps }) => (
+  <div>
+    <h4 className="text-sm font-semibold text-gray-900 mb-3">步骤完成情况</h4>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {STEP_DEFINITIONS.map((stepDef) => {
+        const stepData = steps.find((step) => step.step_order === stepDef.order);
+        const status = stepData?.completed_at
+          ? "completed"
+          : stepData?.started_at
+          ? "started"
+          : "pending";
+
+        const icon =
+          status === "completed" ? (
+            <CheckCircle2 size={18} />
+          ) : status === "started" ? (
+            <PlayCircle size={18} />
+          ) : (
+            <Clock size={18} />
+          );
+
+        const iconClass =
+          status === "completed"
+            ? "bg-emerald-500 text-white"
+            : status === "started"
+            ? "bg-blue-500 text-white"
+            : "bg-slate-200 text-slate-500";
+
+        return (
+          <div
+            key={stepDef.id}
+            className={`rounded-xl border p-4 flex items-start space-x-3 bg-white ${
+              status === "completed" ? "border-emerald-200" : "border-slate-200"
+            }`}
+          >
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${iconClass}`}>
+              {icon}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">{stepDef.label}</p>
+              <p className="text-xs text-gray-500 mt-1">
+                {status === "completed"
+                  ? `完成：${formatTime(stepData?.completed_at)}`
+                  : status === "started"
+                  ? `开始：${formatTime(stepData?.started_at)}`
+                  : "尚未开始"}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
+
+const Timeline: React.FC<{ timeline: ExperimentTimelineEvent[] }> = ({ timeline }) => {
+  const sorted = [...timeline].sort(
+    (a, b) =>
+      new Date(a.event_timestamp).getTime() - new Date(b.event_timestamp).getTime(),
+  );
+
+  return (
+    <div>
+      <h4 className="text-sm font-semibold text-gray-900 mb-3">操作时间线</h4>
+      {sorted.length === 0 ? (
+        <p className="text-sm text-gray-500">暂无操作记录。</p>
+      ) : (
+        <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+          {sorted.map((event) => {
+            const stepLabel =
+              STEP_DEFINITIONS.find((step) => step.order === event.step_order)?.label ??
+              `步骤 ${event.step_order}`;
+            const isCompleted = event.event_type === "COMPLETED";
+            return (
+              <div
+                key={event.event_id}
+                className="flex items-start space-x-3 border border-gray-200 bg-white rounded-lg p-3"
+              >
+                <div
+                  className={`mt-1 w-2 h-2 rounded-full ${
+                    isCompleted ? "bg-emerald-500" : "bg-blue-500"
+                  }`}
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {isCompleted ? "完成" : "开始"} · {stepLabel}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {formatTime(event.event_timestamp)}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 function formatTime(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
 }
 
 export default ExperimentProgress;
