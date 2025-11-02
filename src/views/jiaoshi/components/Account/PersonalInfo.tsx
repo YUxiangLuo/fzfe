@@ -4,6 +4,7 @@ import Modal from '../Common/Modal';
 import { apiClient } from '../../../../utils/apiClient';
 import type { User as UserType, Class as ClassType } from '../../types';
 import Button from '../Common/Button';
+import { validateFullName, validateEmail, validatePhone, validatePassword, validatePasswordConfirm } from '../../utils/validation';
 
 const PersonalInfo: React.FC = () => {
   const [user, setUser] = useState<UserType | null>(null);
@@ -60,11 +61,35 @@ const PersonalInfo: React.FC = () => {
 
   const handleSave = async () => {
     if (!tempUser) return;
+
+    // 验证姓名
+    const nameValidation = validateFullName(tempUser.full_name);
+    if (!nameValidation.valid) {
+      alert(nameValidation.error);
+      return;
+    }
+
+    // 验证手机号（可选）
+    if (tempUser.phone_number) {
+      const phoneValidation = validatePhone(tempUser.phone_number, false);
+      if (!phoneValidation.valid) {
+        alert(phoneValidation.error);
+        return;
+      }
+    }
+
+    // 验证邮箱
+    const emailValidation = validateEmail(tempUser.email, true);
+    if (!emailValidation.valid) {
+      alert(emailValidation.error);
+      return;
+    }
+
     try {
       const updatedUser = await apiClient.put('/users/me', {
-        full_name: tempUser.full_name,
-        phone_number: tempUser.phone_number,
-        email: tempUser.email,
+        full_name: tempUser.full_name.trim(),
+        phone_number: tempUser.phone_number?.trim() || null,
+        email: tempUser.email.trim(),
       });
       setUser(updatedUser);
       setIsEditModalOpen(false);
@@ -83,12 +108,23 @@ const PersonalInfo: React.FC = () => {
     setPasswordError(null);
     setPasswordSuccess(null);
 
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setPasswordError('新密码和确认密码不匹配。');
+    // 验证当前密码
+    if (!passwordData.currentPassword) {
+      setPasswordError('请输入当前密码');
       return;
     }
-    if (!passwordData.newPassword || passwordData.newPassword.length < 6) {
-      setPasswordError('新密码长度不能少于6位。');
+
+    // 验证新密码
+    const passwordValidation = validatePassword(passwordData.newPassword, { minLength: 6 });
+    if (!passwordValidation.valid) {
+      setPasswordError(passwordValidation.error);
+      return;
+    }
+
+    // 验证密码确认
+    const confirmValidation = validatePasswordConfirm(passwordData.newPassword, passwordData.confirmPassword);
+    if (!confirmValidation.valid) {
+      setPasswordError(confirmValidation.error);
       return;
     }
 
@@ -196,15 +232,15 @@ const PersonalInfo: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">当前密码</label>
-                <input type="text" name="currentPassword" value={passwordData.currentPassword} onChange={handlePasswordChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                <input type="password" name="currentPassword" value={passwordData.currentPassword} onChange={handlePasswordChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="请输入当前密码" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">新密码</label>
-                <input type="text" name="newPassword" value={passwordData.newPassword} onChange={handlePasswordChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                <input type="password" name="newPassword" value={passwordData.newPassword} onChange={handlePasswordChange} required minLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="至少6个字符" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">确认新密码</label>
-                <input type="text" name="confirmPassword" value={passwordData.confirmPassword} onChange={handlePasswordChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                <input type="password" name="confirmPassword" value={passwordData.confirmPassword} onChange={handlePasswordChange} required minLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="再次输入新密码" />
               </div>
             </div>
             {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
@@ -223,16 +259,23 @@ const PersonalInfo: React.FC = () => {
         <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="编辑个人信息">
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">姓名</label>
-              <input type="text" value={tempUser.full_name} onChange={(e) => setTempUser({ ...tempUser, full_name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                姓名 <span className="text-red-500">*</span>
+              </label>
+              <input type="text" value={tempUser.full_name} onChange={(e) => setTempUser({ ...tempUser, full_name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请输入姓名" minLength={2} maxLength={20} required />
+              <p className="mt-1 text-xs text-gray-500">2-20个字符，允许中文和英文</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">手机号码</label>
-              <input type="text" value={tempUser.phone_number || ''} onChange={(e) => setTempUser({ ...tempUser, phone_number: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+              <label className="block text-sm font-medium text-gray-700 mb-2">手机号码（可选）</label>
+              <input type="tel" value={tempUser.phone_number || ''} onChange={(e) => setTempUser({ ...tempUser, phone_number: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请输入11位手机号" pattern="1[3-9]\d{9}" />
+              <p className="mt-1 text-xs text-gray-500">请输入11位中国大陆手机号</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">邮箱</label>
-              <input type="email" value={tempUser.email} onChange={(e) => setTempUser({ ...tempUser, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                邮箱 <span className="text-red-500">*</span>
+              </label>
+              <input type="email" value={tempUser.email} onChange={(e) => setTempUser({ ...tempUser, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="example@email.com" required />
+              <p className="mt-1 text-xs text-gray-500">用于接收系统通知</p>
             </div>
             <div className="flex justify-end space-x-3 pt-4">
               <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">取消</button>

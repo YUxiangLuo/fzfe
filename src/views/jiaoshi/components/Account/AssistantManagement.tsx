@@ -7,6 +7,7 @@ import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import { SelectAssistantModal } from './SelectAssistantModal';
 import { ReassignAssistantModal } from './ReassignAssistantModal';
+import { validateUsername, validateFullName, validateEmail, validatePhone, validatePassword } from '../../utils/validation';
 
 const AssistantManagement: React.FC = () => {
   const [assistants, setAssistants] = useState<Assistant[]>([]);
@@ -70,13 +71,59 @@ const AssistantManagement: React.FC = () => {
   };
 
   const handleCreateAssistant = async () => {
+    // 验证用户名
+    const usernameValidation = validateUsername(newAssistant.username);
+    if (!usernameValidation.valid) {
+      alert(usernameValidation.error);
+      return;
+    }
+
+    // 验证姓名
+    const nameValidation = validateFullName(newAssistant.full_name);
+    if (!nameValidation.valid) {
+      alert(nameValidation.error);
+      return;
+    }
+
+    // 验证密码
+    const passwordValidation = validatePassword(newAssistant.password, { minLength: 6 });
+    if (!passwordValidation.valid) {
+      alert(passwordValidation.error);
+      return;
+    }
+
+    // 验证邮箱
+    const emailValidation = validateEmail(newAssistant.email, true);
+    if (!emailValidation.valid) {
+      alert(emailValidation.error);
+      return;
+    }
+
+    // 验证手机号（可选）
+    if (newAssistant.phone_number.trim()) {
+      const phoneValidation = validatePhone(newAssistant.phone_number, false);
+      if (!phoneValidation.valid) {
+        alert(phoneValidation.error);
+        return;
+      }
+    }
+
+    // 验证班级选择
     if (selectedClassIds.length === 0) {
       alert('请至少选择一个班级');
       return;
     }
 
     try {
-      const payload = { ...newAssistant, role: 'Assistant', class_ids: selectedClassIds };
+      const payload = {
+        username: newAssistant.username.trim(),
+        password: newAssistant.password,
+        full_name: newAssistant.full_name.trim(),
+        email: newAssistant.email.trim(),
+        phone_number: newAssistant.phone_number.trim() || null,
+        role: 'Assistant',
+        class_ids: selectedClassIds
+      };
       const createdAssistant = await apiClient.post('/assistants', payload);
       setAssistants(prev => [createdAssistant, ...prev]);
       resetCreateModal();
@@ -167,11 +214,39 @@ const AssistantManagement: React.FC = () => {
       
       <Modal isOpen={showCreateModal} onClose={resetCreateModal} title="创建新助教">
         <div className="space-y-4">
-          <input name="full_name" value={newAssistant.full_name} onChange={handleInputChange} placeholder="姓名" className="w-full p-2 border rounded" />
-          <input name="username" value={newAssistant.username} onChange={handleInputChange} placeholder="用户名" className="w-full p-2 border rounded" />
-          <input name="password" type="password" value={newAssistant.password} onChange={handleInputChange} placeholder="初始密码" className="w-full p-2 border rounded" />
-          <input name="email" type="email" value={newAssistant.email} onChange={handleInputChange} placeholder="邮箱" className="w-full p-2 border rounded" />
-          <input name="phone_number" value={newAssistant.phone_number} onChange={handleInputChange} placeholder="手机号 (可选)" className="w-full p-2 border rounded" />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              姓名 <span className="text-red-500">*</span>
+            </label>
+            <input name="full_name" value={newAssistant.full_name} onChange={handleInputChange} placeholder="例如：张老师" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" minLength={2} maxLength={20} required />
+            <p className="mt-1 text-xs text-gray-500">2-20个字符，允许中文和英文</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              用户名 <span className="text-red-500">*</span>
+            </label>
+            <input name="username" value={newAssistant.username} onChange={handleInputChange} placeholder="例如：zhang_assistant" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" minLength={3} maxLength={20} pattern="[a-zA-Z0-9_]+" required />
+            <p className="mt-1 text-xs text-gray-500">3-20个字符，只能包含英文、数字和下划线</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              初始密码 <span className="text-red-500">*</span>
+            </label>
+            <input name="password" type="password" value={newAssistant.password} onChange={handleInputChange} placeholder="至少6个字符" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" minLength={6} maxLength={20} required />
+            <p className="mt-1 text-xs text-gray-500">6-20个字符</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              邮箱 <span className="text-red-500">*</span>
+            </label>
+            <input name="email" type="email" value={newAssistant.email} onChange={handleInputChange} placeholder="example@email.com" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required />
+            <p className="mt-1 text-xs text-gray-500">用于接收系统通知</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">手机号（可选）</label>
+            <input name="phone_number" type="tel" value={newAssistant.phone_number} onChange={handleInputChange} placeholder="请输入11位手机号" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" pattern="1[3-9]\d{9}" />
+            <p className="mt-1 text-xs text-gray-500">请输入11位中国大陆手机号</p>
+          </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">分配班级</label>

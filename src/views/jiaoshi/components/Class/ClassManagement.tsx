@@ -5,6 +5,7 @@ import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
+import { validateClassName, validateClassCode } from '../../utils/validation';
 
 interface CreateClassForm {
   class_name: string;
@@ -123,54 +124,18 @@ const ClassManagement: React.FC = () => {
     }
   };
 
-  const validateClassName = (name: string): string | null => {
-    if (!name.trim()) {
-      return '班级名称不能为空';
-    }
-    if (name.trim().length < 2) {
-      return '班级名称至少需要2个字符';
-    }
-    if (name.trim().length > 50) {
-      return '班级名称不能超过50个字符';
-    }
-    // 检查是否包含特殊符号（允许中文、英文、数字、短横线、下划线）
-    const invalidChars = /[^\u4e00-\u9fa5a-zA-Z0-9\-_]/g;
-    if (invalidChars.test(name.trim())) {
-      return '班级名称不能包含特殊符号或空格';
-    }
-    return null;
-  };
-
-  const validateClassCode = (code: string): string | null => {
-    if (!code.trim()) {
-      return '班级代码不能为空';
-    }
-    if (code.trim().length < 2) {
-      return '班级代码至少需要2个字符';
-    }
-    if (code.trim().length > 20) {
-      return '班级代码不能超过20个字符';
-    }
-    // 班级代码只允许英文、数字、短横线、下划线（不允许空格和中文）
-    const validPattern = /^[a-zA-Z0-9\-_]+$/;
-    if (!validPattern.test(code.trim())) {
-      return '班级代码只能包含英文、数字、短横线和下划线';
-    }
-    return null;
-  };
-
   const handleCreate = async () => {
     // 验证班级名称
-    const nameError = validateClassName(formData.class_name);
-    if (nameError) {
-      alert(nameError);
+    const nameValidation = validateClassName(formData.class_name);
+    if (!nameValidation.valid) {
+      alert(nameValidation.error);
       return;
     }
 
     // 验证班级代码
-    const codeError = validateClassCode(formData.class_code);
-    if (codeError) {
-      alert(codeError);
+    const codeValidation = validateClassCode(formData.class_code);
+    if (!codeValidation.valid) {
+      alert(codeValidation.error);
       return;
     }
 
@@ -216,16 +181,16 @@ const ClassManagement: React.FC = () => {
     if (!selectedClass) return;
 
     // 验证班级名称
-    const nameError = validateClassName(formData.class_name);
-    if (nameError) {
-      alert(nameError);
+    const nameValidation = validateClassName(formData.class_name);
+    if (!nameValidation.valid) {
+      alert(nameValidation.error);
       return;
     }
 
     // 验证班级代码
-    const codeError = validateClassCode(formData.class_code);
-    if (codeError) {
-      alert(codeError);
+    const codeValidation = validateClassCode(formData.class_code);
+    if (!codeValidation.valid) {
+      alert(codeValidation.error);
       return;
     }
 

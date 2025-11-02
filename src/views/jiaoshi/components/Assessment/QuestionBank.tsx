@@ -4,6 +4,7 @@ import type { Question, QuestionTypeApi } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
+import { validateQuestionText, validateQuestionOption } from '../../utils/validation';
 
 type QuestionFormType = 'single' | 'multiple' | 'boolean';
 
@@ -333,12 +334,26 @@ const QuestionBank: React.FC = () => {
   };
 
   const canSubmit = () => {
-    if (!editorState.questionText.trim()) return false;
+    // 验证题目内容
+    const questionValidation = validateQuestionText(editorState.questionText);
+    if (!questionValidation.valid) return false;
+
+    // 验证知识点
     if (!editorState.knowledgePoint.trim()) return false;
+
+    // 验证正确答案
     if (editorState.correctAnswers.length === 0) return false;
+
     if (editorState.questionType !== 'boolean') {
       const filledOptions = editorState.options.filter((option) => option.value.trim());
       if (filledOptions.length < 2) return false;
+
+      // 验证每个选项内容
+      for (const option of filledOptions) {
+        const optionValidation = validateQuestionOption(option.value);
+        if (!optionValidation.valid) return false;
+      }
+
       const filledKeys = new Set(filledOptions.map((option) => option.key));
       if (!editorState.correctAnswers.every((answer) => filledKeys.has(answer))) return false;
       if (editorState.questionType === 'single' && editorState.correctAnswers.length !== 1) return false;
@@ -349,7 +364,47 @@ const QuestionBank: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    if (!canSubmit()) return;
+    // 提交前验证题目内容
+    const questionValidation = validateQuestionText(editorState.questionText);
+    if (!questionValidation.valid) {
+      alert(questionValidation.error);
+      return;
+    }
+
+    // 验证知识点
+    if (!editorState.knowledgePoint.trim()) {
+      alert('请选择知识点');
+      return;
+    }
+
+    // 验证选项（非判断题）
+    if (editorState.questionType !== 'boolean') {
+      const filledOptions = editorState.options.filter((option) => option.value.trim());
+      for (const option of filledOptions) {
+        const optionValidation = validateQuestionOption(option.value);
+        if (!optionValidation.valid) {
+          alert(`选项 ${option.key}: ${optionValidation.error}`);
+          return;
+        }
+      }
+
+      if (filledOptions.length < 2) {
+        alert('请至少填写2个选项');
+        return;
+      }
+    }
+
+    // 验证正确答案
+    if (editorState.correctAnswers.length === 0) {
+      alert('请选择正确答案');
+      return;
+    }
+
+    if (editorState.questionType === 'single' && editorState.correctAnswers.length !== 1) {
+      alert('单选题只能有一个正确答案');
+      return;
+    }
+
     const payload = buildPayload();
 
     try {
@@ -658,13 +713,22 @@ const QuestionBank: React.FC = () => {
       >
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">题目内容</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              题目内容 <span className="text-red-500">*</span>
+            </label>
             <textarea
               value={editorState.questionText}
               onChange={(event) => setEditorState((prev) => ({ ...prev, questionText: event.target.value }))}
               rows={3}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="请输入题目内容"
+              minLength={10}
+              maxLength={500}
+              required
             />
+            <p className="mt-1 text-xs text-gray-500">
+              10-500个字符
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -681,11 +745,14 @@ const QuestionBank: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">关联知识点</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                关联知识点 <span className="text-red-500">*</span>
+              </label>
               <select
                 value={editorState.knowledgePoint}
                 onChange={(event) => setEditorState((prev) => ({ ...prev, knowledgePoint: event.target.value }))}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                required
               >
                 <option value="">请选择知识点</option>
                 {knowledgePointOptions.map((point) => (
@@ -718,6 +785,8 @@ const QuestionBank: React.FC = () => {
                       value={option.value}
                       onChange={(event) => handleOptionChange(index, event.target.value)}
                       className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="请输入选项内容"
+                      maxLength={100}
                     />
                     {editorState.options.length > 2 && (
                       <button
@@ -735,10 +804,17 @@ const QuestionBank: React.FC = () => {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">正确答案</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              正确答案 <span className="text-red-500">*</span>
+            </label>
             <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
               {renderCorrectAnswerEditor()}
             </div>
+            <p className="mt-1 text-xs text-gray-500">
+              {editorState.questionType === 'single' && '请选择一个正确答案'}
+              {editorState.questionType === 'multiple' && '可以选择多个正确答案'}
+              {editorState.questionType === 'boolean' && '请选择正确或错误'}
+            </p>
           </div>
 
           <div className="flex justify-end space-x-3">

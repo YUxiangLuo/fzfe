@@ -98,12 +98,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           />
           <span className="text-white/80 text-sm">记住登录状态</span>
         </label>
-        <button
+        {/* <button
           type="button"
           className="text-blue-300 hover:text-blue-200 text-sm transition-colors"
         >
           忘记密码？
-        </button>
+        </button> */}
       </div>
 
       {/* 登录按钮 */}

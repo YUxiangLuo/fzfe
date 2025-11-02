@@ -5,6 +5,7 @@ import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
+import { validateUsername, validateFullName, validateEmail, validatePhone } from '../../utils/validation';
 
 interface NewStudentForm {
   username: string;
@@ -173,14 +174,36 @@ const StudentManagement: React.FC = () => {
       return;
     }
 
-    if (!newStudent.username.trim()) {
-      alert('请填写学号');
+    // 验证学号
+    const usernameValidation = validateUsername(newStudent.username);
+    if (!usernameValidation.valid) {
+      alert(usernameValidation.error);
       return;
     }
 
-    if (!newStudent.full_name.trim()) {
-      alert('请填写姓名');
+    // 验证姓名
+    const nameValidation = validateFullName(newStudent.full_name);
+    if (!nameValidation.valid) {
+      alert(nameValidation.error);
       return;
+    }
+
+    // 验证邮箱（可选）
+    if (newStudent.email.trim()) {
+      const emailValidation = validateEmail(newStudent.email, false);
+      if (!emailValidation.valid) {
+        alert(emailValidation.error);
+        return;
+      }
+    }
+
+    // 验证手机号（可选）
+    if (newStudent.phone_number.trim()) {
+      const phoneValidation = validatePhone(newStudent.phone_number, false);
+      if (!phoneValidation.valid) {
+        alert(phoneValidation.error);
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -469,8 +492,13 @@ const StudentManagement: React.FC = () => {
               onChange={(e) => setNewStudent(prev => ({ ...prev, username: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="例如：2021001"
+              minLength={3}
+              maxLength={20}
+              pattern="[a-zA-Z0-9_]+"
+              required
               disabled={isSubmitting}
             />
+            <p className="mt-1 text-xs text-gray-500">3-20个字符，只能包含英文、数字和下划线</p>
           </div>
 
           <div>
@@ -483,8 +511,12 @@ const StudentManagement: React.FC = () => {
               onChange={(e) => setNewStudent(prev => ({ ...prev, full_name: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="例如：张三"
+              minLength={2}
+              maxLength={50}
+              required
               disabled={isSubmitting}
             />
+            <p className="mt-1 text-xs text-gray-500">2-50个字符</p>
           </div>
 
           <div>
@@ -497,6 +529,7 @@ const StudentManagement: React.FC = () => {
               onChange={(e) => setNewStudent(prev => ({ ...prev, email: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="例如：zhangsan@example.com"
+              pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"
               disabled={isSubmitting}
             />
             <p className="mt-1 text-xs text-gray-500">
@@ -514,8 +547,10 @@ const StudentManagement: React.FC = () => {
               onChange={(e) => setNewStudent(prev => ({ ...prev, phone_number: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="例如：13800138000"
+              pattern="1[3-9]\d{9}"
               disabled={isSubmitting}
             />
+            <p className="mt-1 text-xs text-gray-500">11位数字，以1开头</p>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">

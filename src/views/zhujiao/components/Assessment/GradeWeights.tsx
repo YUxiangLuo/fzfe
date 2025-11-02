@@ -5,6 +5,7 @@ import Button from '../Common/Button';
 import Modal from '../Common/Modal';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
+import { validatePercentage } from '../../utils/validation';
 
 type FlowKey = keyof Pick<GradeWeightsApi,
   'exp_flow_demand_data_preparation' |
@@ -192,12 +193,31 @@ const GradeWeights: React.FC = () => {
       alert('请先选择一个班级。');
       return;
     }
+
+    // 验证每个一级权重的百分比值
+    for (const item of TOP_LEVEL_ITEMS) {
+      const validation = validatePercentage(tempWeights[item.key]);
+      if (!validation.valid) {
+        alert(`${item.label}：${validation.error}`);
+        return;
+      }
+    }
+
+    // 验证每个流程步骤的百分比值
+    for (const item of FLOW_ITEMS) {
+      const validation = validatePercentage(tempWeights[item.key]);
+      if (!validation.valid) {
+        alert(`${item.label}：${validation.error}`);
+        return;
+      }
+    }
+
     if (topLevelTotal !== 100) {
-      alert('一级权重总和必须为 100%。');
+      alert(`一级权重总和必须为 100%，当前总和为 ${topLevelTotal}%。`);
       return;
     }
     if (flowTotal !== 100) {
-      alert('实验流程子项权重总和必须为 100%。');
+      alert(`实验流程子项权重总和必须为 100%，当前总和为 ${flowTotal}%。`);
       return;
     }
 
@@ -249,10 +269,12 @@ const GradeWeights: React.FC = () => {
                   type="number"
                   min="0"
                   max="100"
+                  step="1"
                   value={tempWeights[item.key]}
                   onChange={(event) => handleTopLevelChange(item.key, Number(event.target.value) || 0)}
                   className="w-16 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isLoading}
+                  required
                 />
                 <span className="text-sm text-gray-600">%</span>
               </div>
@@ -285,10 +307,12 @@ const GradeWeights: React.FC = () => {
                 type="number"
                 min="0"
                 max="100"
+                step="1"
                 value={tempWeights[item.key]}
                 onChange={(event) => handleFlowChange(item.key, Number(event.target.value) || 0)}
                 className="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 disabled={isLoading}
+                required
               />
               <span className="text-sm text-gray-500">%</span>
             </div>

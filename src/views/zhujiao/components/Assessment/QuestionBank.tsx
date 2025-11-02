@@ -4,6 +4,7 @@ import type { Question, QuestionTypeApi } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
+import { validateQuestionText, validateOption } from '../../utils/validation';
 
 type QuestionFormType = 'single' | 'multiple' | 'boolean';
 
@@ -350,6 +351,27 @@ const QuestionBank: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!canSubmit()) return;
+
+    // 验证题目内容
+    const questionValidation = validateQuestionText(editorState.questionText);
+    if (!questionValidation.valid) {
+      alert(questionValidation.error);
+      return;
+    }
+
+    // 验证选项内容（非判断题）
+    if (editorState.questionType !== 'boolean') {
+      for (const option of editorState.options) {
+        if (option.value.trim()) {
+          const optionValidation = validateOption(option.value);
+          if (!optionValidation.valid) {
+            alert(`选项${option.key}：${optionValidation.error}`);
+            return;
+          }
+        }
+      }
+    }
+
     const payload = buildPayload();
 
     try {
@@ -658,13 +680,20 @@ const QuestionBank: React.FC = () => {
       >
         <div className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">题目内容</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              题目内容 <span className="text-red-500">*</span>
+            </label>
             <textarea
               value={editorState.questionText}
               onChange={(event) => setEditorState((prev) => ({ ...prev, questionText: event.target.value }))}
               rows={3}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              minLength={10}
+              maxLength={500}
+              required
+              placeholder="请输入题目内容，10-500个字符"
             />
+            <p className="mt-1 text-xs text-gray-500">10-500个字符</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -718,6 +747,9 @@ const QuestionBank: React.FC = () => {
                       value={option.value}
                       onChange={(event) => handleOptionChange(index, event.target.value)}
                       className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      minLength={1}
+                      maxLength={100}
+                      placeholder="1-100个字符"
                     />
                     {editorState.options.length > 2 && (
                       <button

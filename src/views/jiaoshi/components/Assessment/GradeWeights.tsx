@@ -5,6 +5,7 @@ import Button from '../Common/Button';
 import Modal from '../Common/Modal';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
+import { validatePercentage } from '../../utils/validation';
 
 type FlowKey = keyof Pick<GradeWeightsApi,
   'exp_flow_demand_data_preparation' |
@@ -164,10 +165,20 @@ const GradeWeights: React.FC = () => {
   const flowTotal = useMemo(() => FLOW_ITEMS.reduce((sum, item) => sum + (tempWeights[item.key] ?? 0), 0), [tempWeights]);
 
   const handleTopLevelChange = (key: TopLevelKey, value: number) => {
+    // 验证百分比范围
+    const validation = validatePercentage(value, '权重');
+    if (!validation.valid) {
+      return; // 不更新无效值
+    }
     setTempWeights((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleFlowChange = (key: FlowKey, value: number) => {
+    // 验证百分比范围
+    const validation = validatePercentage(value, '权重');
+    if (!validation.valid) {
+      return; // 不更新无效值
+    }
     setTempWeights((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -189,15 +200,32 @@ const GradeWeights: React.FC = () => {
 
   const saveWeights = async () => {
     if (!selectedClassId) {
-      alert('请先选择一个班级。');
+      alert('请先选择一个班级');
       return;
     }
+
+    // 验证所有权重值的范围
+    const allWeights: [string, number][] = [
+      ['实验流程', tempWeights.exp_flow_weight],
+      ['知识点测试', tempWeights.knowledge_test_weight],
+      ['模型质量', tempWeights.model_quality_weight],
+      ['实验报告质量', tempWeights.report_quality_weight],
+    ];
+
+    for (const [name, value] of allWeights) {
+      const validation = validatePercentage(value, name);
+      if (!validation.valid) {
+        alert(validation.error);
+        return;
+      }
+    }
+
     if (topLevelTotal !== 100) {
-      alert('一级权重总和必须为 100%。');
+      alert(`一级权重总和必须为 100%，当前为 ${topLevelTotal}%`);
       return;
     }
     if (flowTotal !== 100) {
-      alert('实验流程子项权重总和必须为 100%。');
+      alert(`实验流程子项权重总和必须为 100%，当前为 ${flowTotal}%`);
       return;
     }
 
@@ -239,20 +267,24 @@ const GradeWeights: React.FC = () => {
                 type="range"
                 min="0"
                 max="100"
+                step="1"
                 value={tempWeights[item.key]}
                 onChange={(event) => handleTopLevelChange(item.key, Number(event.target.value))}
                 className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                 disabled={isLoading}
+                aria-label={`${item.label}权重滑块`}
               />
               <div className="flex items-center space-x-2">
                 <input
                   type="number"
                   min="0"
                   max="100"
+                  step="1"
                   value={tempWeights[item.key]}
                   onChange={(event) => handleTopLevelChange(item.key, Number(event.target.value) || 0)}
                   className="w-16 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={isLoading}
+                  aria-label={`${item.label}权重输入`}
                 />
                 <span className="text-sm text-gray-600">%</span>
               </div>
@@ -285,10 +317,12 @@ const GradeWeights: React.FC = () => {
                 type="number"
                 min="0"
                 max="100"
+                step="1"
                 value={tempWeights[item.key]}
                 onChange={(event) => handleFlowChange(item.key, Number(event.target.value) || 0)}
                 className="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 disabled={isLoading}
+                aria-label={`${item.label}权重输入`}
               />
               <span className="text-sm text-gray-500">%</span>
             </div>
@@ -297,10 +331,12 @@ const GradeWeights: React.FC = () => {
             type="range"
             min="0"
             max="100"
+            step="1"
             value={tempWeights[item.key]}
             onChange={(event) => handleFlowChange(item.key, Number(event.target.value))}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
             disabled={isLoading}
+            aria-label={`${item.label}权重滑块`}
           />
         </div>
       ))}
