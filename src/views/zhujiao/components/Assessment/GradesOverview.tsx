@@ -107,8 +107,8 @@ const GradesOverview: React.FC = () => {
     const query = debouncedSearch.toLowerCase();
     return grades.filter(
       (grade) =>
-        grade.student_full_name.toLowerCase().includes(query) ||
-        grade.student_username.toLowerCase().includes(query),
+        grade.full_name.toLowerCase().includes(query) ||
+        grade.username.toLowerCase().includes(query),
     );
   }, [grades, debouncedSearch]);
 
@@ -122,9 +122,9 @@ const GradesOverview: React.FC = () => {
       };
     }
 
-    const finalGrades = grades.map(g => g.final_grade);
+    const finalGrades = grades.map(g => g.final_score);
     const sum = finalGrades.reduce((acc, grade) => acc + grade, 0);
-    const passCount = grades.filter((grade) => grade.final_grade >= 60).length;
+    const passCount = grades.filter((grade) => grade.final_score >= 60).length;
 
     return {
       avgFinalGrade: parseFloat((sum / grades.length).toFixed(2)),
@@ -137,7 +137,7 @@ const GradesOverview: React.FC = () => {
   const scoreDistribution = useMemo(() => {
     const distribution = { excellent: 0, good: 0, average: 0, pass: 0, fail: 0 };
     grades.forEach((grade) => {
-      const score = grade.final_grade;
+      const score = grade.final_score;
       if (score >= 90) distribution.excellent += 1;
       else if (score >= 80) distribution.good += 1;
       else if (score >= 70) distribution.average += 1;
@@ -248,7 +248,7 @@ const GradesOverview: React.FC = () => {
                 <tr><td colSpan={9} className="text-center py-10 text-gray-500">无数据显示。</td></tr>
               ) : (
                 filteredGrades.map((grade, index) => {
-                  const total = grade.final_grade;
+                  const total = grade.final_score;
                   const badge = total >= 90 ? { text: '优秀', color: 'bg-blue-100 text-blue-800' }
                                 : total >= 80 ? { text: '良好', color: 'bg-green-100 text-green-800' }
                                 : total >= 70 ? { text: '中等', color: 'bg-yellow-100 text-yellow-800' }
@@ -257,13 +257,13 @@ const GradesOverview: React.FC = () => {
                   return (
                     <tr key={grade.student_id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">{grade.student_full_name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{grade.student_username}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{grade.exp_flow_grade}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{grade.knowledge_test_grade}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{grade.model_quality_grade}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{grade.report_quality_grade}</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">{grade.final_grade}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">{grade.full_name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{grade.username}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{grade.exp_flow_score.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{grade.knowledge_test !== null ? grade.knowledge_test.toFixed(2) : '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{grade.model_quality !== null ? grade.model_quality.toFixed(2) : '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{grade.report_quality !== null ? grade.report_quality.toFixed(2) : '—'}</td>
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">{grade.final_score.toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>{badge.text}</span>
                       </td>

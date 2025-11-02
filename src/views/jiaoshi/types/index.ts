@@ -60,13 +60,14 @@ export interface GradeWeights {
 
 export interface StudentGradeOverview {
   student_id: number;
-  student_username: string;
-  student_full_name: string;
-  exp_flow_grade: number;
-  model_quality_grade: number;
-  report_quality_grade: number;
-  knowledge_test_grade: number;
-  final_grade: number;
+  username: string;
+  full_name: string;
+  experiment_id: number;
+  exp_flow_score: number;
+  model_quality: number | null;
+  knowledge_test: number | null;
+  report_quality: number | null;
+  final_score: number;
 }
 
 export type QuestionTypeApi = 'Single Choice' | 'Multiple Choice' | 'True/False';
