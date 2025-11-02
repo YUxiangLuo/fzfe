@@ -62,12 +62,12 @@ export interface StudentGradeOverview {
   student_id: number;
   username: string;
   full_name: string;
-  experiment_id: number;
-  exp_flow_score: number;
+  experiment_id: number | null;
+  exp_flow_score: number | null;
   model_quality: number | null;
   knowledge_test: number | null;
   report_quality: number | null;
-  final_score: number;
+  final_score: number | null;
 }
 
 export type QuestionTypeApi = 'Single Choice' | 'Multiple Choice' | 'True/False';
