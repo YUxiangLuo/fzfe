@@ -13,6 +13,60 @@ import { apiClient } from "../../../utils/apiClient";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig";
 import Modal from "./Modal";
 
+const DATASET_NAME_MIN_LENGTH = 2;
+const MAX_DATASET_NAME_LENGTH = 100;
+const MAX_DATASET_NOTES_LENGTH = 200;
+const MAX_DATASET_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const ALLOWED_DATASET_EXTENSIONS = [
+  ".zip",
+  ".csv",
+  ".xlsx",
+  ".xls",
+  ".json",
+  ".txt",
+];
+
+const getDatasetNameError = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "数据集名称不能为空";
+  if (trimmed.length < DATASET_NAME_MIN_LENGTH)
+    return `数据集名称至少需要${DATASET_NAME_MIN_LENGTH}个字符`;
+  if (trimmed.length > MAX_DATASET_NAME_LENGTH)
+    return `数据集名称不能超过${MAX_DATASET_NAME_LENGTH}个字符`;
+  return "";
+};
+
+const getDatasetNotesError = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed.length > MAX_DATASET_NOTES_LENGTH)
+    return `备注不能超过${MAX_DATASET_NOTES_LENGTH}个字符`;
+  return "";
+};
+
+const getDatasetFileError = (file: File | null) => {
+  if (!file) return "请上传数据文件";
+  const extension = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
+  if (extension && !ALLOWED_DATASET_EXTENSIONS.includes(extension)) {
+    return "不支持的文件格式，请上传常见数据文件";
+  }
+  if (file.size > MAX_DATASET_FILE_SIZE) {
+    return "文件大小不能超过50MB";
+  }
+  return "";
+};
+
+const INITIAL_UPLOAD_ERRORS = {
+  name: "",
+  notes: "",
+  file: "",
+} as const;
+
+const INITIAL_EDIT_ERRORS = {
+  name: "",
+  notes: "",
+} as const;
+
 const ExperimentDataView: React.FC = () => {
   const [datasets, setDatasets] = useState<ExperimentData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,6 +80,62 @@ const ExperimentDataView: React.FC = () => {
   const [datasetName, setDatasetName] = useState("");
   const [datasetNotes, setDatasetNotes] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadErrors, setUploadErrors] = useState({
+    ...INITIAL_UPLOAD_ERRORS,
+  });
+  const [editErrors, setEditErrors] = useState({
+    ...INITIAL_EDIT_ERRORS,
+  });
+
+  const handleDatasetNameChange = (value: string) => {
+    setDatasetName(value);
+    setUploadErrors((prev) => ({
+      ...prev,
+      name: getDatasetNameError(value),
+    }));
+  };
+
+  const handleDatasetNotesChange = (value: string) => {
+    setDatasetNotes(value);
+    setUploadErrors((prev) => ({
+      ...prev,
+      notes: getDatasetNotesError(value),
+    }));
+  };
+
+  const handleDatasetFileChange = (file: File | null) => {
+    setUploadFile(file);
+    setUploadErrors((prev) => ({
+      ...prev,
+      file: getDatasetFileError(file),
+    }));
+  };
+
+  const handleEditDatasetNameChange = (value: string) => {
+    setEditingData((prev) => (prev ? { ...prev, data_name: value } : null));
+    setEditErrors((prev) => ({
+      ...prev,
+      name: getDatasetNameError(value),
+    }));
+  };
+
+  const handleEditDatasetNotesChange = (value: string) => {
+    setEditingData((prev) => (prev ? { ...prev, description: value } : null));
+    setEditErrors((prev) => ({
+      ...prev,
+      notes: getDatasetNotesError(value),
+    }));
+  };
+
+  const isUploadFormValid =
+    datasetName.trim() !== "" &&
+    uploadFile !== null &&
+    Object.values(uploadErrors).every((error) => error === "");
+
+  const isEditFormValid =
+    !!editingData &&
+    editingData.data_name.trim() !== "" &&
+    Object.values(editErrors).every((error) => error === "");
 
   useEffect(() => {
     const fetchDatasets = async () => {
@@ -55,16 +165,21 @@ const ExperimentDataView: React.FC = () => {
   };
 
   const handleUpload = async () => {
-    if (!uploadFile || !datasetName) {
-      alert("请填写数据集名称并选择文件");
+    const nameError = getDatasetNameError(datasetName);
+    const fileError = getDatasetFileError(uploadFile);
+    const notesError = getDatasetNotesError(datasetNotes);
+
+    setUploadErrors({ name: nameError, file: fileError, notes: notesError });
+
+    if (nameError || fileError || notesError) {
       return;
     }
 
     setIsUploading(true);
     const formData = new FormData();
     formData.append("file", uploadFile);
-    formData.append("data_name", datasetName);
-    formData.append("description", datasetNotes);
+    formData.append("data_name", datasetName.trim());
+    formData.append("description", datasetNotes.trim());
 
     try {
       const newDataset = await apiClient.postFormData("/datasets", formData);
@@ -79,12 +194,16 @@ const ExperimentDataView: React.FC = () => {
 
   const handleSaveEdit = async () => {
     if (!editingData) return;
+    const nameError = getDatasetNameError(editingData.data_name);
+    const notesError = getDatasetNotesError(editingData.description || "");
+    setEditErrors({ name: nameError, notes: notesError });
+    if (nameError || notesError) return;
     try {
       const updatedDataset = await apiClient.put(
         `/datasets/${editingData.dataset_id}`,
         {
-          data_name: editingData.data_name,
-          description: editingData.description,
+          data_name: editingData.data_name.trim(),
+          description: (editingData.description || "").trim(),
         },
       );
       setDatasets((prev) =>
@@ -92,7 +211,7 @@ const ExperimentDataView: React.FC = () => {
           d.dataset_id === updatedDataset.dataset_id ? updatedDataset : d,
         ),
       );
-      setIsEditModalOpen(false);
+      closeEditModal();
     } catch (err: any) {
       alert(`保存失败: ${err.message}`);
     }
@@ -110,6 +229,21 @@ const ExperimentDataView: React.FC = () => {
     setUploadFile(null);
     setDatasetName("");
     setDatasetNotes("");
+    setUploadErrors({ ...INITIAL_UPLOAD_ERRORS });
+  };
+
+  const openUploadModal = () => {
+    setDatasetName("");
+    setDatasetNotes("");
+    setUploadFile(null);
+    setUploadErrors({ ...INITIAL_UPLOAD_ERRORS });
+    setIsUploadModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingData(null);
+    setEditErrors({ ...INITIAL_EDIT_ERRORS });
   };
 
   const renderTableBody = () => {
@@ -157,7 +291,8 @@ const ExperimentDataView: React.FC = () => {
           <div className="flex items-center space-x-1">
             <button
               onClick={() => {
-                setEditingData(data);
+                setEditingData({ ...data });
+                setEditErrors({ ...INITIAL_EDIT_ERRORS });
                 setIsEditModalOpen(true);
               }}
               className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg"
@@ -195,7 +330,7 @@ const ExperimentDataView: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => setIsUploadModalOpen(true)}
+          onClick={openUploadModal}
           className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-lg"
         >
           <Plus size={18} />
@@ -244,10 +379,13 @@ const ExperimentDataView: React.FC = () => {
               type="text"
               id="dataset-name"
               value={datasetName}
-              onChange={(e) => setDatasetName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              onChange={(e) => handleDatasetNameChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="例如：苹果公司2023年销售数据"
             />
+            {uploadErrors.name && (
+              <p className="mt-1 text-xs text-red-500">{uploadErrors.name}</p>
+            )}
           </div>
           <div>
             <label
@@ -259,11 +397,14 @@ const ExperimentDataView: React.FC = () => {
             <textarea
               id="dataset-notes"
               value={datasetNotes}
-              onChange={(e) => setDatasetNotes(e.target.value)}
+              onChange={(e) => handleDatasetNotesChange(e.target.value)}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               placeholder="例如：包含了iPhone, iPad等产品的季度销售数据"
             ></textarea>
+            {uploadErrors.notes && (
+              <p className="mt-1 text-xs text-red-500">{uploadErrors.notes}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -303,20 +444,20 @@ const ExperimentDataView: React.FC = () => {
               上传数据文件
             </label>
             <label
-              htmlFor="file-upload"
+              htmlFor="dataset-file-upload"
               className="cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400"
             >
               <Upload size={48} className="mx-auto text-gray-400 mb-4" />
               <input
                 type="file"
-                accept=".csv, .xlsx"
-                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                accept={ALLOWED_DATASET_EXTENSIONS.join(",")}
+                onChange={(e) => handleDatasetFileChange(e.target.files?.[0] || null)}
                 className="hidden"
-                id="file-upload"
+                id="dataset-file-upload"
               />
               <p className="text-blue-600 font-medium">点击或拖拽文件到此处</p>
               <p className="text-sm text-gray-500 mt-2">
-                支持CSV, Excel等格式，文件大小不超过20MB
+                支持CSV、Excel、ZIP等常见格式，文件大小不超过50MB
               </p>
               {uploadFile && (
                 <p className="text-sm text-green-600 mt-2 font-semibold">
@@ -324,6 +465,9 @@ const ExperimentDataView: React.FC = () => {
                 </p>
               )}
             </label>
+            {uploadErrors.file && (
+              <p className="mt-2 text-xs text-red-500">{uploadErrors.file}</p>
+            )}
           </div>
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <button
@@ -334,7 +478,7 @@ const ExperimentDataView: React.FC = () => {
             </button>
             <button
               onClick={handleUpload}
-              disabled={!uploadFile || !datasetName || isUploading}
+              disabled={!isUploadFormValid || isUploading}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
             >
               {isUploading && (
@@ -348,7 +492,7 @@ const ExperimentDataView: React.FC = () => {
 
       <Modal
         isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
+        onClose={closeEditModal}
         title="修改实验数据"
       >
         {editingData && (
@@ -360,13 +504,12 @@ const ExperimentDataView: React.FC = () => {
               <input
                 type="text"
                 value={editingData.data_name}
-                onChange={(e) =>
-                  setEditingData((prev) =>
-                    prev ? { ...prev, data_name: e.target.value } : null,
-                  )
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                onChange={(e) => handleEditDatasetNameChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
+              {editErrors.name && (
+                <p className="mt-1 text-xs text-red-500">{editErrors.name}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -375,24 +518,24 @@ const ExperimentDataView: React.FC = () => {
               <textarea
                 rows={3}
                 value={editingData.description || ""}
-                onChange={(e) =>
-                  setEditingData((prev) =>
-                    prev ? { ...prev, description: e.target.value } : null,
-                  )
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                onChange={(e) => handleEditDatasetNotesChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               ></textarea>
+              {editErrors.notes && (
+                <p className="mt-1 text-xs text-red-500">{editErrors.notes}</p>
+              )}
             </div>
             <div className="flex justify-end space-x-3 pt-4 border-t">
               <button
-                onClick={() => setIsEditModalOpen(false)}
+                onClick={closeEditModal}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 取消
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                disabled={!isEditFormValid}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 保存修改
               </button>

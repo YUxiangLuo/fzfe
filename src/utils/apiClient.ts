@@ -51,9 +51,7 @@ const handleResponse = async <T = any>(response: Response, endpoint: string): Pr
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    console.error(response.status);
-    console.error(data);
-    throw new Error(response.status + "");
+    throw new Error(JSON.stringify(data));
   }
 
   return data as T;

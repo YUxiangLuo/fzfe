@@ -1,10 +1,39 @@
 import React, { useState, useEffect } from "react";
-import { Edit, Loader, AlertTriangle, Trash2 } from "lucide-react";
+import { Edit, Loader, AlertTriangle, Trash2, Upload } from "lucide-react";
 import type { User } from "../types";
 import { apiClient } from "../../../utils/apiClient";
 import { decodeToken } from "../../../utils/auth";
 import Modal from "./Modal";
 import Pagination from "./Pagination";
+import {
+  validateEmail,
+  validateFullName,
+  validatePassword,
+  validateUsername,
+} from "../../jiaoshi/utils/validation";
+
+const PAGE_LIMIT = 10;
+
+const INITIAL_TEACHER_FORM = {
+  username: "",
+  full_name: "",
+  email: "",
+} as const;
+
+const INITIAL_TEACHER_ERRORS = {
+  username: "",
+  full_name: "",
+  email: "",
+} as const;
+
+const INITIAL_PASSWORD_ERRORS = {
+  newPassword: "",
+  confirmPassword: "",
+} as const;
+
+const INITIAL_BATCH_ERRORS = {
+  file: "",
+} as const;
 
 interface PaginationInfo {
   currentPage: number;
@@ -19,12 +48,15 @@ const UserManagement: React.FC = () => {
   const [paginationInfo, setPaginationInfo] = useState<PaginationInfo | null>(
     null,
   );
-  const PAGE_LIMIT = 10;
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordErrors, setPasswordErrors] = useState({
+    ...INITIAL_PASSWORD_ERRORS,
+  });
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentAdminId, setCurrentAdminId] = useState<number | null>(null);
@@ -32,10 +64,15 @@ const UserManagement: React.FC = () => {
   const [isAddTeacherModalOpen, setIsAddTeacherModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newTeacherData, setNewTeacherData] = useState({
-    username: "",
-    full_name: "",
-    email: "",
+    ...INITIAL_TEACHER_FORM,
   });
+  const [teacherErrors, setTeacherErrors] = useState({
+    ...INITIAL_TEACHER_ERRORS,
+  });
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [batchFile, setBatchFile] = useState<File | null>(null);
+  const [batchErrors, setBatchErrors] = useState({ ...INITIAL_BATCH_ERRORS });
+  const [isBatchSubmitting, setIsBatchSubmitting] = useState(false);
 
   const roleLabels: { [key: string]: string } = {
     student: "学生",
@@ -43,6 +80,150 @@ const UserManagement: React.FC = () => {
     assistant: "助教",
     admin: "管理员",
   };
+
+  const getTeacherFieldError = (
+    field: keyof typeof INITIAL_TEACHER_FORM,
+    value: string,
+  ) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      switch (field) {
+        case "username":
+          return "请输入用户名";
+        case "full_name":
+          return "请输入姓名";
+        case "email":
+        default:
+          return "请输入邮箱";
+      }
+    }
+
+    switch (field) {
+      case "username": {
+        const result = validateUsername(trimmed);
+        return result.valid ? "" : result.error ?? "用户名格式不正确";
+      }
+      case "full_name": {
+        const result = validateFullName(trimmed);
+        return result.valid ? "" : result.error ?? "姓名格式不正确";
+      }
+      case "email":
+      default: {
+        const result = validateEmail(trimmed, true);
+        return result.valid ? "" : result.error ?? "邮箱格式不正确";
+      }
+    }
+  };
+
+  const handleTeacherFieldChange = (
+    field: keyof typeof INITIAL_TEACHER_FORM,
+    value: string,
+  ) => {
+    setNewTeacherData((prev) => ({ ...prev, [field]: value }));
+    setTeacherErrors((prev) => ({
+      ...prev,
+      [field]: getTeacherFieldError(field, value),
+    }));
+  };
+
+  const getNewPasswordError = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "请输入新密码";
+    const result = validatePassword(trimmed, { minLength: 6 });
+    return result.valid ? "" : result.error ?? "密码至少需要6位";
+  };
+
+  const getConfirmPasswordError = (confirmValue: string, password: string) => {
+    const trimmed = confirmValue.trim();
+    if (!trimmed) return "请再次输入新密码";
+    if (trimmed !== password.trim()) return "两次输入的密码不一致";
+    return "";
+  };
+
+  const handleNewPasswordChange = (value: string) => {
+    setNewPassword(value);
+    const newPasswordError = getNewPasswordError(value);
+    const confirmError = getConfirmPasswordError(confirmPassword, value);
+    setPasswordErrors({ newPassword: newPasswordError, confirmPassword: confirmError });
+  };
+
+  const handleConfirmPasswordChange = (value: string) => {
+    setConfirmPassword(value);
+    setPasswordErrors((prev) => ({
+      ...prev,
+      confirmPassword: getConfirmPasswordError(value, newPassword),
+    }));
+  };
+
+  const resetPasswordForm = () => {
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordErrors({ ...INITIAL_PASSWORD_ERRORS });
+    setIsSavingPassword(false);
+  };
+
+  const openPasswordModal = (user: User) => {
+    setSelectedUser(user);
+    resetPasswordForm();
+    setIsPasswordModalOpen(true);
+  };
+
+  const closePasswordModal = () => {
+    resetPasswordForm();
+    setSelectedUser(null);
+    setIsPasswordModalOpen(false);
+  };
+
+  const openAddTeacherModal = () => {
+    setNewTeacherData({ ...INITIAL_TEACHER_FORM });
+    setTeacherErrors({ ...INITIAL_TEACHER_ERRORS });
+    setIsAddTeacherModalOpen(true);
+  };
+
+  const closeAddTeacherModal = () => {
+    setIsAddTeacherModalOpen(false);
+    setIsSubmitting(false);
+    setNewTeacherData({ ...INITIAL_TEACHER_FORM });
+    setTeacherErrors({ ...INITIAL_TEACHER_ERRORS });
+  };
+
+  const isTeacherFormValid =
+    newTeacherData.username.trim() !== "" &&
+    newTeacherData.full_name.trim() !== "" &&
+    newTeacherData.email.trim() !== "" &&
+    Object.values(teacherErrors).every((error) => error === "");
+
+  const isPasswordFormValid =
+    newPassword.trim() !== "" &&
+    confirmPassword.trim() !== "" &&
+    passwordErrors.newPassword === "" &&
+    passwordErrors.confirmPassword === "";
+
+  const openBatchModal = () => {
+    setBatchFile(null);
+    setBatchErrors({ ...INITIAL_BATCH_ERRORS });
+    setIsBatchModalOpen(true);
+  };
+
+  const closeBatchModal = () => {
+    setIsBatchModalOpen(false);
+    setIsBatchSubmitting(false);
+    setBatchFile(null);
+    setBatchErrors({ ...INITIAL_BATCH_ERRORS });
+  };
+
+  const handleBatchFileChange = (file: File | null) => {
+    setBatchFile(file);
+    setBatchErrors({
+      file: !file
+        ? "请上传CSV文件"
+        : file.name.toLowerCase().endsWith('.csv')
+        ? ""
+        : "仅支持上传CSV格式文件",
+    });
+  };
+
+  const isBatchFormValid = batchFile !== null && batchErrors.file === "";
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -71,18 +252,24 @@ const UserManagement: React.FC = () => {
   }, [currentPage]);
 
   const handlePasswordConfirm = async () => {
-    if (newPassword !== confirmPassword) return alert("两次输入的密码不一致！");
-    if (newPassword.length < 6) return alert("密码长度至少为6位！");
+    const newPasswordError = getNewPasswordError(newPassword);
+    const confirmError = getConfirmPasswordError(confirmPassword, newPassword);
+    setPasswordErrors({ newPassword: newPasswordError, confirmPassword: confirmError });
+
+    if (newPasswordError || confirmError) return;
     if (!selectedUser) return;
 
     try {
+      setIsSavingPassword(true);
       await apiClient.put(`/users/${selectedUser.user_id}/password`, {
-        newPassword,
+        newPassword: newPassword.trim(),
       });
       alert(`已成功为用户 ${selectedUser.full_name} 重置密码`);
-      setIsPasswordModalOpen(false);
+      closePasswordModal();
     } catch (error: any) {
       alert(`密码重置失败: ${error.message}`);
+    } finally {
+      setIsSavingPassword(false);
     }
   };
 
@@ -107,19 +294,70 @@ const UserManagement: React.FC = () => {
   };
 
   const handleCreateTeacher = async () => {
-    if (!newTeacherData.username.trim() || !newTeacherData.full_name.trim() || !newTeacherData.email.trim()) {
-      alert("请填写所有必填字段。");
+    const usernameError = getTeacherFieldError("username", newTeacherData.username);
+    const fullNameError = getTeacherFieldError("full_name", newTeacherData.full_name);
+    const emailError = getTeacherFieldError("email", newTeacherData.email);
+
+    setTeacherErrors({
+      username: usernameError,
+      full_name: fullNameError,
+      email: emailError,
+    });
+
+    if (usernameError || fullNameError || emailError) {
       return;
     }
+
     setIsSubmitting(true);
     try {
-      await apiClient.post<User>("/users/teachers", newTeacherData);
-      setIsAddTeacherModalOpen(false);
-      setNewTeacherData({ username: "", full_name: "", email: "" });
+      await apiClient.post<User>("/users/teachers", {
+        username: newTeacherData.username.trim(),
+        full_name: newTeacherData.full_name.trim(),
+        email: newTeacherData.email.trim(),
+      });
+      alert("教师添加成功！");
+      closeAddTeacherModal();
+      const response = await apiClient.get(
+        `/users?page=${currentPage}&limit=${PAGE_LIMIT}`,
+      );
+      setUsers(response.data || []);
+      setPaginationInfo(response.pagination);
     } catch (err: any) {
       alert(`添加教师失败: ${err.message}`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleBatchSubmit = async () => {
+    if (!batchFile) {
+      setBatchErrors({ file: "请上传CSV文件" });
+      return;
+    }
+
+    const fileName = batchFile.name.toLowerCase();
+    if (!fileName.endsWith(".csv")) {
+      setBatchErrors({ file: "仅支持上传CSV格式文件" });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", batchFile);
+
+    try {
+      setIsBatchSubmitting(true);
+      await apiClient.postFormData("/users/teachers/batch", formData);
+      alert("批量添加教师成功！");
+      closeBatchModal();
+      const response = await apiClient.get(
+        `/users?page=${currentPage}&limit=${PAGE_LIMIT}`,
+      );
+      setUsers(response.data || []);
+      setPaginationInfo(response.pagination);
+    } catch (err: any) {
+      alert(`批量添加失败: ${err.message}`);
+    } finally {
+      setIsBatchSubmitting(false);
     }
   };
 
@@ -180,10 +418,7 @@ const UserManagement: React.FC = () => {
           <td className="px-6 py-4">
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => {
-                  setSelectedUser(user);
-                  setIsPasswordModalOpen(true);
-                }}
+                onClick={() => openPasswordModal(user)}
                 disabled={isCurrentUser}
                 title={isCurrentUser ? "不能在此处修改自己的密码" : "修改密码"}
                 className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 ${isCurrentUser ? "text-gray-400 bg-gray-100 cursor-not-allowed" : "text-blue-600 hover:bg-blue-100"}`}
@@ -209,20 +444,33 @@ const UserManagement: React.FC = () => {
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-800">用户列表</h2>
-          <button
-            onClick={() => setIsAddTeacherModalOpen(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-          >
-            <Edit size={16} />
-            <span>添加教师</span>
-          </button>
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-800">用户列表</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              查看系统用户，并支持新增教师、重置密码与删除操作
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-3">
+            <button
+              onClick={openAddTeacherModal}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              <Edit size={16} />
+              <span>添加教师</span>
+            </button>
+            <button
+              onClick={openBatchModal}
+              className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+            >
+              <Upload size={16} />
+              <span>批量添加教师</span>
+            </button>
+          </div>
         </div>
 
-        {/* Users Table */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
               <tr>
@@ -250,20 +498,23 @@ const UserManagement: React.FC = () => {
               {renderTableContent()}
             </tbody>
           </table>
-          {paginationInfo && (
+        </div>
+
+        {paginationInfo && (
+          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
             <Pagination
               currentPage={paginationInfo.currentPage}
               totalPages={paginationInfo.totalPages}
               onPageChange={setCurrentPage}
             />
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Password Modal */}
       <Modal
         isOpen={isPasswordModalOpen}
-        onClose={() => setIsPasswordModalOpen(false)}
+        onClose={closePasswordModal}
         title="修改用户密码"
       >
         {selectedUser && (
@@ -284,10 +535,13 @@ const UserManagement: React.FC = () => {
               <input
                 type="password"
                 value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
+                onChange={(e) => handleNewPasswordChange(e.target.value)}
                 placeholder="请输入新密码"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
+              {passwordErrors.newPassword && (
+                <p className="mt-1 text-xs text-red-500">{passwordErrors.newPassword}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -296,22 +550,29 @@ const UserManagement: React.FC = () => {
               <input
                 type="password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => handleConfirmPasswordChange(e.target.value)}
                 placeholder="请再次输入新密码"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
+              {passwordErrors.confirmPassword && (
+                <p className="mt-1 text-xs text-red-500">{passwordErrors.confirmPassword}</p>
+              )}
             </div>
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
               <button
-                onClick={() => setIsPasswordModalOpen(false)}
+                onClick={closePasswordModal}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 取消
               </button>
               <button
                 onClick={handlePasswordConfirm}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                disabled={!isPasswordFormValid || isSavingPassword}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
               >
+                {isSavingPassword && (
+                  <Loader className="animate-spin mr-2" size={16} />
+                )}
                 确认
               </button>
             </div>
@@ -322,7 +583,7 @@ const UserManagement: React.FC = () => {
       {/* Add Teacher Modal */}
       <Modal
         isOpen={isAddTeacherModalOpen}
-        onClose={() => setIsAddTeacherModalOpen(false)}
+        onClose={closeAddTeacherModal}
         title="添加新教师"
       >
         <div className="space-y-4">
@@ -331,37 +592,46 @@ const UserManagement: React.FC = () => {
             <input
               type="text"
               value={newTeacherData.username}
-              onChange={(e) => setNewTeacherData({ ...newTeacherData, username: e.target.value })}
+              onChange={(e) => handleTeacherFieldChange("username", e.target.value)}
               placeholder="教师的登录账号"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isSubmitting}
             />
+            {teacherErrors.username && (
+              <p className="mt-1 text-xs text-red-500">{teacherErrors.username}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">姓名</label>
             <input
               type="text"
               value={newTeacherData.full_name}
-              onChange={(e) => setNewTeacherData({ ...newTeacherData, full_name: e.target.value })}
+              onChange={(e) => handleTeacherFieldChange("full_name", e.target.value)}
               placeholder="教师的真实姓名"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isSubmitting}
             />
+            {teacherErrors.full_name && (
+              <p className="mt-1 text-xs text-red-500">{teacherErrors.full_name}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">邮箱</label>
             <input
               type="email"
               value={newTeacherData.email}
-              onChange={(e) => setNewTeacherData({ ...newTeacherData, email: e.target.value })}
+              onChange={(e) => handleTeacherFieldChange("email", e.target.value)}
               placeholder="教师的联系邮箱"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isSubmitting}
             />
+            {teacherErrors.email && (
+              <p className="mt-1 text-xs text-red-500">{teacherErrors.email}</p>
+            )}
           </div>
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <button
-              onClick={() => setIsAddTeacherModalOpen(false)}
+              onClick={closeAddTeacherModal}
               className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               disabled={isSubmitting}
             >
@@ -369,10 +639,79 @@ const UserManagement: React.FC = () => {
             </button>
             <button
               onClick={handleCreateTeacher}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              disabled={isSubmitting}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              disabled={isSubmitting || !isTeacherFormValid}
             >
               {isSubmitting ? "添加中..." : "确认添加"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Batch Upload Modal */}
+      <Modal
+        isOpen={isBatchModalOpen}
+        onClose={closeBatchModal}
+        title="批量添加教师"
+      >
+        <div className="space-y-6">
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm">
+            <p className="font-semibold">CSV 格式要求</p>
+            <p className="mt-1">请确保表头至少包含以下列：</p>
+            <ul className="list-disc list-inside mt-1 space-y-1">
+              <li>姓名</li>
+              <li>手机号</li>
+            </ul>
+            <p className="mt-2 text-xs text-blue-500">
+              可选列：邮箱、角色等。若未提供邮箱，系统会自动生成临时账号信息。
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              上传CSV文件
+            </label>
+            <label
+              htmlFor="batch-teacher-upload"
+              className="cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors"
+            >
+              <Upload size={48} className="mx-auto text-gray-400 mb-4" />
+              <input
+                type="file"
+                accept=".csv"
+                onChange={(e) => handleBatchFileChange(e.target.files?.[0] || null)}
+                className="hidden"
+                id="batch-teacher-upload"
+              />
+              <p className="text-blue-600 font-medium">点击或拖拽文件到此处</p>
+              {batchFile && (
+                <p className="text-sm text-green-600 mt-2 font-semibold">
+                  已选择: {batchFile.name}
+                </p>
+              )}
+            </label>
+            {batchErrors.file && (
+              <p className="mt-2 text-xs text-red-500">{batchErrors.file}</p>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              onClick={closeBatchModal}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              disabled={isBatchSubmitting}
+            >
+              取消
+            </button>
+            <button
+              onClick={handleBatchSubmit}
+              disabled={!isBatchFormValid || isBatchSubmitting}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center"
+            >
+              {isBatchSubmitting && (
+                <Loader className="animate-spin mr-2" size={16} />
+              )}
+              {isBatchSubmitting ? "上传中..." : "开始导入"}
             </button>
           </div>
         </div>

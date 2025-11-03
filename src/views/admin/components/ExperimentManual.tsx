@@ -13,6 +13,50 @@ import { apiClient } from "../../../utils/apiClient";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig"; // Import the new config value
 import Modal from "./Modal";
 
+const MAX_MANUAL_NAME_LENGTH = 100;
+const MANUAL_NAME_MIN_LENGTH = 2;
+const MAX_MANUAL_NOTES_LENGTH = 200;
+const MAX_MANUAL_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
+const getManualNameError = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "手册名称不能为空";
+  if (trimmed.length < MANUAL_NAME_MIN_LENGTH)
+    return `手册名称至少需要${MANUAL_NAME_MIN_LENGTH}个字符`;
+  if (trimmed.length > MAX_MANUAL_NAME_LENGTH)
+    return `手册名称不能超过${MAX_MANUAL_NAME_LENGTH}个字符`;
+  return "";
+};
+
+const getManualNotesError = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed.length > MAX_MANUAL_NOTES_LENGTH)
+    return `备注不能超过${MAX_MANUAL_NOTES_LENGTH}个字符`;
+  return "";
+};
+
+const getManualFileError = (file: File | null) => {
+  if (!file) return "请上传PDF文件";
+  const isPdf =
+    file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+  if (!isPdf) return "仅支持上传PDF格式文件";
+  if (file.size > MAX_MANUAL_FILE_SIZE)
+    return "文件大小不能超过20MB";
+  return "";
+};
+
+const INITIAL_UPLOAD_ERRORS = {
+  name: "",
+  notes: "",
+  file: "",
+} as const;
+
+const INITIAL_EDIT_ERRORS = {
+  name: "",
+  notes: "",
+} as const;
+
 const ExperimentManualView: React.FC = () => {
   const [manuals, setManuals] = useState<ExperimentManual[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,6 +72,62 @@ const ExperimentManualView: React.FC = () => {
   const [manualName, setManualName] = useState("");
   const [manualNotes, setManualNotes] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadErrors, setUploadErrors] = useState({
+    ...INITIAL_UPLOAD_ERRORS,
+  });
+  const [editErrors, setEditErrors] = useState({
+    ...INITIAL_EDIT_ERRORS,
+  });
+
+  const handleManualNameChange = (value: string) => {
+    setManualName(value);
+    setUploadErrors((prev) => ({
+      ...prev,
+      name: getManualNameError(value),
+    }));
+  };
+
+  const handleManualNotesChange = (value: string) => {
+    setManualNotes(value);
+    setUploadErrors((prev) => ({
+      ...prev,
+      notes: getManualNotesError(value),
+    }));
+  };
+
+  const handleManualFileChange = (file: File | null) => {
+    setUploadFile(file);
+    setUploadErrors((prev) => ({
+      ...prev,
+      file: getManualFileError(file),
+    }));
+  };
+
+  const handleEditManualNameChange = (value: string) => {
+    setEditingManual((prev) => (prev ? { ...prev, file_name: value } : null));
+    setEditErrors((prev) => ({
+      ...prev,
+      name: getManualNameError(value),
+    }));
+  };
+
+  const handleEditManualNotesChange = (value: string) => {
+    setEditingManual((prev) => (prev ? { ...prev, description: value } : null));
+    setEditErrors((prev) => ({
+      ...prev,
+      notes: getManualNotesError(value),
+    }));
+  };
+
+  const isUploadFormValid =
+    manualName.trim() !== "" &&
+    uploadFile !== null &&
+    Object.values(uploadErrors).every((error) => error === "");
+
+  const isEditFormValid =
+    !!editingManual &&
+    editingManual.file_name.trim() !== "" &&
+    Object.values(editErrors).every((error) => error === "");
 
   useEffect(() => {
     const fetchManuals = async () => {
@@ -83,16 +183,21 @@ const ExperimentManualView: React.FC = () => {
   };
 
   const handleUpload = async () => {
-    if (!uploadFile || !manualName) {
-      alert("请填写手册名称并选择文件");
+    const nameError = getManualNameError(manualName);
+    const fileError = getManualFileError(uploadFile);
+    const notesError = getManualNotesError(manualNotes);
+
+    setUploadErrors({ name: nameError, file: fileError, notes: notesError });
+
+    if (nameError || fileError || notesError) {
       return;
     }
 
     setIsUploading(true);
     const formData = new FormData();
     formData.append("file", uploadFile);
-    formData.append("file_name", manualName);
-    formData.append("description", manualNotes);
+    formData.append("file_name", manualName.trim());
+    formData.append("description", manualNotes.trim());
 
     try {
       const newManualFromServer = await apiClient.postFormData(
@@ -108,14 +213,24 @@ const ExperimentManualView: React.FC = () => {
     }
   };
 
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingManual(null);
+    setEditErrors({ ...INITIAL_EDIT_ERRORS });
+  };
+
   const handleSaveEdit = async () => {
     if (!editingManual) return;
+    const nameError = getManualNameError(editingManual.file_name);
+    const notesError = getManualNotesError(editingManual.description || "");
+    setEditErrors({ name: nameError, notes: notesError });
+    if (nameError || notesError) return;
     try {
       const updatedManual = await apiClient.put(
         `/manuals/${editingManual.manual_id}`,
         {
-          file_name: editingManual.file_name,
-          description: editingManual.description,
+          file_name: editingManual.file_name.trim(),
+          description: (editingManual.description || "").trim(),
         },
       );
       setManuals(
@@ -123,7 +238,7 @@ const ExperimentManualView: React.FC = () => {
           m.manual_id === updatedManual.manual_id ? updatedManual : m,
         ),
       );
-      setIsEditModalOpen(false);
+      closeEditModal();
     } catch (err: any) {
       alert(`保存失败: ${err.message}`);
     }
@@ -141,6 +256,15 @@ const ExperimentManualView: React.FC = () => {
     setUploadFile(null);
     setManualName("");
     setManualNotes("");
+    setUploadErrors({ ...INITIAL_UPLOAD_ERRORS });
+  };
+
+  const openUploadModal = () => {
+    setManualName("");
+    setManualNotes("");
+    setUploadFile(null);
+    setUploadErrors({ ...INITIAL_UPLOAD_ERRORS });
+    setIsUploadModalOpen(true);
   };
 
   const renderTableBody = () => {
@@ -207,7 +331,8 @@ const ExperimentManualView: React.FC = () => {
           <div className="flex items-center space-x-1">
             <button
               onClick={() => {
-                setEditingManual(manual);
+                setEditingManual({ ...manual });
+                setEditErrors({ ...INITIAL_EDIT_ERRORS });
                 setIsEditModalOpen(true);
               }}
               className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-all duration-200 hover:scale-110"
@@ -245,7 +370,7 @@ const ExperimentManualView: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => setIsUploadModalOpen(true)}
+          onClick={openUploadModal}
           className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
         >
           <Plus size={18} />
@@ -300,10 +425,13 @@ const ExperimentManualView: React.FC = () => {
               type="text"
               id="manual-name"
               value={manualName}
-              onChange={(e) => setManualName(e.target.value)}
+              onChange={(e) => handleManualNameChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="例如：生产决策仿真实验手册"
             />
+            {uploadErrors.name && (
+              <p className="mt-1 text-xs text-red-500">{uploadErrors.name}</p>
+            )}
           </div>
           <div>
             <label
@@ -315,11 +443,14 @@ const ExperimentManualView: React.FC = () => {
             <textarea
               id="manual-notes"
               value={manualNotes}
-              onChange={(e) => setManualNotes(e.target.value)}
+              onChange={(e) => handleManualNotesChange(e.target.value)}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="例如：适用于2025春季学期"
             ></textarea>
+            {uploadErrors.notes && (
+              <p className="mt-1 text-xs text-red-500">{uploadErrors.notes}</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -333,7 +464,7 @@ const ExperimentManualView: React.FC = () => {
               <input
                 type="file"
                 accept=".pdf"
-                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                onChange={(e) => handleManualFileChange(e.target.files?.[0] || null)}
                 className="hidden"
                 id="file-upload"
               />
@@ -344,6 +475,9 @@ const ExperimentManualView: React.FC = () => {
                 </p>
               )}
             </label>
+            {uploadErrors.file && (
+              <p className="mt-2 text-xs text-red-500">{uploadErrors.file}</p>
+            )}
           </div>
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <button
@@ -354,7 +488,7 @@ const ExperimentManualView: React.FC = () => {
             </button>
             <button
               onClick={handleUpload}
-              disabled={!uploadFile || !manualName || isUploading}
+              disabled={!isUploadFormValid || isUploading}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
             >
               {isUploading && (
@@ -368,7 +502,7 @@ const ExperimentManualView: React.FC = () => {
 
       <Modal
         isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
+        onClose={closeEditModal}
         title="修改实验手册"
       >
         {editingManual && (
@@ -380,13 +514,12 @@ const ExperimentManualView: React.FC = () => {
               <input
                 type="text"
                 value={editingManual.file_name}
-                onChange={(e) =>
-                  setEditingManual((prev) =>
-                    prev ? { ...prev, file_name: e.target.value } : null,
-                  )
-                }
+                onChange={(e) => handleEditManualNameChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
+              {editErrors.name && (
+                <p className="mt-1 text-xs text-red-500">{editErrors.name}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -395,24 +528,24 @@ const ExperimentManualView: React.FC = () => {
               <textarea
                 rows={3}
                 value={editingManual.description || ""}
-                onChange={(e) =>
-                  setEditingManual((prev) =>
-                    prev ? { ...prev, description: e.target.value } : null,
-                  )
-                }
+                onChange={(e) => handleEditManualNotesChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               ></textarea>
+              {editErrors.notes && (
+                <p className="mt-1 text-xs text-red-500">{editErrors.notes}</p>
+              )}
             </div>
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
               <button
-                onClick={() => setIsEditModalOpen(false)}
+                onClick={closeEditModal}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               >
                 取消
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                disabled={!isEditFormValid}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 保存修改
               </button>
