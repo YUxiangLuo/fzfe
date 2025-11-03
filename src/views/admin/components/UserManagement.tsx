@@ -444,7 +444,7 @@ const UserManagement: React.FC = () => {
 
   return (
     <>
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="rounded-2xl border border-gray-200 shadow-sm overflow-hidden bg-white">
         <div className="px-6 py-4 border-b border-gray-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-xl font-semibold text-gray-800">用户列表</h2>
