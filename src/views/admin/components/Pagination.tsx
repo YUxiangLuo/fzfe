@@ -24,6 +24,9 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
         >
           第一页
         </button>
+      </div>
+
+      <div className="flex items-center space-x-2">
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
@@ -32,13 +35,9 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
           <ChevronLeft size={16} />
           <span>上一页</span>
         </button>
-      </div>
-
-      <div className="text-sm text-gray-700">
-        第 <span className="font-bold">{currentPage}</span> 页 / 共 <span className="font-bold">{totalPages}</span> 页
-      </div>
-
-      <div className="flex items-center space-x-2">
+        <div className="text-sm text-gray-700">
+          第 <span className="font-bold">{currentPage}</span> 页 / 共 <span className="font-bold">{totalPages}</span> 页
+        </div>
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
@@ -47,6 +46,9 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
           <span>下一页</span>
           <ChevronRight size={16} />
         </button>
+      </div>
+
+      <div className="flex items-center space-x-2">
         <button
           onClick={() => onPageChange(totalPages)}
           disabled={currentPage === totalPages}
