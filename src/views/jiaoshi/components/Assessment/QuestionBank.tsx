@@ -16,19 +16,47 @@ interface QuestionOption {
 interface QuestionFormState {
   questionText: string;
   questionType: QuestionFormType;
-  knowledgePoint: string;
+  knowledgePrimary: string;
+  knowledgeSecondary: string;
   options: QuestionOption[];
   correctAnswers: string[];
 }
 
-const KNOWLEDGE_POINTS = [
-  'ARIMA模型',
-  'LSTM模型',
-  '移动平均法',
-  '指数平滑法',
-  '融合模型',
-  '生产计划',
-];
+const KNOWLEDGE_POINT_GROUPS: Record<string, string[]> = {
+  预测模型: ['ARIMA建模', 'LSTM预测', '指数平滑', '移动平均', '融合模型'],
+  生产计划: ['需求分析', '库存优化', '产能规划', '排产策略', '供应链协同'],
+};
+
+const PRIMARY_KNOWLEDGE_POINTS = Object.keys(KNOWLEDGE_POINT_GROUPS);
+
+const getDefaultKnowledgeSelection = () => {
+  const primary = PRIMARY_KNOWLEDGE_POINTS[0] ?? '';
+  const secondary = primary ? KNOWLEDGE_POINT_GROUPS[primary]?.[0] ?? '' : '';
+  return { primary, secondary };
+};
+
+const parseKnowledgePoint = (value: string | null) => {
+  const defaults = getDefaultKnowledgeSelection();
+  if (!value) return defaults;
+
+  const trimmed = value.trim();
+  if (!trimmed) return defaults;
+
+  if (trimmed.includes('-')) {
+    const [primary, secondary] = trimmed.split('-');
+    if (primary && secondary && KNOWLEDGE_POINT_GROUPS[primary]?.includes(secondary)) {
+      return { primary, secondary };
+    }
+  }
+
+  for (const [primary, secondaryList] of Object.entries(KNOWLEDGE_POINT_GROUPS)) {
+    if (secondaryList.includes(trimmed)) {
+      return { primary, secondary: trimmed };
+    }
+  }
+
+  return defaults;
+};
 
 const API_TYPE_TO_FORM_TYPE: Record<QuestionTypeApi, QuestionFormType> = {
   'Single Choice': 'single',
@@ -59,6 +87,7 @@ const getDefaultBooleanOptions = (): QuestionOption[] => DEFAULT_BOOLEAN_OPTIONS
 const getDefaultChoiceOptions = (): QuestionOption[] => DEFAULT_CHOICE_OPTIONS.map((option) => ({ ...option }));
 
 const QuestionBank: React.FC = () => {
+  const defaultKnowledge = getDefaultKnowledgeSelection();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -75,12 +104,18 @@ const QuestionBank: React.FC = () => {
   const [editorState, setEditorState] = useState<QuestionFormState>({
     questionText: '',
     questionType: 'single',
-    knowledgePoint: '',
+    knowledgePrimary: defaultKnowledge.primary,
+    knowledgeSecondary: defaultKnowledge.secondary,
     options: getDefaultChoiceOptions(),
     correctAnswers: [],
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
+
+  const secondaryKnowledgeOptions = useMemo(
+    () => KNOWLEDGE_POINT_GROUPS[editorState.knowledgePrimary] ?? [],
+    [editorState.knowledgePrimary],
+  );
 
   const handleDeleteQuestion = async (questionId: number) => {
     if (window.confirm('确定要永久删除这道题目吗？此操作不可撤销。')) {
@@ -143,9 +178,7 @@ const QuestionBank: React.FC = () => {
     });
   }, [questions, debouncedSearchTerm]);
 
-  const knowledgePointOptions = useMemo(() => {
-    return KNOWLEDGE_POINTS;
-  }, []);
+  const primaryKnowledgeOptions = useMemo(() => PRIMARY_KNOWLEDGE_POINTS, []);
 
   const statistics = useMemo(() => {
     const total = questions.length;
@@ -192,11 +225,13 @@ const QuestionBank: React.FC = () => {
     const formType = API_TYPE_TO_FORM_TYPE[question.question_type];
     const options = normalizeOptions(question, formType);
     const correctAnswers = question.correct_answers ?? [];
+    const { primary, secondary } = parseKnowledgePoint(question.knowledge_point ?? null);
 
     setEditingQuestion(question);
     setEditorState({
       questionText: question.question_text,
-      knowledgePoint: question.knowledge_point ?? '',
+      knowledgePrimary: primary,
+      knowledgeSecondary: secondary,
       questionType: formType,
       options,
       correctAnswers,
@@ -207,10 +242,12 @@ const QuestionBank: React.FC = () => {
   const closeEditor = () => {
     setEditingQuestion(null);
     setIsEditorOpen(false);
+    const defaults = getDefaultKnowledgeSelection();
     setEditorState({
       questionText: '',
       questionType: 'single',
-      knowledgePoint: KNOWLEDGE_POINTS[0] || '',
+      knowledgePrimary: defaults.primary,
+      knowledgeSecondary: defaults.secondary,
       options: getDefaultChoiceOptions(),
       correctAnswers: [],
     });
@@ -219,10 +256,12 @@ const QuestionBank: React.FC = () => {
 
   const openCreate = () => {
     setEditingQuestion(null);
+    const defaults = getDefaultKnowledgeSelection();
     setEditorState({
       questionText: '',
       questionType: 'single',
-      knowledgePoint: KNOWLEDGE_POINTS[0] || '',
+      knowledgePrimary: defaults.primary,
+      knowledgeSecondary: defaults.secondary,
       options: getDefaultChoiceOptions(),
       correctAnswers: [],
     });
@@ -235,6 +274,27 @@ const QuestionBank: React.FC = () => {
       questionType: type,
       options: type === 'boolean' ? getDefaultBooleanOptions() : getDefaultChoiceOptions(),
       correctAnswers: [],
+    }));
+  };
+
+  const handlePrimaryKnowledgeChange = (primary: string) => {
+    setEditorState((prev) => {
+      const secondaryOptions = KNOWLEDGE_POINT_GROUPS[primary] ?? [];
+      const nextSecondary = secondaryOptions.includes(prev.knowledgeSecondary)
+        ? prev.knowledgeSecondary
+        : secondaryOptions[0] ?? '';
+      return {
+        ...prev,
+        knowledgePrimary: primary,
+        knowledgeSecondary: nextSecondary,
+      };
+    });
+  };
+
+  const handleSecondaryKnowledgeChange = (secondary: string) => {
+    setEditorState((prev) => ({
+      ...prev,
+      knowledgeSecondary: secondary,
     }));
   };
 
@@ -304,7 +364,9 @@ const QuestionBank: React.FC = () => {
   const buildPayload = () => {
     const question_type = FORM_TYPE_TO_API_TYPE[editorState.questionType];
     const question_text = editorState.questionText.trim();
-    const knowledge_point = editorState.knowledgePoint.trim() || null;
+    const primary = editorState.knowledgePrimary.trim();
+    const secondary = editorState.knowledgeSecondary.trim();
+    const knowledge_point = primary && secondary ? `${primary}-${secondary}` : null;
 
     let options: Record<string, string> | string[] | undefined;
     if (editorState.questionType === 'boolean') {
@@ -339,7 +401,12 @@ const QuestionBank: React.FC = () => {
     if (!questionValidation.valid) return false;
 
     // 验证知识点
-    if (!editorState.knowledgePoint.trim()) return false;
+    if (
+      !editorState.knowledgePrimary.trim() ||
+      !editorState.knowledgeSecondary.trim()
+    ) {
+      return false;
+    }
 
     // 验证正确答案
     if (editorState.correctAnswers.length === 0) return false;
@@ -372,7 +439,10 @@ const QuestionBank: React.FC = () => {
     }
 
     // 验证知识点
-    if (!editorState.knowledgePoint.trim()) {
+    if (
+      !editorState.knowledgePrimary.trim() ||
+      !editorState.knowledgeSecondary.trim()
+    ) {
       alert('请选择知识点');
       return;
     }
@@ -748,19 +818,35 @@ const QuestionBank: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 关联知识点 <span className="text-red-500">*</span>
               </label>
-              <select
-                value={editorState.knowledgePoint}
-                onChange={(event) => setEditorState((prev) => ({ ...prev, knowledgePoint: event.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              >
-                <option value="">请选择知识点</option>
-                {knowledgePointOptions.map((point) => (
-                  <option key={point} value={point}>
-                    {point}
-                  </option>
-                ))}
-              </select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <select
+                  value={editorState.knowledgePrimary}
+                  onChange={(event) => handlePrimaryKnowledgeChange(event.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">请选择类别</option>
+                  {primaryKnowledgeOptions.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={editorState.knowledgeSecondary}
+                  onChange={(event) => handleSecondaryKnowledgeChange(event.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                  disabled={secondaryKnowledgeOptions.length === 0}
+                >
+                  <option value="">请选择知识点</option>
+                  {secondaryKnowledgeOptions.map((point) => (
+                    <option key={point} value={point}>
+                      {point}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 

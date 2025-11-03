@@ -27,6 +27,16 @@ const PersonalInfo: React.FC = () => {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
+  const formatDate = (value: string | null) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
@@ -206,7 +216,7 @@ const PersonalInfo: React.FC = () => {
               <InfoItem icon={<User className="w-5 h-5 text-blue-600" />} label="姓名" value={user.full_name} />
               <InfoItem icon={<Phone className="w-5 h-5 text-green-600" />} label="手机号码" value={user.phone_number} />
               <InfoItem icon={<Mail className="w-5 h-5 text-purple-600" />} label="邮箱" value={user.email} />
-              <InfoItem icon={<Calendar className="w-5 h-5 text-orange-600" />} label="注册时间" value={new Date(user.created_at).toLocaleDateString()} />
+              <InfoItem icon={<Calendar className="w-5 h-5 text-orange-600" />} label="注册时间" value={formatDate(user.created_at)} />
             </div>
           </div>
         )}

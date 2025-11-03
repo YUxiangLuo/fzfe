@@ -127,6 +127,28 @@ export interface StudentExperimentProgress {
   steps: ExperimentStep[] | null;
 }
 
+// Experiment log data
+export interface ExperimentLogEntry {
+  experiment_id: number;
+  status: string;
+  current_step: number | null;
+  highest_completed_step: number | null;
+  total_active_duration_seconds: number | null;
+  selected_industry: string | null;
+  selected_company: string | null;
+  selected_product: string | null;
+  start_time: string | null;
+  last_activity_at: string | null;
+  completion_time: string | null;
+}
+
+export interface StudentExperimentLog {
+  student_id: number;
+  username: string;
+  full_name: string;
+  experiments: ExperimentLogEntry[] | null;
+}
+
 
 // DEPRECATED: Old types for experiment progress, replaced by StudentExperimentProgress
 /*

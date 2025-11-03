@@ -33,6 +33,16 @@ const StudentManagement: React.FC = () => {
     phone_number: '',
   });
 
+  const formatDate = (value: string | null | undefined) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -323,7 +333,7 @@ const StudentManagement: React.FC = () => {
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
           {student.created_at ? (
             <span className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-600">
-              {new Date(student.created_at).toLocaleDateString()}
+              {formatDate(student.created_at)}
             </span>
           ) : '—'}
         </td>

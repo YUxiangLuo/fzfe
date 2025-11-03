@@ -26,6 +26,18 @@ const buildDownloadUrl = (filePath: string) => {
   return `${DOWNLOAD_SERVER_BASE_URL}/reports/${filename}`;
 };
 
+const formatDateTime = (value: string | null) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
+};
+
 const ExperimentReports: React.FC = () => {
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>("");
@@ -368,9 +380,7 @@ const ExperimentReports: React.FC = () => {
       const { text: statusText, className: statusClass } =
         getStatusMeta(report);
       const fileName = extractFileName(report.pdf_file_path);
-      const submittedAt = report.submitted_at
-        ? new Date(report.submitted_at).toLocaleString("zh-CN")
-        : "—";
+      const submittedAt = formatDateTime(report.submitted_at);
       return (
         <tr key={report.user_id} className="hover:bg-gray-50">
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
