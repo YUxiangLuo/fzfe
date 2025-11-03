@@ -341,9 +341,7 @@ const StudentManagement: React.FC = () => {
           <div className="flex items-center space-x-2">
             <Button
               onClick={() => handleResetPassword(student)}
-              variant="ghost"
               size="sm"
-              className="text-blue-600 hover:bg-blue-50 hover:text-blue-700 focus:ring-blue-500"
               title="重置学生密码"
               disabled={isResettingPassword === student.user_id}
             >
@@ -436,7 +434,7 @@ const StudentManagement: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">邮箱</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">手机号码</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">加入时间</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
