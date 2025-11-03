@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Edit, Loader, AlertTriangle, Trash2, Upload } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Edit, Loader, AlertTriangle, Trash2, Upload, Search } from "lucide-react";
 import type { User } from "../types";
 import { apiClient } from "../../../utils/apiClient";
 import { decodeToken } from "../../../utils/auth";
@@ -13,6 +13,7 @@ import {
 } from "../../jiaoshi/utils/validation";
 
 const PAGE_LIMIT = 10;
+const SEARCH_DEBOUNCE_MS = 400;
 
 const INITIAL_TEACHER_FORM = {
   username: "",
@@ -60,6 +61,8 @@ const UserManagement: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentAdminId, setCurrentAdminId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
   const [isAddTeacherModalOpen, setIsAddTeacherModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,6 +83,26 @@ const UserManagement: React.FC = () => {
     assistant: "助教",
     admin: "管理员",
   };
+
+  const fetchUsers = useCallback(
+    async (targetPage: number, query: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const endpoint = query
+          ? `/users/search?q=${encodeURIComponent(query)}&page=${targetPage}&limit=${PAGE_LIMIT}`
+          : `/users?page=${targetPage}&limit=${PAGE_LIMIT}`;
+        const response = await apiClient.get(endpoint);
+        setUsers(response.data || []);
+        setPaginationInfo(response.pagination);
+      } catch (err: any) {
+        setError(err.message || "获取用户数据失败");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [],
+  );
 
   const getTeacherFieldError = (
     field: keyof typeof INITIAL_TEACHER_FORM,
@@ -199,6 +222,16 @@ const UserManagement: React.FC = () => {
     passwordErrors.newPassword === "" &&
     passwordErrors.confirmPassword === "";
 
+  useEffect(() => {
+    const handler = window.setTimeout(() => {
+      const trimmed = searchTerm.trim();
+      setDebouncedSearchTerm(trimmed);
+      setCurrentPage(1);
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(handler);
+  }, [searchTerm]);
+
   const openBatchModal = () => {
     setBatchFile(null);
     setBatchErrors({ ...INITIAL_BATCH_ERRORS });
@@ -231,25 +264,11 @@ const UserManagement: React.FC = () => {
       const decoded = decodeToken(token);
       if (decoded) setCurrentAdminId(decoded.sub);
     }
+  }, []);
 
-    const fetchUsers = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await apiClient.get(
-          `/users?page=${currentPage}&limit=${PAGE_LIMIT}`,
-        );
-        setUsers(response.data || []);
-        setPaginationInfo(response.pagination);
-      } catch (err: any) {
-        setError(err.message || "获取用户数据失败");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUsers();
-  }, [currentPage]);
+  useEffect(() => {
+    fetchUsers(currentPage, debouncedSearchTerm);
+  }, [currentPage, debouncedSearchTerm, fetchUsers]);
 
   const handlePasswordConfirm = async () => {
     const newPasswordError = getNewPasswordError(newPassword);
@@ -280,11 +299,7 @@ const UserManagement: React.FC = () => {
         if (users.length === 1 && currentPage > 1) {
           setCurrentPage(currentPage - 1);
         } else {
-          const response = await apiClient.get(
-            `/users?page=${currentPage}&limit=${PAGE_LIMIT}`,
-          );
-          setUsers(response.data || []);
-          setPaginationInfo(response.pagination);
+          await fetchUsers(currentPage, debouncedSearchTerm);
         }
         alert("用户删除成功！");
       } catch (err: any) {
@@ -317,11 +332,7 @@ const UserManagement: React.FC = () => {
       });
       alert("教师添加成功！");
       closeAddTeacherModal();
-      const response = await apiClient.get(
-        `/users?page=${currentPage}&limit=${PAGE_LIMIT}`,
-      );
-      setUsers(response.data || []);
-      setPaginationInfo(response.pagination);
+      await fetchUsers(currentPage, debouncedSearchTerm);
     } catch (err: any) {
       alert(`添加教师失败: ${err.message}`);
     } finally {
@@ -349,11 +360,7 @@ const UserManagement: React.FC = () => {
       await apiClient.postFormData("/users/teachers/batch", formData);
       alert("批量添加教师成功！");
       closeBatchModal();
-      const response = await apiClient.get(
-        `/users?page=${currentPage}&limit=${PAGE_LIMIT}`,
-      );
-      setUsers(response.data || []);
-      setPaginationInfo(response.pagination);
+      await fetchUsers(currentPage, debouncedSearchTerm);
     } catch (err: any) {
       alert(`批量添加失败: ${err.message}`);
     } finally {
@@ -445,28 +452,45 @@ const UserManagement: React.FC = () => {
   return (
     <>
       <div className="rounded-2xl border border-gray-200 shadow-sm overflow-hidden bg-white">
-        <div className="px-6 py-4 border-b border-gray-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800">用户列表</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              查看系统用户，并支持新增教师、重置密码与删除操作
-            </p>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-3">
-            <button
-              onClick={openAddTeacherModal}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-            >
-              <Edit size={16} />
-              <span>添加教师</span>
-            </button>
-            <button
-              onClick={openBatchModal}
-              className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-            >
-              <Upload size={16} />
-              <span>批量添加教师</span>
-            </button>
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-800">用户列表</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  查看系统用户，并支持新增教师、重置密码与删除操作
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-3">
+                <button
+                  onClick={openAddTeacherModal}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                >
+                  <Edit size={16} />
+                  <span>添加教师</span>
+                </button>
+                <button
+                  onClick={openBatchModal}
+                  className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                >
+                  <Upload size={16} />
+                  <span>批量添加教师</span>
+                </button>
+              </div>
+            </div>
+            <div className="relative max-w-sm">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={16}
+              />
+              <input
+                type="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="输入关键字搜索"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
           </div>
         </div>
 
