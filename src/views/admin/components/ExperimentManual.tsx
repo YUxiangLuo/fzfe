@@ -320,11 +320,6 @@ const ExperimentManualView: React.FC = () => {
               className="sr-only peer"
             />
             <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            <span
-              className={`ml-3 text-sm font-medium ${manual.is_active === 1 ? "text-blue-600" : "text-gray-500"}`}
-            >
-              {manual.is_active === 1 ? "启用" : "禁用"}
-            </span>
           </label>
         </td>
         <td className="px-6 py-4">

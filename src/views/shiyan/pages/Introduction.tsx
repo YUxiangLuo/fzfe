@@ -12,6 +12,13 @@ import {
   ArrowLeft,
   FileText,
   Loader2,
+  Factory,
+  Building,
+  Package,
+  Database,
+  Brain,
+  LineChart,
+  ClipboardList,
 } from "lucide-react";
 
 interface Manual {
@@ -42,13 +49,13 @@ const NAVIGATION_STEPS = [
 
 // 实验流程步骤配置
 const EXPERIMENT_STEPS = [
-  { step: 1, title: "选择行业", icon: "🏭" },
-  { step: 2, title: "选择企业", icon: "🏢" },
-  { step: 3, title: "选择产品", icon: "📱" },
-  { step: 4, title: "历史数据", icon: "📊" },
-  { step: 5, title: "需求预测", icon: "🤖" },
-  { step: 6, title: "结果评估", icon: "📈" },
-  { step: 7, title: "生产计划", icon: "📋" },
+  { step: 1, title: "选择行业", icon: Factory },
+  { step: 2, title: "选择企业", icon: Building },
+  { step: 3, title: "选择产品", icon: Package },
+  { step: 4, title: "历史数据", icon: Database },
+  { step: 5, title: "需求预测", icon: Brain },
+  { step: 6, title: "结果评估", icon: LineChart },
+  { step: 7, title: "生产计划", icon: ClipboardList },
 ];
 
 const Introduction: React.FC = () => {
@@ -173,22 +180,27 @@ const Introduction: React.FC = () => {
             </div>
             <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
               <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-                {EXPERIMENT_STEPS.map((item, index) => (
-                  <div key={item.step} className="relative">
-                    <div className="bg-gray-50 rounded-xl p-4 text-center hover:bg-blue-50 transition-colors">
-                      <div className="text-3xl mb-3">{item.icon}</div>
-                      <div className="text-xs font-medium text-blue-600 mb-2">
-                        步骤 {item.step}
+                {EXPERIMENT_STEPS.map((item, index) => {
+                  const Icon = item.icon;
+                  return (
+                    <div key={item.step} className="relative">
+                      <div className="bg-gray-50 rounded-xl p-4 text-center hover:bg-blue-50 transition-colors">
+                        <div className="flex justify-center mb-3">
+                          <Icon className="w-8 h-8 text-blue-600" />
+                        </div>
+                        <div className="text-xs font-medium text-blue-600 mb-2">
+                          步骤 {item.step}
+                        </div>
+                        <div className="text-sm font-semibold text-gray-900">
+                          {item.title}
+                        </div>
                       </div>
-                      <div className="text-sm font-semibold text-gray-900">
-                        {item.title}
-                      </div>
+                      {index < EXPERIMENT_STEPS.length - 1 && (
+                        <div className="hidden md:block absolute top-1/2 -right-2 w-4 h-0.5 bg-blue-300 -translate-y-1/2"></div>
+                      )}
                     </div>
-                    {index < EXPERIMENT_STEPS.length - 1 && (
-                      <div className="hidden md:block absolute top-1/2 -right-2 w-4 h-0.5 bg-blue-300 -translate-y-1/2"></div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
