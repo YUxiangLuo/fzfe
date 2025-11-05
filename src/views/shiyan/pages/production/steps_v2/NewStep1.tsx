@@ -10,18 +10,21 @@ import {
 /**
  * Step 1: 规划总览
  * - 介绍MPS概念、流程结构、关键术语
- * - 用户输入参数（预测期数、初始库存、目标服务水平、产能场景）
+ * - 用户输入参数（预测期数、目标服务水平、产能场景）
+ * - 初始库存固定为0（标准化基准）
  */
 const NewStep1: React.FC = () => {
   const { state, updateParameters, updateCapacity, fillPeriod1Data, completeCurrentStep } = useProductionPlan();
 
   const [forecastPeriods, setForecastPeriods] = useState(state.forecastPeriods);
-  const [initialInventory, setInitialInventory] = useState(state.initialInventory);
   const [targetServiceLevel, setTargetServiceLevel] = useState(state.targetServiceLevel);
   const [selectedScenario, setSelectedScenario] = useState<CapacityScenario>(state.capacityScenario);
   const [hasTouchedForecast, setHasTouchedForecast] = useState(false);
 
   const avgDemand = state.demoPrediction;
+
+  // 🔒 根据客户需求：第一月标准化，初始库存固定为 0
+  const INITIAL_INVENTORY = 0;
 
   const getScenarioBorderClass = (scenarioId: CapacityScenario) => {
     if (selectedScenario === scenarioId) {
@@ -52,7 +55,7 @@ const NewStep1: React.FC = () => {
 
     updateParameters({
       forecastPeriods,
-      initialInventory,
+      initialInventory: INITIAL_INVENTORY, // 固定为 0
       targetServiceLevel,
       safetyStockZScore: zScore,
     });
@@ -66,17 +69,17 @@ const NewStep1: React.FC = () => {
     });
 
     // 🆕 填充第一期的标准化参考数据
-    // 根据客户需求：第一期作为参考基准，采用标准化设置
-    const stdDev = state.demoStdDev; // 需求标准差
-    const safetyStock = Math.round(zScore * stdDev); // 安全库存
+    // 根据客户需求：第一期作为参考基准，采用标准化设置（初始库存=0，缺货=0）
+    const stdDev = state.demoStdDev;
+    const safetyStock = Math.round(zScore * stdDev);
 
     fillPeriod1Data({
       demandForecast: avgDemand, // 实际需求 = 平均需求
       safetyStock: safetyStock, // 安全库存
       plannedProduction: avgDemand, // 投入量 = 平均需求（简化）
-      beginningInventory: initialInventory, // 期初库存 = 用户设置
+      beginningInventory: INITIAL_INVENTORY, // 期初库存 = 0（标准化）
       productionOutput: avgDemand, // 产出量 = 平均需求（假设正好满足）
-      endingInventory: initialInventory, // 期末库存 = 期初（因为产出=需求，保持不变）
+      endingInventory: INITIAL_INVENTORY, // 期末库存 = 0（标准化：产出=需求）
       stockout: 0, // 缺货 = 0（标准化假设）
       serviceLevel: 1.0, // 服务水平 = 100%
     });
@@ -140,7 +143,7 @@ const NewStep1: React.FC = () => {
         <div className="bg-white border border-gray-200 rounded-lg p-4">
           <h5 className="font-semibold text-gray-800 mb-2">📌 第一月标准化</h5>
           <p className="text-sm text-gray-700">
-            初始库存=<strong>{initialInventory}</strong>、缺货=<strong>0</strong>
+            初始库存=<strong>0</strong>、缺货=<strong>0</strong>
             <br />
             真实动态从第二月起体现
           </p>
@@ -176,21 +179,6 @@ const NewStep1: React.FC = () => {
               <p className="mt-1 text-sm text-red-600">预测期数至少需要2期</p>
             )}
             <p className="mt-1 text-xs text-gray-500">推荐设置 4-8 期</p>
-          </div>
-
-          {/* 初始库存 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              初始库存（第1期期初）
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={initialInventory}
-              onChange={(e) => setInitialInventory(Number(e.target.value))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <p className="mt-1 text-xs text-gray-500">设置生产计划开始时的库存量</p>
           </div>
 
           {/* 目标服务水平 */}

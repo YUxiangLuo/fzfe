@@ -128,7 +128,7 @@ const getDefaultState = (
     completedSteps: [],
 
     forecastPeriods: 6,
-    initialInventory: 100,
+    initialInventory: 0, // 固定为0（客户需求：第一月标准化）
     targetServiceLevel: 0.95,
     safetyStockZScore: 1.65,
     selectedBestModel: initialModel || 'lstm',

@@ -17,9 +17,12 @@ const NewStep2: React.FC = () => {
   const avgDemand = state.demoPrediction;
   const period2Demand = avgDemand; // 第2期实际需求等于平均需求
 
+  // 第2期期初库存 = 第1期期末库存（标准化后为0）
+  const period2BeginningInventory = state.period1Data.endingInventory ?? 0;
+
   // 计算期末库存和缺货
   const calculateInventoryAndStockout = () => {
-    const beginningInventory = state.initialInventory; // 第2期期初 = 第1期期末 = 初始库存
+    const beginningInventory = period2BeginningInventory; // 第2期期初 = 第1期期末
     const endingInventory = beginningInventory + productionOutput - period2Demand;
     const stockout = Math.max(0, -endingInventory);
     const finalInventory = Math.max(0, endingInventory);
@@ -142,14 +145,14 @@ const NewStep2: React.FC = () => {
         <div className="space-y-2 text-sm text-amber-800">
           <p>为了简化学习，第1期作为<strong>参考基准</strong>，采用标准化设置：</p>
           <ul className="ml-4 space-y-1">
-            <li>• <strong>期初库存</strong> = {state.initialInventory}（您设置的初始库存）</li>
+            <li>• <strong>期初库存</strong> = 0（标准化基准）</li>
             <li>• <strong>实际需求</strong> = {avgDemand}（平均需求）</li>
             <li>• <strong>产出量</strong> = {avgDemand}（假设正好满足需求）</li>
-            <li>• <strong>期末库存</strong> = {state.initialInventory}（保持不变）</li>
+            <li>• <strong>期末库存</strong> = 0（因为产出=需求）</li>
             <li>• <strong>缺货</strong> = 0（无缺货）</li>
           </ul>
           <p className="mt-3 font-medium">
-            ⚠️ 真实的动态计算从<strong>第2期</strong>开始！
+            ⚠️ 真实的动态计算从<strong>第2期</strong>开始！第2期的期初库存 = 第1期的期末库存 = <strong>0</strong>
           </p>
         </div>
       </div>
@@ -168,7 +171,7 @@ const NewStep2: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-50 p-3 rounded border border-gray-200">
                 <div className="text-xs text-gray-600">第2期期初库存</div>
-                <div className="text-lg font-bold text-gray-900">{state.initialInventory}</div>
+                <div className="text-lg font-bold text-gray-900">{period2BeginningInventory}</div>
                 <div className="text-xs text-gray-500 mt-1">= 第1期期末库存</div>
               </div>
               <div className="bg-blue-50 p-3 rounded border border-blue-200">
@@ -221,11 +224,11 @@ const NewStep2: React.FC = () => {
                   <div className="text-sm font-semibold text-purple-900 mb-2">期末库存计算：</div>
                   <div className="font-mono text-sm text-purple-800 space-y-1">
                     <div>期末库存 = 期初库存 + 产出量 - 实际需求</div>
-                    <div className="ml-4">= {state.initialInventory} + {productionOutput} - {period2Demand}</div>
-                    <div className="ml-4">= {state.initialInventory + productionOutput - period2Demand}</div>
+                    <div className="ml-4">= {period2BeginningInventory} + {productionOutput} - {period2Demand}</div>
+                    <div className="ml-4">= {period2BeginningInventory + productionOutput - period2Demand}</div>
                     <div className="ml-4 font-bold text-purple-900">
                       最终库存 = {endingInventory}
-                      {state.initialInventory + productionOutput - period2Demand < 0 && (
+                      {period2BeginningInventory + productionOutput - period2Demand < 0 && (
                         <span className="text-xs ml-2">(负值时取0)</span>
                       )}
                     </div>
@@ -238,9 +241,9 @@ const NewStep2: React.FC = () => {
                   <div className="font-mono text-sm text-red-800 space-y-1">
                     <div>缺货 = max(0, 实际需求 - 可用库存)</div>
                     <div className="ml-4">
-                      = max(0, {period2Demand} - ({state.initialInventory} + {productionOutput}))
+                      = max(0, {period2Demand} - ({period2BeginningInventory} + {productionOutput}))
                     </div>
-                    <div className="ml-4">= max(0, {period2Demand - state.initialInventory - productionOutput})</div>
+                    <div className="ml-4">= max(0, {period2Demand - period2BeginningInventory - productionOutput})</div>
                     <div className="ml-4 font-bold text-red-900">
                       缺货 = {stockout}
                       {stockout! > 0 && <span className="ml-2">⚠️ 发生缺货！</span>}
