@@ -13,7 +13,7 @@ import {
  * - 用户输入参数（预测期数、初始库存、目标服务水平、产能场景）
  */
 const NewStep1: React.FC = () => {
-  const { state, updateParameters, updateCapacity, completeCurrentStep } = useProductionPlan();
+  const { state, updateParameters, updateCapacity, fillPeriod1Data, completeCurrentStep } = useProductionPlan();
 
   const [forecastPeriods, setForecastPeriods] = useState(state.forecastPeriods);
   const [initialInventory, setInitialInventory] = useState(state.initialInventory);
@@ -63,6 +63,22 @@ const NewStep1: React.FC = () => {
       mode: 'scenario',
       scenario: selectedScenario,
       calculatedValue: capacity,
+    });
+
+    // 🆕 填充第一期的标准化参考数据
+    // 根据客户需求：第一期作为参考基准，采用标准化设置
+    const stdDev = state.demoStdDev; // 需求标准差
+    const safetyStock = Math.round(zScore * stdDev); // 安全库存
+
+    fillPeriod1Data({
+      demandForecast: avgDemand, // 实际需求 = 平均需求
+      safetyStock: safetyStock, // 安全库存
+      plannedProduction: avgDemand, // 投入量 = 平均需求（简化）
+      beginningInventory: initialInventory, // 期初库存 = 用户设置
+      productionOutput: avgDemand, // 产出量 = 平均需求（假设正好满足）
+      endingInventory: initialInventory, // 期末库存 = 期初（因为产出=需求，保持不变）
+      stockout: 0, // 缺货 = 0（标准化假设）
+      serviceLevel: 1.0, // 服务水平 = 100%
     });
 
     completeCurrentStep();
