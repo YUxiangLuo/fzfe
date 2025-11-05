@@ -126,6 +126,7 @@ export const LoginContainer: React.FC = () => {
               setSelectedRole(role);
               setError(null); // 切换角色时清除错误
             }}
+            mode={mode}
           />
 
           {mode === "login" ? (
@@ -135,6 +136,10 @@ export const LoginContainer: React.FC = () => {
               onSwitchToRegister={() => {
                 setMode("register");
                 setError(null);
+                // 如果当前是管理员角色，切换到学生角色
+                if (selectedRole === "admin") {
+                  setSelectedRole("student");
+                }
               }}
               isLoading={isLoading}
               error={error}

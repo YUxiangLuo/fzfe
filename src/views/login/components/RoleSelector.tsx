@@ -11,6 +11,7 @@ interface RoleUI {
 interface RoleSelectorProps {
   selectedRole: string;
   onRoleSelect: (roleId: string) => void;
+  mode?: "login" | "register";
 }
 
 // 将UI相关的配置与核心的角色定义结合起来
@@ -44,14 +45,20 @@ const rolesData = ROLES.map(role => {
 export const RoleSelector: React.FC<RoleSelectorProps> = ({
   selectedRole,
   onRoleSelect,
+  mode = "login",
 }) => {
+  // 在注册模式下过滤掉管理员角色
+  const availableRoles = mode === "register"
+    ? rolesData.filter(role => role.id !== "admin")
+    : rolesData;
+
   return (
     <div className="mb-8">
       <h3 className="text-lg font-semibold text-white mb-4 text-center">
         请选择您的身份
       </h3>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-        {rolesData.map((role) => {
+        {availableRoles.map((role) => {
           const IconComponent = role.icon;
           const isSelected = selectedRole === role.id;
 
