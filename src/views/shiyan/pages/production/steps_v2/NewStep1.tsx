@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Factory, ArrowRight, Info, Loader2 } from 'lucide-react';
+import { Factory, ArrowRight, Info, Loader2, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { apiClient } from '../../../../../utils/apiClient';
 import {
@@ -42,8 +42,13 @@ const NewStep1: React.FC = () => {
   const [forecastPeriods, setForecastPeriods] = useState(state.forecastPeriods);
   const [selectedScenario, setSelectedScenario] = useState<CapacityScenario>(state.capacityScenario);
   const [hasTouchedForecast, setHasTouchedForecast] = useState(false);
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [isPeriod1Generated, setIsPeriod1Generated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [period1Data, setPeriod1Data] = useState<{
+    demand: number;
+    safetyStock: number;
+  } | null>(null);
 
   const avgDemand = state.demoPrediction;
 
@@ -66,7 +71,8 @@ const NewStep1: React.FC = () => {
 
   const isForecastPeriodValid = forecastPeriods >= 2;
 
-  const handleNext = async () => {
+  // 🔹 预测第一期需求
+  const handlePredictPeriod1 = async () => {
     setHasTouchedForecast(true);
     setError(null);
 
@@ -74,7 +80,7 @@ const NewStep1: React.FC = () => {
       return;
     }
 
-    setIsGeneratingPlan(true);
+    setIsPredicting(true);
 
     try {
       // 🚀 调用预测接口获取需求预测
@@ -105,28 +111,19 @@ const NewStep1: React.FC = () => {
       // 保存完整预测结果
       savePredictions(predictions);
 
-      // 保存参数
-      updateParameters({
-        forecastPeriods,
-        initialInventory: INITIAL_INVENTORY, // 固定为 0
-        targetServiceLevel: TARGET_SERVICE_LEVEL, // 固定为 99%
-        safetyStockZScore: Z_SCORE, // 固定为 2.33
-      });
-
-      // 计算并保存产能
-      const capacity = calculateCapacityByScenario(selectedScenario, avgDemand);
-      updateCapacity({
-        mode: 'scenario',
-        scenario: selectedScenario,
-        calculatedValue: capacity,
-      });
-
       // 🆕 使用预测值填充第一期的标准化参考数据
       // 根据客户需求：第一期作为参考基准，采用标准化设置（初始库存=0，缺货=0）
       const period1Demand = Math.round(predictions[0].prediction);
       const period1StdDev = predictions[0].std_dev;
       const safetyStock = Math.round(Z_SCORE * period1StdDev);
 
+      // 保存Period1数据到本地状态（用于显示）
+      setPeriod1Data({
+        demand: period1Demand,
+        safetyStock: safetyStock,
+      });
+
+      // 填充到Context
       fillPeriod1Data({
         demandForecast: period1Demand, // 实际需求 = 预测值
         safetyStock: safetyStock, // 安全库存
@@ -138,13 +135,34 @@ const NewStep1: React.FC = () => {
         serviceLevel: 1.0, // 服务水平 = 100%
       });
 
-      completeCurrentStep();
+      setIsPeriod1Generated(true);
     } catch (err) {
       console.error('生成预测失败:', err);
       setError(err instanceof Error ? err.message : '生成预测失败，请重试');
     } finally {
-      setIsGeneratingPlan(false);
+      setIsPredicting(false);
     }
+  };
+
+  // 🔹 进入下一步
+  const handleNext = () => {
+    // 保存参数
+    updateParameters({
+      forecastPeriods,
+      initialInventory: INITIAL_INVENTORY, // 固定为 0
+      targetServiceLevel: TARGET_SERVICE_LEVEL, // 固定为 99%
+      safetyStockZScore: Z_SCORE, // 固定为 2.33
+    });
+
+    // 计算并保存产能
+    const capacity = calculateCapacityByScenario(selectedScenario, avgDemand);
+    updateCapacity({
+      mode: 'scenario',
+      scenario: selectedScenario,
+      calculatedValue: capacity,
+    });
+
+    completeCurrentStep();
   };
 
   return (
@@ -286,16 +304,73 @@ const NewStep1: React.FC = () => {
         </div>
       </div>
 
-      {/* 加载状态 */}
-      {isGeneratingPlan && (
+      {/* 预测第一期需求按钮 */}
+      {!isPeriod1Generated && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={handlePredictPeriod1}
+            disabled={!isForecastPeriodValid || isPredicting}
+            className={`flex items-center space-x-2 px-8 py-3 rounded-lg font-medium transition-all ${
+              isForecastPeriodValid && !isPredicting
+                ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            {isPredicting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>预测中...</span>
+              </>
+            ) : (
+              <>
+                <TrendingUp className="w-5 h-5" />
+                <span>预测第一期需求</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* 预测中加载状态 */}
+      {isPredicting && (
         <div className="bg-blue-50 border border-blue-300 rounded-lg p-5 animate-pulse">
           <div className="flex items-center space-x-3">
             <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
             <div>
-              <h4 className="font-semibold text-blue-900 mb-1">正在生成生产计划...</h4>
+              <h4 className="font-semibold text-blue-900 mb-1">正在预测第一期需求...</h4>
               <p className="text-sm text-blue-700">
                 使用您上一步选择的最佳模型<strong>（{MODEL_NAME_MAP[state.selectedBestModel] || state.selectedBestModel}）</strong>进行需求预测
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 第一期预测结果展示 */}
+      {isPeriod1Generated && period1Data && (
+        <div className="bg-green-50 border-2 border-green-400 rounded-lg p-5">
+          <div className="flex items-start space-x-3">
+            <div className="text-green-600 text-2xl">✅</div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-green-900 mb-3">第一期数据生成成功</h4>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="bg-white rounded-lg p-4 border border-green-200">
+                  <div className="text-xs text-gray-600 mb-1">预测需求</div>
+                  <div className="text-2xl font-bold text-gray-900">{period1Data.demand}</div>
+                  <div className="text-xs text-gray-500 mt-1">单位：件</div>
+                </div>
+                <div className="bg-white rounded-lg p-4 border border-green-200">
+                  <div className="text-xs text-gray-600 mb-1">安全库存</div>
+                  <div className="text-2xl font-bold text-gray-900">{period1Data.safetyStock}</div>
+                  <div className="text-xs text-gray-500 mt-1">基于99%服务水平</div>
+                </div>
+              </div>
+              <div className="mt-3 p-3 bg-white rounded-lg border border-green-200">
+                <p className="text-sm text-gray-700">
+                  📊 <strong>MPS表第一排已填充</strong>：期初库存=0、产出量={period1Data.demand}、期末库存=0、缺货=0、服务水平=100%
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -319,24 +394,15 @@ const NewStep1: React.FC = () => {
         <button
           type="button"
           onClick={handleNext}
-          disabled={!isForecastPeriodValid || isGeneratingPlan}
+          disabled={!isPeriod1Generated}
           className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all ${
-            isForecastPeriodValid && !isGeneratingPlan
+            isPeriod1Generated
               ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
         >
-          {isGeneratingPlan ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>生成中...</span>
-            </>
-          ) : (
-            <>
-              <span>下一步</span>
-              <ArrowRight className="w-5 h-5" />
-            </>
-          )}
+          <span>下一步</span>
+          <ArrowRight className="w-5 h-5" />
         </button>
       </div>
     </div>
