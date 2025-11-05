@@ -26,6 +26,13 @@ const NewStep3: React.FC = () => {
 
   const handleCalculate = () => {
     setHasCalculated(true);
+
+    // 立即更新MPS表的第2期数据
+    const calculatedServiceLevel = calculateServiceLevel();
+    updatePeriod2Data({
+      ...state.period2Data,
+      serviceLevel: calculatedServiceLevel,
+    });
   };
 
   const handleNext = () => {

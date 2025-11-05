@@ -9,7 +9,7 @@ import { useProductionPlan } from '../ProductionPlanContextV2';
  * - 学习如何通过安全库存提高服务水平
  */
 const NewStep4: React.FC = () => {
-  const { state, updatePeriod2Data, completeCurrentStep } = useProductionPlan();
+  const { state, updatePeriod2Data, completeCurrentStep, fillPeriod1Data } = useProductionPlan();
 
   const [hasCalculated, setHasCalculated] = useState(false);
 
@@ -51,6 +51,16 @@ const NewStep4: React.FC = () => {
       ...state.period2Data,
       safetyStock: calculatedSafetyStock,
     });
+
+    // 同时填充第1期的安全库存（使用predictions[0]的标准差）
+    if (state.predictions && state.predictions.length > 0) {
+      const period1StdDev = state.predictions[0].std_dev;
+      const period1SafetyStock = Math.round(state.safetyStockZScore * period1StdDev);
+      fillPeriod1Data({
+        ...state.period1Data,
+        safetyStock: period1SafetyStock,
+      });
+    }
   };
 
   const handleNext = () => {

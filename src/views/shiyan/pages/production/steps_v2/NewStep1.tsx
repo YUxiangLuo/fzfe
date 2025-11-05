@@ -113,20 +113,19 @@ const NewStep1: React.FC = () => {
 
       // 🆕 使用预测值填充第一期的标准化参考数据
       // 根据客户需求：第一期作为参考基准，采用标准化设置（初始库存=0，缺货=0）
+      // 注意：安全库存在Step4才引入，这里不填充
       const period1Demand = Math.round(predictions[0].prediction);
-      const period1StdDev = predictions[0].std_dev;
-      const safetyStock = Math.round(Z_SCORE * period1StdDev);
 
       // 保存Period1数据到本地状态（用于显示）
       setPeriod1Data({
         demand: period1Demand,
-        safetyStock: safetyStock,
+        safetyStock: 0, // 占位，实际不显示
       });
 
       // 填充到Context
       fillPeriod1Data({
         demandForecast: period1Demand, // 实际需求 = 预测值
-        safetyStock: safetyStock, // 安全库存
+        safetyStock: null, // 安全库存在Step4才计算
         plannedProduction: period1Demand, // 投入量 = 预测需求（简化）
         beginningInventory: INITIAL_INVENTORY, // 期初库存 = 0（标准化）
         productionOutput: period1Demand, // 产出量 = 预测需求（假设正好满足）
