@@ -1,11 +1,34 @@
 import React, { useState } from 'react';
-import { Factory, ArrowRight, Info } from 'lucide-react';
+import { Factory, ArrowRight, Info, Loader2 } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
+import { apiClient } from '../../../../../utils/apiClient';
 import {
   CAPACITY_SCENARIOS,
   calculateCapacityByScenario,
   type CapacityScenario,
 } from '../utils/productionCapacityHelper';
+
+// 模型类型映射：前端模型ID -> 后端API参数
+const MODEL_TYPE_MAP: Record<string, string> = {
+  'ma': 'ma',
+  'exp': 'es',
+  'arima': 'arima',
+  'lstm': 'lstm',
+  'ensemble_weighted': 'weighted_average',
+  'ensemble_boosting': 'boosting',
+  'ensemble_stacking': 'stacking',
+};
+
+// 模型名称映射：前端模型ID -> 显示名称
+const MODEL_NAME_MAP: Record<string, string> = {
+  'ma': '移动平均（MA）',
+  'exp': '指数平滑（ES）',
+  'arima': 'ARIMA',
+  'lstm': 'LSTM',
+  'ensemble_weighted': '加权平均集成',
+  'ensemble_boosting': 'Boosting集成',
+  'ensemble_stacking': 'Stacking集成',
+};
 
 /**
  * Step 1: 规划总览
@@ -14,11 +37,13 @@ import {
  * - 初始库存固定为0（标准化基准）
  */
 const NewStep1: React.FC = () => {
-  const { state, updateParameters, updateCapacity, fillPeriod1Data, completeCurrentStep } = useProductionPlan();
+  const { state, updateParameters, updateCapacity, fillPeriod1Data, savePredictions, completeCurrentStep } = useProductionPlan();
 
   const [forecastPeriods, setForecastPeriods] = useState(state.forecastPeriods);
   const [selectedScenario, setSelectedScenario] = useState<CapacityScenario>(state.capacityScenario);
   const [hasTouchedForecast, setHasTouchedForecast] = useState(false);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const avgDemand = state.demoPrediction;
 
@@ -41,46 +66,85 @@ const NewStep1: React.FC = () => {
 
   const isForecastPeriodValid = forecastPeriods >= 2;
 
-  const handleNext = () => {
+  const handleNext = async () => {
     setHasTouchedForecast(true);
+    setError(null);
 
     if (!isForecastPeriodValid) {
       return;
     }
 
-    // 保存参数
-    updateParameters({
-      forecastPeriods,
-      initialInventory: INITIAL_INVENTORY, // 固定为 0
-      targetServiceLevel: TARGET_SERVICE_LEVEL, // 固定为 99%
-      safetyStockZScore: Z_SCORE, // 固定为 2.33
-    });
+    setIsGeneratingPlan(true);
 
-    // 计算并保存产能
-    const capacity = calculateCapacityByScenario(selectedScenario, avgDemand);
-    updateCapacity({
-      mode: 'scenario',
-      scenario: selectedScenario,
-      calculatedValue: capacity,
-    });
+    try {
+      // 🚀 调用预测接口获取需求预测
+      console.log('📌 使用的最佳模型:', state.selectedBestModel);
 
-    // 🆕 填充第一期的标准化参考数据
-    // 根据客户需求：第一期作为参考基准，采用标准化设置（初始库存=0，缺货=0）
-    const stdDev = state.demoStdDev;
-    const safetyStock = Math.round(Z_SCORE * stdDev);
+      const modelType = MODEL_TYPE_MAP[state.selectedBestModel];
+      if (!modelType) {
+        throw new Error(`无效的模型类型: ${state.selectedBestModel}`);
+      }
 
-    fillPeriod1Data({
-      demandForecast: avgDemand, // 实际需求 = 平均需求
-      safetyStock: safetyStock, // 安全库存
-      plannedProduction: avgDemand, // 投入量 = 平均需求（简化）
-      beginningInventory: INITIAL_INVENTORY, // 期初库存 = 0（标准化）
-      productionOutput: avgDemand, // 产出量 = 平均需求（假设正好满足）
-      endingInventory: INITIAL_INVENTORY, // 期末库存 = 0（标准化：产出=需求）
-      stockout: 0, // 缺货 = 0（标准化假设）
-      serviceLevel: 1.0, // 服务水平 = 100%
-    });
+      console.log('🚀 调用预测API:', { model_type: modelType, forecast_steps: forecastPeriods });
 
-    completeCurrentStep();
+      const response = await apiClient.post<{
+        status: string;
+        results: { predictions: Array<{ prediction: number; std_dev: number }> };
+      }>('/models/predictions', {
+        model_type: modelType,
+        forecast_steps: forecastPeriods,
+      });
+
+      if (response.status !== 'success' || !response.results?.predictions) {
+        throw new Error('预测API返回数据格式错误');
+      }
+
+      const predictions = response.results.predictions;
+      console.log('✅ 预测数据获取成功:', predictions);
+
+      // 保存完整预测结果
+      savePredictions(predictions);
+
+      // 保存参数
+      updateParameters({
+        forecastPeriods,
+        initialInventory: INITIAL_INVENTORY, // 固定为 0
+        targetServiceLevel: TARGET_SERVICE_LEVEL, // 固定为 99%
+        safetyStockZScore: Z_SCORE, // 固定为 2.33
+      });
+
+      // 计算并保存产能
+      const capacity = calculateCapacityByScenario(selectedScenario, avgDemand);
+      updateCapacity({
+        mode: 'scenario',
+        scenario: selectedScenario,
+        calculatedValue: capacity,
+      });
+
+      // 🆕 使用预测值填充第一期的标准化参考数据
+      // 根据客户需求：第一期作为参考基准，采用标准化设置（初始库存=0，缺货=0）
+      const period1Demand = Math.round(predictions[0].prediction);
+      const period1StdDev = predictions[0].std_dev;
+      const safetyStock = Math.round(Z_SCORE * period1StdDev);
+
+      fillPeriod1Data({
+        demandForecast: period1Demand, // 实际需求 = 预测值
+        safetyStock: safetyStock, // 安全库存
+        plannedProduction: period1Demand, // 投入量 = 预测需求（简化）
+        beginningInventory: INITIAL_INVENTORY, // 期初库存 = 0（标准化）
+        productionOutput: period1Demand, // 产出量 = 预测需求（假设正好满足）
+        endingInventory: INITIAL_INVENTORY, // 期末库存 = 0（标准化：产出=需求）
+        stockout: 0, // 缺货 = 0（标准化假设）
+        serviceLevel: 1.0, // 服务水平 = 100%
+      });
+
+      completeCurrentStep();
+    } catch (err) {
+      console.error('生成预测失败:', err);
+      setError(err instanceof Error ? err.message : '生成预测失败，请重试');
+    } finally {
+      setIsGeneratingPlan(false);
+    }
   };
 
   return (
@@ -222,20 +286,57 @@ const NewStep1: React.FC = () => {
         </div>
       </div>
 
+      {/* 加载状态 */}
+      {isGeneratingPlan && (
+        <div className="bg-blue-50 border border-blue-300 rounded-lg p-5 animate-pulse">
+          <div className="flex items-center space-x-3">
+            <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+            <div>
+              <h4 className="font-semibold text-blue-900 mb-1">正在生成生产计划...</h4>
+              <p className="text-sm text-blue-700">
+                使用您上一步选择的最佳模型<strong>（{MODEL_NAME_MAP[state.selectedBestModel] || state.selectedBestModel}）</strong>进行需求预测
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 错误提示 */}
+      {error && (
+        <div className="bg-red-50 border border-red-300 rounded-lg p-4">
+          <div className="flex items-start space-x-2">
+            <div className="text-red-600 text-xl">⚠️</div>
+            <div>
+              <h4 className="font-semibold text-red-900 mb-1">生成失败</h4>
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 下一步按钮 */}
       <div className="flex justify-end pt-4">
         <button
           type="button"
           onClick={handleNext}
-          disabled={!isForecastPeriodValid}
+          disabled={!isForecastPeriodValid || isGeneratingPlan}
           className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-all ${
-            isForecastPeriodValid
+            isForecastPeriodValid && !isGeneratingPlan
               ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
         >
-          <span>下一步</span>
-          <ArrowRight className="w-5 h-5" />
+          {isGeneratingPlan ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span>生成中...</span>
+            </>
+          ) : (
+            <>
+              <span>下一步</span>
+              <ArrowRight className="w-5 h-5" />
+            </>
+          )}
         </button>
       </div>
     </div>

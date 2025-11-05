@@ -42,31 +42,39 @@ const NewStep6: React.FC = () => {
     setError(null);
 
     try {
-      console.log('📌 使用的最佳模型:', state.selectedBestModel);
-
-      const modelType = MODEL_TYPE_MAP[state.selectedBestModel];
-      if (!modelType) {
-        throw new Error(`无效的模型类型: ${state.selectedBestModel}`);
-      }
-
-      console.log('🚀 调用预测API:', { model_type: modelType, forecast_steps: state.forecastPeriods });
-
-      const response = await apiClient.post<{
-        status: string;
-        results: { predictions: Array<{ prediction: number; std_dev: number }> };
-      }>('/models/predictions', {
-        model_type: modelType,
-        forecast_steps: state.forecastPeriods,
-      });
-
-      if (response.status === 'success' && response.results?.predictions) {
-        console.log('🔍 API返回的预测数据:', response.results.predictions);
-
-        // 生成完整MPS表
-        generateFullMPS(response.results.predictions);
+      // 🆕 优先使用Step1中已保存的预测数据
+      if (state.predictions && state.predictions.length > 0) {
+        console.log('✅ 使用Step1中已保存的预测数据:', state.predictions);
+        generateFullMPS(state.predictions);
         setHasGenerated(true);
       } else {
-        throw new Error('预测API返回数据格式错误');
+        // 如果没有保存的预测数据，则调用API获取
+        console.log('📌 使用的最佳模型:', state.selectedBestModel);
+
+        const modelType = MODEL_TYPE_MAP[state.selectedBestModel];
+        if (!modelType) {
+          throw new Error(`无效的模型类型: ${state.selectedBestModel}`);
+        }
+
+        console.log('🚀 调用预测API:', { model_type: modelType, forecast_steps: state.forecastPeriods });
+
+        const response = await apiClient.post<{
+          status: string;
+          results: { predictions: Array<{ prediction: number; std_dev: number }> };
+        }>('/models/predictions', {
+          model_type: modelType,
+          forecast_steps: state.forecastPeriods,
+        });
+
+        if (response.status === 'success' && response.results?.predictions) {
+          console.log('🔍 API返回的预测数据:', response.results.predictions);
+
+          // 生成完整MPS表
+          generateFullMPS(response.results.predictions);
+          setHasGenerated(true);
+        } else {
+          throw new Error('预测API返回数据格式错误');
+        }
       }
     } catch (err) {
       console.error('生成完整计划失败:', err);

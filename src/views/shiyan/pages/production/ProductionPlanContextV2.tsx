@@ -54,6 +54,9 @@ export interface ProductionPlanState {
   demoPrediction: number;
   demoStdDev: number;
 
+  // 🆕 预测结果数据（从预测接口获取的完整数据）
+  predictions: Array<{ prediction: number; std_dev: number }> | null;
+
   // 第1期的完整数据（作为参考，自动计算）
   period1Data: PeriodData;
 
@@ -101,6 +104,9 @@ interface ProductionPlanContextValue {
   // 🆕 更新演示预测数据（从API获取真实预测值）
   updateDemoPrediction: (prediction: number, stdDev: number) => void;
 
+  // 🆕 保存预测结果（从预测接口获取的完整数据）
+  savePredictions: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
+
   // 生成完整MPS表
   generateFullMPS: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
 
@@ -142,6 +148,9 @@ const getDefaultState = (
     // 演示数据（第2期的预测值，用于教学）- 使用真实历史数据
     demoPrediction: demoPrediction,
     demoStdDev: demoStdDev,
+
+    // 🆕 预测结果（初始为空，Step1时调用接口获取）
+    predictions: null,
 
     // 第1期的完整数据（初始为空，后续自动填充）
     period1Data: {
@@ -294,6 +303,14 @@ export const ProductionPlanProvider: React.FC<{
     }));
   };
 
+  // 🆕 保存预测结果（从预测接口获取的完整数据）
+  const savePredictions = (predictions: Array<{ prediction: number; std_dev: number }>) => {
+    setState((prev) => ({
+      ...prev,
+      predictions: predictions,
+    }));
+  };
+
   const generateFullMPS = (predictions: Array<{ prediction: number; std_dev: number }>) => {
     console.log('🏭 ===== 开始生成完整MPS表 =====');
     console.log(`📊 参数: 预测期数=${predictions.length}, 初始库存=${state.initialInventory}, 产能=${state.productionCapacity}, 服务水平目标=${state.targetServiceLevel}, Z值=${state.safetyStockZScore}`);
@@ -411,6 +428,7 @@ export const ProductionPlanProvider: React.FC<{
         fillPeriod2Field,
         updatePeriod2Data,
         updateDemoPrediction,
+        savePredictions,
         generateFullMPS,
         resetAll,
       }}

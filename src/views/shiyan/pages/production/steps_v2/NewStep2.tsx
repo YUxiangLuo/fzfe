@@ -14,8 +14,11 @@ const NewStep2: React.FC = () => {
   const [productionOutput, setProductionOutput] = useState(state.period2Data.productionOutput ?? 0);
   const [hasCalculated, setHasCalculated] = useState(false);
 
-  const avgDemand = state.demoPrediction;
-  const period2Demand = avgDemand; // 第2期实际需求等于平均需求
+  // 🆕 使用预测接口返回的第2期需求（predictions[1]）
+  // 如果预测数据不可用，回退到平均需求
+  const period2Demand = state.predictions && state.predictions.length > 1
+    ? Math.round(state.predictions[1].prediction)
+    : state.demoPrediction;
 
   // 第2期期初库存 = 第1期期末库存（标准化后为0）
   const period2BeginningInventory = state.period1Data.endingInventory ?? 0;
@@ -146,8 +149,8 @@ const NewStep2: React.FC = () => {
           <p>为了简化学习，第1期作为<strong>参考基准</strong>，采用标准化设置：</p>
           <ul className="ml-4 space-y-1">
             <li>• <strong>期初库存</strong> = 0（标准化基准）</li>
-            <li>• <strong>实际需求</strong> = {avgDemand}（平均需求）</li>
-            <li>• <strong>产出量</strong> = {avgDemand}（假设正好满足需求）</li>
+            <li>• <strong>实际需求</strong> = {state.period1Data.demandForecast ?? 'N/A'}（预测需求）</li>
+            <li>• <strong>产出量</strong> = {state.period1Data.productionOutput ?? 'N/A'}（假设正好满足需求）</li>
             <li>• <strong>期末库存</strong> = 0（因为产出=需求）</li>
             <li>• <strong>缺货</strong> = 0（无缺货）</li>
           </ul>
@@ -199,7 +202,7 @@ const NewStep2: React.FC = () => {
               placeholder="输入产出量"
             />
             <p className="mt-1 text-xs text-gray-500">
-              💡 提示：产出量来自上期投入（提前期1月）。尝试输入 {avgDemand} 或其他值看看效果。
+              💡 提示：产出量来自上期投入（提前期1月）。尝试输入 {period2Demand} 或其他值看看效果。
             </p>
           </div>
 
