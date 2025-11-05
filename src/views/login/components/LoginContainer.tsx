@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { RoleSelector } from "./RoleSelector";
 import { LoginForm } from "./LoginForm";
+import { RegisterForm, RegisterFormData } from "./RegisterForm";
 import { API_BASE_URL } from "../../../utils/apiClient";
 
 export const LoginContainer: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState("student");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [mode, setMode] = useState<"login" | "register">("login");
 
   const handleLogin = async (username: string, password: string) => {
     setIsLoading(true);
@@ -62,6 +64,48 @@ export const LoginContainer: React.FC = () => {
     }
   };
 
+  const handleRegister = async (formData: RegisterFormData) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // 将角色 ID 转换为首字母大写的格式（student -> Student）
+      const roleMap: Record<string, string> = {
+        student: "Student",
+        teacher: "Teacher",
+        assistant: "Assistant",
+      };
+
+      const role = roleMap[selectedRole];
+      if (!role) {
+        throw new Error("无效的角色类型");
+      }
+
+      const response = await fetch(`${API_BASE_URL}/register/${role}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "注册失败，请检查您的信息");
+      }
+
+      // 注册成功，提示用户并切换到登录模式
+      alert("注册成功！请使用您的账号登录");
+      setMode("login");
+    } catch (error: any) {
+      setError(error.message || "注册失败，请稍后再试");
+      console.error("Register error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full flex flex-col items-center justify-center">
@@ -74,19 +118,39 @@ export const LoginContainer: React.FC = () => {
           </div>
         </div>
 
-        {/* 登录容器 */}
+        {/* 登录/注册容器 */}
         <div className="w-full max-w-md bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 shadow-2xl">
           <RoleSelector
             selectedRole={selectedRole}
-            onRoleSelect={setSelectedRole}
+            onRoleSelect={(role) => {
+              setSelectedRole(role);
+              setError(null); // 切换角色时清除错误
+            }}
           />
 
-          <LoginForm
-            selectedRole={selectedRole}
-            onSubmit={handleLogin}
-            isLoading={isLoading}
-            error={error}
-          />
+          {mode === "login" ? (
+            <LoginForm
+              selectedRole={selectedRole}
+              onSubmit={handleLogin}
+              onSwitchToRegister={() => {
+                setMode("register");
+                setError(null);
+              }}
+              isLoading={isLoading}
+              error={error}
+            />
+          ) : (
+            <RegisterForm
+              selectedRole={selectedRole}
+              onSubmit={handleRegister}
+              onBackToLogin={() => {
+                setMode("login");
+                setError(null);
+              }}
+              isLoading={isLoading}
+              error={error}
+            />
+          )}
         </div>
 
         {/* 底部信息 */}

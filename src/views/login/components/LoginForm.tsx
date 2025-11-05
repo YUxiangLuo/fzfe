@@ -4,6 +4,7 @@ import { User, Lock, Eye, EyeOff, LogIn, AlertCircle } from "lucide-react";
 interface LoginFormProps {
   selectedRole: string;
   onSubmit: (username: string, password: string) => Promise<void>;
+  onSwitchToRegister?: () => void;
   isLoading: boolean;
   error: string | null;
 }
@@ -11,6 +12,7 @@ interface LoginFormProps {
 export const LoginForm: React.FC<LoginFormProps> = ({
   selectedRole,
   onSubmit,
+  onSwitchToRegister,
   isLoading,
   error,
 }) => {
@@ -132,6 +134,19 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           </>
         )}
       </button>
+
+      {/* 注册链接（仅学生、教师、助教显示） */}
+      {onSwitchToRegister && selectedRole !== "admin" && (
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={onSwitchToRegister}
+            className="text-blue-300 hover:text-blue-200 text-sm transition-colors underline"
+          >
+            还没有账号？立即注册
+          </button>
+        </div>
+      )}
     </form>
   );
 };
