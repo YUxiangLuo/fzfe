@@ -44,6 +44,13 @@ const NewStep4: React.FC = () => {
 
   const handleCalculate = () => {
     setHasCalculated(true);
+
+    // 立即更新MPS表的第2期数据
+    const calculatedSafetyStock = calculateSafetyStock();
+    updatePeriod2Data({
+      ...state.period2Data,
+      safetyStock: calculatedSafetyStock,
+    });
   };
 
   const handleNext = () => {
