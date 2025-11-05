@@ -16,8 +16,8 @@ type ColumnKey =
 // 定义每一步应该显示的列
 const STEP_COLUMNS: Record<number, ColumnKey[]> = {
   1: ['period', 'demand_forecast', 'safety_stock', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 1: 显示第一期完整数据
-  2: ['period', 'demand_forecast', 'production_output', 'ending_inventory', 'stockout'],  // Step 2: 基础四列
-  3: ['period', 'demand_forecast', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 3: 添加服务水平
+  2: ['period', 'demand_forecast', 'safety_stock', 'production_output', 'ending_inventory', 'stockout'],  // Step 2: 基础四列 + 安全库存
+  3: ['period', 'demand_forecast', 'safety_stock', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 3: 添加服务水平
   4: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 4: 添加预测量相关
   5: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'planned_production', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 5: 添加投入量
   6: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'planned_production', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 6: 完整表
