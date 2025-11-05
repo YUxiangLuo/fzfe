@@ -129,8 +129,8 @@ const getDefaultState = (
 
     forecastPeriods: 6,
     initialInventory: 0, // 固定为0（客户需求：第一月标准化）
-    targetServiceLevel: 0.95,
-    safetyStockZScore: 1.65,
+    targetServiceLevel: 0.99, // 固定为99%（追求卓越服务）
+    safetyStockZScore: 2.33, // 对应99%服务水平的Z分数
     selectedBestModel: initialModel || 'lstm',
 
     // 🆕 产能参数（默认使用场景模式）

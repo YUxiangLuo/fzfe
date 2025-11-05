@@ -194,28 +194,28 @@ const NewStep3: React.FC = () => {
 
                 {/* 评估 */}
                 <div className="mt-4 p-3 rounded-lg border-2" style={{
-                  backgroundColor: serviceLevel >= 0.95 ? '#f0fdf4' : serviceLevel >= 0.90 ? '#fffbeb' : '#fef2f2',
-                  borderColor: serviceLevel >= 0.95 ? '#86efac' : serviceLevel >= 0.90 ? '#fde047' : '#fca5a5',
+                  backgroundColor: serviceLevel >= 0.99 ? '#f0fdf4' : serviceLevel >= 0.95 ? '#fffbeb' : '#fef2f2',
+                  borderColor: serviceLevel >= 0.99 ? '#86efac' : serviceLevel >= 0.95 ? '#fde047' : '#fca5a5',
                 }}>
                   <div className="flex items-center space-x-2">
                     <div className="text-2xl">
-                      {serviceLevel >= 0.95 ? '✅' : serviceLevel >= 0.90 ? '⚠️' : '❌'}
+                      {serviceLevel >= 0.99 ? '✅' : serviceLevel >= 0.95 ? '⚠️' : '❌'}
                     </div>
                     <div>
                       <div className="font-semibold" style={{
-                        color: serviceLevel >= 0.95 ? '#166534' : serviceLevel >= 0.90 ? '#92400e' : '#991b1b',
+                        color: serviceLevel >= 0.99 ? '#166534' : serviceLevel >= 0.95 ? '#92400e' : '#991b1b',
                       }}>
-                        {serviceLevel >= 0.95 ? '优秀' : serviceLevel >= 0.90 ? '良好' : '需要改进'}
+                        {serviceLevel >= 0.99 ? '优秀' : serviceLevel >= 0.95 ? '良好' : '需要改进'}
                       </div>
                       <div className="text-xs" style={{
-                        color: serviceLevel >= 0.95 ? '#15803d' : serviceLevel >= 0.90 ? '#a16207' : '#b91c1c',
+                        color: serviceLevel >= 0.99 ? '#15803d' : serviceLevel >= 0.95 ? '#a16207' : '#b91c1c',
                       }}>
                         {serviceLevel === 1
                           ? '完美！满足了所有需求，无缺货。'
+                          : serviceLevel >= 0.99
+                          ? '服务水平达到目标（≥99%），客户满意度高。'
                           : serviceLevel >= 0.95
-                          ? '服务水平达到目标（≥95%），客户满意度高。'
-                          : serviceLevel >= 0.90
-                          ? '服务水平尚可，但仍有优化空间。'
+                          ? '服务水平尚可（95%+），但离目标99%仍有差距。'
                           : '服务水平较低，建议增加产能或提高库存。'}
                       </div>
                     </div>
@@ -233,7 +233,7 @@ const NewStep3: React.FC = () => {
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• <strong>服务水平 ↑</strong> → 缺货 ↓ → 客户满意度 ↑</li>
           <li>• <strong>服务水平 ↓</strong> → 缺货 ↑ → 客户流失风险 ↑</li>
-          <li>• 企业通常设定目标服务水平（如95%），作为生产计划的约束条件</li>
+          <li>• 企业通常设定目标服务水平（本系统目标：99%），作为生产计划的约束条件</li>
           <li>• 下一步我们将学习如何通过<strong>安全库存</strong>来提高服务水平</li>
         </ul>
       </div>

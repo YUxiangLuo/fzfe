@@ -231,12 +231,12 @@ const NewStep6: React.FC = () => {
               <div className="bg-white rounded-lg p-4 border border-blue-200">
                 <div className="text-xs text-gray-600 mb-1">平均服务水平</div>
                 <div className="text-3xl font-bold" style={{
-                  color: summary.avgServiceLevel >= 0.95 ? '#16a34a' : summary.avgServiceLevel >= 0.90 ? '#eab308' : '#dc2626'
+                  color: summary.avgServiceLevel >= 0.99 ? '#16a34a' : summary.avgServiceLevel >= 0.95 ? '#eab308' : '#dc2626'
                 }}>
                   {(summary.avgServiceLevel * 100).toFixed(1)}%
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  {summary.avgServiceLevel >= 0.95 ? '✅ 优秀' : summary.avgServiceLevel >= 0.90 ? '⚠️ 良好' : '❌ 需改进'}
+                  {summary.avgServiceLevel >= 0.99 ? '✅ 达到目标' : summary.avgServiceLevel >= 0.95 ? '⚠️ 接近目标' : '❌ 需改进'}
                 </div>
               </div>
 
@@ -285,12 +285,12 @@ const NewStep6: React.FC = () => {
           <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4">
             <h4 className="font-semibold text-amber-900 mb-2">💡 从计划中获得的洞察</h4>
             <ul className="text-sm text-amber-800 space-y-1">
-              {summary.avgServiceLevel >= 0.95 ? (
-                <li>✅ <strong>优秀的服务水平</strong>：您的计划达到了{(summary.avgServiceLevel * 100).toFixed(1)}%的平均服务水平，客户满意度高</li>
-              ) : summary.avgServiceLevel >= 0.90 ? (
-                <li>⚠️ <strong>服务水平良好但有提升空间</strong>：考虑增加安全库存或提高产能</li>
+              {summary.avgServiceLevel >= 0.99 ? (
+                <li>✅ <strong>达到目标服务水平</strong>：您的计划达到了{(summary.avgServiceLevel * 100).toFixed(1)}%的平均服务水平（目标99%），客户满意度高</li>
+              ) : summary.avgServiceLevel >= 0.95 ? (
+                <li>⚠️ <strong>接近目标但有提升空间</strong>：服务水平{(summary.avgServiceLevel * 100).toFixed(1)}%，离目标99%还有差距，考虑提高产能</li>
               ) : (
-                <li>❌ <strong>服务水平较低</strong>：建议提高目标服务水平参数或增加产能约束</li>
+                <li>❌ <strong>服务水平较低</strong>：建议增加产能约束或优化生产计划</li>
               )}
               {summary.periodsWithStockout > 0 ? (
                 <li>• <strong>{summary.periodsWithStockout}期发生缺货</strong>：这些时期的需求超过了可用库存</li>

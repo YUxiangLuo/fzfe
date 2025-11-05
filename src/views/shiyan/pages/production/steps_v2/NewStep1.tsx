@@ -17,7 +17,6 @@ const NewStep1: React.FC = () => {
   const { state, updateParameters, updateCapacity, fillPeriod1Data, completeCurrentStep } = useProductionPlan();
 
   const [forecastPeriods, setForecastPeriods] = useState(state.forecastPeriods);
-  const [targetServiceLevel, setTargetServiceLevel] = useState(state.targetServiceLevel);
   const [selectedScenario, setSelectedScenario] = useState<CapacityScenario>(state.capacityScenario);
   const [hasTouchedForecast, setHasTouchedForecast] = useState(false);
 
@@ -25,6 +24,10 @@ const NewStep1: React.FC = () => {
 
   // 🔒 根据客户需求：第一月标准化，初始库存固定为 0
   const INITIAL_INVENTORY = 0;
+
+  // 🎯 固定目标服务水平为 99%（追求卓越服务）
+  const TARGET_SERVICE_LEVEL = 0.99;
+  const Z_SCORE = 2.33;
 
   const getScenarioBorderClass = (scenarioId: CapacityScenario) => {
     if (selectedScenario === scenarioId) {
@@ -46,18 +49,11 @@ const NewStep1: React.FC = () => {
     }
 
     // 保存参数
-    const zScore = {
-      0.90: 1.28,
-      0.95: 1.65,
-      0.98: 2.05,
-      0.99: 2.33,
-    }[targetServiceLevel] || 1.65;
-
     updateParameters({
       forecastPeriods,
       initialInventory: INITIAL_INVENTORY, // 固定为 0
-      targetServiceLevel,
-      safetyStockZScore: zScore,
+      targetServiceLevel: TARGET_SERVICE_LEVEL, // 固定为 99%
+      safetyStockZScore: Z_SCORE, // 固定为 2.33
     });
 
     // 计算并保存产能
@@ -71,7 +67,7 @@ const NewStep1: React.FC = () => {
     // 🆕 填充第一期的标准化参考数据
     // 根据客户需求：第一期作为参考基准，采用标准化设置（初始库存=0，缺货=0）
     const stdDev = state.demoStdDev;
-    const safetyStock = Math.round(zScore * stdDev);
+    const safetyStock = Math.round(Z_SCORE * stdDev);
 
     fillPeriod1Data({
       demandForecast: avgDemand, // 实际需求 = 平均需求
@@ -181,32 +177,6 @@ const NewStep1: React.FC = () => {
             <p className="mt-1 text-xs text-gray-500">推荐设置 4-8 期</p>
           </div>
 
-          {/* 目标服务水平 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              目标服务水平
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {[0.90, 0.95, 0.98, 0.99].map((level) => (
-                <button
-                  key={level}
-                  type="button"
-                  onClick={() => setTargetServiceLevel(level)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                    targetServiceLevel === level
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                  }`}
-                >
-                  {(level * 100).toFixed(0)}%
-                </button>
-              ))}
-            </div>
-            <p className="mt-2 text-xs text-gray-500">
-              服务水平越高，安全库存越高，缺货风险越低。推荐 95%
-            </p>
-          </div>
-
           {/* 产能场景选择 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -231,6 +201,23 @@ const NewStep1: React.FC = () => {
             <p className="mt-2 text-xs text-gray-500">
               产能场景决定了每期的最大产出能力。推荐选择"正常"场景。
             </p>
+          </div>
+
+          {/* 目标服务水平说明（固定值） */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start space-x-2">
+              <div className="text-blue-600 text-xl">🎯</div>
+              <div>
+                <h5 className="font-semibold text-blue-900 mb-1">目标服务水平：99%</h5>
+                <p className="text-sm text-blue-800">
+                  我们的目标是满足 99% 的客户需求（追求卓越服务）。
+                  系统将自动计算合适的安全库存以尽可能达到此目标。
+                </p>
+                <p className="text-xs text-blue-600 mt-2">
+                  💡 实际服务水平会受产能约束影响，即使目标是99%，产能不足时仍可能缺货。
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
