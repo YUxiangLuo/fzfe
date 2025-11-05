@@ -312,7 +312,10 @@ const ExperimentManualView: React.FC = () => {
           {formatDateTime(manual.uploaded_at)}
         </td>
         <td className="px-6 py-4">
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label
+            className="relative inline-flex items-center cursor-pointer"
+            title={manual.is_active === 1 ? "启用中 - 点击禁用" : "已禁用 - 点击启用"}
+          >
             <input
               type="checkbox"
               checked={manual.is_active === 1}
