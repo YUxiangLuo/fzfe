@@ -58,6 +58,16 @@ const NewStep2: React.FC = () => {
 
   const handleCalculate = () => {
     setHasCalculated(true);
+
+    // 立即更新MPS表的第2期数据
+    const { endingInventory, stockout } = calculateInventoryAndStockout();
+    updatePeriod2Data({
+      demandForecast: period2Demand,
+      productionOutput,
+      endingInventory,
+      stockout,
+      serviceLevel: null, // 服务水平在步骤3计算
+    });
   };
 
   const handleNext = () => {

@@ -375,18 +375,12 @@ const NewStep1: React.FC = () => {
                 </p>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-white rounded-lg p-4 border border-green-200">
-                  <div className="text-xs text-gray-600 mb-1">预测需求</div>
-                  <div className="text-2xl font-bold text-gray-900">{period1Data.demand}</div>
-                  <div className="text-xs text-gray-500 mt-1">单位：件</div>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-green-200">
-                  <div className="text-xs text-gray-600 mb-1">安全库存</div>
-                  <div className="text-2xl font-bold text-gray-900">{period1Data.safetyStock}</div>
-                  <div className="text-xs text-gray-500 mt-1">基于99%服务水平</div>
-                </div>
+              <div className="bg-white rounded-lg p-4 border border-green-200">
+                <div className="text-xs text-gray-600 mb-1">第一期预测需求</div>
+                <div className="text-2xl font-bold text-gray-900">{period1Data.demand}</div>
+                <div className="text-xs text-gray-500 mt-1">单位：件</div>
               </div>
+
               <div className="mt-3 p-3 bg-white rounded-lg border border-green-200">
                 <p className="text-sm text-gray-700">
                   📊 <strong>MPS表第一排已填充</strong>：期初库存=0、产出量={period1Data.demand}、期末库存=0、缺货=0、服务水平=100%
