@@ -19,7 +19,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,26 +90,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             )}
           </button>
         </div>
-      </div>
-
-      {/* 记住登录 */}
-      <div className="flex items-center justify-between">
-        <label className="flex items-center space-x-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={rememberMe}
-            onChange={(e) => setRememberMe(e.target.checked)}
-            className="w-4 h-4 text-blue-500 bg-white/10 border-white/20 rounded
-                     focus:ring-blue-400 focus:ring-2"
-          />
-          <span className="text-white/80 text-sm">记住登录状态</span>
-        </label>
-        {/* <button
-          type="button"
-          className="text-blue-300 hover:text-blue-200 text-sm transition-colors"
-        >
-          忘记密码？
-        </button> */}
       </div>
 
       {/* 登录按钮 */}
