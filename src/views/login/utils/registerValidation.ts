@@ -29,7 +29,7 @@ export const validateStudentUsername = (username: string): ValidationResult => {
 
 /**
  * 验证账号（教师/助教）
- * 规则：8位及以上，必须同时包含数字和字母
+ * 规则：8位及以上，可以是纯数字或数字+字母组合
  */
 export const validateTeacherUsername = (username: string): ValidationResult => {
   const trimmed = username.trim();
@@ -45,14 +45,6 @@ export const validateTeacherUsername = (username: string): ValidationResult => {
   // 只能包含字母和数字
   if (!/^[a-zA-Z0-9]+$/.test(trimmed)) {
     return { isValid: false, error: "账号只能包含字母和数字" };
-  }
-
-  // 必须同时包含字母和数字
-  const hasLetter = /[a-zA-Z]/.test(trimmed);
-  const hasNumber = /\d/.test(trimmed);
-
-  if (!hasLetter || !hasNumber) {
-    return { isValid: false, error: "账号必须同时包含字母和数字" };
   }
 
   return { isValid: true, error: "" };
