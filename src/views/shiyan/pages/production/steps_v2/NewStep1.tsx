@@ -262,7 +262,7 @@ const NewStep1: React.FC = () => {
           {/* 产能场景选择 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              产能约束场景
+              选择产能情况
             </label>
             <div className="grid md:grid-cols-3 gap-3">
               {CAPACITY_SCENARIOS.map((scenario) => (
@@ -272,7 +272,20 @@ const NewStep1: React.FC = () => {
                   onClick={() => setSelectedScenario(scenario.id)}
                   className={`p-4 rounded-lg transition-all text-left ${getScenarioBorderClass(scenario.id)}`}
                 >
-                  <div className="font-semibold text-gray-900 mb-1">{scenario.label}</div>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="font-semibold text-gray-900">{scenario.name}</div>
+                    {scenario.badge && (
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        scenario.id === 'normal'
+                          ? 'bg-blue-100 text-blue-700 font-semibold'
+                          : scenario.id === 'tight'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-green-100 text-green-700'
+                      }`}>
+                        {scenario.badge}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-gray-600 mb-2">{scenario.description}</div>
                   <div className="text-xs font-medium text-gray-700">
                     产能 = 平均需求 × {scenario.multiplier}
