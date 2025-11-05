@@ -29,6 +29,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
   const isFormValid = username.trim() && password.trim() && selectedRole;
 
+  // 根据角色获取用户名字段的标签
+  const getUsernameLabel = () => {
+    return selectedRole === "student" ? "学号" : "用户名";
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* 错误信息提示 */}
@@ -41,7 +46,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
       {/* 用户名输入 */}
       <div className="space-y-2">
-        <label className="text-white/90 text-sm font-medium">用户名</label>
+        <label className="text-white/90 text-sm font-medium">{getUsernameLabel()}</label>
         <div className="relative">
           <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/50" />
           <input
@@ -52,7 +57,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                      text-white placeholder-white/50 backdrop-blur-sm
                      focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent
                      transition-all duration-300"
-            placeholder="请输入用户名"
+            placeholder={`请输入${getUsernameLabel()}`}
             required
           />
         </div>
