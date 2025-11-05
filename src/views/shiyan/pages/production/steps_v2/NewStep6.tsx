@@ -143,11 +143,11 @@ const NewStep6: React.FC = () => {
   // 计算汇总统计
   const handleComplete = async () => {
     try {
-      // 📊 更新步骤进度：完成步骤6
-      console.log('📊 更新步骤进度：完成步骤6');
+      // 📊 更新步骤进度：完成步骤7
+      console.log('📊 更新步骤进度：完成步骤7');
       await updateState({
-        highest_completed_step: 6,
-        current_step: 6,
+        highest_completed_step: 7,
+        current_step: 7,
       });
       console.log('✅ 步骤进度已更新');
 
