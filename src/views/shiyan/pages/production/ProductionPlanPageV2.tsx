@@ -2,33 +2,27 @@ import React from 'react';
 import { CheckCircle, Circle, Lock, RotateCcw } from 'lucide-react';
 import { ProductionPlanProvider, useProductionPlan } from './ProductionPlanContextV2';
 import { useExperiment } from '../../contexts/ExperimentContext';
-import MPSTableView from './components/MPSTableView';
-import ConceptStep1 from './steps/ConceptStep1';
-import ConceptStep2 from './steps/ConceptStep2';
-import ConceptStep3 from './steps/ConceptStep3';
-import ConceptStep4 from './steps/ConceptStep4';
-import ConceptStep5 from './steps/ConceptStep5';
-import ConceptStep6 from './steps/ConceptStep6';
-import ConceptStep7 from './steps/ConceptStep7';
-import ConceptStep8 from './steps/ConceptStep8';
-import ConceptStep9 from './steps/ConceptStep9';
+import MPSTableViewV2 from './components/MPSTableViewV2';
+import NewStep1 from './steps_v2/NewStep1';
+import NewStep2 from './steps_v2/NewStep2';
+import NewStep3 from './steps_v2/NewStep3';
+import NewStep4 from './steps_v2/NewStep4';
+import NewStep5 from './steps_v2/NewStep5';
+import NewStep6 from './steps_v2/NewStep6';
 
 const ProductionPlanContent: React.FC = () => {
   const { state, goToStep, resetAll } = useProductionPlan();
 
   const steps = [
-    { id: 1, title: 'MPS概述', component: ConceptStep1 },
-    { id: 2, title: '需求预测', component: ConceptStep2 },
-    { id: 3, title: '安全库存', component: ConceptStep3 },
-    { id: 4, title: '计划生产', component: ConceptStep4 },
-    { id: 5, title: '期初库存', component: ConceptStep5 },
-    { id: 6, title: '产出量', component: ConceptStep6 },
-    { id: 7, title: '期末库存', component: ConceptStep7 },
-    { id: 8, title: '缺货与服务水平', component: ConceptStep8 },
-    { id: 9, title: '生成完整计划', component: ConceptStep9 },
+    { id: 1, title: '规划总览', component: NewStep1 },
+    { id: 2, title: '生产变量', component: NewStep2 },
+    { id: 3, title: '服务水平', component: NewStep3 },
+    { id: 4, title: '预测量', component: NewStep4 },
+    { id: 5, title: '投入量', component: NewStep5 },
+    { id: 6, title: '完整计划表', component: NewStep6 },
   ];
 
-  const CurrentStepComponent = steps[state.currentStep - 1]?.component || ConceptStep1;
+  const CurrentStepComponent = steps[state.currentStep - 1]?.component || NewStep1;
 
   const getStepStatus = (stepId: number) => {
     if (state.completedSteps.includes(stepId)) return 'completed';
@@ -115,7 +109,7 @@ const ProductionPlanContent: React.FC = () => {
                 期1作为参考示例，期2用于渐进式学习，随着学习进度逐步填充完整
               </p>
             </div>
-            <MPSTableView />
+            <MPSTableViewV2 />
           </div>
         </div>
       </div>

@@ -33,7 +33,7 @@ export type Period2Data = PeriodData;
 
 // 生产计划状态接口
 export interface ProductionPlanState {
-  // 学习进度 (1-9)
+  // 学习进度 (1-6)
   currentStep: number;
   completedSteps: number[];
 
@@ -94,6 +94,9 @@ interface ProductionPlanContextValue {
 
   // 第2期数据填充（每完成一个概念就填充对应字段）
   fillPeriod2Field: (field: keyof Period2Data, value: number) => void;
+
+  // 第2期数据批量更新
+  updatePeriod2Data: (data: Partial<Period2Data>) => void;
 
   // 🆕 更新演示预测数据（从API获取真实预测值）
   updateDemoPrediction: (prediction: number, stdDev: number) => void;
@@ -190,7 +193,7 @@ export const ProductionPlanProvider: React.FC<{
   }, [initialModel, avgDemand, stdDevDemand]);
 
   const goToStep = (step: number) => {
-    if (step >= 1 && step <= 9) {
+    if (step >= 1 && step <= 6) {
       setState((prev) => ({ ...prev, currentStep: step }));
     }
   };
@@ -204,7 +207,7 @@ export const ProductionPlanProvider: React.FC<{
       return {
         ...prev,
         completedSteps: newCompletedSteps,
-        currentStep: Math.min(prev.currentStep + 1, 9),
+        currentStep: Math.min(prev.currentStep + 1, 6),
       };
     });
   };
@@ -268,6 +271,16 @@ export const ProductionPlanProvider: React.FC<{
       period2Data: {
         ...prev.period2Data,
         [field]: value,
+      },
+    }));
+  };
+
+  const updatePeriod2Data = (data: Partial<Period2Data>) => {
+    setState((prev) => ({
+      ...prev,
+      period2Data: {
+        ...prev.period2Data,
+        ...data,
       },
     }));
   };
@@ -396,6 +409,7 @@ export const ProductionPlanProvider: React.FC<{
         updateCapacity,
         fillPeriod1Data,
         fillPeriod2Field,
+        updatePeriod2Data,
         updateDemoPrediction,
         generateFullMPS,
         resetAll,
