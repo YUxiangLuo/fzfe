@@ -17,14 +17,25 @@ const NewStep4: React.FC = () => {
   const targetServiceLevel = state.targetServiceLevel;
   const zScore = state.safetyStockZScore;
 
-  // 简化的安全库存计算
-  // 假设需求标准差 = 平均需求 × 20%（简化模型）
+  // 使用预测接口返回的真实标准差
   const calculateSafetyStock = (): number => {
+    // 优先使用predictions[1]的标准差（第2期）
+    if (state.predictions && state.predictions.length > 1) {
+      const stdDev = state.predictions[1].std_dev;
+      const safetyStock = Math.round(zScore * stdDev);
+      return Math.max(0, safetyStock);
+    }
+    // 如果没有预测数据，使用简化估算
     const avgDemand = state.demoPrediction;
-    const stdDev = avgDemand * 0.2; // 简化假设：标准差为平均需求的20%
+    const stdDev = avgDemand * 0.2;
     const safetyStock = Math.round(zScore * stdDev);
     return Math.max(0, safetyStock);
   };
+
+  // 获取第2期的标准差（用于显示）
+  const period2StdDev = state.predictions && state.predictions.length > 1
+    ? state.predictions[1].std_dev
+    : state.demoPrediction * 0.2;
 
   const safetyStock = hasCalculated ? calculateSafetyStock() : null;
   const forecastQuantity = hasCalculated && safetyStock !== null
@@ -120,7 +131,7 @@ const NewStep4: React.FC = () => {
               </div>
               <div className="text-xs text-purple-800 space-y-1">
                 <div>• <strong>Z分数</strong>：基于目标服务水平的统计参数（您设置的目标：{(targetServiceLevel * 100).toFixed(0)}% → Z = {zScore.toFixed(2)}）</div>
-                <div>• <strong>需求标准差</strong>：需求波动的度量（本例简化为平均需求的20%）</div>
+                <div>• <strong>需求标准差</strong>：需求波动的度量（从预测模型获得：σ = {period2StdDev.toFixed(1)}）</div>
                 <div className="mt-2 p-2 bg-purple-100 rounded">
                   💡 <strong>服务水平越高</strong> → Z分数越大 → 安全库存越多 → 成本越高
                 </div>
@@ -185,13 +196,12 @@ const NewStep4: React.FC = () => {
               <div className="border-t-2 border-amber-200 pt-4">
                 <h5 className="text-sm font-semibold text-gray-700 mb-3">计算过程：</h5>
 
-                {/* 步骤1：计算需求标准差 */}
+                {/* 步骤1：获取需求标准差 */}
                 <div className="bg-white border border-gray-300 rounded-lg p-4 mb-3">
-                  <div className="text-sm font-semibold text-gray-800 mb-2">步骤1：估算需求标准差</div>
+                  <div className="text-sm font-semibold text-gray-800 mb-2">步骤1：获取需求标准差</div>
                   <div className="font-mono text-sm text-gray-700 space-y-1">
-                    <div>需求标准差 ≈ 平均需求 × 20%（简化模型）</div>
-                    <div className="ml-4">= {state.demoPrediction} × 0.2</div>
-                    <div className="ml-4 font-bold">= {(state.demoPrediction * 0.2).toFixed(1)}</div>
+                    <div>需求标准差（从预测模型）</div>
+                    <div className="ml-4 font-bold">σ = {period2StdDev.toFixed(1)}</div>
                   </div>
                 </div>
 
@@ -200,8 +210,8 @@ const NewStep4: React.FC = () => {
                   <div className="text-sm font-semibold text-amber-900 mb-2">步骤2：计算安全库存</div>
                   <div className="font-mono text-sm text-amber-800 space-y-1">
                     <div>安全库存 = Z分数 × 需求标准差</div>
-                    <div className="ml-4">= {zScore.toFixed(2)} × {(state.demoPrediction * 0.2).toFixed(1)}</div>
-                    <div className="ml-4">= {(zScore * state.demoPrediction * 0.2).toFixed(1)}</div>
+                    <div className="ml-4">= {zScore.toFixed(2)} × {period2StdDev.toFixed(1)}</div>
+                    <div className="ml-4">= {(zScore * period2StdDev).toFixed(1)}</div>
                     <div className="ml-4 font-bold text-amber-900">≈ {safetyStock}（取整）</div>
                   </div>
                 </div>
