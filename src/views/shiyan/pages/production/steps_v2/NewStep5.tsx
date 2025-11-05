@@ -38,6 +38,13 @@ const NewStep5: React.FC = () => {
 
   const handleCalculate = () => {
     setHasCalculated(true);
+
+    // 立即更新MPS表的第2期数据
+    const calculatedPlannedProduction = calculatePlannedProduction();
+    updatePeriod2Data({
+      ...state.period2Data,
+      plannedProduction: calculatedPlannedProduction,
+    });
   };
 
   const handleNext = () => {
