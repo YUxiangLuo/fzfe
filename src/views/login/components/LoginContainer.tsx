@@ -81,7 +81,7 @@ export const LoginContainer: React.FC = () => {
         throw new Error("无效的角色类型");
       }
 
-      const response = await fetch(`${API_BASE_URL}/register/${role}`, {
+      const response = await fetch(`${API_BASE_URL}/users/register/${role}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
