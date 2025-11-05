@@ -1,5 +1,13 @@
 import React, { useState } from "react";
 import { User, Lock, Mail, Phone, Eye, EyeOff, UserPlus, AlertCircle, IdCard } from "lucide-react";
+import {
+  validateUsername,
+  validatePassword,
+  validateConfirmPassword,
+  validateName,
+  validateEmail,
+  validatePhone,
+} from "../utils/registerValidation";
 
 interface RegisterFormProps {
   selectedRole: string;
@@ -33,13 +41,122 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // 验证错误状态
+  const [errors, setErrors] = useState({
+    username: "",
+    name: "",
+    password: "",
+    confirmPassword: "",
+    email: "",
+    phone: "",
+  });
+
+  // 字段是否被触碰过（用于控制何时显示错误）
+  const [touched, setTouched] = useState({
+    username: false,
+    name: false,
+    password: false,
+    confirmPassword: false,
+    email: false,
+    phone: false,
+  });
+
   // 判断是否需要显示手机号字段（教师和助教需要）
   const needsPhone = selectedRole === "teacher" || selectedRole === "assistant";
+
+  // 处理用户名输入
+  const handleUsernameChange = (value: string) => {
+    setUsername(value);
+    const result = validateUsername(value, selectedRole);
+    setErrors((prev) => ({ ...prev, username: result.error }));
+  };
+
+  // 处理姓名输入
+  const handleNameChange = (value: string) => {
+    setName(value);
+    const result = validateName(value);
+    setErrors((prev) => ({ ...prev, name: result.error }));
+  };
+
+  // 处理密码输入
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    const result = validatePassword(value);
+    setErrors((prev) => ({ ...prev, password: result.error }));
+
+    // 如果确认密码已填写，也要重新验证确认密码
+    if (confirmPassword) {
+      const confirmResult = validateConfirmPassword(value, confirmPassword);
+      setErrors((prev) => ({ ...prev, confirmPassword: confirmResult.error }));
+    }
+  };
+
+  // 处理确认密码输入
+  const handleConfirmPasswordChange = (value: string) => {
+    setConfirmPassword(value);
+    const result = validateConfirmPassword(password, value);
+    setErrors((prev) => ({ ...prev, confirmPassword: result.error }));
+  };
+
+  // 处理邮箱输入
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    const result = validateEmail(value);
+    setErrors((prev) => ({ ...prev, email: result.error }));
+  };
+
+  // 处理手机号输入
+  const handlePhoneChange = (value: string) => {
+    setPhone(value);
+    const result = validatePhone(value);
+    setErrors((prev) => ({ ...prev, phone: result.error }));
+  };
+
+  // 标记字段为已触碰
+  const handleBlur = (field: keyof typeof touched) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (password !== confirmPassword) {
+    // 标记所有字段为已触碰
+    setTouched({
+      username: true,
+      name: true,
+      password: true,
+      confirmPassword: true,
+      email: true,
+      phone: true,
+    });
+
+    // 执行所有验证
+    const usernameResult = validateUsername(username, selectedRole);
+    const nameResult = validateName(name);
+    const passwordResult = validatePassword(password);
+    const confirmPasswordResult = validateConfirmPassword(password, confirmPassword);
+    const emailResult = validateEmail(email);
+    const phoneResult = needsPhone ? validatePhone(phone) : { isValid: true, error: "" };
+
+    // 更新所有错误
+    setErrors({
+      username: usernameResult.error,
+      name: nameResult.error,
+      password: passwordResult.error,
+      confirmPassword: confirmPasswordResult.error,
+      email: emailResult.error,
+      phone: phoneResult.error,
+    });
+
+    // 如果有任何错误，不提交
+    if (
+      !usernameResult.isValid ||
+      !nameResult.isValid ||
+      !passwordResult.isValid ||
+      !confirmPasswordResult.isValid ||
+      !emailResult.isValid ||
+      (needsPhone && !phoneResult.isValid)
+    ) {
       return;
     }
 
@@ -57,14 +174,20 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     await onSubmit(formData);
   };
 
+  // 表单是否有效：所有字段都填写且没有错误
   const isFormValid =
     username.trim() &&
     name.trim() &&
     password &&
     confirmPassword &&
-    password === confirmPassword &&
     email.trim() &&
-    (!needsPhone || phone.trim());
+    (!needsPhone || phone.trim()) &&
+    !errors.username &&
+    !errors.name &&
+    !errors.password &&
+    !errors.confirmPassword &&
+    !errors.email &&
+    (!needsPhone || !errors.phone);
 
   const getRoleLabel = () => {
     const labels: Record<string, string> = {
@@ -81,19 +204,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* 错误信息提示 */}
+      {/* 服务器错误信息提示 */}
       {error && (
         <div className="bg-red-500/20 border border-red-500/50 text-red-300 text-sm rounded-lg p-3 flex items-center space-x-2">
           <AlertCircle className="w-5 h-5" />
           <span>{error}</span>
-        </div>
-      )}
-
-      {/* 密码不匹配提示 */}
-      {password && confirmPassword && password !== confirmPassword && (
-        <div className="bg-yellow-500/20 border border-yellow-500/50 text-yellow-300 text-sm rounded-lg p-3 flex items-center space-x-2">
-          <AlertCircle className="w-5 h-5" />
-          <span>两次输入的密码不一致</span>
         </div>
       )}
 
@@ -105,15 +220,20 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <input
             type="text"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-lg
+            onChange={(e) => handleUsernameChange(e.target.value)}
+            onBlur={() => handleBlur("username")}
+            className={`w-full pl-10 pr-4 py-2.5 bg-white/10 border rounded-lg
                      text-white placeholder-white/50 backdrop-blur-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent
-                     transition-all duration-300"
+                     focus:outline-none focus:ring-2 focus:border-transparent
+                     transition-all duration-300
+                     ${touched.username && errors.username ? "border-red-500 focus:ring-red-400" : "border-white/20 focus:ring-blue-400"}`}
             placeholder={`请输入${getUsernameLabel()}`}
             required
           />
         </div>
+        {touched.username && errors.username && (
+          <p className="text-red-400 text-xs">{errors.username}</p>
+        )}
       </div>
 
       {/* 姓名输入 */}
@@ -124,15 +244,20 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <input
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-lg
+            onChange={(e) => handleNameChange(e.target.value)}
+            onBlur={() => handleBlur("name")}
+            className={`w-full pl-10 pr-4 py-2.5 bg-white/10 border rounded-lg
                      text-white placeholder-white/50 backdrop-blur-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent
-                     transition-all duration-300"
+                     focus:outline-none focus:ring-2 focus:border-transparent
+                     transition-all duration-300
+                     ${touched.name && errors.name ? "border-red-500 focus:ring-red-400" : "border-white/20 focus:ring-blue-400"}`}
             placeholder="请输入姓名"
             required
           />
         </div>
+        {touched.name && errors.name && (
+          <p className="text-red-400 text-xs">{errors.name}</p>
+        )}
       </div>
 
       {/* 邮箱输入 */}
@@ -143,15 +268,20 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <input
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-lg
+            onChange={(e) => handleEmailChange(e.target.value)}
+            onBlur={() => handleBlur("email")}
+            className={`w-full pl-10 pr-4 py-2.5 bg-white/10 border rounded-lg
                      text-white placeholder-white/50 backdrop-blur-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent
-                     transition-all duration-300"
+                     focus:outline-none focus:ring-2 focus:border-transparent
+                     transition-all duration-300
+                     ${touched.email && errors.email ? "border-red-500 focus:ring-red-400" : "border-white/20 focus:ring-blue-400"}`}
             placeholder="请输入邮箱地址"
             required
           />
         </div>
+        {touched.email && errors.email && (
+          <p className="text-red-400 text-xs">{errors.email}</p>
+        )}
       </div>
 
       {/* 手机号输入（仅教师和助教） */}
@@ -163,15 +293,20 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             <input
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/20 rounded-lg
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              onBlur={() => handleBlur("phone")}
+              className={`w-full pl-10 pr-4 py-2.5 bg-white/10 border rounded-lg
                        text-white placeholder-white/50 backdrop-blur-sm
-                       focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent
-                       transition-all duration-300"
+                       focus:outline-none focus:ring-2 focus:border-transparent
+                       transition-all duration-300
+                       ${touched.phone && errors.phone ? "border-red-500 focus:ring-red-400" : "border-white/20 focus:ring-blue-400"}`}
               placeholder="请输入手机号"
               required
             />
           </div>
+          {touched.phone && errors.phone && (
+            <p className="text-red-400 text-xs">{errors.phone}</p>
+          )}
         </div>
       )}
 
@@ -183,12 +318,14 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <input
             type={showPassword ? "text" : "password"}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full pl-10 pr-12 py-2.5 bg-white/10 border border-white/20 rounded-lg
+            onChange={(e) => handlePasswordChange(e.target.value)}
+            onBlur={() => handleBlur("password")}
+            className={`w-full pl-10 pr-12 py-2.5 bg-white/10 border rounded-lg
                      text-white placeholder-white/50 backdrop-blur-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent
-                     transition-all duration-300"
-            placeholder="请输入密码"
+                     focus:outline-none focus:ring-2 focus:border-transparent
+                     transition-all duration-300
+                     ${touched.password && errors.password ? "border-red-500 focus:ring-red-400" : "border-white/20 focus:ring-blue-400"}`}
+            placeholder="请输入密码（8位以上，含字母和数字）"
             required
           />
           <button
@@ -203,6 +340,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             )}
           </button>
         </div>
+        {touched.password && errors.password && (
+          <p className="text-red-400 text-xs">{errors.password}</p>
+        )}
       </div>
 
       {/* 确认密码输入 */}
@@ -213,11 +353,13 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <input
             type={showConfirmPassword ? "text" : "password"}
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full pl-10 pr-12 py-2.5 bg-white/10 border border-white/20 rounded-lg
+            onChange={(e) => handleConfirmPasswordChange(e.target.value)}
+            onBlur={() => handleBlur("confirmPassword")}
+            className={`w-full pl-10 pr-12 py-2.5 bg-white/10 border rounded-lg
                      text-white placeholder-white/50 backdrop-blur-sm
-                     focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent
-                     transition-all duration-300"
+                     focus:outline-none focus:ring-2 focus:border-transparent
+                     transition-all duration-300
+                     ${touched.confirmPassword && errors.confirmPassword ? "border-red-500 focus:ring-red-400" : "border-white/20 focus:ring-blue-400"}`}
             placeholder="请再次输入密码"
             required
           />
@@ -233,6 +375,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             )}
           </button>
         </div>
+        {touched.confirmPassword && errors.confirmPassword && (
+          <p className="text-red-400 text-xs">{errors.confirmPassword}</p>
+        )}
       </div>
 
       {/* 注册按钮 */}
