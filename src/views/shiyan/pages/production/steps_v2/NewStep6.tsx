@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, Loader2, AlertCircle, Download, TrendingUp } from 'lucide-react';
+import { CheckCircle, Loader2, AlertCircle, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
+import { useExperiment, type MPSTableRow as GlobalMPSTableRow } from '../../../contexts/ExperimentContext';
+import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../../../../utils/apiClient';
+import type { MPSTableRow as LocalMPSTableRow } from '../ProductionPlanContextV2';
 
 // 模型类型映射：前端模型ID -> 后端API参数
 const MODEL_TYPE_MAP: Record<string, string> = {
@@ -14,6 +17,22 @@ const MODEL_TYPE_MAP: Record<string, string> = {
   'ensemble_stacking': 'stacking',
 };
 
+// 🔄 将本地MPS表格数据转换为全局类型（去除null）
+const convertToGlobalMPSTable = (localTable: LocalMPSTableRow[]): GlobalMPSTableRow[] => {
+  return localTable.map(row => ({
+    period: row.period,
+    period_label: row.period_label,
+    demand_forecast: row.demand_forecast ?? 0,
+    safety_stock: row.safety_stock ?? 0,
+    planned_production: row.planned_production ?? 0,
+    beginning_inventory: row.beginning_inventory ?? 0,
+    production_output: row.production_output ?? 0,
+    ending_inventory: row.ending_inventory ?? 0,
+    stockout: row.stockout ?? 0,
+    service_level: row.service_level ?? 0,
+  }));
+};
+
 /**
  * Step 6: 完整计划表
  * - 自动生成完整的多期MPS计划
@@ -21,13 +40,16 @@ const MODEL_TYPE_MAP: Record<string, string> = {
  * - 展示汇总统计
  */
 const NewStep6: React.FC = () => {
+  const navigate = useNavigate();
   const { state, generateFullMPS } = useProductionPlan();
+  const { updateState } = useExperiment();
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasGenerated, setHasGenerated] = useState(false);
 
   const generationTriggeredRef = useRef(false);
+  const hasSavedMPSRef = useRef(false);
 
   // 自动生成完整计划（仅执行一次）
   useEffect(() => {
@@ -36,6 +58,40 @@ const NewStep6: React.FC = () => {
       handleGenerate();
     }
   }, []);
+
+  // 💾 当MPS表生成完成后，保存到全局状态
+  useEffect(() => {
+    if (state.isFullPlanGenerated && !hasSavedMPSRef.current && state.predictions) {
+      const saveMPSData = async () => {
+        try {
+          console.log('💾 保存生产计划数据到全局状态');
+
+          // 转换MPS表格数据类型
+          const globalMPSTable = convertToGlobalMPSTable(state.fullMPSTable);
+
+          await updateState({
+            production_plan_completed: true,
+            production_forecast_periods: state.forecastPeriods,
+            production_initial_inventory: state.initialInventory,
+            production_target_service_level: state.targetServiceLevel,
+            production_safety_stock_z_score: state.safetyStockZScore,
+            production_forecast_results: state.predictions,
+            production_mps_table: globalMPSTable,
+            production_capacity_mode: state.capacityMode,
+            production_capacity_scenario: state.capacityScenario,
+            production_capacity: state.productionCapacity,
+            production_custom_capacity: state.customCapacity,
+          });
+          console.log('✅ 生产计划数据已保存到全局状态');
+          hasSavedMPSRef.current = true;
+        } catch (err) {
+          console.error('保存生产计划数据失败:', err);
+        }
+      };
+
+      saveMPSData();
+    }
+  }, [state.isFullPlanGenerated, state.fullMPSTable, state.predictions, state.forecastPeriods, state.initialInventory, state.targetServiceLevel, state.safetyStockZScore, state.capacityMode, state.capacityScenario, state.productionCapacity, state.customCapacity, updateState]);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -85,6 +141,25 @@ const NewStep6: React.FC = () => {
   };
 
   // 计算汇总统计
+  const handleComplete = async () => {
+    try {
+      // 📊 更新步骤进度：完成步骤6
+      console.log('📊 更新步骤进度：完成步骤6');
+      await updateState({
+        highest_completed_step: 6,
+        current_step: 6,
+      });
+      console.log('✅ 步骤进度已更新');
+
+      // 导航到生产计划测验
+      navigate('/quiz-plan');
+    } catch (err) {
+      console.error('更新步骤进度失败:', err);
+      // 即使失败也继续导航
+      navigate('/quiz-plan');
+    }
+  };
+
   const calculateSummary = () => {
     if (!state.isFullPlanGenerated || state.fullMPSTable.length === 0) {
       return null;
@@ -322,19 +397,19 @@ const NewStep6: React.FC = () => {
                 <li>✓ MPS核心公式的应用</li>
                 <li>✓ 完整多期生产计划的生成</li>
               </ul>
-              <p className="mt-3 font-semibold">您可以在下方的表格中查看完整的MPS计划表，也可以导出数据进行进一步分析。</p>
+              <p className="mt-3 font-semibold">您可以在下方的表格中查看完整的MPS计划表。</p>
             </div>
           </div>
 
-          {/* 导出功能（占位） */}
+          {/* 完成按钮 */}
           <div className="flex justify-center pt-4">
             <button
               type="button"
-              onClick={() => alert('导出功能开发中...')}
-              className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-lg"
+              onClick={handleComplete}
+              className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors shadow-lg"
             >
-              <Download className="w-5 h-5" />
-              <span>导出MPS表为Excel（开发中）</span>
+              <CheckCircle className="w-5 h-5" />
+              <span>完成生产计划制定，进入测验</span>
             </button>
           </div>
         </div>
