@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, ArrowRight, Calculator, Info } from 'lucide-react';
+import { TrendingUp, ArrowRight, Calculator, Info, Loader2 } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 
 // 模型名称映射
@@ -26,16 +26,21 @@ const NewStep2: React.FC = () => {
   const [hasCalculated, setHasCalculated] = useState(false);
   const [isPeriod2Loaded, setIsPeriod2Loaded] = useState(false);
   const [period2DemandValue, setPeriod2DemandValue] = useState<number | null>(null);
+  const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
 
   // 第2期期初库存 = 第1期期末库存（标准化后为0）
   const period2BeginningInventory = state.period1Data.endingInventory ?? 0;
 
   // 获取第二期预测需求
-  const handleLoadPeriod2Demand = () => {
+  const handleLoadPeriod2Demand = async () => {
     if (state.predictions && state.predictions.length > 1) {
+      setIsLoadingPrediction(true);
+      // 添加1秒虚拟loading
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const demand = Math.round(state.predictions[1].prediction);
       setPeriod2DemandValue(demand);
       setIsPeriod2Loaded(true);
+      setIsLoadingPrediction(false);
     }
   };
 
@@ -195,15 +200,24 @@ const NewStep2: React.FC = () => {
           <button
             type="button"
             onClick={handleLoadPeriod2Demand}
-            disabled={!state.predictions || state.predictions.length < 2}
+            disabled={isLoadingPrediction || !state.predictions || state.predictions.length < 2}
             className={`flex items-center space-x-2 px-8 py-3 rounded-lg font-medium transition-all ${
-              state.predictions && state.predictions.length >= 2
+              state.predictions && state.predictions.length >= 2 && !isLoadingPrediction
                 ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
-            <TrendingUp className="w-5 h-5" />
-            <span>获取第二期预测需求</span>
+            {isLoadingPrediction ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>正在加载预测...</span>
+              </>
+            ) : (
+              <>
+                <TrendingUp className="w-5 h-5" />
+                <span>获取第二期预测需求</span>
+              </>
+            )}
           </button>
         </div>
       )}

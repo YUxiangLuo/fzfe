@@ -101,6 +101,8 @@ const NewStep6: React.FC = () => {
       // 🆕 优先使用Step1中已保存的预测数据
       if (state.predictions && state.predictions.length > 0) {
         console.log('✅ 使用Step1中已保存的预测数据:', state.predictions);
+        // 添加1秒虚拟loading
+        await new Promise(resolve => setTimeout(resolve, 1000));
         generateFullMPS(state.predictions);
         setHasGenerated(true);
       } else {
@@ -125,6 +127,8 @@ const NewStep6: React.FC = () => {
         if (response.status === 'success' && response.results?.predictions) {
           console.log('🔍 API返回的预测数据:', response.results.predictions);
 
+          // 添加1秒虚拟loading
+          await new Promise(resolve => setTimeout(resolve, 1000));
           // 生成完整MPS表
           generateFullMPS(response.results.predictions);
           setHasGenerated(true);
