@@ -354,6 +354,14 @@ const NewStep1: React.FC = () => {
             <div className="text-green-600 text-2xl">✅</div>
             <div className="flex-1">
               <h4 className="font-semibold text-green-900 mb-3">第一期数据生成成功</h4>
+
+              {/* 模型信息 */}
+              <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  🤖 <strong>使用模型</strong>：{MODEL_NAME_MAP[state.selectedBestModel] || state.selectedBestModel}
+                </p>
+              </div>
+
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="bg-white rounded-lg p-4 border border-green-200">
                   <div className="text-xs text-gray-600 mb-1">预测需求</div>

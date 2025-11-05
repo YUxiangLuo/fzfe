@@ -2,6 +2,17 @@ import React, { useState } from 'react';
 import { TrendingUp, ArrowRight, Calculator, Info } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 
+// 模型名称映射
+const MODEL_NAME_MAP: Record<string, string> = {
+  'ma': '移动平均（MA）',
+  'exp': '指数平滑（ES）',
+  'arima': 'ARIMA',
+  'lstm': 'LSTM',
+  'ensemble_weighted': '加权平均集成',
+  'ensemble_boosting': 'Boosting集成',
+  'ensemble_stacking': 'Stacking集成',
+};
+
 /**
  * Step 2: 生产变量（基础四列）
  * - 理解核心四个变量：实际需求、产出量、库存、缺货
@@ -13,15 +24,23 @@ const NewStep2: React.FC = () => {
 
   const [productionOutput, setProductionOutput] = useState(state.period2Data.productionOutput ?? 0);
   const [hasCalculated, setHasCalculated] = useState(false);
-
-  // 🆕 使用预测接口返回的第2期需求（predictions[1]）
-  // 如果预测数据不可用，回退到平均需求
-  const period2Demand = state.predictions && state.predictions.length > 1
-    ? Math.round(state.predictions[1].prediction)
-    : state.demoPrediction;
+  const [isPeriod2Loaded, setIsPeriod2Loaded] = useState(false);
+  const [period2DemandValue, setPeriod2DemandValue] = useState<number | null>(null);
 
   // 第2期期初库存 = 第1期期末库存（标准化后为0）
   const period2BeginningInventory = state.period1Data.endingInventory ?? 0;
+
+  // 获取第二期预测需求
+  const handleLoadPeriod2Demand = () => {
+    if (state.predictions && state.predictions.length > 1) {
+      const demand = Math.round(state.predictions[1].prediction);
+      setPeriod2DemandValue(demand);
+      setIsPeriod2Loaded(true);
+    }
+  };
+
+  // 使用加载的需求值，如果未加载则使用默认值
+  const period2Demand = period2DemandValue ?? state.demoPrediction;
 
   // 计算期末库存和缺货
   const calculateInventoryAndStockout = () => {
@@ -160,8 +179,59 @@ const NewStep2: React.FC = () => {
         </div>
       </div>
 
+      {/* 预测第二期需求按钮 */}
+      {!isPeriod2Loaded && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={handleLoadPeriod2Demand}
+            disabled={!state.predictions || state.predictions.length < 2}
+            className={`flex items-center space-x-2 px-8 py-3 rounded-lg font-medium transition-all ${
+              state.predictions && state.predictions.length >= 2
+                ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            <TrendingUp className="w-5 h-5" />
+            <span>获取第二期预测需求</span>
+          </button>
+        </div>
+      )}
+
+      {/* 第二期预测结果展示 */}
+      {isPeriod2Loaded && period2DemandValue !== null && (
+        <div className="bg-green-50 border-2 border-green-400 rounded-lg p-5">
+          <div className="flex items-start space-x-3">
+            <div className="text-green-600 text-2xl">✅</div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-green-900 mb-3">第二期需求预测成功</h4>
+
+              {/* 模型信息 */}
+              <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800">
+                  🤖 <strong>使用模型</strong>：{MODEL_NAME_MAP[state.selectedBestModel] || state.selectedBestModel}
+                </p>
+              </div>
+
+              <div className="bg-white rounded-lg p-4 border border-green-200">
+                <div className="text-xs text-gray-600 mb-1">第2期预测需求</div>
+                <div className="text-2xl font-bold text-gray-900">{period2DemandValue}</div>
+                <div className="text-xs text-gray-500 mt-1">单位：件</div>
+              </div>
+
+              <div className="mt-3 p-3 bg-white rounded-lg border border-green-200">
+                <p className="text-sm text-gray-700">
+                  💡 接下来请输入产出量，然后计算库存和缺货
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 第二月计算演示 */}
-      <div className="bg-white border-2 border-blue-300 rounded-lg p-5">
+      {isPeriod2Loaded && (
+        <div className="bg-white border-2 border-blue-300 rounded-lg p-5">
         <h4 className="font-semibold text-blue-900 mb-4 flex items-center space-x-2">
           <Calculator className="w-5 h-5" />
           <span>第2期计算演示</span>
@@ -283,6 +353,7 @@ const NewStep2: React.FC = () => {
           )}
         </div>
       </div>
+      )}
 
       {/* 关键理解 */}
       <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
