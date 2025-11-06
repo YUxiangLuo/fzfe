@@ -139,21 +139,6 @@ const ProductionPlanPageV2: React.FC = () => {
     return Math.round(average);
   }, [productSalesData]);
 
-  // 📊 计算标准差（用于演示数据）
-  const stdDevDemand = React.useMemo(() => {
-    if (!productSalesData?.monthlySales || productSalesData.monthlySales.length < 2) {
-      return Math.round(avgDemand * 0.05); // 默认使用平均值的5%
-    }
-
-    const sales = productSalesData.monthlySales.map(item => item.sales);
-    const mean = avgDemand;
-    const variance = sales.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / sales.length;
-    const stdDev = Math.sqrt(variance);
-
-    console.log(`📊 计算历史标准差: ${stdDev.toFixed(2)}`);
-    return Math.round(stdDev);
-  }, [productSalesData, avgDemand]);
-
   // 🔄 等待销量数据加载完成
   if (isLoadingSales) {
     return (
@@ -171,7 +156,6 @@ const ProductionPlanPageV2: React.FC = () => {
     <ProductionPlanProvider
       initialModel={selectedBestModel}
       avgDemand={avgDemand}
-      stdDevDemand={stdDevDemand}
     >
       <ProductionPlanContent />
     </ProductionPlanProvider>

@@ -108,8 +108,7 @@ const ProductionPlanContext = createContext<ProductionPlanContextValue | undefin
 // 默认状态
 const getDefaultState = (
   initialModel?: string,
-  avgDemand?: number,
-  stdDevDemand?: number
+  avgDemand?: number
 ): ProductionPlanState => {
   // 使用真实的平均需求（基于历史数据）或默认值
   const defaultAvgDemand = avgDemand || 1050;
@@ -170,21 +169,19 @@ export const ProductionPlanProvider: React.FC<{
   children: ReactNode;
   initialModel?: string;
   avgDemand?: number;
-  stdDevDemand?: number;
-}> = ({ children, initialModel, avgDemand, stdDevDemand }) => {
+}> = ({ children, initialModel, avgDemand }) => {
   const initialPropsRef = useRef({
     initialModel,
     avgDemand,
-    stdDevDemand,
   });
 
   const [state, setState] = useState<ProductionPlanState>(() =>
-    getDefaultState(initialModel, avgDemand, stdDevDemand)
+    getDefaultState(initialModel, avgDemand)
   );
 
   useEffect(() => {
-    initialPropsRef.current = { initialModel, avgDemand, stdDevDemand };
-  }, [initialModel, avgDemand, stdDevDemand]);
+    initialPropsRef.current = { initialModel, avgDemand };
+  }, [initialModel, avgDemand]);
 
   const goToStep = (step: number) => {
     if (step >= 1 && step <= 6) {
@@ -389,8 +386,8 @@ export const ProductionPlanProvider: React.FC<{
   };
 
   const resetAll = () => {
-    const { initialModel: model, avgDemand: avg, stdDevDemand: std } = initialPropsRef.current;
-    setState(getDefaultState(model, avg, std));
+    const { initialModel: model, avgDemand: avg } = initialPropsRef.current;
+    setState(getDefaultState(model, avg));
   };
 
   return (
