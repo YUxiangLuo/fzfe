@@ -181,22 +181,22 @@ const ExperimentReport: React.FC = () => {
     // 提取期2数据
     const period2 = state.production_mps_table.length > 1 ? state.production_mps_table[1] : null;
     if (period2) {
-      html += '<h3>Step 2: 基础生产变量</h3><table>';
+      html += '<h3>基础生产变量</h3><table>';
       html += `<tr><td>需求预测</td><td>${period2.demand_forecast} 件</td><td>来源: ${state.selected_best_model ? { ma: '移动平均', exp: '指数平滑', arima: 'ARIMA', lstm: 'LSTM', ensemble_weighted: '加权融合', ensemble_boosting: 'Boosting融合', ensemble_stacking: 'Stacking融合' }[state.selected_best_model] : ''} 模型</td></tr>`;
       html += `<tr><td>产出量</td><td>${period2.production_output} 件</td><td>您手动输入的生产量</td></tr>`;
       html += `<tr><td>期初库存</td><td>${period2.beginning_inventory} 件</td><td>继承自期1的期末库存</td></tr>`;
       html += `<tr><td>期末库存</td><td>${period2.ending_inventory} 件</td><td>= 期初 + 产出 - 需求</td></tr>`;
       html += `<tr><td>缺货量</td><td style="color: ${period2.stockout > 0 ? 'red' : 'black'}">${period2.stockout} 件</td><td>期末库存为负时的绝对值</td></tr></table>`;
 
-      html += '<h3>Step 3: 服务水平</h3><table>';
+      html += '<h3>服务水平</h3><table>';
       html += `<tr><td>服务水平</td><td style="color: ${period2.service_level >= (state.production_target_service_level || 0.99) ? 'green' : 'red'}">${(period2.service_level * 100).toFixed(1)}%</td><td>= 1 - (${period2.stockout} / ${period2.demand_forecast})</td></tr>`;
       html += `<tr><td>目标对比</td><td colspan="2">实际 ${(period2.service_level * 100).toFixed(1)}% vs 目标 ${((state.production_target_service_level || 0.99) * 100).toFixed(0)}% ${period2.service_level >= (state.production_target_service_level || 0.99) ? '✓ 达标' : '✗ 未达标'}</td></tr></table>`;
 
-      html += '<h3>Step 4: 安全库存与预测量</h3><table>';
+      html += '<h3>安全库存与预测量</h3><table>';
       html += `<tr><td>安全库存</td><td>${period2.safety_stock} 件</td><td>= Z值 ${state.production_safety_stock_z_score || 2.33} × 标准差</td></tr>`;
       html += `<tr><td>预测量</td><td>${period2.demand_forecast + period2.safety_stock} 件</td><td>= 需求 + 安全库存</td></tr></table>`;
 
-      html += '<h3>Step 5: 计划生产</h3><table>';
+      html += '<h3>计划生产</h3><table>';
       html += `<tr><td>计划生产</td><td>${period2.planned_production} 件</td><td>= 预测量 - 期初库存</td></tr></table>`;
     }
 
@@ -329,7 +329,7 @@ const ExperimentReport: React.FC = () => {
             const period2 = state.production_mps_table.length > 1 ? state.production_mps_table[1] : null;
             if (!period2) return '<p>暂无期2数据</p>';
             return `
-              <h3>Step 2: 基础生产变量</h3>
+              <h3>基础生产变量</h3>
               <table>
                 <tr><th>需求预测</th><td>${period2.demand_forecast} 件</td><td>来源: ${state.selected_best_model ? modelLabels[state.selected_best_model] : ''} 模型</td></tr>
                 <tr><th>产出量</th><td>${period2.production_output} 件</td><td>您手动输入的生产量</td></tr>
@@ -337,17 +337,17 @@ const ExperimentReport: React.FC = () => {
                 <tr><th>期末库存</th><td>${period2.ending_inventory} 件</td><td>= 期初 + 产出 - 需求</td></tr>
                 <tr><th>缺货量</th><td style="color: ${period2.stockout > 0 ? 'red' : 'black'}">${period2.stockout} 件</td><td>期末库存为负时的绝对值</td></tr>
               </table>
-              <h3>Step 3: 服务水平</h3>
+              <h3>服务水平</h3>
               <table>
                 <tr><th>服务水平</th><td style="color: ${period2.service_level >= (state.production_target_service_level || 0.99) ? 'green' : 'red'}">${(period2.service_level * 100).toFixed(1)}%</td><td>= 1 - (${period2.stockout} / ${period2.demand_forecast})</td></tr>
                 <tr><th>目标对比</th><td colspan="2">实际 ${(period2.service_level * 100).toFixed(1)}% vs 目标 ${((state.production_target_service_level || 0.99) * 100).toFixed(0)}% ${period2.service_level >= (state.production_target_service_level || 0.99) ? '✓ 达标' : '✗ 未达标'}</td></tr>
               </table>
-              <h3>Step 4: 安全库存与预测量</h3>
+              <h3>安全库存与预测量</h3>
               <table>
                 <tr><th>安全库存</th><td>${period2.safety_stock} 件</td><td>= Z值 ${state.production_safety_stock_z_score || 2.33} × 标准差</td></tr>
                 <tr><th>预测量</th><td>${period2.demand_forecast + period2.safety_stock} 件</td><td>= 需求 + 安全库存</td></tr>
               </table>
-              <h3>Step 5: 计划生产</h3>
+              <h3>计划生产</h3>
               <table>
                 <tr><th>计划生产</th><td>${period2.planned_production} 件</td><td>= 预测量 - 期初库存</td></tr>
               </table>
@@ -513,11 +513,10 @@ const ExperimentReport: React.FC = () => {
 
                 return (
                   <div className="space-y-4">
-                    {/* Step 2: 基础生产变量 */}
+                    {/* 基础生产变量 */}
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                        <span className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">2</span>
-                        Step 2: 基础生产变量
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                        基础生产变量
                       </h3>
                       <table className="w-full text-sm">
                         <tbody>
@@ -530,11 +529,10 @@ const ExperimentReport: React.FC = () => {
                       </table>
                     </div>
 
-                    {/* Step 3: 服务水平 */}
+                    {/* 服务水平 */}
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                        <span className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">3</span>
-                        Step 3: 服务水平
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                        服务水平
                       </h3>
                       <table className="w-full text-sm">
                         <tbody>
@@ -560,11 +558,10 @@ const ExperimentReport: React.FC = () => {
                       </table>
                     </div>
 
-                    {/* Step 4: 安全库存与预测量 */}
+                    {/* 安全库存与预测量 */}
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                        <span className="bg-amber-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">4</span>
-                        Step 4: 安全库存与预测量
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                        安全库存与预测量
                       </h3>
                       <table className="w-full text-sm">
                         <tbody>
@@ -584,11 +581,10 @@ const ExperimentReport: React.FC = () => {
                       </table>
                     </div>
 
-                    {/* Step 5: 计划生产 */}
+                    {/* 计划生产 */}
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                        <span className="bg-indigo-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-2">5</span>
-                        Step 5: 计划生产（投入量）
+                      <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                        计划生产（投入量）
                       </h3>
                       <table className="w-full text-sm">
                         <tbody>
