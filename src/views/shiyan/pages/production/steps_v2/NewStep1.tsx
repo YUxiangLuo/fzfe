@@ -50,7 +50,7 @@ const NewStep1: React.FC = () => {
     safetyStock: number;
   } | null>(null);
 
-  const avgDemand = state.demoPrediction;
+  const avgDemand = state.avgDemand;
 
   // 🔒 根据客户需求：第一月标准化，初始库存固定为 0
   const INITIAL_INVENTORY = 0;
@@ -156,9 +156,8 @@ const NewStep1: React.FC = () => {
     // 计算并保存产能
     const capacity = calculateCapacityByScenario(selectedScenario, avgDemand);
     updateCapacity({
-      mode: 'scenario',
       scenario: selectedScenario,
-      calculatedValue: capacity,
+      capacity: capacity,
     });
 
     completeCurrentStep();

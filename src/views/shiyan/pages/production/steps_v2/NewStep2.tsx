@@ -45,7 +45,7 @@ const NewStep2: React.FC = () => {
   };
 
   // 使用加载的需求值，如果未加载则使用默认值
-  const period2Demand = period2DemandValue ?? state.demoPrediction;
+  const period2Demand = period2DemandValue ?? state.avgDemand;
 
   // 计算期末库存和缺货
   const calculateInventoryAndStockout = () => {

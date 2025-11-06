@@ -13,7 +13,7 @@ const NewStep5: React.FC = () => {
 
   const [hasCalculated, setHasCalculated] = useState(false);
 
-  const avgDemand = state.demoPrediction;
+  const avgDemand = state.avgDemand;
 
   // 第2期数据（已在前面步骤计算）
   const period2Demand = state.period2Data.demandForecast ?? avgDemand;

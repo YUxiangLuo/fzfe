@@ -186,12 +186,7 @@ const ExperimentReport: React.FC = () => {
       state.production_capacity_scenario === 'normal' ? '产能正常 (130%)' :
       state.production_capacity_scenario === 'abundant' ? '产能充裕 (180%)' : 'N/A'
     }</td></tr>`;
-    html += `<tr><td>实际产能值</td><td>${state.production_capacity?.toLocaleString() || 'N/A'} 件/期</td></tr>`;
-    html += `<tr><td>产能模式</td><td>${
-      state.production_capacity_mode === 'scenario' ? '场景选择' :
-      state.production_capacity_mode === 'auto' ? '自动计算' :
-      state.production_capacity_mode === 'custom' ? '自定义产能' : 'N/A'
-    }</td></tr></table>`;
+    html += `<tr><td>实际产能值</td><td>${state.production_capacity?.toLocaleString() || 'N/A'} 件/期</td></tr></table>`;
 
     html += '<h2>五、主生产计划 (MPS)</h2><table><thead><tr><th>周期</th><th>预测需求</th><th>安全库存</th><th>计划生产</th><th>期初库存</th><th>产出量</th><th>期末库存</th><th>缺货量</th><th>服务水平</th></tr></thead><tbody>';
     state.production_mps_table.forEach(row => {
@@ -330,11 +325,6 @@ const ExperimentReport: React.FC = () => {
               state.production_capacity_scenario === 'abundant' ? '产能充裕 (180%)' : 'N/A'
             }</td></tr>
             <tr><th>实际产能值</th><td>${state.production_capacity?.toLocaleString() || 'N/A'} 件/期</td></tr>
-            <tr><th>产能模式</th><td>${
-              state.production_capacity_mode === 'scenario' ? '场景选择' :
-              state.production_capacity_mode === 'auto' ? '自动计算' :
-              state.production_capacity_mode === 'custom' ? '自定义产能' : 'N/A'
-            }</td></tr>
           </table>
           <p class="analysis">${planParamsAnalysis}</p>
 
@@ -495,15 +485,6 @@ const ExperimentReport: React.FC = () => {
                     <tr className="border-b">
                       <td className="py-2 font-medium text-gray-500">实际产能值</td>
                       <td className="py-2 font-semibold">{renderValue(state.production_capacity?.toLocaleString())}<span className="text-xs text-gray-500 ml-1">件/期</span></td>
-                    </tr>
-                    <tr>
-                      <td className="py-2 font-medium text-gray-500">产能模式</td>
-                      <td className="py-2 font-semibold">
-                        {state.production_capacity_mode === 'scenario' ? '场景选择' :
-                         state.production_capacity_mode === 'auto' ? '自动计算' :
-                         state.production_capacity_mode === 'custom' ? '自定义产能' :
-                         renderValue(null)}
-                      </td>
                     </tr>
                   </tbody>
                 </table>

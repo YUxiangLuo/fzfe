@@ -44,17 +44,14 @@ export interface ProductionPlanState {
   safetyStockZScore: number;
   selectedBestModel: string;
 
-  // 🆕 产能参数（支持多种模式）
-  capacityMode: CapacityMode;           // 产能计算模式：scenario | auto | custom
-  capacityScenario: CapacityScenario;   // 当前选择的场景（scenario模式使用）
-  productionCapacity: number;           // 实际产能值（所有模式都使用此值）
-  customCapacity: number | null;        // 自定义产能（custom模式使用）
+  // 产能参数
+  capacityScenario: CapacityScenario;   // 用户选择的产能场景：tight | normal | abundant
+  productionCapacity: number;           // 实际产能值（每期最多能生产多少件，MPS计算的核心约束）
 
-  // 演示数据（用于第2期的教学演示）
-  demoPrediction: number;
-  demoStdDev: number;
+  // 初始估算值（基于历史数据的平均值，用于默认显示和fallback计算）
+  avgDemand: number;
 
-  // 🆕 预测结果数据（从预测接口获取的完整数据）
+  // 预测结果数据（从预测接口获取的完整数据）
   predictions: Array<{ prediction: number; std_dev: number }> | null;
 
   // 第1期的完整数据（作为参考，自动计算）
@@ -84,27 +81,19 @@ interface ProductionPlanContextValue {
     safetyStockZScore?: number;
   }) => void;
 
-  // 🆕 产能设置（支持多种模式）
+  // 产能设置
   updateCapacity: (params: {
-    mode?: CapacityMode;
-    scenario?: CapacityScenario;
-    customValue?: number;
-    calculatedValue?: number;
+    scenario: CapacityScenario;
+    capacity: number;
   }) => void;
 
   // 第1期数据填充（一次性填充完整数据，用于显示参考）
   fillPeriod1Data: (data: PeriodData) => void;
 
-  // 第2期数据填充（每完成一个概念就填充对应字段）
-  fillPeriod2Field: (field: keyof Period2Data, value: number) => void;
-
   // 第2期数据批量更新
   updatePeriod2Data: (data: Partial<Period2Data>) => void;
 
-  // 🆕 更新演示预测数据（从API获取真实预测值）
-  updateDemoPrediction: (prediction: number, stdDev: number) => void;
-
-  // 🆕 保存预测结果（从预测接口获取的完整数据）
+  // 保存预测结果（从预测接口获取的完整数据）
   savePredictions: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
 
   // 生成完整MPS表
@@ -123,33 +112,29 @@ const getDefaultState = (
   stdDevDemand?: number
 ): ProductionPlanState => {
   // 使用真实的平均需求（基于历史数据）或默认值
-  const demoPrediction = avgDemand || 1050;
-  const demoStdDev = stdDevDemand || 52;
+  const defaultAvgDemand = avgDemand || 1050;
 
-  // 计算默认产能（基于真实需求）
-  const defaultCapacity = Math.round(demoPrediction * 1.3); // normal场景：130%
+  // 计算默认产能（基于真实需求，使用 normal 场景的倍数 1.3）
+  const defaultCapacity = Math.round(defaultAvgDemand * 1.3);
 
   return {
     currentStep: 1,
     completedSteps: [],
 
     forecastPeriods: 6,
-    initialInventory: 0, // 固定为0（客户需求：第一月标准化）
-    targetServiceLevel: 0.99, // 固定为99%（追求卓越服务）
+    initialInventory: 0, // 固定为0（第一月标准化）
+    targetServiceLevel: 0.99, // 固定为99%
     safetyStockZScore: 2.33, // 对应99%服务水平的Z分数
     selectedBestModel: initialModel || 'lstm',
 
-    // 🆕 产能参数（默认使用场景模式）
-    capacityMode: 'scenario',
+    // 产能参数（默认使用 normal 场景）
     capacityScenario: 'normal',
     productionCapacity: defaultCapacity,
-    customCapacity: null,
 
-    // 演示数据（第2期的预测值，用于教学）- 使用真实历史数据
-    demoPrediction: demoPrediction,
-    demoStdDev: demoStdDev,
+    // 初始估算值（用于默认显示和 fallback 计算）
+    avgDemand: defaultAvgDemand,
 
-    // 🆕 预测结果（初始为空，Step1时调用接口获取）
+    // 预测结果（初始为空，Step1 时调用接口获取）
     predictions: null,
 
     // 第1期的完整数据（初始为空，后续自动填充）
@@ -233,54 +218,22 @@ export const ProductionPlanProvider: React.FC<{
     }));
   };
 
-  // 🆕 更新产能配置（支持多种模式）
+  // 更新产能配置
   const updateCapacity = (params: {
-    mode?: CapacityMode;
-    scenario?: CapacityScenario;
-    customValue?: number;
-    calculatedValue?: number;
+    scenario: CapacityScenario;
+    capacity: number;
   }) => {
-    setState((prev) => {
-      const newState = { ...prev };
-
-      // 更新模式
-      if (params.mode) {
-        newState.capacityMode = params.mode;
-      }
-
-      // 更新场景
-      if (params.scenario) {
-        newState.capacityScenario = params.scenario;
-      }
-
-      // 更新自定义值
-      if (params.customValue !== undefined) {
-        newState.customCapacity = params.customValue;
-      }
-
-      // 更新实际产能值（这是所有计算使用的值）
-      if (params.calculatedValue !== undefined) {
-        newState.productionCapacity = params.calculatedValue;
-      }
-
-      return newState;
-    });
+    setState((prev) => ({
+      ...prev,
+      capacityScenario: params.scenario,
+      productionCapacity: params.capacity,
+    }));
   };
 
   const fillPeriod1Data = (data: PeriodData) => {
     setState((prev) => ({
       ...prev,
       period1Data: data,
-    }));
-  };
-
-  const fillPeriod2Field = (field: keyof Period2Data, value: number) => {
-    setState((prev) => ({
-      ...prev,
-      period2Data: {
-        ...prev.period2Data,
-        [field]: value,
-      },
     }));
   };
 
@@ -294,16 +247,7 @@ export const ProductionPlanProvider: React.FC<{
     }));
   };
 
-  // 🆕 更新演示预测数据（从API获取的真实预测值）
-  const updateDemoPrediction = (prediction: number, stdDev: number) => {
-    setState((prev) => ({
-      ...prev,
-      demoPrediction: prediction,
-      demoStdDev: stdDev,
-    }));
-  };
-
-  // 🆕 保存预测结果（从预测接口获取的完整数据）
+  // 保存预测结果（从预测接口获取的完整数据）
   const savePredictions = (predictions: Array<{ prediction: number; std_dev: number }>) => {
     setState((prev) => ({
       ...prev,
@@ -458,9 +402,7 @@ export const ProductionPlanProvider: React.FC<{
         updateParameters,
         updateCapacity,
         fillPeriod1Data,
-        fillPeriod2Field,
         updatePeriod2Data,
-        updateDemoPrediction,
         savePredictions,
         generateFullMPS,
         resetAll,

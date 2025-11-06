@@ -26,7 +26,7 @@ const NewStep4: React.FC = () => {
       return Math.max(0, safetyStock);
     }
     // 如果没有预测数据，使用简化估算
-    const avgDemand = state.demoPrediction;
+    const avgDemand = state.avgDemand;
     const stdDev = avgDemand * 0.2;
     const safetyStock = Math.round(zScore * stdDev);
     return Math.max(0, safetyStock);
@@ -35,7 +35,7 @@ const NewStep4: React.FC = () => {
   // 获取第2期的标准差（用于显示）
   const period2StdDev = state.predictions && state.predictions.length > 1
     ? state.predictions[1].std_dev
-    : state.demoPrediction * 0.2;
+    : state.avgDemand * 0.2;
 
   const safetyStock = hasCalculated ? calculateSafetyStock() : null;
   const forecastQuantity = hasCalculated && safetyStock !== null
