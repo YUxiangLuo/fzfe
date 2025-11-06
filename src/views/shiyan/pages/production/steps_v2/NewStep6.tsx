@@ -93,8 +93,9 @@ const NewStep6: React.FC = () => {
             service_level: state.period2Data.serviceLevel,
           };
 
-          // 合并所有期数的数据
-          const completeMPSTable = [period1Row, period2Row, ...state.fullMPSTable];
+          // 合并所有期数的数据：期1和期2来自教学演示，期3-6来自fullMPSTable
+          // 注意：fullMPSTable包含所有期数，但我们只取期3及以后的数据
+          const completeMPSTable = [period1Row, period2Row, ...state.fullMPSTable.slice(2)];
 
           // 转换MPS表格数据类型
           const globalMPSTable = convertToGlobalMPSTable(completeMPSTable);
