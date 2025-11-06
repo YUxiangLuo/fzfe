@@ -315,11 +315,44 @@ export const ProductionPlanProvider: React.FC<{
     console.log('🏭 ===== 开始生成完整MPS表 =====');
     console.log(`📊 参数: 预测期数=${predictions.length}, 初始库存=${state.initialInventory}, 产能=${state.productionCapacity}, 服务水平目标=${state.targetServiceLevel}, Z值=${state.safetyStockZScore}`);
 
-    const generatedTable: MPSTableRow[] = [];
-    let previousEndingInventory = state.initialInventory;
-    let previousStockout = 0;
+    // 🆕 构建期1和期2的数据（来自用户的实际学习操作）
+    const period1Row: MPSTableRow = {
+      period: 1,
+      period_label: '期 1',
+      demand_forecast: state.period1Data.demandForecast,
+      safety_stock: state.period1Data.safetyStock,
+      planned_production: state.period1Data.plannedProduction,
+      beginning_inventory: state.period1Data.beginningInventory,
+      production_output: state.period1Data.productionOutput,
+      ending_inventory: state.period1Data.endingInventory,
+      stockout: state.period1Data.stockout,
+      service_level: state.period1Data.serviceLevel,
+    };
 
-    for (let i = 0; i < predictions.length; i++) {
+    const period2Row: MPSTableRow = {
+      period: 2,
+      period_label: '期 2',
+      demand_forecast: state.period2Data.demandForecast,
+      safety_stock: state.period2Data.safetyStock,
+      planned_production: state.period2Data.plannedProduction,
+      beginning_inventory: state.period2Data.beginningInventory,
+      production_output: state.period2Data.productionOutput,
+      ending_inventory: state.period2Data.endingInventory,
+      stockout: state.period2Data.stockout,
+      service_level: state.period2Data.serviceLevel,
+    };
+
+    const generatedTable: MPSTableRow[] = [period1Row, period2Row];
+
+    // 🆕 从期3开始生成，使用期2的结果作为初始状态
+    let previousEndingInventory = state.period2Data.endingInventory ?? 0;
+    let previousStockout = state.period2Data.stockout ?? 0;
+
+    console.log(`📌 期1和期2使用用户学习数据，从期3开始生成`);
+    console.log(`📌 期2结束状态: 期末库存=${previousEndingInventory}, 缺货=${previousStockout}`);
+
+    // 从期3开始循环（i=2对应期3）
+    for (let i = 2; i < predictions.length; i++) {
       const prediction = predictions[i];
       if (!prediction) continue;
 
