@@ -171,41 +171,15 @@ const NewStep6: React.FC = () => {
       return null;
     }
 
-    // 🔧 修复：需要包含期1、期2和fullMPSTable的所有数据
-    const allPeriods = [
-      // 期1数据
-      {
-        service_level: state.period1Data.serviceLevel ?? 0,
-        stockout: state.period1Data.stockout ?? 0,
-        demand_forecast: state.period1Data.demandForecast ?? 0,
-        production_output: state.period1Data.productionOutput ?? 0,
-        ending_inventory: state.period1Data.endingInventory ?? 0,
-      },
-      // 期2数据
-      {
-        service_level: state.period2Data.serviceLevel ?? 0,
-        stockout: state.period2Data.stockout ?? 0,
-        demand_forecast: state.period2Data.demandForecast ?? 0,
-        production_output: state.period2Data.productionOutput ?? 0,
-        ending_inventory: state.period2Data.endingInventory ?? 0,
-      },
-      // 期3及以后的数据
-      ...state.fullMPSTable.slice(2).map(row => ({
-        service_level: row.service_level ?? 0,
-        stockout: row.stockout ?? 0,
-        demand_forecast: row.demand_forecast ?? 0,
-        production_output: row.production_output ?? 0,
-        ending_inventory: row.ending_inventory ?? 0,
-      })),
-    ];
-
-    const totalPeriods = allPeriods.length;
-    const avgServiceLevel = allPeriods.reduce((sum, period) => sum + period.service_level, 0) / totalPeriods;
-    const totalStockout = allPeriods.reduce((sum, period) => sum + period.stockout, 0);
-    const totalDemand = allPeriods.reduce((sum, period) => sum + period.demand_forecast, 0);
-    const totalProduction = allPeriods.reduce((sum, period) => sum + period.production_output, 0);
-    const avgInventory = allPeriods.reduce((sum, period) => sum + period.ending_inventory, 0) / totalPeriods;
-    const periodsWithStockout = allPeriods.filter(period => period.stockout > 0).length;
+    // fullMPSTable 现在已包含完整的期1-N数据，直接使用即可
+    const table = state.fullMPSTable;
+    const totalPeriods = table.length;
+    const avgServiceLevel = table.reduce((sum, row) => sum + (row.service_level ?? 0), 0) / totalPeriods;
+    const totalStockout = table.reduce((sum, row) => sum + (row.stockout ?? 0), 0);
+    const totalDemand = table.reduce((sum, row) => sum + (row.demand_forecast ?? 0), 0);
+    const totalProduction = table.reduce((sum, row) => sum + (row.production_output ?? 0), 0);
+    const avgInventory = table.reduce((sum, row) => sum + (row.ending_inventory ?? 0), 0) / totalPeriods;
+    const periodsWithStockout = table.filter(row => (row.stockout ?? 0) > 0).length;
 
     return {
       totalPeriods,
