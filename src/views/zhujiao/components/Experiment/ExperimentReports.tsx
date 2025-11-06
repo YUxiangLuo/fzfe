@@ -58,6 +58,8 @@ const ExperimentReports: React.FC = () => {
   const [tempComments, setTempComments] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [isExportingReports, setIsExportingReports] = useState(false);
+  const [exportedFileUrl, setExportedFileUrl] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -283,42 +285,32 @@ const ExperimentReports: React.FC = () => {
 
   const handleClassChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedClassId(event.target.value);
+    setExportedFileUrl(null);
+    setExportError(null);
   };
 
   const handleExportReports = useCallback(async () => {
     if (!selectedClassId || filteredReports.length === 0 || isExportingReports) return;
     setIsExportingReports(true);
+    setExportError(null);
+    setExportedFileUrl(null);
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/classes/${selectedClassId}/report-archive`, {
-        method: "GET",
-        headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          Accept: "application/zip",
-        },
-      });
+      const response = await apiClient.get<{ file_path: string }>(`/classes/${selectedClassId}/report-archive`);
 
-      if (!response.ok) {
-        throw new Error("导出实验报告失败，请稍后再试。");
+      if (!response || !response.file_path) {
+        throw new Error("导出失败：服务器未返回文件地址");
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      const sanitizedName = (currentClassName ?? "class").replace(/\s+/g, "_");
-      const timestamp = new Date().toISOString().replace(/[.:TZ-]/g, "").slice(0, 14);
-      link.href = url;
-      link.download = `${sanitizedName || "class"}-reports-${timestamp}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      const filename = response.file_path.split("/").pop();
+      const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/exports/${filename}`;
+      setExportedFileUrl(fullUrl);
     } catch (err: any) {
-      alert(err.message || "导出实验报告失败，请稍后再试。");
+      const errorMessage = err.message || "导出实验报告失败，请稍后再试。";
+      setExportError(errorMessage);
     } finally {
       setIsExportingReports(false);
     }
-  }, [selectedClassId, filteredReports.length, isExportingReports, currentClassName]);
+  }, [selectedClassId, filteredReports.length, isExportingReports]);
 
   const getStatusMeta = useCallback((report: ExperimentReport) => {
     if (report.report_id === null) {
@@ -582,26 +574,47 @@ const ExperimentReports: React.FC = () => {
               <FileText size={16} />
               <span>共 {filteredReports.length} 条记录</span>
             </div>
-            <Button
-              onClick={handleExportReports}
-              disabled={!selectedClassId || filteredReports.length === 0 || isExportingReports}
-              variant="outline"
-              className="flex items-center space-x-2"
-            >
-              {isExportingReports ? (
-                <>
-                  <Loader size={16} className="animate-spin" />
-                  <span>正在导出...</span>
-                </>
-              ) : (
-                <>
+            <div className="flex items-center space-x-3">
+              {exportedFileUrl ? (
+                <a
+                  href={exportedFileUrl}
+                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                >
                   <Download size={16} />
-                  <span>导出所有报告</span>
-                </>
+                  <span>下载报告压缩包</span>
+                </a>
+              ) : (
+                <Button
+                  onClick={handleExportReports}
+                  disabled={!selectedClassId || filteredReports.length === 0 || isExportingReports}
+                  variant="outline"
+                  className="flex items-center space-x-2"
+                >
+                  {isExportingReports ? (
+                    <>
+                      <Loader size={16} className="animate-spin" />
+                      <span>正在导出...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download size={16} />
+                      <span>导出所有报告</span>
+                    </>
+                  )}
+                </Button>
               )}
-            </Button>
+            </div>
           </div>
         </div>
+        {exportError && (
+          <div className="px-6 py-3 bg-red-50 border-t border-red-200 text-red-700 flex items-center space-x-2">
+            <AlertTriangle size={16} />
+            <span>{exportError}</span>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">

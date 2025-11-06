@@ -4,10 +4,8 @@ import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../con
 import {
   FileText, Save, Database, BarChart3, CheckSquare, Calculator, ClipboardList,
   X, CheckCircle, Loader2, Building, Factory, Package, TrendingUp, Brain, AlertTriangle,
-  Download,
 } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
-import { DOWNLOAD_SERVER_BASE_URL } from '../../../config/appConfig';
 
 interface UserSummary {
   user_id: number;
@@ -841,18 +839,6 @@ const ExperimentReport: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">恭喜！实验完成</h2>
             <p className="text-gray-600 mb-6">您的实验报告已成功提交并保存。</p>
             <div className="space-y-3">
-              {pdfPath && (
-                <a
-                  href={`${DOWNLOAD_SERVER_BASE_URL}/exports/${pdfPath.split("/").pop()}`}
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                >
-                  <Download className="w-5 h-5 mr-2" />
-                  下载实验报告 PDF
-                </a>
-              )}
               <button
                 onClick={handleLogout}
                 className="w-full px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-semibold hover:bg-gray-200 transition-colors"

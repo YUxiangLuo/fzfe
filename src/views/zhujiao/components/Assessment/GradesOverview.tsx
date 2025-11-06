@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -21,6 +22,7 @@ import {
 import type { StudentGradeOverview, Class } from '../../types';
 import { apiClient, API_BASE_URL } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
+import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
 import GradeCharts, { type GradeChartDatum } from '../../../shared/assessment/GradeCharts';
 import Button from '../Common/Button';
 
@@ -130,6 +132,8 @@ const GradesOverview: React.FC = () => {
   
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportedFileUrl, setExportedFileUrl] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const [assistantId, setAssistantId] = useState<number | null>(null);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
@@ -189,6 +193,10 @@ const GradesOverview: React.FC = () => {
       setGrades([]);
       return;
     }
+    // Clear export state when class changes
+    setExportedFileUrl(null);
+    setExportError(null);
+
     const fetchGrades = async () => {
       setIsLoadingGrades(true);
       setError(null);
@@ -426,40 +434,26 @@ const GradesOverview: React.FC = () => {
 
   const handleExport = async () => {
     if (!selectedClassId) {
-      alert('请先选择一个班级');
+      setExportError('请先选择一个班级');
       return;
     }
 
     setIsExporting(true);
+    setExportError(null);
+    setExportedFileUrl(null);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('未找到登录凭据，请重新登录。');
+      const response = await apiClient.get<{ file_path: string }>(`/classes/${selectedClassId}/grade-export.csv`);
+
+      if (!response || !response.file_path) {
+        throw new Error('导出失败：服务器未返回文件地址');
       }
 
-      const response = await fetch(`${API_BASE_URL}/classes/${selectedClassId}/grade-export.csv`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('导出失败，请稍后重试。');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      const className = currentClass?.class_name || `class-${selectedClassId}`;
-      const safeName = className.replace(/[\\/\\:*?"<>|\s]+/g, '_');
-      link.href = url;
-      link.download = `${safeName}-成绩导出.csv`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      const filename = response.file_path.split("/").pop();
+      const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/exports/${filename}`;
+      setExportedFileUrl(fullUrl);
     } catch (err: any) {
-      alert(err?.message || '导出失败，请稍后重试。');
+      const errorMessage = err?.message || '导出失败，请稍后重试。';
+      setExportError(errorMessage);
     } finally {
       setIsExporting(false);
     }
@@ -564,23 +558,36 @@ const GradesOverview: React.FC = () => {
             <p className="text-sm text-gray-500">共 {filteredGrades.length} 条记录</p>
           </div>
           <div className="flex flex-col md:flex-row md:items-center md:space-x-3 w-full md:w-auto">
-            <Button
-              onClick={handleExport}
-              disabled={isExporting || !selectedClassId || isLoadingGrades}
-              className="bg-blue-600 hover:bg-blue-700 disabled:cursor-not-allowed"
-            >
-              {isExporting ? (
-                <span className="flex items-center">
-                  <Loader className="w-4 h-4 mr-2 animate-spin" />
-                  正在导出...
-                </span>
-              ) : (
-                <span className="flex items-center">
-                  <Download className="w-4 h-4 mr-2" />
-                  导出 CSV
-                </span>
-              )}
-            </Button>
+            {exportedFileUrl ? (
+              <a
+                href={exportedFileUrl}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                下载成绩 CSV
+              </a>
+            ) : (
+              <Button
+                onClick={handleExport}
+                disabled={isExporting || !selectedClassId || isLoadingGrades}
+                className="bg-blue-600 hover:bg-blue-700 disabled:cursor-not-allowed"
+              >
+                {isExporting ? (
+                  <span className="flex items-center">
+                    <Loader className="w-4 h-4 mr-2 animate-spin" />
+                    正在导出...
+                  </span>
+                ) : (
+                  <span className="flex items-center">
+                    <Download className="w-4 h-4 mr-2" />
+                    导出 CSV
+                  </span>
+                )}
+              </Button>
+            )}
             <div className="relative w-full md:w-80 mt-3 md:mt-0">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -597,6 +604,13 @@ const GradesOverview: React.FC = () => {
         {error && !isLoadingGrades && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
             {error}
+          </div>
+        )}
+
+        {exportError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center space-x-2">
+            <AlertTriangle size={16} />
+            <span>{exportError}</span>
           </div>
         )}
 
