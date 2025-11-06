@@ -175,16 +175,39 @@ const ExperimentReport: React.FC = () => {
     html += `<tr><td>MAE</td><td colspan="2">${renderValue(bestModelMetrics?.mae)}</td></tr>`;
     html += `<tr><td>R²</td><td colspan="2">${renderValue(bestModelMetrics?.r2)}</td></tr></table>`;
 
-    html += '<h2>四、生产计划参数</h2><table>';
+    html += '<h2>四、生产计划参数</h2><h3>基础参数</h3><table>';
     html += `<tr><td>预测期数</td><td>${state.production_forecast_periods || 'N/A'}</td></tr>`;
     html += `<tr><td>期初库存</td><td>${state.production_initial_inventory?.toLocaleString() || 'N/A'}</td></tr>`;
-    html += `<tr><td>目标服务水平</td><td>${state.production_target_service_level ? (state.production_target_service_level * 100).toFixed(0) + '%' : 'N/A'}</td></tr></table>`;
+    html += `<tr><td>目标服务水平</td><td>${state.production_target_service_level ? (state.production_target_service_level * 100).toFixed(0) + '%' : 'N/A'}</td></tr>`;
+    html += `<tr><td>安全库存Z值</td><td>${state.production_safety_stock_z_score?.toFixed(2) || 'N/A'}</td></tr></table>`;
+    html += '<h3>产能约束配置</h3><table>';
+    html += `<tr><td>产能场景</td><td>${
+      state.production_capacity_scenario === 'tight' ? '产能紧张 (90%)' :
+      state.production_capacity_scenario === 'normal' ? '产能正常 (130%)' :
+      state.production_capacity_scenario === 'abundant' ? '产能充裕 (180%)' : 'N/A'
+    }</td></tr>`;
+    html += `<tr><td>实际产能值</td><td>${state.production_capacity?.toLocaleString() || 'N/A'} 件/期</td></tr>`;
+    html += `<tr><td>产能模式</td><td>${
+      state.production_capacity_mode === 'scenario' ? '场景选择' :
+      state.production_capacity_mode === 'auto' ? '自动计算' :
+      state.production_capacity_mode === 'custom' ? '自定义产能' : 'N/A'
+    }</td></tr></table>`;
 
-    html += '<h2>五、主生产计划 (MPS)</h2><table><thead><tr><th>周期</th><th>预测需求</th><th>安全库存</th><th>期初库存</th><th>产出量</th><th>期末库存</th><th>缺货量</th><th>服务水平</th></tr></thead><tbody>';
+    html += '<h2>五、主生产计划 (MPS)</h2><table><thead><tr><th>周期</th><th>预测需求</th><th>安全库存</th><th>计划生产</th><th>期初库存</th><th>产出量</th><th>期末库存</th><th>缺货量</th><th>服务水平</th></tr></thead><tbody>';
     state.production_mps_table.forEach(row => {
-      html += `<tr><td>${row.period_label}</td><td>${row.demand_forecast}</td><td>${row.safety_stock}</td><td>${row.beginning_inventory}</td><td>${row.production_output}</td><td>${row.ending_inventory}</td><td>${row.stockout}</td><td>${(row.service_level * 100).toFixed(1)}%</td></tr>`;
+      html += `<tr><td>${row.period_label}</td><td>${row.demand_forecast}</td><td>${row.safety_stock}</td><td>${row.planned_production}</td><td>${row.beginning_inventory}</td><td>${row.production_output}</td><td>${row.ending_inventory}</td><td>${row.stockout}</td><td>${(row.service_level * 100).toFixed(1)}%</td></tr>`;
     });
     html += '</tbody></table>';
+
+    // 添加汇总统计
+    const totalDemand = state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0);
+    const totalProduction = state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0);
+    const avgServiceLevel = state.production_mps_table.reduce((sum, row) => sum + row.service_level, 0) / state.production_mps_table.length;
+    html += '<h3>计划汇总统计</h3><table>';
+    html += `<tr><td>总预测需求</td><td>${totalDemand.toLocaleString()} 件</td></tr>`;
+    html += `<tr><td>总产出量</td><td>${totalProduction.toLocaleString()} 件</td></tr>`;
+    html += `<tr><td>平均服务水平</td><td>${(avgServiceLevel * 100).toFixed(1)}%</td></tr>`;
+    html += `<tr><td>供需匹配率</td><td>${((totalProduction / totalDemand) * 100).toFixed(1)}%</td></tr></table>`;
 
     return html;
   };
@@ -292,22 +315,39 @@ const ExperimentReport: React.FC = () => {
           <p class="analysis">${modelSelectionAnalysis}</p>
 
           <h2>四、生产计划参数</h2>
+          <h3>基础参数</h3>
           <table>
             <tr><th>预测期数</th><td>${state.production_forecast_periods || 'N/A'}</td></tr>
             <tr><th>期初库存</th><td>${state.production_initial_inventory?.toLocaleString() || 'N/A'}</td></tr>
             <tr><th>目标服务水平</th><td>${state.production_target_service_level ? `${(state.production_target_service_level * 100).toFixed(0)}%` : 'N/A'}</td></tr>
+            <tr><th>安全库存Z值</th><td>${state.production_safety_stock_z_score?.toFixed(2) || 'N/A'}</td></tr>
+          </table>
+          <h3>产能约束配置</h3>
+          <table>
+            <tr><th>产能场景</th><td>${
+              state.production_capacity_scenario === 'tight' ? '产能紧张 (90%)' :
+              state.production_capacity_scenario === 'normal' ? '产能正常 (130%)' :
+              state.production_capacity_scenario === 'abundant' ? '产能充裕 (180%)' : 'N/A'
+            }</td></tr>
+            <tr><th>实际产能值</th><td>${state.production_capacity?.toLocaleString() || 'N/A'} 件/期</td></tr>
+            <tr><th>产能模式</th><td>${
+              state.production_capacity_mode === 'scenario' ? '场景选择' :
+              state.production_capacity_mode === 'auto' ? '自动计算' :
+              state.production_capacity_mode === 'custom' ? '自定义产能' : 'N/A'
+            }</td></tr>
           </table>
           <p class="analysis">${planParamsAnalysis}</p>
 
           <h2>五、主生产计划 (MPS)</h2>
           <table>
-            <thead><tr><th>周期</th><th>预测需求</th><th>安全库存</th><th>期初库存</th><th>产出量</th><th>期末库存</th><th>缺货量</th><th>服务水平</th></tr></thead>
+            <thead><tr><th>周期</th><th>预测需求</th><th>安全库存</th><th>计划生产</th><th>期初库存</th><th>产出量</th><th>期末库存</th><th>缺货量</th><th>服务水平</th></tr></thead>
             <tbody>
               ${state.production_mps_table.map(row => `
                 <tr>
                   <td>${row.period_label}</td>
                   <td>${row.demand_forecast}</td>
                   <td>${row.safety_stock}</td>
+                  <td>${row.planned_production}</td>
                   <td>${row.beginning_inventory}</td>
                   <td>${row.production_output}</td>
                   <td>${row.ending_inventory}</td>
@@ -316,6 +356,17 @@ const ExperimentReport: React.FC = () => {
                 </tr>
               `).join('')}
             </tbody>
+          </table>
+          <h3>计划汇总统计</h3>
+          <table>
+            <tr><th>总预测需求</th><td>${state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0).toLocaleString()} 件（${state.production_mps_table.length}期累计）</td></tr>
+            <tr><th>总产出量</th><td>${state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0).toLocaleString()} 件（${state.production_mps_table.length}期累计）</td></tr>
+            <tr><th>平均服务水平</th><td>${((state.production_mps_table.reduce((sum, row) => sum + row.service_level, 0) / state.production_mps_table.length) * 100).toFixed(1)}%</td></tr>
+            <tr><th>产能利用率</th><td>${state.production_capacity ? ((state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0) / (state.production_capacity * state.production_mps_table.length)) * 100).toFixed(1) : 'N/A'}%</td></tr>
+            <tr><th>总安全库存</th><td>${state.production_mps_table.reduce((sum, row) => sum + row.safety_stock, 0).toLocaleString()} 件（${state.production_mps_table.length}期累计）</td></tr>
+            <tr><th>总缺货量</th><td>${state.production_mps_table.reduce((sum, row) => sum + row.stockout, 0).toLocaleString()} 件（${state.production_mps_table.filter(row => row.stockout > 0).length}/${state.production_mps_table.length}期缺货）</td></tr>
+            <tr><th>平均期末库存</th><td>${Math.round(state.production_mps_table.reduce((sum, row) => sum + row.ending_inventory, 0) / state.production_mps_table.length).toLocaleString()} 件</td></tr>
+            <tr><th>供需匹配率</th><td>${((state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0) / state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0)) * 100).toFixed(1)}%</td></tr>
           </table>
           <p class="analysis">${planDecisionAnalysis}</p>
         </body>
@@ -413,33 +464,148 @@ const ExperimentReport: React.FC = () => {
           </ReportCard>
 
           <ReportCard icon={<Calculator className="w-6 h-6 text-orange-600" />} title="四、生产计划参数" analysisKey="params" getAnalysisValue={getAnalysisValue} getAnalysisSetter={getAnalysisSetter} isSubmitting={isSubmitting}>
-            <table className="w-full text-sm text-left text-gray-700">
-              <tbody>
-                <tr className="border-b"><td className="py-2 font-medium text-gray-500 w-1/2">预测期数</td><td className="py-2 font-semibold">{renderValue(state.production_forecast_periods)}</td></tr>
-                <tr className="border-b"><td className="py-2 font-medium text-gray-500">期初库存</td><td className="py-2 font-semibold">{renderValue(state.production_initial_inventory?.toLocaleString())}</td></tr>
-                <tr><td className="py-2 font-medium text-gray-500">目标服务水平</td><td className="py-2 font-semibold">{renderValue(state.production_target_service_level ? `${(state.production_target_service_level * 100).toFixed(0)}%` : null)}</td></tr>
-              </tbody>
-            </table>
+            <div className="space-y-4">
+              {/* 基础参数 */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600 mb-2">基础参数</h3>
+                <table className="w-full text-sm text-left text-gray-700">
+                  <tbody>
+                    <tr className="border-b"><td className="py-2 font-medium text-gray-500 w-1/2">预测期数</td><td className="py-2 font-semibold">{renderValue(state.production_forecast_periods)}</td></tr>
+                    <tr className="border-b"><td className="py-2 font-medium text-gray-500">期初库存</td><td className="py-2 font-semibold">{renderValue(state.production_initial_inventory?.toLocaleString())}</td></tr>
+                    <tr className="border-b"><td className="py-2 font-medium text-gray-500">目标服务水平</td><td className="py-2 font-semibold">{renderValue(state.production_target_service_level ? `${(state.production_target_service_level * 100).toFixed(0)}%` : null)}</td></tr>
+                    <tr><td className="py-2 font-medium text-gray-500">安全库存Z值</td><td className="py-2 font-semibold">{renderValue(state.production_safety_stock_z_score?.toFixed(2))}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 产能约束参数 */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-600 mb-2">产能约束配置</h3>
+                <table className="w-full text-sm text-left text-gray-700">
+                  <tbody>
+                    <tr className="border-b">
+                      <td className="py-2 font-medium text-gray-500 w-1/2">产能场景</td>
+                      <td className="py-2 font-semibold">
+                        {state.production_capacity_scenario === 'tight' ? '产能紧张 (90%)' :
+                         state.production_capacity_scenario === 'normal' ? '产能正常 (130%)' :
+                         state.production_capacity_scenario === 'abundant' ? '产能充裕 (180%)' :
+                         renderValue(null)}
+                      </td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="py-2 font-medium text-gray-500">实际产能值</td>
+                      <td className="py-2 font-semibold">{renderValue(state.production_capacity?.toLocaleString())}<span className="text-xs text-gray-500 ml-1">件/期</span></td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 font-medium text-gray-500">产能模式</td>
+                      <td className="py-2 font-semibold">
+                        {state.production_capacity_mode === 'scenario' ? '场景选择' :
+                         state.production_capacity_mode === 'auto' ? '自动计算' :
+                         state.production_capacity_mode === 'custom' ? '自定义产能' :
+                         renderValue(null)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </ReportCard>
 
           <ReportCard icon={<ClipboardList className="w-6 h-6 text-indigo-600" />} title="五、主生产计划 (MPS)" analysisKey="decision" getAnalysisValue={getAnalysisValue} getAnalysisSetter={getAnalysisSetter} isSubmitting={isSubmitting}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-gray-100 text-gray-600 text-xs">
-                  <tr>
-                    {['周期', '预测需求', '安全库存', '期初库存', '产出量', '期末库存', '缺货量', '服务水平'].map(h => <th key={h} className="p-2 font-semibold">{h}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {state.production_mps_table.map((row, i) => (
-                    <tr key={i} className="border-b">
-                      <td className="p-2 font-medium">{row.period_label}</td><td className="p-2">{row.demand_forecast}</td><td className="p-2">{row.safety_stock}</td>
-                      <td className="p-2">{row.beginning_inventory}</td><td className="p-2">{row.production_output}</td><td className="p-2">{row.ending_inventory}</td>
-                      <td className="p-2">{row.stockout}</td><td className="p-2">{`${(row.service_level * 100).toFixed(1)}%`}</td>
+            <div className="space-y-4">
+              {/* MPS表格 */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-100 text-gray-600 text-xs">
+                    <tr>
+                      {['周期', '预测需求', '安全库存', '计划生产', '期初库存', '产出量', '期末库存', '缺货量', '服务水平'].map(h => <th key={h} className="p-2 font-semibold">{h}</th>)}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {state.production_mps_table.map((row, i) => (
+                      <tr key={i} className="border-b">
+                        <td className="p-2 font-medium">{row.period_label}</td>
+                        <td className="p-2">{row.demand_forecast}</td>
+                        <td className="p-2">{row.safety_stock}</td>
+                        <td className="p-2">{row.planned_production}</td>
+                        <td className="p-2">{row.beginning_inventory}</td>
+                        <td className="p-2">{row.production_output}</td>
+                        <td className="p-2">{row.ending_inventory}</td>
+                        <td className="p-2">{row.stockout > 0 ? <span className="text-red-600 font-semibold">{row.stockout}</span> : row.stockout}</td>
+                        <td className="p-2">{`${(row.service_level * 100).toFixed(1)}%`}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 计划汇总统计 */}
+              {state.production_mps_table.length > 0 && (() => {
+                const totalPeriods = state.production_mps_table.length;
+                const totalDemand = state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0);
+                const totalSafetyStock = state.production_mps_table.reduce((sum, row) => sum + row.safety_stock, 0);
+                const totalPlannedProduction = state.production_mps_table.reduce((sum, row) => sum + row.planned_production, 0);
+                const totalProduction = state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0);
+                const totalStockout = state.production_mps_table.reduce((sum, row) => sum + row.stockout, 0);
+                const avgServiceLevel = state.production_mps_table.reduce((sum, row) => sum + row.service_level, 0) / totalPeriods;
+                const avgInventory = state.production_mps_table.reduce((sum, row) => sum + row.ending_inventory, 0) / totalPeriods;
+                const periodsWithStockout = state.production_mps_table.filter(row => row.stockout > 0).length;
+                const capacityUtilization = state.production_capacity ? (totalProduction / (state.production_capacity * totalPeriods)) : 0;
+
+                return (
+                  <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">📊 计划汇总统计</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <div className="text-xs text-gray-500 mb-1">总预测需求</div>
+                        <div className="text-lg font-bold text-blue-600">{totalDemand.toLocaleString()}</div>
+                        <div className="text-xs text-gray-400">{totalPeriods}期累计</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <div className="text-xs text-gray-500 mb-1">总产出量</div>
+                        <div className="text-lg font-bold text-green-600">{totalProduction.toLocaleString()}</div>
+                        <div className="text-xs text-gray-400">{totalPeriods}期累计</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <div className="text-xs text-gray-500 mb-1">平均服务水平</div>
+                        <div className={`text-lg font-bold ${avgServiceLevel >= 0.95 ? 'text-green-600' : 'text-yellow-600'}`}>
+                          {(avgServiceLevel * 100).toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-gray-400">{avgServiceLevel >= 0.95 ? '✓ 达标' : '⚠ 偏低'}</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <div className="text-xs text-gray-500 mb-1">产能利用率</div>
+                        <div className={`text-lg font-bold ${capacityUtilization > 0.9 ? 'text-red-600' : capacityUtilization > 0.7 ? 'text-green-600' : 'text-blue-600'}`}>
+                          {(capacityUtilization * 100).toFixed(1)}%
+                        </div>
+                        <div className="text-xs text-gray-400">{capacityUtilization > 0.9 ? '⚠ 接近满载' : '正常'}</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <div className="text-xs text-gray-500 mb-1">总安全库存</div>
+                        <div className="text-lg font-bold text-purple-600">{totalSafetyStock.toLocaleString()}</div>
+                        <div className="text-xs text-gray-400">{totalPeriods}期累计</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <div className="text-xs text-gray-500 mb-1">总缺货量</div>
+                        <div className={`text-lg font-bold ${totalStockout > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {totalStockout.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-gray-400">{periodsWithStockout}/{totalPeriods}期缺货</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <div className="text-xs text-gray-500 mb-1">平均期末库存</div>
+                        <div className="text-lg font-bold text-indigo-600">{Math.round(avgInventory).toLocaleString()}</div>
+                        <div className="text-xs text-gray-400">平均值</div>
+                      </div>
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <div className="text-xs text-gray-500 mb-1">供需匹配率</div>
+                        <div className="text-lg font-bold text-teal-600">{((totalProduction / totalDemand) * 100).toFixed(1)}%</div>
+                        <div className="text-xs text-gray-400">产出/需求</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </ReportCard>
 
