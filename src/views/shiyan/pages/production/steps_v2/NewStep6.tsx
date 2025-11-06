@@ -66,41 +66,10 @@ const NewStep6: React.FC = () => {
         try {
           console.log('💾 保存生产计划数据到全局状态');
 
-          // 🔧 构建完整的MPS表：期1 + 期2 + 期3-6
-          const period1Row: LocalMPSTableRow = {
-            period: 1,
-            period_label: '期 1',
-            demand_forecast: state.period1Data.demandForecast,
-            safety_stock: state.period1Data.safetyStock,
-            planned_production: state.period1Data.plannedProduction,
-            beginning_inventory: state.period1Data.beginningInventory,
-            production_output: state.period1Data.productionOutput,
-            ending_inventory: state.period1Data.endingInventory,
-            stockout: state.period1Data.stockout,
-            service_level: state.period1Data.serviceLevel,
-          };
+          // 转换MPS表格数据类型（fullMPSTable已包含所有期数1-N）
+          const globalMPSTable = convertToGlobalMPSTable(state.fullMPSTable);
 
-          const period2Row: LocalMPSTableRow = {
-            period: 2,
-            period_label: '期 2',
-            demand_forecast: state.period2Data.demandForecast,
-            safety_stock: state.period2Data.safetyStock,
-            planned_production: state.period2Data.plannedProduction,
-            beginning_inventory: state.period2Data.beginningInventory,
-            production_output: state.period2Data.productionOutput,
-            ending_inventory: state.period2Data.endingInventory,
-            stockout: state.period2Data.stockout,
-            service_level: state.period2Data.serviceLevel,
-          };
-
-          // 合并所有期数的数据：期1和期2来自教学演示，期3-6来自fullMPSTable
-          // 注意：fullMPSTable包含所有期数，但我们只取期3及以后的数据
-          const completeMPSTable = [period1Row, period2Row, ...state.fullMPSTable.slice(2)];
-
-          // 转换MPS表格数据类型
-          const globalMPSTable = convertToGlobalMPSTable(completeMPSTable);
-
-          console.log('📊 完整MPS表数据（期1-' + completeMPSTable.length + '）:', completeMPSTable);
+          console.log('📊 完整MPS表数据（期1-' + state.fullMPSTable.length + '）:', state.fullMPSTable);
 
           await updateState({
             production_plan_completed: true,
