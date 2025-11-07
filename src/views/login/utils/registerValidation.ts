@@ -52,23 +52,15 @@ export const validateTeacherUsername = (username: string): ValidationResult => {
 
 /**
  * 验证密码
- * 规则：8位以上，必须同时包含数字和字母
+ * 规则：至少6位，可为纯数字
  */
 export const validatePassword = (password: string): ValidationResult => {
   if (!password) {
     return { isValid: false, error: "密码不能为空" };
   }
 
-  if (password.length < 8) {
-    return { isValid: false, error: "密码至少需要8位" };
-  }
-
-  // 必须同时包含字母和数字
-  const hasLetter = /[a-zA-Z]/.test(password);
-  const hasNumber = /\d/.test(password);
-
-  if (!hasLetter || !hasNumber) {
-    return { isValid: false, error: "密码必须同时包含字母和数字" };
+  if (password.length < 6) {
+    return { isValid: false, error: "密码至少需要6位" };
   }
 
   return { isValid: true, error: "" };

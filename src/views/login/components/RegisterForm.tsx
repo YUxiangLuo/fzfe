@@ -325,7 +325,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                      focus:outline-none focus:ring-2 focus:border-transparent
                      transition-all duration-300
                      ${touched.password && errors.password ? "border-red-500 focus:ring-red-400" : "border-white/20 focus:ring-blue-400"}`}
-            placeholder="请输入密码（8位以上，含字母和数字）"
+            placeholder="请输入密码（至少6位，可为纯数字）"
             required
           />
           <button

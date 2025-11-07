@@ -10,17 +10,25 @@ export const LoginContainer: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
 
+  const roleMap: Record<string, string> = {
+    student: "Student",
+    teacher: "Teacher",
+    assistant: "Assistant",
+    admin: "Admin",
+  };
+
   const handleLogin = async (username: string, password: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
+      const role = roleMap[selectedRole] ?? "Student";
       const response = await fetch(`${API_BASE_URL}/sessions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, role }),
       });
 
       const data = await response.json();
@@ -70,12 +78,6 @@ export const LoginContainer: React.FC = () => {
 
     try {
       // 将角色 ID 转换为首字母大写的格式（student -> Student）
-      const roleMap: Record<string, string> = {
-        student: "Student",
-        teacher: "Teacher",
-        assistant: "Assistant",
-      };
-
       const role = roleMap[selectedRole];
       if (!role) {
         throw new Error("无效的角色类型");

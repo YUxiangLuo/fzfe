@@ -781,9 +781,6 @@ const UserManagement: React.FC = () => {
               <li>姓名</li>
               <li>手机号</li>
             </ul>
-            <p className="mt-2 text-xs text-blue-500">
-              可选列：邮箱、角色等。若未提供邮箱，系统会自动生成临时账号信息。
-            </p>
           </div>
 
           <div>

@@ -99,13 +99,11 @@ const AssistantManagement: React.FC = () => {
       return;
     }
 
-    // 验证手机号（可选）
-    if (newAssistant.phone_number.trim()) {
-      const phoneValidation = validatePhone(newAssistant.phone_number, false);
-      if (!phoneValidation.valid) {
-        alert(phoneValidation.error);
-        return;
-      }
+    // 验证手机号（必填）
+    const phoneValidation = validatePhone(newAssistant.phone_number, true);
+    if (!phoneValidation.valid) {
+      alert(phoneValidation.error);
+      return;
     }
 
     // 验证班级选择
@@ -120,7 +118,7 @@ const AssistantManagement: React.FC = () => {
         password: newAssistant.password,
         full_name: newAssistant.full_name.trim(),
         email: newAssistant.email.trim(),
-        phone_number: newAssistant.phone_number.trim() || null,
+        phone_number: newAssistant.phone_number.trim(),
         role: 'Assistant',
         class_ids: selectedClassIds
       };
@@ -243,8 +241,19 @@ const AssistantManagement: React.FC = () => {
             <p className="mt-1 text-xs text-gray-500">用于接收系统通知</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">手机号（可选）</label>
-            <input name="phone_number" type="tel" value={newAssistant.phone_number} onChange={handleInputChange} placeholder="请输入11位手机号" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" pattern="1[3-9]\d{9}" />
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              手机号 <span className="text-red-500">*</span>
+            </label>
+            <input
+              name="phone_number"
+              type="tel"
+              value={newAssistant.phone_number}
+              onChange={handleInputChange}
+              placeholder="请输入11位手机号"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              pattern="1[3-9]\d{9}"
+              required
+            />
             <p className="mt-1 text-xs text-gray-500">请输入11位中国大陆手机号</p>
           </div>
           

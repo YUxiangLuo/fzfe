@@ -1,17 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Loader, AlertTriangle, Mail, Phone, User as UserIcon, UserPlus } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Search, Loader, AlertTriangle, Mail, Phone, User as UserIcon, UserPlus, ListPlus } from 'lucide-react';
 import type { Student, Class } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
-import { validateUsername, validateFullName, validateEmail, validatePhone } from '../../utils/validation';
+import { validateFullName, validateEmail, validatePhone, validatePassword } from '../../utils/validation';
+import SelectStudentModal from './SelectStudentModal';
 
 interface NewStudentForm {
   username: string;
   full_name: string;
   email: string;
   phone_number: string;
+  password: string;
 }
 
 const StudentManagement: React.FC = () => {
@@ -25,12 +27,15 @@ const StudentManagement: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSelectModal, setShowSelectModal] = useState(false);
+  const [shouldRefreshAfterSelectModal, setShouldRefreshAfterSelectModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newStudent, setNewStudent] = useState<NewStudentForm>({
     username: '',
     full_name: '',
     email: '',
     phone_number: '',
+    password: '',
   });
 
   const formatDate = (value: string | null | undefined) => {
@@ -84,28 +89,36 @@ const StudentManagement: React.FC = () => {
     fetchClasses();
   }, [assistantId]);
 
+  const loadStudents = useCallback(async (classId: string) => {
+    setIsLoadingStudents(true);
+    setError(null);
+    try {
+      const response = await apiClient.get(`/classes/${classId}/students`);
+      const list = Array.isArray(response) ? response : [];
+      const sorted = [...list].sort((a, b) => {
+        const numA = Number(a.username);
+        const numB = Number(b.username);
+        if (Number.isNaN(numA) || Number.isNaN(numB)) {
+          return a.username.localeCompare(b.username);
+        }
+        return numA - numB;
+      });
+      setStudents(sorted);
+    } catch (err: any) {
+      setError(err.message || '获取学生列表失败');
+      setStudents([]);
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!selectedClassId) {
       setStudents([]);
       return;
     }
-
-    const fetchStudents = async () => {
-      setIsLoadingStudents(true);
-      setError(null);
-      try {
-        const response = await apiClient.get(`/classes/${selectedClassId}/students`);
-        setStudents(Array.isArray(response) ? response : []);
-      } catch (err: any) {
-        setError(err.message || '获取学生列表失败');
-        setStudents([]);
-      } finally {
-        setIsLoadingStudents(false);
-      }
-    };
-
-    fetchStudents();
-  }, [selectedClassId]);
+    void loadStudents(selectedClassId);
+  }, [selectedClassId, loadStudents]);
 
   useEffect(() => {
     const handler = window.setTimeout(() => {
@@ -147,19 +160,44 @@ const StudentManagement: React.FC = () => {
 
   const [studentToRemove, setStudentToRemove] = useState<Student | null>(null);
   const [isProcessingRemoval, setIsProcessingRemoval] = useState(false);
-  const [isResettingPassword, setIsResettingPassword] = useState<number | null>(null);
+  const [studentForPasswordReset, setStudentForPasswordReset] = useState<Student | null>(null);
+  const [resetPasswordForm, setResetPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [resetPasswordErrors, setResetPasswordErrors] = useState({ newPassword: '', confirmPassword: '' });
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
-  const handleResetPassword = async (student: Student) => {
-    if (window.confirm(`确定要重置学生 ${student.full_name} (${student.username}) 的密码吗？`)) {
-      setIsResettingPassword(student.user_id);
-      try {
-        await apiClient.post(`/users/${student.user_id}/reset-password`);
-        alert(`学生 ${student.full_name} 的密码已成功重置。`);
-      } catch (err: any) {
-        alert(`密码重置失败: ${err.message}`);
-      } finally {
-        setIsResettingPassword(null);
-      }
+  const handleResetPassword = (student: Student) => {
+    setStudentForPasswordReset(student);
+    setResetPasswordForm({ newPassword: '', confirmPassword: '' });
+    setResetPasswordErrors({ newPassword: '', confirmPassword: '' });
+  };
+
+  const handleResetPasswordConfirm = async () => {
+    if (!studentForPasswordReset) return;
+
+    const trimmedNewPassword = resetPasswordForm.newPassword.trim();
+    const trimmedConfirm = resetPasswordForm.confirmPassword.trim();
+
+    const newPasswordValidation = validatePassword(trimmedNewPassword, { minLength: 6, requireMixed: false });
+    const newPasswordError = newPasswordValidation.valid ? '' : newPasswordValidation.error ?? '密码至少需要6位';
+    const confirmError = trimmedConfirm ? (trimmedConfirm === trimmedNewPassword ? '' : '两次输入的密码不一致') : '请再次输入密码';
+
+    setResetPasswordErrors({ newPassword: newPasswordError, confirmPassword: confirmError });
+
+    if (newPasswordError || confirmError) {
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      await apiClient.post(`/users/${studentForPasswordReset.user_id}/reset-password`, {
+        newPassword: trimmedNewPassword,
+      });
+      alert(`学生 ${studentForPasswordReset.full_name} 的密码已成功更新。`);
+      setStudentForPasswordReset(null);
+    } catch (err: any) {
+      alert(`密码重置失败: ${err.message}`);
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -174,6 +212,7 @@ const StudentManagement: React.FC = () => {
       full_name: '',
       email: '',
       phone_number: '',
+      password: '',
     });
     setShowAddModal(true);
   };
@@ -184,10 +223,9 @@ const StudentManagement: React.FC = () => {
       return;
     }
 
-    // 验证学号
-    const usernameValidation = validateUsername(newStudent.username);
-    if (!usernameValidation.valid) {
-      alert(usernameValidation.error);
+    const trimmedUsername = newStudent.username.trim();
+    if (!/^\d{8,}$/.test(trimmedUsername)) {
+      alert('学号必须为至少8位的纯数字');
       return;
     }
 
@@ -195,6 +233,12 @@ const StudentManagement: React.FC = () => {
     const nameValidation = validateFullName(newStudent.full_name);
     if (!nameValidation.valid) {
       alert(nameValidation.error);
+      return;
+    }
+
+    const passwordValidation = validatePassword(newStudent.password, { minLength: 6, requireMixed: false });
+    if (!passwordValidation.valid) {
+      alert(passwordValidation.error);
       return;
     }
 
@@ -220,8 +264,9 @@ const StudentManagement: React.FC = () => {
     try {
       // 创建学生
       const payload: any = {
-        username: newStudent.username.trim(),
+        username: trimmedUsername,
         full_name: newStudent.full_name.trim(),
+        password: newStudent.password,
       };
 
       if (newStudent.email.trim()) {
@@ -236,12 +281,12 @@ const StudentManagement: React.FC = () => {
 
       // 更新学生列表
       setStudents(prev => [...prev, createdStudent]);
-      setShowAddModal(false);
       setNewStudent({
         username: '',
         full_name: '',
         email: '',
         phone_number: '',
+        password: '',
       });
     } catch (err: any) {
       if (err.message.includes('409') || err.message.includes('已存在')) {
@@ -343,9 +388,9 @@ const StudentManagement: React.FC = () => {
               onClick={() => handleResetPassword(student)}
               size="sm"
               title="重置学生密码"
-              disabled={isResettingPassword === student.user_id}
+              disabled={isResettingPassword}
             >
-              {isResettingPassword === student.user_id ? '重置中...' : '重置密码'}
+              {isResettingPassword ? '提交中...' : '设置新密码'}
             </Button>
             <Button
               onClick={() => setStudentToRemove(student)}
@@ -364,17 +409,32 @@ const StudentManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">学生管理</h1>
           {selectedClassId && (
             <p className="text-sm text-gray-500 mt-1">当前班级：{currentClassName}</p>
           )}
         </div>
-        <Button onClick={handleOpenAddModal} className="bg-green-600 hover:bg-green-700">
-          <UserPlus size={16} className="mr-2" />
-          添加学生
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (!selectedClassId) {
+                alert('请先选择一个班级');
+                return;
+              }
+              setShowSelectModal(true);
+            }}
+          >
+            <ListPlus size={16} className="mr-2" />
+            从学生库中添加
+          </Button>
+          <Button onClick={handleOpenAddModal} className="bg-green-600 hover:bg-green-700">
+            <UserPlus size={16} className="mr-2" />
+            添加学生
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -477,6 +537,90 @@ const StudentManagement: React.FC = () => {
       </Modal>
 
       <Modal
+        isOpen={!!studentForPasswordReset}
+        onClose={() => {
+          if (isResettingPassword) return;
+          setStudentForPasswordReset(null);
+        }}
+        title="重置学生密码"
+      >
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+            为学生
+            <span className="font-semibold text-blue-900 mx-1">
+              {studentForPasswordReset?.full_name}
+            </span>
+            ({studentForPasswordReset?.username}) 设置新的登录密码。
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              新密码 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              value={resetPasswordForm.newPassword}
+              onChange={(e) => {
+                const value = e.target.value;
+                setResetPasswordForm((prev) => ({ ...prev, newPassword: value }));
+                setResetPasswordErrors((prev) => ({ ...prev, newPassword: '' }));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="至少6个字符，可为纯数字"
+              minLength={6}
+              maxLength={20}
+              disabled={isResettingPassword}
+              required
+            />
+            {resetPasswordErrors.newPassword && (
+              <p className="mt-1 text-xs text-red-500">{resetPasswordErrors.newPassword}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              确认新密码 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              value={resetPasswordForm.confirmPassword}
+              onChange={(e) => {
+                const value = e.target.value;
+                setResetPasswordForm((prev) => ({ ...prev, confirmPassword: value }));
+                setResetPasswordErrors((prev) => ({ ...prev, confirmPassword: '' }));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="请再次输入新密码"
+              minLength={6}
+              maxLength={20}
+              disabled={isResettingPassword}
+              required
+            />
+            {resetPasswordErrors.confirmPassword && (
+              <p className="mt-1 text-xs text-red-500">{resetPasswordErrors.confirmPassword}</p>
+            )}
+          </div>
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (isResettingPassword) return;
+                setStudentForPasswordReset(null);
+              }}
+              disabled={isResettingPassword}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleResetPasswordConfirm}
+              disabled={isResettingPassword}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isResettingPassword ? '提交中...' : '确认修改'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
         isOpen={showAddModal}
         onClose={() => {
           setShowAddModal(false);
@@ -485,6 +629,7 @@ const StudentManagement: React.FC = () => {
             full_name: '',
             email: '',
             phone_number: '',
+            password: '',
           });
         }}
         title="添加学生"
@@ -496,17 +641,18 @@ const StudentManagement: React.FC = () => {
             </label>
             <input
               type="text"
+              inputMode="numeric"
               value={newStudent.username}
               onChange={(e) => setNewStudent(prev => ({ ...prev, username: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="例如：2021001"
-              minLength={3}
+              placeholder="例如：20210001"
+              minLength={8}
               maxLength={20}
-              pattern="[a-zA-Z0-9_]+"
+              pattern="\\d{8,}"
               required
               disabled={isSubmitting}
             />
-            <p className="mt-1 text-xs text-gray-500">3-20个字符，只能包含英文、数字和下划线</p>
+            <p className="mt-1 text-xs text-gray-500">仅支持数字，至少8位</p>
           </div>
 
           <div>
@@ -547,6 +693,24 @@ const StudentManagement: React.FC = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
+              初始密码 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              value={newStudent.password}
+              onChange={(e) => setNewStudent(prev => ({ ...prev, password: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="至少6个字符，可为纯数字"
+              minLength={6}
+              maxLength={20}
+              disabled={isSubmitting}
+              required
+            />
+            <p className="mt-1 text-xs text-gray-500">6-20个字符</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               手机号（可选）
             </label>
             <input
@@ -577,6 +741,7 @@ const StudentManagement: React.FC = () => {
                   full_name: '',
                   email: '',
                   phone_number: '',
+                  password: '',
                 });
               }}
               disabled={isSubmitting}
@@ -593,6 +758,19 @@ const StudentManagement: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      <SelectStudentModal
+        isOpen={showSelectModal}
+        onClose={() => {
+          setShowSelectModal(false);
+          if (shouldRefreshAfterSelectModal && selectedClassId) {
+            void loadStudents(selectedClassId);
+            setShouldRefreshAfterSelectModal(false);
+          }
+        }}
+        classId={selectedClassId}
+        onStudentEnrolled={() => setShouldRefreshAfterSelectModal(true)}
+      />
     </div>
   );
 };
