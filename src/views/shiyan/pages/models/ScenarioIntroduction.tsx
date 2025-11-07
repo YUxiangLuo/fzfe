@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination, Autoplay } from 'swiper/modules';
+import { Navigation, Pagination } from 'swiper/modules';
+import type { Swiper as SwiperType } from 'swiper';
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
@@ -29,6 +30,8 @@ const paginationStyle = `
 
 const ScenarioIntroduction: React.FC = () => {
   const navigate = useNavigate();
+  const [hasViewedAll, setHasViewedAll] = useState(false);
+  const [maxReachedIndex, setMaxReachedIndex] = useState(0);
 
   // 图片列表（暂时用同一张图片代替）
   const images = [
@@ -36,12 +39,28 @@ const ScenarioIntroduction: React.FC = () => {
     `${DOWNLOAD_SERVER_BASE_URL}/images/yuceqingjing.png`,
   ];
 
+  const handleSlideChange = (swiper: SwiperType) => {
+    const currentIndex = swiper.realIndex;
+
+    // 更新用户浏览到的最大索引
+    if (currentIndex > maxReachedIndex) {
+      setMaxReachedIndex(currentIndex);
+    }
+
+    // 如果到达最后一张图片，标记为已全部查看
+    if (currentIndex === images.length - 1 || maxReachedIndex >= images.length - 1) {
+      setHasViewedAll(true);
+    }
+  };
+
   const handlePrevious = () => {
     navigate('/data');
   };
 
   const handleNext = () => {
-    navigate('/model/role-intro');
+    if (hasViewedAll) {
+      navigate('/model/role-intro');
+    }
   };
 
   return (
@@ -54,7 +73,7 @@ const ScenarioIntroduction: React.FC = () => {
         {/* 图片容器：宽度100%，高度为宽度的9/16，但不超过父容器高度 */}
         <div className="relative w-full max-h-full" style={{ aspectRatio: '16/9' }}>
           <Swiper
-            modules={[Navigation, Pagination, Autoplay]}
+            modules={[Navigation, Pagination]}
             navigation={{
               prevEl: '.swiper-button-prev-custom',
               nextEl: '.swiper-button-next-custom',
@@ -63,13 +82,9 @@ const ScenarioIntroduction: React.FC = () => {
               clickable: true,
               el: '.swiper-pagination-custom',
             }}
-            autoplay={{
-              delay: 5000,
-              disableOnInteraction: false,
-              pauseOnMouseEnter: true,
-            }}
-            loop={true}
+            loop={false}
             speed={800}
+            onSlideChange={handleSlideChange}
             className="h-full w-full rounded-lg"
           >
             {images.map((image, index) => (
@@ -116,13 +131,41 @@ const ScenarioIntroduction: React.FC = () => {
             <ChevronLeft className="w-5 h-5" />
             上一步
           </button>
-          <button
-            onClick={handleNext}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-          >
-            下一步
-            <ChevronRight className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-4">
+            {/* 查看进度提示 */}
+            {!hasViewedAll && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                <Eye className="w-4 h-4 text-amber-600" />
+                <span className="text-sm text-amber-700 font-medium">
+                  请查看所有图片后继续（{maxReachedIndex + 1}/{images.length}）
+                </span>
+              </div>
+            )}
+
+            {hasViewedAll && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
+                <Eye className="w-4 h-4 text-green-600" />
+                <span className="text-sm text-green-700 font-medium">
+                  已查看所有图片 ✓
+                </span>
+              </div>
+            )}
+
+            <button
+              onClick={handleNext}
+              disabled={!hasViewedAll}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors font-medium ${
+                hasViewedAll
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              title={!hasViewedAll ? '请先查看所有图片' : ''}
+            >
+              下一步
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
