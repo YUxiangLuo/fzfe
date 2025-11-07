@@ -1,0 +1,167 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Navigation, Pagination } from 'swiper/modules';
+import type { Swiper as SwiperType } from 'swiper';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+
+// 自定义分页器样式
+const paginationStyle = `
+  .swiper-pagination-custom .swiper-pagination-bullet {
+    width: 8px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.7);
+    opacity: 1;
+    transition: all 0.3s;
+  }
+  .swiper-pagination-custom .swiper-pagination-bullet:hover {
+    background: rgba(255, 255, 255, 1);
+  }
+  .swiper-pagination-custom .swiper-pagination-bullet-active {
+    width: 24px;
+    background: rgb(37, 99, 235);
+    border-radius: 4px;
+  }
+`;
+
+const ProductionScenarioIntroduction: React.FC = () => {
+  const navigate = useNavigate();
+  const [hasViewedAll, setHasViewedAll] = useState(false);
+  const [maxReachedIndex, setMaxReachedIndex] = useState(0);
+
+  // 图片列表（复用需求预测的图片）
+  const images = [
+    `${DOWNLOAD_SERVER_BASE_URL}/images/yuceqingjing.png`,
+    `${DOWNLOAD_SERVER_BASE_URL}/images/yuceqingjing.png`,
+  ];
+
+  const handleSlideChange = (swiper: SwiperType) => {
+    const currentIndex = swiper.realIndex;
+
+    // 更新用户浏览到的最大索引
+    if (currentIndex > maxReachedIndex) {
+      setMaxReachedIndex(currentIndex);
+    }
+
+    // 如果到达最后一张图片，标记为已全部查看
+    if (currentIndex === images.length - 1 || maxReachedIndex >= images.length - 1) {
+      setHasViewedAll(true);
+    }
+  };
+
+  const handlePrevious = () => {
+    navigate('/evaluation');
+  };
+
+  const handleNext = () => {
+    if (hasViewedAll) {
+      navigate('/production/role-intro');
+    }
+  };
+
+  return (
+    <div className="h-full flex flex-col gap-4">
+      {/* 自定义样式 */}
+      <style>{paginationStyle}</style>
+
+      {/* 情境图片轮播展示 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex-1 flex items-center justify-center min-h-0 overflow-hidden">
+        {/* 图片容器：宽度100%，高度为宽度的9/16，但不超过父容器高度 */}
+        <div className="relative w-full max-h-full" style={{ aspectRatio: '16/9' }}>
+          <Swiper
+            modules={[Navigation, Pagination]}
+            navigation={{
+              prevEl: '.swiper-button-prev-custom',
+              nextEl: '.swiper-button-next-custom',
+            }}
+            pagination={{
+              el: '.swiper-pagination-custom',
+              clickable: true,
+            }}
+            loop={false}
+            speed={800}
+            onSlideChange={handleSlideChange}
+            className="w-full h-full rounded-lg overflow-hidden"
+          >
+            {images.map((img, index) => (
+              <SwiperSlide key={index}>
+                <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                  <img
+                    src={img}
+                    alt={`生产计划情景 ${index + 1}`}
+                    className="max-w-full max-h-full object-contain"
+                  />
+                </div>
+              </SwiperSlide>
+            ))}
+
+            {/* 自定义导航按钮 */}
+            <div className="swiper-button-prev-custom absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center cursor-pointer transition-all hover:scale-110">
+              <ChevronLeft className="w-6 h-6 text-gray-700" />
+            </div>
+            <div className="swiper-button-next-custom absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center cursor-pointer transition-all hover:scale-110">
+              <ChevronRight className="w-6 h-6 text-gray-700" />
+            </div>
+
+            {/* 自定义分页器 */}
+            <div className="swiper-pagination-custom absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-10"></div>
+          </Swiper>
+        </div>
+      </div>
+
+      {/* 底部导航按钮 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-shrink-0">
+        <div className="flex justify-between items-center">
+          <button
+            onClick={handlePrevious}
+            className="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium"
+          >
+            <ChevronLeft className="w-5 h-5" />
+            上一步
+          </button>
+
+          <div className="flex items-center gap-4">
+            {/* 查看进度提示 */}
+            {!hasViewedAll && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                <Eye className="w-4 h-4 text-amber-600" />
+                <span className="text-sm text-amber-700 font-medium">
+                  请查看所有图片后继续（{maxReachedIndex + 1}/{images.length}）
+                </span>
+              </div>
+            )}
+
+            {hasViewedAll && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
+                <Eye className="w-4 h-4 text-green-600" />
+                <span className="text-sm text-green-700 font-medium">
+                  已查看所有图片 ✓
+                </span>
+              </div>
+            )}
+
+            <button
+              onClick={handleNext}
+              disabled={!hasViewedAll}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors font-medium ${
+                hasViewedAll
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              title={!hasViewedAll ? '请先查看所有图片' : ''}
+            >
+              下一步
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ProductionScenarioIntroduction;
