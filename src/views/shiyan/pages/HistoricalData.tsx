@@ -18,6 +18,9 @@ import {
   Cell,
 } from 'recharts';
 import type { MonthlySalesRecord } from '../data/historicalDatasets';
+import { useToast } from '../hooks/useToast';
+import Toast from '../components/Common/Toast';
+import { ROUTES } from '../constants/routes';
 
 // 常量配置
 const CURRENT_STEP = 4;
@@ -26,8 +29,8 @@ const MIN_DATA_MONTHS = 24;
 const HISTOGRAM_BINS = 10;
 
 const PATHS = {
-  PREVIOUS: '/product',
-  NEXT: '/model',
+  PREVIOUS: ROUTES.PRODUCT,
+  NEXT: ROUTES.MODEL,
 } as const;
 
 // 图表类型
@@ -66,6 +69,7 @@ interface HistogramBin {
 
 const HistoricalData: React.FC = () => {
   const navigate = useNavigate();
+  const toast = useToast();
   const {
     state,
     updateState,
@@ -347,7 +351,7 @@ const HistoricalData: React.FC = () => {
       // 查找所有 SVG 元素，找到最大的那个（主图表）
       const allSvgs = chartRef.current.querySelectorAll('svg');
       if (allSvgs.length === 0) {
-        alert('未找到图表元素');
+        toast.showToast('未找到图表元素', 'error');
         return;
       }
 
@@ -364,7 +368,7 @@ const HistoricalData: React.FC = () => {
       });
 
       if (!largestSvg) {
-        alert('未找到图表元素');
+        toast.showToast('未找到图表元素', 'error');
         return;
       }
 
@@ -405,9 +409,10 @@ const HistoricalData: React.FC = () => {
 
       // 清理 URL 对象
       URL.revokeObjectURL(url);
+      toast.showToast('图表已保存', 'success');
     } catch (error) {
       console.error('保存图表失败:', error);
-      alert('保存图表失败，请重试');
+      toast.showToast('保存图表失败，请重试', 'error');
     }
   };
 
@@ -745,6 +750,13 @@ const HistoricalData: React.FC = () => {
           </div>
         </div>
       )}
+
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={toast.hideToast}
+      />
     </div>
   );
 };

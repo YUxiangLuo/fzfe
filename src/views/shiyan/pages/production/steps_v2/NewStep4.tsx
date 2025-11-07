@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Shield, ArrowRight, Calculator, Info } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
+import { useToast } from '../../../hooks/useToast';
+import Toast from '../../../components/Common/Toast';
 
 /**
  * Step 4: 预测量
@@ -10,6 +12,7 @@ import { useProductionPlan } from '../ProductionPlanContextV2';
  */
 const NewStep4: React.FC = () => {
   const { state, updatePeriod2Data, completeCurrentStep, fillPeriod1Data } = useProductionPlan();
+  const toast = useToast();
 
   const [hasCalculated, setHasCalculated] = useState(false);
 
@@ -65,7 +68,7 @@ const NewStep4: React.FC = () => {
 
   const handleNext = () => {
     if (!hasCalculated) {
-      alert('请先计算安全库存和预测量');
+      toast.showToast('请先计算安全库存和预测量', 'error');
       return;
     }
 
@@ -332,6 +335,13 @@ const NewStep4: React.FC = () => {
           <ArrowRight className="w-5 h-5" />
         </button>
       </div>
+
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={toast.hideToast}
+      />
     </div>
   );
 };

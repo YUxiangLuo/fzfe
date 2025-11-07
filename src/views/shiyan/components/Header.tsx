@@ -3,6 +3,7 @@ import { User, LogOut } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { apiClient } from "../../../utils/apiClient";
 import { getRoleByBackendValue } from "../../../config/roles";
+import { ROUTES, getLogoutRedirectPath } from "../constants/routes";
 
 interface UserSummary {
   user_id: number;
@@ -45,7 +46,7 @@ const Header: React.FC = () => {
       }
     };
 
-    fetchProfile();
+    void fetchProfile();
 
     return () => {
       active = false;
@@ -53,8 +54,12 @@ const Header: React.FC = () => {
   }, []);
 
   const handleLogout = async () => {
-    localStorage.removeItem("token");
-    window.location.href = "/login";
+    try {
+      localStorage.removeItem("token");
+    } catch (error) {
+      console.error("Failed to remove token from localStorage:", error);
+    }
+    window.location.href = getLogoutRedirectPath();
   };
 
   const roleDisplay = user
@@ -72,7 +77,7 @@ const Header: React.FC = () => {
 
         <div className="flex items-center space-x-4">
           <Link
-            to="/introduction"
+            to={ROUTES.INTRODUCTION}
             state={introductionState}
             className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium"
           >
@@ -80,7 +85,7 @@ const Header: React.FC = () => {
           </Link>
 
           <Link
-            to="/profile"
+            to={ROUTES.PROFILE}
             state={profileState}
             className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium"
           >
