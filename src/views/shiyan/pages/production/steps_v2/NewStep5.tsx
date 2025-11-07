@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { PlayCircle, ArrowRight, Calculator, Info, Zap } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
+import { useToast } from '../../../hooks/useToast';
+import Toast from '../../../components/Common/Toast';
 
 /**
  * Step 5: 投入量（核心公式）
@@ -10,6 +12,7 @@ import { useProductionPlan } from '../ProductionPlanContextV2';
  */
 const NewStep5: React.FC = () => {
   const { state, updatePeriod2Data, completeCurrentStep } = useProductionPlan();
+  const toast = useToast();
 
   const [hasCalculated, setHasCalculated] = useState(false);
 
@@ -49,7 +52,7 @@ const NewStep5: React.FC = () => {
 
   const handleNext = () => {
     if (!hasCalculated) {
-      alert('请先计算投入量');
+      toast.showToast('请先计算投入量', 'error');
       return;
     }
 
@@ -338,6 +341,12 @@ const NewStep5: React.FC = () => {
           <ArrowRight className="w-5 h-5" />
         </button>
       </div>
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={toast.hideToast}
+      />
     </div>
   );
 };

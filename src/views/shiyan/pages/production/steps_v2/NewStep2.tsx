@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { TrendingUp, ArrowRight, Calculator, Info, Loader2 } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
+import { useToast } from '../../../hooks/useToast';
+import Toast from '../../../components/Common/Toast';
 
 // 模型名称映射
 const MODEL_NAME_MAP: Record<string, string> = {
@@ -21,6 +23,7 @@ const MODEL_NAME_MAP: Record<string, string> = {
  */
 const NewStep2: React.FC = () => {
   const { state, updatePeriod2Data, completeCurrentStep } = useProductionPlan();
+  const toast = useToast();
 
   const [productionOutput, setProductionOutput] = useState(state.period2Data.productionOutput ?? 0);
   const [hasCalculated, setHasCalculated] = useState(false);
@@ -79,7 +82,7 @@ const NewStep2: React.FC = () => {
 
   const handleNext = () => {
     if (!hasCalculated) {
-      alert('请先计算第2期的库存和缺货');
+      toast.showToast('请先计算第2期的库存和缺货', 'error');
       return;
     }
 
@@ -408,6 +411,13 @@ const NewStep2: React.FC = () => {
           <ArrowRight className="w-5 h-5" />
         </button>
       </div>
+
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={toast.hideToast}
+      />
     </div>
   );
 };
