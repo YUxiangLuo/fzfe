@@ -49,16 +49,27 @@ const getDatasetFileError = (file: File | null) => {
   return "";
 };
 
-const INITIAL_UPLOAD_ERRORS = {
+type DatasetUploadErrors = {
+  name: string;
+  notes: string;
+  file: string;
+};
+
+type DatasetEditErrors = {
+  name: string;
+  notes: string;
+};
+
+const INITIAL_UPLOAD_ERRORS: DatasetUploadErrors = {
   name: "",
   notes: "",
   file: "",
-} as const;
+};
 
-const INITIAL_EDIT_ERRORS = {
+const INITIAL_EDIT_ERRORS: DatasetEditErrors = {
   name: "",
   notes: "",
-} as const;
+};
 
 const ExperimentDataView: React.FC = () => {
   const [datasets, setDatasets] = useState<ExperimentData[]>([]);
@@ -73,12 +84,12 @@ const ExperimentDataView: React.FC = () => {
   const [datasetName, setDatasetName] = useState("");
   const [datasetNotes, setDatasetNotes] = useState("");
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadErrors, setUploadErrors] = useState({
-    ...INITIAL_UPLOAD_ERRORS,
-  });
-  const [editErrors, setEditErrors] = useState({
-    ...INITIAL_EDIT_ERRORS,
-  });
+  const [uploadErrors, setUploadErrors] = useState<DatasetUploadErrors>(
+    INITIAL_UPLOAD_ERRORS,
+  );
+  const [editErrors, setEditErrors] = useState<DatasetEditErrors>(
+    INITIAL_EDIT_ERRORS,
+  );
 
   const handleDatasetNameChange = (value: string) => {
     setDatasetName(value);
@@ -165,6 +176,10 @@ const ExperimentDataView: React.FC = () => {
     setUploadErrors({ name: nameError, file: fileError, notes: notesError });
 
     if (nameError || fileError || notesError) {
+      return;
+    }
+
+    if (!uploadFile) {
       return;
     }
 

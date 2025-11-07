@@ -46,16 +46,27 @@ const getManualFileError = (file: File | null) => {
   return "";
 };
 
-const INITIAL_UPLOAD_ERRORS = {
+type ManualUploadErrors = {
+  name: string;
+  notes: string;
+  file: string;
+};
+
+type ManualEditErrors = {
+  name: string;
+  notes: string;
+};
+
+const INITIAL_UPLOAD_ERRORS: ManualUploadErrors = {
   name: "",
   notes: "",
   file: "",
-} as const;
+};
 
-const INITIAL_EDIT_ERRORS = {
+const INITIAL_EDIT_ERRORS: ManualEditErrors = {
   name: "",
   notes: "",
-} as const;
+};
 
 const ExperimentManualView: React.FC = () => {
   const [manuals, setManuals] = useState<ExperimentManual[]>([]);
@@ -72,12 +83,12 @@ const ExperimentManualView: React.FC = () => {
   const [manualName, setManualName] = useState("");
   const [manualNotes, setManualNotes] = useState("");
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadErrors, setUploadErrors] = useState({
-    ...INITIAL_UPLOAD_ERRORS,
-  });
-  const [editErrors, setEditErrors] = useState({
-    ...INITIAL_EDIT_ERRORS,
-  });
+  const [uploadErrors, setUploadErrors] = useState<ManualUploadErrors>(
+    INITIAL_UPLOAD_ERRORS,
+  );
+  const [editErrors, setEditErrors] = useState<ManualEditErrors>(
+    INITIAL_EDIT_ERRORS,
+  );
 
   const handleManualNameChange = (value: string) => {
     setManualName(value);
@@ -190,6 +201,10 @@ const ExperimentManualView: React.FC = () => {
     setUploadErrors({ name: nameError, file: fileError, notes: notesError });
 
     if (nameError || fileError || notesError) {
+      return;
+    }
+
+    if (!uploadFile) {
       return;
     }
 

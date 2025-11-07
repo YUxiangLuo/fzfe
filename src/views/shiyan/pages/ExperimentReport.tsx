@@ -126,6 +126,8 @@ const ExperimentReport: React.FC = () => {
     return values[key] || '';
   };
 
+  const secondForecastStdDev = state.production_forecast_results?.[1]?.std_dev;
+
   const allModels = useMemo(() => {
     const models = [];
     if (state.moving_average_completed) models.push({ name: '移动平均法', params: `窗口: ${state.moving_average_window ?? 'N/A'}`, rmse: state.moving_average_metrics_rmse, mae: state.moving_average_metrics_mae, r2: state.moving_average_metrics_r2 });
@@ -569,7 +571,7 @@ const ExperimentReport: React.FC = () => {
                             <td className="py-2 text-gray-600 w-1/3">安全库存</td>
                             <td className="py-2 font-semibold">{safetyStock.toLocaleString()} 件</td>
                             <td className="py-2 text-xs text-gray-500">
-                              = Z值 {zScore} × 标准差 {state.production_forecast_results && state.production_forecast_results.length > 1 ? state.production_forecast_results[1].std_dev.toFixed(2) : '?'}
+                              = Z值 {zScore} × 标准差 {secondForecastStdDev !== undefined ? secondForecastStdDev.toFixed(2) : '?'}
                             </td>
                           </tr>
                           <tr>

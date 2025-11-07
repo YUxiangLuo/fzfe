@@ -35,7 +35,7 @@ const createSeries = (
   });
 };
 
-const DATASETS: Record<string, HistoricalDataset> = {
+const DATASETS = {
   'apparel|yunshang|silkdress': {
     meta: {
       industry: 'apparel',
@@ -100,7 +100,7 @@ const DATASETS: Record<string, HistoricalDataset> = {
       1130, 1180, 1210, 1260, 1320, 1380,
     ]),
   },
-};
+} satisfies Record<string, HistoricalDataset>;
 
 export const buildDatasetKey = (
   industry: string | null,
@@ -114,8 +114,11 @@ export const getHistoricalDataset = (
   product: string | null,
 ): HistoricalDataset => {
   const key = buildDatasetKey(industry, company, product);
-  return DATASETS[key] ?? DATASETS.default;
+  const dataset = DATASETS[key as DatasetKey];
+  if (dataset) {
+    return dataset;
+  }
+  return DATASETS.default;
 };
 
 export type DatasetKey = keyof typeof DATASETS;
-

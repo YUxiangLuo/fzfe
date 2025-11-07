@@ -173,7 +173,10 @@ const GradesOverview: React.FC = () => {
         const response = await apiClient.get<Class[]>(`/teachers/${teacherId}/classes`);
         if (Array.isArray(response) && response.length > 0) {
           setClasses(response);
-          setSelectedClassId(String(response[0].class_id));
+          const firstClass = response[0];
+          if (firstClass) {
+            setSelectedClassId(String(firstClass.class_id));
+          }
         } else {
           setClasses([]);
           setError("您当前没有管理的班级。");

@@ -64,7 +64,9 @@ const PlanQuiz: React.FC = () => {
 
   const handleSubmitQuiz = async () => {
     // 验证所有题目都已回答
-    const unansweredQuestions = questions.filter(q => !answers[q.question_id] || answers[q.question_id].length === 0);
+    const unansweredQuestions = questions.filter(
+      (q) => (answers[q.question_id]?.length ?? 0) === 0,
+    );
     if (unansweredQuestions.length > 0) {
       setSubmitError(`请完成所有题目后再提交（还有 ${unansweredQuestions.length} 道题未作答）`);
       return;

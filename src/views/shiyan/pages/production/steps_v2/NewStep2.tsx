@@ -33,15 +33,17 @@ const NewStep2: React.FC = () => {
 
   // 获取第二期预测需求
   const handleLoadPeriod2Demand = async () => {
-    if (state.predictions && state.predictions.length > 1) {
-      setIsLoadingPrediction(true);
-      // 添加1秒虚拟loading
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const demand = Math.round(state.predictions[1].prediction);
-      setPeriod2DemandValue(demand);
-      setIsPeriod2Loaded(true);
-      setIsLoadingPrediction(false);
+    const period2Prediction = state.predictions?.[1];
+    if (!period2Prediction) {
+      return;
     }
+    setIsLoadingPrediction(true);
+    // 添加1秒虚拟loading
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const demand = Math.round(period2Prediction.prediction);
+    setPeriod2DemandValue(demand);
+    setIsPeriod2Loaded(true);
+    setIsLoadingPrediction(false);
   };
 
   // 使用加载的需求值，如果未加载则使用默认值

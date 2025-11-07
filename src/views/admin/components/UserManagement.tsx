@@ -16,26 +16,41 @@ import {
 const PAGE_LIMIT = 10;
 const SEARCH_DEBOUNCE_MS = 400;
 
-const INITIAL_TEACHER_FORM = {
+type TeacherForm = {
+  username: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  password: string;
+};
+
+type TeacherErrors = Record<keyof TeacherForm, string>;
+
+type PasswordErrors = {
+  newPassword: string;
+  confirmPassword: string;
+};
+
+const INITIAL_TEACHER_FORM: TeacherForm = {
   username: "",
   full_name: "",
   email: "",
   phone: "",
   password: "",
-} as const;
+};
 
-const INITIAL_TEACHER_ERRORS = {
+const INITIAL_TEACHER_ERRORS: TeacherErrors = {
   username: "",
   full_name: "",
   email: "",
   phone: "",
   password: "",
-} as const;
+};
 
-const INITIAL_PASSWORD_ERRORS = {
+const INITIAL_PASSWORD_ERRORS: PasswordErrors = {
   newPassword: "",
   confirmPassword: "",
-} as const;
+};
 
 type BatchErrors = {
   file: string;
@@ -65,9 +80,8 @@ const UserManagement: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordErrors, setPasswordErrors] = useState({
-    ...INITIAL_PASSWORD_ERRORS,
-  });
+  const [passwordErrors, setPasswordErrors] =
+    useState<PasswordErrors>(INITIAL_PASSWORD_ERRORS);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,12 +91,10 @@ const UserManagement: React.FC = () => {
 
   const [isAddTeacherModalOpen, setIsAddTeacherModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newTeacherData, setNewTeacherData] = useState({
-    ...INITIAL_TEACHER_FORM,
-  });
-  const [teacherErrors, setTeacherErrors] = useState({
-    ...INITIAL_TEACHER_ERRORS,
-  });
+  const [newTeacherData, setNewTeacherData] =
+    useState<TeacherForm>(INITIAL_TEACHER_FORM);
+  const [teacherErrors, setTeacherErrors] =
+    useState<TeacherErrors>(INITIAL_TEACHER_ERRORS);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [batchFile, setBatchFile] = useState<File | null>(null);
   const [batchPassword, setBatchPassword] = useState("");

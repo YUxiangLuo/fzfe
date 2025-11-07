@@ -363,7 +363,8 @@ const ModelIntroduction: React.FC = () => {
     },
   ];
 
-  const activeModel = models.find(m => m.id === activeModelId) || models[0];
+  const defaultModel = models[0]!;
+  const activeModel = models.find(m => m.id === activeModelId) ?? defaultModel;
   const Icon = activeModel.icon;
 
   const handlePrevious = () => {

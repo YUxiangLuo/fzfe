@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { RoleSelector } from "./RoleSelector";
 import { LoginForm } from "./LoginForm";
-import { RegisterForm, RegisterFormData } from "./RegisterForm";
+import { RegisterForm } from "./RegisterForm";
+import type { RegisterFormData } from "./RegisterForm";
 import { API_BASE_URL } from "../../../utils/apiClient";
 
 export const LoginContainer: React.FC = () => {

@@ -43,10 +43,14 @@ export interface ProductionPlanState {
   targetServiceLevel: number;
   safetyStockZScore: number;
   selectedBestModel: string;
+  demoPrediction: number;
+  demoStdDev: number;
 
   // 产能参数
+  capacityMode: CapacityMode;
   capacityScenario: CapacityScenario;   // 用户选择的产能场景：tight | normal | abundant
   productionCapacity: number;           // 实际产能值（每期最多能生产多少件，MPS计算的核心约束）
+  customCapacity: number | null;
 
   // 初始估算值（基于历史数据的平均值，用于默认显示和fallback计算）
   avgDemand: number;
@@ -83,18 +87,25 @@ interface ProductionPlanContextValue {
 
   // 产能设置
   updateCapacity: (params: {
-    scenario: CapacityScenario;
-    capacity: number;
+    mode?: CapacityMode;
+    scenario?: CapacityScenario;
+    calculatedValue?: number;
+    customValue?: number;
+    capacity?: number;
   }) => void;
 
   // 第1期数据填充（一次性填充完整数据，用于显示参考）
   fillPeriod1Data: (data: PeriodData) => void;
+
+  // 第2期单字段填充
+  fillPeriod2Field: (field: keyof Period2Data, value: number | null) => void;
 
   // 第2期数据批量更新
   updatePeriod2Data: (data: Partial<Period2Data>) => void;
 
   // 保存预测结果（从预测接口获取的完整数据）
   savePredictions: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
+  updateDemoPrediction: (prediction: number, stdDev: number) => void;
 
   // 生成完整MPS表
   generateFullMPS: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
@@ -125,10 +136,14 @@ const getDefaultState = (
     targetServiceLevel: 0.99, // 固定为99%
     safetyStockZScore: 2.33, // 对应99%服务水平的Z分数
     selectedBestModel: initialModel || 'lstm',
+    demoPrediction: defaultAvgDemand,
+    demoStdDev: Math.round(defaultAvgDemand * 0.05),
 
     // 产能参数（默认使用 normal 场景）
+    capacityMode: 'scenario',
     capacityScenario: 'normal',
     productionCapacity: defaultCapacity,
+    customCapacity: null,
 
     // 初始估算值（用于默认显示和 fallback 计算）
     avgDemand: defaultAvgDemand,
@@ -217,20 +232,65 @@ export const ProductionPlanProvider: React.FC<{
 
   // 更新产能配置
   const updateCapacity = (params: {
-    scenario: CapacityScenario;
-    capacity: number;
+    mode?: CapacityMode;
+    scenario?: CapacityScenario;
+    calculatedValue?: number;
+    customValue?: number;
+    capacity?: number;
   }) => {
-    setState((prev) => ({
-      ...prev,
-      capacityScenario: params.scenario,
-      productionCapacity: params.capacity,
-    }));
+    setState((prev) => {
+      const nextMode = params.mode ?? prev.capacityMode;
+      const nextScenario = params.scenario ?? prev.capacityScenario;
+
+      const resolvedValue =
+        params.calculatedValue ??
+        params.capacity ??
+        params.customValue ??
+        prev.productionCapacity;
+
+      const shouldUseCustom = nextMode === 'custom';
+      const nextCustom = shouldUseCustom
+        ? params.customValue ??
+          params.capacity ??
+          params.calculatedValue ??
+          prev.customCapacity ??
+          resolvedValue
+        : null;
+
+      let productionCapacity = resolvedValue;
+      let customCapacity: number | null = null;
+      if (shouldUseCustom) {
+        customCapacity = nextCustom ?? resolvedValue;
+        productionCapacity = customCapacity;
+      }
+
+      return {
+        ...prev,
+        capacityMode: nextMode,
+        capacityScenario: nextScenario,
+        productionCapacity,
+        customCapacity,
+      };
+    });
   };
 
   const fillPeriod1Data = (data: PeriodData) => {
     setState((prev) => ({
       ...prev,
       period1Data: data,
+    }));
+  };
+
+  const fillPeriod2Field = <K extends keyof Period2Data>(
+    field: K,
+    value: Period2Data[K],
+  ) => {
+    setState((prev) => ({
+      ...prev,
+      period2Data: {
+        ...prev.period2Data,
+        [field]: value,
+      },
     }));
   };
 
@@ -249,6 +309,14 @@ export const ProductionPlanProvider: React.FC<{
     setState((prev) => ({
       ...prev,
       predictions: predictions,
+    }));
+  };
+
+  const updateDemoPrediction = (prediction: number, stdDev: number) => {
+    setState((prev) => ({
+      ...prev,
+      demoPrediction: prediction,
+      demoStdDev: stdDev,
     }));
   };
 
@@ -399,8 +467,10 @@ export const ProductionPlanProvider: React.FC<{
         updateParameters,
         updateCapacity,
         fillPeriod1Data,
+        fillPeriod2Field,
         updatePeriod2Data,
         savePredictions,
+        updateDemoPrediction,
         generateFullMPS,
         resetAll,
       }}

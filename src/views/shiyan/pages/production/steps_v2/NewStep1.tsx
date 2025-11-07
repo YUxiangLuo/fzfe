@@ -106,6 +106,13 @@ const NewStep1: React.FC = () => {
       }
 
       const predictions = response.results.predictions;
+      if (predictions.length === 0) {
+        throw new Error('预测API未返回任何数据');
+      }
+      const firstPrediction = predictions[0];
+      if (!firstPrediction) {
+        throw new Error('预测API未返回期1数据');
+      }
       console.log('✅ 预测数据获取成功:', predictions);
 
       // 保存完整预测结果
@@ -114,7 +121,7 @@ const NewStep1: React.FC = () => {
       // 🆕 使用预测值填充第一期的标准化参考数据
       // 根据客户需求：第一期作为参考基准，采用标准化设置（初始库存=0，缺货=0）
       // 注意：安全库存在Step4才引入，这里不填充
-      const period1Demand = Math.round(predictions[0].prediction);
+      const period1Demand = Math.round(firstPrediction.prediction);
 
       // 保存Period1数据到本地状态（用于显示）
       setPeriod1Data({

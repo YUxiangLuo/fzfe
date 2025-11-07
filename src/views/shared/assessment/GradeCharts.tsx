@@ -35,6 +35,20 @@ const palette = {
   teal: '#14b8a6',
 };
 
+const AVERAGE_METRICS = [
+  { key: 'expFlowScore', label: '实验流程' },
+  { key: 'knowledgeTest', label: '知识测试' },
+  { key: 'modelQuality', label: '模型质量' },
+  { key: 'reportQuality', label: '报告质量' },
+] as const;
+
+type MetricLabel = typeof AVERAGE_METRICS[number]['label'];
+type AverageDatum = {
+  label: MetricLabel;
+  average: number;
+  samples: number;
+};
+
 const GradeCharts: React.FC<GradeChartsProps> = ({ grades }) => {
   const graded = useMemo(
     () => grades.filter((grade) => typeof grade.finalScore === 'number' && !Number.isNaN(grade.finalScore)),
@@ -77,14 +91,7 @@ const GradeCharts: React.FC<GradeChartsProps> = ({ grades }) => {
   );
 
   const averageData = useMemo(() => {
-    const metrics = [
-      { key: 'expFlowScore', label: '实验流程' },
-      { key: 'knowledgeTest', label: '知识测试' },
-      { key: 'modelQuality', label: '模型质量' },
-      { key: 'reportQuality', label: '报告质量' },
-    ] as const;
-
-    return metrics
+    return AVERAGE_METRICS
       .map(({ key, label }) => {
         const values = grades
           .map((grade) => grade[key])
@@ -97,7 +104,7 @@ const GradeCharts: React.FC<GradeChartsProps> = ({ grades }) => {
           samples: values.length,
         };
       })
-      .filter((item): item is { label: string; average: number; samples: number } => item !== null);
+      .filter((item): item is AverageDatum => item !== null);
   }, [grades]);
 
   if (graded.length === 0) {

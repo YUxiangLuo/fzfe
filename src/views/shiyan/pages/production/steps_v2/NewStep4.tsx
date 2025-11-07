@@ -20,8 +20,9 @@ const NewStep4: React.FC = () => {
   // 使用预测接口返回的真实标准差
   const calculateSafetyStock = (): number => {
     // 优先使用predictions[1]的标准差（第2期）
-    if (state.predictions && state.predictions.length > 1) {
-      const stdDev = state.predictions[1].std_dev;
+    const secondPrediction = state.predictions?.[1];
+    if (secondPrediction) {
+      const stdDev = secondPrediction.std_dev;
       const safetyStock = Math.round(zScore * stdDev);
       return Math.max(0, safetyStock);
     }
@@ -33,9 +34,7 @@ const NewStep4: React.FC = () => {
   };
 
   // 获取第2期的标准差（用于显示）
-  const period2StdDev = state.predictions && state.predictions.length > 1
-    ? state.predictions[1].std_dev
-    : state.avgDemand * 0.2;
+  const period2StdDev = state.predictions?.[1]?.std_dev ?? state.avgDemand * 0.2;
 
   const safetyStock = hasCalculated ? calculateSafetyStock() : null;
   const forecastQuantity = hasCalculated && safetyStock !== null
@@ -53,8 +52,9 @@ const NewStep4: React.FC = () => {
     });
 
     // 同时填充第1期的安全库存（使用predictions[0]的标准差）
-    if (state.predictions && state.predictions.length > 0) {
-      const period1StdDev = state.predictions[0].std_dev;
+    const period1Prediction = state.predictions?.[0];
+    if (period1Prediction) {
+      const period1StdDev = period1Prediction.std_dev;
       const period1SafetyStock = Math.round(state.safetyStockZScore * period1StdDev);
       fillPeriod1Data({
         ...state.period1Data,

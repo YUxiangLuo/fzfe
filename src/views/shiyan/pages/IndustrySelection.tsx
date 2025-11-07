@@ -35,9 +35,12 @@ const DefaultIcon = Factory;
 
 // Helper function to find the correct icon based on keywords
 const getIndustryIcon = (industryName: string): React.ElementType => {
-    for (const keyword in INDUSTRY_ICON_MAP) {
+    for (const keyword of Object.keys(INDUSTRY_ICON_MAP)) {
         if (industryName.includes(keyword)) {
-            return INDUSTRY_ICON_MAP[keyword];
+            const IconComponent = INDUSTRY_ICON_MAP[keyword];
+            if (IconComponent) {
+                return IconComponent;
+            }
         }
     }
     return DefaultIcon;

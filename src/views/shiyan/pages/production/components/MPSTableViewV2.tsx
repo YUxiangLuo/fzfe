@@ -23,11 +23,14 @@ const STEP_COLUMNS: Record<number, ColumnKey[]> = {
   6: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'planned_production', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 6: 完整表
 };
 
+const DEFAULT_COLUMNS = STEP_COLUMNS[1]!;
+
 const MPSTableViewV2: React.FC = () => {
   const { state } = useProductionPlan();
 
   // 根据当前步骤获取可见列
-  const visibleColumns = STEP_COLUMNS[state.currentStep] || STEP_COLUMNS[1];
+  const visibleColumns: ColumnKey[] =
+    STEP_COLUMNS[state.currentStep] ?? DEFAULT_COLUMNS;
 
   // 格式化数值显示
   const formatValue = (value: number | null): string => {
@@ -77,7 +80,7 @@ const MPSTableViewV2: React.FC = () => {
       stockout: { title: '缺货' },
       service_level: { title: '服务水平' },
     };
-    return info[column];
+    return info[column] ?? { title: column };
   };
 
   return (
