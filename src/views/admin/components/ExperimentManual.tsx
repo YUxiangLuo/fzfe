@@ -12,6 +12,10 @@ import type { ExperimentManual } from "../types";
 import { apiClient } from "../../../utils/apiClient";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig"; // Import the new config value
 import Modal from "./Modal";
+import Toast from "./Toast";
+import ConfirmDialog from "./ConfirmDialog";
+import { useToast } from "../hooks/useToast";
+import { useConfirm } from "../hooks/useConfirm";
 
 const MAX_MANUAL_NAME_LENGTH = 100;
 const MANUAL_NAME_MIN_LENGTH = 2;
@@ -89,6 +93,10 @@ const ExperimentManualView: React.FC = () => {
   const [editErrors, setEditErrors] = useState<ManualEditErrors>(
     INITIAL_EDIT_ERRORS,
   );
+
+  // Toast and Confirm hooks
+  const { toast, showToast, hideToast } = useToast();
+  const { confirmState, showConfirm, hideConfirm } = useConfirm();
 
   const handleManualNameChange = (value: string) => {
     setManualName(value);
@@ -177,20 +185,31 @@ const ExperimentManualView: React.FC = () => {
           );
         }
       });
+      showToast('状态更新成功', 'success');
     } catch (err: any) {
-      alert(`状态更新失败: ${err.message}`);
+      showToast(`状态更新失败: ${err.message}`, 'error');
     }
   };
 
   const handleDelete = async (manualId: number) => {
-    if (confirm("确定要删除此实验手册吗？")) {
-      try {
-        await apiClient.delete(`/manuals/${manualId}`);
-        setManuals(manuals.filter((m) => m.manual_id !== manualId));
-      } catch (err: any) {
-        alert(`删除失败: ${err.message}`);
+    showConfirm(
+      "确定要删除此实验手册吗？此操作不可恢复。",
+      async () => {
+        try {
+          await apiClient.delete(`/manuals/${manualId}`);
+          setManuals(manuals.filter((m) => m.manual_id !== manualId));
+          showToast('删除成功', 'success');
+        } catch (err: any) {
+          showToast(`删除失败: ${err.message}`, 'error');
+        }
+      },
+      {
+        title: '确认删除',
+        confirmText: '删除',
+        cancelText: '取消',
+        variant: 'danger',
       }
-    }
+    );
   };
 
   const handleUpload = async () => {
@@ -221,8 +240,9 @@ const ExperimentManualView: React.FC = () => {
       );
       setManuals((prev) => [newManualFromServer, ...prev]);
       resetUploadModal();
+      showToast('上传成功', 'success');
     } catch (err: any) {
-      alert(`上传失败: ${err.message}`);
+      showToast(`上传失败: ${err.message}`, 'error');
     } finally {
       setIsUploading(false);
     }
@@ -254,8 +274,9 @@ const ExperimentManualView: React.FC = () => {
         ),
       );
       closeEditModal();
+      showToast('保存成功', 'success');
     } catch (err: any) {
-      alert(`保存失败: ${err.message}`);
+      showToast(`保存失败: ${err.message}`, 'error');
     }
   };
 
@@ -566,6 +587,26 @@ const ExperimentManualView: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* Toast Notification */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmText={confirmState.confirmText}
+        cancelText={confirmState.cancelText}
+        variant={confirmState.variant}
+        onConfirm={confirmState.onConfirm}
+        onCancel={hideConfirm}
+      />
     </div>
   );
 };
