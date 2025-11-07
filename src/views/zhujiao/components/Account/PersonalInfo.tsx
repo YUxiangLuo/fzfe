@@ -98,32 +98,20 @@ const PersonalInfo: React.FC = () => {
       return;
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
     try {
       const updatedUser = await apiClient.put('/users/me', {
         full_name: tempUser.full_name.trim(),
         phone_number: tempUser.phone_number?.trim() || null,
         email: tempUser.email.trim(),
-      }, { signal: controller.signal });
-
-      clearTimeout(timeoutId);
+      });
 
       setUser(updatedUser);
       setIsEditModalOpen(false);
 
       toast.showToast('个人信息保存成功', 'success');
     } catch (err: unknown) {
-      clearTimeout(timeoutId);
-
       if (err instanceof Error) {
-        if (err.name === 'AbortError') {
-          toast.showToast('请求超时，请检查网络连接后重试', 'error');
-        } else {
-          const errorMessage = err.message || '保存失败';
-          toast.showToast(`保存失败: ${errorMessage}`, 'error');
-        }
+        toast.showToast(err.message, 'error');
       } else {
         toast.showToast('保存失败，请稍后重试', 'error');
       }

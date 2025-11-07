@@ -2,6 +2,47 @@ export const API_BASE_URL = "http://localhost:3001/api/v1";
 
 const BASE_URL = API_BASE_URL;
 
+/**
+ * 根据API端点自动确定超时时间
+ * @param endpoint - API端点路径
+ * @returns 超时时间（毫秒）或 undefined（无超时）
+ */
+const getTimeoutForEndpoint = (endpoint: string): number | undefined => {
+  const lowerEndpoint = endpoint.toLowerCase();
+
+  // 模型训练相关 - 无超时（可能需要几分钟）
+  if (lowerEndpoint.includes('/models/') && lowerEndpoint.includes('/training')) {
+    return undefined;
+  }
+
+  // 模型预测 - 60秒（可能需要较长时间计算）
+  if (lowerEndpoint.includes('/predict') || lowerEndpoint.includes('/forecast')) {
+    return 60000;
+  }
+
+  // 生产计划计算 - 60秒（复杂的优化算法）
+  if (lowerEndpoint.includes('/production/') && lowerEndpoint.includes('/calculate')) {
+    return 60000;
+  }
+
+  // 文件上传（CSV导入等）- 30秒
+  if (lowerEndpoint.includes('/upload') || lowerEndpoint.includes('/import')) {
+    return 30000;
+  }
+
+  // 数据加载（历史数据、销售数据等）- 15秒
+  if (
+    lowerEndpoint.includes('/datasets/') ||
+    lowerEndpoint.includes('/sales') ||
+    lowerEndpoint.includes('/historical')
+  ) {
+    return 15000;
+  }
+
+  // 普通CRUD操作 - 10秒
+  return 10000;
+};
+
 const safeDecode = (value: string): string => {
   try {
     return decodeURIComponent(value);
@@ -79,6 +120,34 @@ const request = async <T = any>(
     },
   };
 
+  // 自动确定超时时间
+  const timeout = getTimeoutForEndpoint(endpoint);
+
+  // 如果需要超时控制
+  if (timeout !== undefined) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(buildUrl(endpoint), {
+        ...config,
+        signal: options.signal || controller.signal, // 优先使用传入的signal
+      });
+      clearTimeout(timeoutId);
+      return handleResponse<T>(response, endpoint);
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+
+      // 处理超时错误
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new Error(`请求超时（${timeout / 1000}秒），请检查网络连接后重试`);
+      }
+
+      throw err;
+    }
+  }
+
+  // 无超时的默认行为（用于模型训练等长时间操作）
   const response = await fetch(buildUrl(endpoint), config);
   return handleResponse<T>(response, endpoint);
 };
