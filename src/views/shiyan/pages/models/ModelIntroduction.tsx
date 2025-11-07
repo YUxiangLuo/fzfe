@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LineChart,
@@ -16,6 +16,9 @@ import {
   Target,
   Settings,
   TrendingUp,
+  Circle,
+  Eye,
+  Award,
 } from 'lucide-react';
 
 interface ModelDetail {
@@ -36,6 +39,8 @@ interface ModelDetail {
 const ModelIntroduction: React.FC = () => {
   const navigate = useNavigate();
   const [activeModelId, setActiveModelId] = useState<string>('moving_average');
+  const [readModels, setReadModels] = useState<Set<string>>(new Set());
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const models: ModelDetail[] = [
     {
@@ -367,175 +372,353 @@ const ModelIntroduction: React.FC = () => {
   const activeModel = models.find(m => m.id === activeModelId) ?? defaultModel;
   const Icon = activeModel.icon;
 
+  const allModelsRead = readModels.size === models.length;
+  const readCount = readModels.size;
+
+  // 滚动到顶部当切换模型时
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [activeModelId]);
+
+  // 检测滚动到底部
+  useEffect(() => {
+    const contentElement = contentRef.current;
+    if (!contentElement) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = contentElement;
+      // 如果滚动到底部（允许20px误差）
+      if (scrollHeight - scrollTop - clientHeight < 20) {
+        setReadModels((prev) => {
+          const newSet = new Set(prev);
+          newSet.add(activeModelId);
+          return newSet;
+        });
+      }
+    };
+
+    contentElement.addEventListener('scroll', handleScroll);
+    // 检查初始状态（如果内容很短，不需要滚动）
+    handleScroll();
+
+    return () => {
+      contentElement.removeEventListener('scroll', handleScroll);
+    };
+  }, [activeModelId]);
+
+  const handleModelClick = (modelId: string) => {
+    setActiveModelId(modelId);
+  };
+
   const handlePrevious = () => {
     navigate('/model/window');
   };
 
   const handleNext = () => {
-    navigate('/model/model-select');
+    if (allModelsRead) {
+      navigate('/model/model-select');
+    }
   };
 
   return (
     <div className="h-full flex flex-col gap-4">
-      {/* 内容区域 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex-1 min-h-0 overflow-y-auto">
-        {/* 标题 */}
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">需求预测模型介绍</h2>
-          <p className="text-gray-600 text-sm">
-            了解不同预测模型的原理、参数、适用场景，为后续模型选择提供参考
-          </p>
-        </div>
-
-        {/* 模型选项卡 */}
-        <div className="mb-5 border-b border-gray-200">
-          <div className="flex gap-1 overflow-x-auto pb-2">
-            {models.map((model) => {
-              const ModelIcon = model.icon;
-              const isActive = model.id === activeModelId;
-              return (
-                <button
-                  key={model.id}
-                  onClick={() => setActiveModelId(model.id)}
-                  className={`flex items-center gap-2 px-3 py-2 whitespace-nowrap rounded-t-lg transition-all text-sm ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600 font-medium'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <ModelIcon className="w-4 h-4" />
-                  {model.name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 模型详细内容 */}
-        <div className="space-y-4">
-          {/* 模型标题和图标 */}
-          <div className="flex items-center gap-3 pb-3 border-b border-gray-200">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Icon className="w-7 h-7 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-gray-900">{activeModel.name}</h3>
-              <span className={`text-xs px-2 py-1 rounded ${
-                activeModel.type === 'basic'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-purple-100 text-purple-700'
-              }`}>
-                {activeModel.type === 'basic' ? '基础模型' : '融合模型'}
-              </span>
-            </div>
-          </div>
-
-          {/* 概述 */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-blue-900 leading-relaxed">{activeModel.principle}</p>
-          </div>
-
-          {/* 详细原理 */}
+      {/* 顶部进度区域 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-blue-600" />
-              详细原理
-            </h4>
-            <div className="space-y-2 text-sm text-gray-700 leading-relaxed">
-              {activeModel.detailedPrinciple.map((text, idx) => (
-                <p key={idx} className="pl-4 border-l-2 border-gray-300">{text}</p>
-              ))}
-            </div>
-          </div>
-
-          {/* 工作流程 */}
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-green-600" />
-              工作流程
-            </h4>
-            <div className="space-y-2">
-              {activeModel.workflow.map((step, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
-                    {idx + 1}
-                  </div>
-                  <p className="text-sm text-gray-700 leading-relaxed">{step}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 参数说明 */}
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-              <Settings className="w-5 h-5 text-purple-600" />
-              参数说明
-            </h4>
-            <div className="space-y-2">
-              {activeModel.parameters.map((param, idx) => (
-                <div key={idx} className="bg-gray-50 rounded-lg p-3">
-                  <div className="font-medium text-gray-900 text-sm mb-1">{param.name}</div>
-                  <div className="text-xs text-gray-600">{param.description}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 适用场景 */}
-          <div>
-            <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-              <Target className="w-5 h-5 text-orange-600" />
-              适用场景
-            </h4>
-            <p className="text-sm text-gray-700 leading-relaxed bg-orange-50 border border-orange-200 rounded-lg p-3">
-              {activeModel.scenario}
+            <h2 className="text-xl font-bold text-gray-900">需求预测模型介绍</h2>
+            <p className="text-gray-600 text-sm mt-1">
+              了解每个模型的原理、参数、适用场景 · 请仔细阅读所有模型介绍
             </p>
           </div>
+          <div className="flex items-center gap-3">
+            {/* 阅读进度 */}
+            {!allModelsRead && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                <Eye className="w-4 h-4 text-amber-600" />
+                <span className="text-sm text-amber-700 font-medium">
+                  已阅读 {readCount}/{models.length}
+                </span>
+              </div>
+            )}
+            {allModelsRead && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
+                <Award className="w-4 h-4 text-green-600" />
+                <span className="text-sm text-green-700 font-medium">
+                  已完成所有模型学习 ✓
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
-          {/* 优缺点 */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <h4 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5" />
-                优点
-              </h4>
-              <ul className="space-y-1">
-                {activeModel.advantages.map((adv, idx) => (
-                  <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
-                    <span className="text-green-500 mt-1 flex-shrink-0">✓</span>
-                    <span>{adv}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-red-700 mb-2 flex items-center gap-2">
-                <XCircle className="w-5 h-5" />
-                缺点
-              </h4>
-              <ul className="space-y-1">
-                {activeModel.disadvantages.map((dis, idx) => (
-                  <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
-                    <span className="text-red-500 mt-1 flex-shrink-0">✗</span>
-                    <span>{dis}</span>
-                  </li>
-                ))}
-              </ul>
+      {/* 主内容区域 - 左右布局 */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex-1 min-h-0 overflow-hidden flex">
+        {/* 左侧：模型导航列表 */}
+        <div className="w-80 border-r border-gray-200 flex flex-col">
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <h3 className="font-semibold text-gray-900 text-sm">模型列表</h3>
+            <p className="text-xs text-gray-600 mt-1">点击查看详细介绍</p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3">
+            <div className="space-y-2">
+              {/* 基础模型 */}
+              <div className="mb-4">
+                <div className="text-xs font-semibold text-gray-500 mb-2 px-2">基础模型 (4个)</div>
+                {models.filter(m => m.type === 'basic').map((model) => {
+                  const ModelIcon = model.icon;
+                  const isActive = model.id === activeModelId;
+                  const isRead = readModels.has(model.id);
+                  return (
+                    <button
+                      key={model.id}
+                      onClick={() => handleModelClick(model.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-left ${
+                        isActive
+                          ? 'bg-blue-50 border-2 border-blue-500 shadow-sm'
+                          : 'border-2 border-transparent hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
+                        isActive ? 'bg-blue-100' : 'bg-gray-100'
+                      }`}>
+                        <ModelIcon className={`w-5 h-5 ${isActive ? 'text-blue-600' : 'text-gray-600'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-medium text-sm ${isActive ? 'text-blue-900' : 'text-gray-900'}`}>
+                          {model.name}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {isRead ? '已阅读' : '未阅读'}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        {isRead ? (
+                          <CheckCircle2 className="w-5 h-5 text-green-500" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-gray-300" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 融合模型 */}
+              <div>
+                <div className="text-xs font-semibold text-gray-500 mb-2 px-2">融合模型 (3个)</div>
+                {models.filter(m => m.type === 'ensemble').map((model) => {
+                  const ModelIcon = model.icon;
+                  const isActive = model.id === activeModelId;
+                  const isRead = readModels.has(model.id);
+                  return (
+                    <button
+                      key={model.id}
+                      onClick={() => handleModelClick(model.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg transition-all text-left ${
+                        isActive
+                          ? 'bg-purple-50 border-2 border-purple-500 shadow-sm'
+                          : 'border-2 border-transparent hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
+                        isActive ? 'bg-purple-100' : 'bg-gray-100'
+                      }`}>
+                        <ModelIcon className={`w-5 h-5 ${isActive ? 'text-purple-600' : 'text-gray-600'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-medium text-sm ${isActive ? 'text-purple-900' : 'text-gray-900'}`}>
+                          {model.name}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {isRead ? '已阅读' : '未阅读'}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0">
+                        {isRead ? (
+                          <CheckCircle2 className="w-5 h-5 text-green-500" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-gray-300" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* 使用建议 */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <h4 className="font-semibold text-amber-900 mb-2">💡 使用建议</h4>
-            <ul className="space-y-1">
-              {activeModel.tips.map((tip, idx) => (
-                <li key={idx} className="text-sm text-amber-900 flex items-start gap-2">
-                  <span className="flex-shrink-0">•</span>
-                  <span>{tip}</span>
-                </li>
-              ))}
-            </ul>
+        {/* 右侧：模型详细内容 */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <div
+            ref={contentRef}
+            className="flex-1 overflow-y-auto p-6"
+          >
+            <div className="space-y-4 max-w-4xl">
+              {/* 模型标题和图标 */}
+              <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+                <div className="flex items-center gap-3">
+                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                    activeModel.type === 'basic' ? 'bg-blue-100' : 'bg-purple-100'
+                  }`}>
+                    <Icon className={`w-7 h-7 ${
+                      activeModel.type === 'basic' ? 'text-blue-600' : 'text-purple-600'
+                    }`} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">{activeModel.name}</h3>
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      activeModel.type === 'basic'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-purple-100 text-purple-700'
+                    }`}>
+                      {activeModel.type === 'basic' ? '基础模型' : '融合模型'}
+                    </span>
+                  </div>
+                </div>
+                {/* 阅读状态标记 */}
+                {readModels.has(activeModel.id) && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    <span className="text-xs text-green-700 font-medium">已阅读</span>
+                  </div>
+                )}
+                {!readModels.has(activeModel.id) && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg">
+                    <Eye className="w-4 h-4 text-gray-500" />
+                    <span className="text-xs text-gray-600">滚动到底部标记为已读</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 概述 */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-blue-900 leading-relaxed">{activeModel.principle}</p>
+              </div>
+
+              {/* 详细原理 */}
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-blue-600" />
+                  详细原理
+                </h4>
+                <div className="space-y-2 text-sm text-gray-700 leading-relaxed">
+                  {activeModel.detailedPrinciple.map((text, idx) => (
+                    <p key={idx} className="pl-4 border-l-2 border-gray-300">{text}</p>
+                  ))}
+                </div>
+              </div>
+
+              {/* 工作流程 */}
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-green-600" />
+                  工作流程
+                </h4>
+                <div className="space-y-2">
+                  {activeModel.workflow.map((step, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-green-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                        {idx + 1}
+                      </div>
+                      <p className="text-sm text-gray-700 leading-relaxed">{step}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 参数说明 */}
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-purple-600" />
+                  参数说明
+                </h4>
+                <div className="space-y-2">
+                  {activeModel.parameters.map((param, idx) => (
+                    <div key={idx} className="bg-gray-50 rounded-lg p-3">
+                      <div className="font-medium text-gray-900 text-sm mb-1">{param.name}</div>
+                      <div className="text-xs text-gray-600">{param.description}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 适用场景 */}
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <Target className="w-5 h-5 text-orange-600" />
+                  适用场景
+                </h4>
+                <p className="text-sm text-gray-700 leading-relaxed bg-orange-50 border border-orange-200 rounded-lg p-3">
+                  {activeModel.scenario}
+                </p>
+              </div>
+
+              {/* 优缺点 */}
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5" />
+                    优点
+                  </h4>
+                  <ul className="space-y-1">
+                    {activeModel.advantages.map((adv, idx) => (
+                      <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
+                        <span className="text-green-500 mt-1 flex-shrink-0">✓</span>
+                        <span>{adv}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-red-700 mb-2 flex items-center gap-2">
+                    <XCircle className="w-5 h-5" />
+                    缺点
+                  </h4>
+                  <ul className="space-y-1">
+                    {activeModel.disadvantages.map((dis, idx) => (
+                      <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
+                        <span className="text-red-500 mt-1 flex-shrink-0">✗</span>
+                        <span>{dis}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* 使用建议 */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <h4 className="font-semibold text-amber-900 mb-2">💡 使用建议</h4>
+                <ul className="space-y-1">
+                  {activeModel.tips.map((tip, idx) => (
+                    <li key={idx} className="text-sm text-amber-900 flex items-start gap-2">
+                      <span className="flex-shrink-0">•</span>
+                      <span>{tip}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* 底部提示 */}
+              {!readModels.has(activeModel.id) && (
+                <div className="bg-blue-50 border-2 border-blue-300 border-dashed rounded-lg p-4 text-center">
+                  <Eye className="w-6 h-6 text-blue-600 mx-auto mb-2" />
+                  <p className="text-sm text-blue-900 font-medium">继续滚动到页面底部</p>
+                  <p className="text-xs text-blue-700 mt-1">阅读完成后将自动标记为已读</p>
+                </div>
+              )}
+              {readModels.has(activeModel.id) && (
+                <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 text-center">
+                  <CheckCircle2 className="w-6 h-6 text-green-600 mx-auto mb-2" />
+                  <p className="text-sm text-green-900 font-medium">您已完成本模型的学习</p>
+                  <p className="text-xs text-green-700 mt-1">可以继续学习其他模型</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -545,18 +728,32 @@ const ModelIntroduction: React.FC = () => {
         <div className="flex justify-between items-center">
           <button
             onClick={handlePrevious}
-            className="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium"
+            className="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all hover:shadow-md font-medium"
           >
             <ChevronLeft className="w-5 h-5" />
             上一步
           </button>
-          <button
-            onClick={handleNext}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-          >
-            下一步
-            <ChevronRight className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-3">
+            {!allModelsRead && (
+              <span className="text-sm text-gray-600">
+                还需阅读 <span className="font-bold text-amber-600">{models.length - readCount}</span> 个模型
+              </span>
+            )}
+            <button
+              onClick={handleNext}
+              disabled={!allModelsRead}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-all font-medium ${
+                allModelsRead
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white cursor-pointer hover:shadow-lg'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              title={!allModelsRead ? '请先阅读完所有模型介绍' : ''}
+            >
+              {allModelsRead ? '开始选择模型' : '下一步'}
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
