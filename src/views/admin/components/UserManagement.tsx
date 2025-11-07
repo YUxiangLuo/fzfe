@@ -9,6 +9,7 @@ import {
   validateEmail,
   validateFullName,
   validatePassword,
+  validatePhone,
   validateUsername,
 } from "../../jiaoshi/utils/validation";
 
@@ -19,12 +20,16 @@ const INITIAL_TEACHER_FORM = {
   username: "",
   full_name: "",
   email: "",
+  phone: "",
+  password: "",
 } as const;
 
 const INITIAL_TEACHER_ERRORS = {
   username: "",
   full_name: "",
   email: "",
+  phone: "",
+  password: "",
 } as const;
 
 const INITIAL_PASSWORD_ERRORS = {
@@ -32,9 +37,15 @@ const INITIAL_PASSWORD_ERRORS = {
   confirmPassword: "",
 } as const;
 
-const INITIAL_BATCH_ERRORS = {
+type BatchErrors = {
+  file: string;
+  password: string;
+};
+
+const INITIAL_BATCH_ERRORS: BatchErrors = {
   file: "",
-} as const;
+  password: "",
+};
 
 interface PaginationInfo {
   currentPage: number;
@@ -74,7 +85,10 @@ const UserManagement: React.FC = () => {
   });
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [batchFile, setBatchFile] = useState<File | null>(null);
-  const [batchErrors, setBatchErrors] = useState({ ...INITIAL_BATCH_ERRORS });
+  const [batchPassword, setBatchPassword] = useState("");
+  const [batchErrors, setBatchErrors] = useState<BatchErrors>({
+    ...INITIAL_BATCH_ERRORS,
+  });
   const [isBatchSubmitting, setIsBatchSubmitting] = useState(false);
 
   const roleLabels: { [key: string]: string } = {
@@ -116,8 +130,13 @@ const UserManagement: React.FC = () => {
         case "full_name":
           return "请输入姓名";
         case "email":
-        default:
           return "请输入邮箱";
+        case "phone":
+          return "请输入手机号";
+        case "password":
+          return "请输入密码";
+        default:
+          return "请输入必填信息";
       }
     }
 
@@ -130,11 +149,20 @@ const UserManagement: React.FC = () => {
         const result = validateFullName(trimmed);
         return result.valid ? "" : result.error ?? "姓名格式不正确";
       }
-      case "email":
-      default: {
+      case "email": {
         const result = validateEmail(trimmed, true);
         return result.valid ? "" : result.error ?? "邮箱格式不正确";
       }
+      case "phone": {
+        const result = validatePhone(trimmed, true);
+        return result.valid ? "" : result.error ?? "手机号格式不正确";
+      }
+      case "password": {
+        const result = validatePassword(trimmed, { minLength: 6, requireMixed: false });
+        return result.valid ? "" : result.error ?? "密码至少需要6个字符";
+      }
+      default:
+        return "";
     }
   };
 
@@ -214,6 +242,8 @@ const UserManagement: React.FC = () => {
     newTeacherData.username.trim() !== "" &&
     newTeacherData.full_name.trim() !== "" &&
     newTeacherData.email.trim() !== "" &&
+    newTeacherData.phone.trim() !== "" &&
+    newTeacherData.password.trim() !== "" &&
     Object.values(teacherErrors).every((error) => error === "");
 
   const isPasswordFormValid =
@@ -234,6 +264,7 @@ const UserManagement: React.FC = () => {
 
   const openBatchModal = () => {
     setBatchFile(null);
+    setBatchPassword("");
     setBatchErrors({ ...INITIAL_BATCH_ERRORS });
     setIsBatchModalOpen(true);
   };
@@ -242,21 +273,42 @@ const UserManagement: React.FC = () => {
     setIsBatchModalOpen(false);
     setIsBatchSubmitting(false);
     setBatchFile(null);
+    setBatchPassword("");
     setBatchErrors({ ...INITIAL_BATCH_ERRORS });
   };
 
   const handleBatchFileChange = (file: File | null) => {
     setBatchFile(file);
-    setBatchErrors({
+    setBatchErrors((prev) => ({
+      ...prev,
       file: !file
         ? "请上传CSV文件"
-        : file.name.toLowerCase().endsWith('.csv')
+        : file.name.toLowerCase().endsWith(".csv")
         ? ""
         : "仅支持上传CSV格式文件",
-    });
+    }));
   };
 
-  const isBatchFormValid = batchFile !== null && batchErrors.file === "";
+  const getBatchPasswordError = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "请输入统一密码";
+    const result = validatePassword(trimmed, { minLength: 6, requireMixed: false });
+    return result.valid ? "" : result.error ?? "密码至少需要6个字符";
+  };
+
+  const handleBatchPasswordChange = (value: string) => {
+    setBatchPassword(value);
+    setBatchErrors((prev) => ({
+      ...prev,
+      password: getBatchPasswordError(value),
+    }));
+  };
+
+  const isBatchFormValid =
+    batchFile !== null &&
+    batchErrors.file === "" &&
+    batchPassword.trim() !== "" &&
+    batchErrors.password === "";
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -312,14 +364,18 @@ const UserManagement: React.FC = () => {
     const usernameError = getTeacherFieldError("username", newTeacherData.username);
     const fullNameError = getTeacherFieldError("full_name", newTeacherData.full_name);
     const emailError = getTeacherFieldError("email", newTeacherData.email);
+    const phoneError = getTeacherFieldError("phone", newTeacherData.phone);
+    const passwordError = getTeacherFieldError("password", newTeacherData.password);
 
     setTeacherErrors({
       username: usernameError,
       full_name: fullNameError,
       email: emailError,
+      phone: phoneError,
+      password: passwordError,
     });
 
-    if (usernameError || fullNameError || emailError) {
+    if (usernameError || fullNameError || emailError || phoneError || passwordError) {
       return;
     }
 
@@ -329,6 +385,8 @@ const UserManagement: React.FC = () => {
         username: newTeacherData.username.trim(),
         full_name: newTeacherData.full_name.trim(),
         email: newTeacherData.email.trim(),
+        phone: newTeacherData.phone.trim(),
+        password: newTeacherData.password.trim(),
       });
       alert("教师添加成功！");
       closeAddTeacherModal();
@@ -342,18 +400,25 @@ const UserManagement: React.FC = () => {
 
   const handleBatchSubmit = async () => {
     if (!batchFile) {
-      setBatchErrors({ file: "请上传CSV文件" });
+      setBatchErrors((prev) => ({ ...prev, file: "请上传CSV文件" }));
       return;
     }
 
     const fileName = batchFile.name.toLowerCase();
     if (!fileName.endsWith(".csv")) {
-      setBatchErrors({ file: "仅支持上传CSV格式文件" });
+      setBatchErrors((prev) => ({ ...prev, file: "仅支持上传CSV格式文件" }));
+      return;
+    }
+
+    const passwordError = getBatchPasswordError(batchPassword);
+    setBatchErrors((prev) => ({ ...prev, password: passwordError }));
+    if (passwordError) {
       return;
     }
 
     const formData = new FormData();
     formData.append("file", batchFile);
+    formData.append("password", batchPassword.trim());
 
     try {
       setIsBatchSubmitting(true);
@@ -653,6 +718,36 @@ const UserManagement: React.FC = () => {
               <p className="mt-1 text-xs text-red-500">{teacherErrors.email}</p>
             )}
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">手机号</label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={11}
+              value={newTeacherData.phone}
+              onChange={(e) => handleTeacherFieldChange("phone", e.target.value)}
+              placeholder="请输入1开头的11位手机号码"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              disabled={isSubmitting}
+            />
+            {teacherErrors.phone && (
+              <p className="mt-1 text-xs text-red-500">{teacherErrors.phone}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">初始密码</label>
+            <input
+              type="password"
+              value={newTeacherData.password}
+              onChange={(e) => handleTeacherFieldChange("password", e.target.value)}
+              placeholder="至少6位，可为纯数字"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              disabled={isSubmitting}
+            />
+            {teacherErrors.password && (
+              <p className="mt-1 text-xs text-red-500">{teacherErrors.password}</p>
+            )}
+          </div>
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <button
               onClick={closeAddTeacherModal}
@@ -689,6 +784,23 @@ const UserManagement: React.FC = () => {
             <p className="mt-2 text-xs text-blue-500">
               可选列：邮箱、角色等。若未提供邮箱，系统会自动生成临时账号信息。
             </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              统一密码
+            </label>
+            <input
+              type="password"
+              value={batchPassword}
+              onChange={(e) => handleBatchPasswordChange(e.target.value)}
+              placeholder="为所有导入教师设置相同的初始密码（至少6位）"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              disabled={isBatchSubmitting}
+            />
+            {batchErrors.password && (
+              <p className="mt-2 text-xs text-red-500">{batchErrors.password}</p>
+            )}
           </div>
 
           <div>
