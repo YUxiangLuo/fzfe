@@ -14,6 +14,8 @@ import Button from "../Common/Button";
 import { API_BASE_URL, apiClient } from "../../../../utils/apiClient";
 import { decodeToken } from "../../../../utils/auth";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../../config/appConfig";
+import { useToast } from "../../hooks/useToast";
+import Toast from "../Common/Toast";
 
 const extractFileName = (filePath: string | null) => {
   if (!filePath) return "在线填写";
@@ -39,6 +41,7 @@ const formatDateTime = (value: string | null) => {
 };
 
 const ExperimentReports: React.FC = () => {
+  const toast = useToast();
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>("");
   const [reports, setReports] = useState<ExperimentReport[]>([]);
@@ -238,7 +241,7 @@ const ExperimentReports: React.FC = () => {
     if (tempScore.trim()) {
       const gradeValue = Number(tempScore);
       if (Number.isNaN(gradeValue) || gradeValue < 0 || gradeValue > 100) {
-        alert("请填写 0-100 之间的分数");
+        toast.showToast("请填写 0-100 之间的分数", "error");
         return;
       }
       payload.grade = gradeValue;
@@ -248,7 +251,7 @@ const ExperimentReports: React.FC = () => {
     }
 
     if (payload.grade === undefined && payload.feedback === undefined) {
-      alert("请至少填写分数或评语");
+      toast.showToast("请至少填写分数或评语", "error");
       return;
     }
 
@@ -266,8 +269,10 @@ const ExperimentReports: React.FC = () => {
         ),
       );
       resetReviewState();
-    } catch (err: any) {
-      alert(err.message || "保存评阅结果失败");
+      toast.showToast("评阅结果保存成功", "success");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "保存评阅结果失败";
+      toast.showToast(errorMessage, "error");
     } finally {
       setIsSubmittingReview(false);
     }
@@ -275,7 +280,7 @@ const ExperimentReports: React.FC = () => {
 
   const handleDownload = useCallback((report: ExperimentReport) => {
     if (!report.pdf_file_path) {
-      alert("该报告暂未提供可下载的文件。");
+      toast.showToast("该报告暂未提供可下载的文件", "error");
       return;
     }
 
@@ -764,6 +769,13 @@ const ExperimentReports: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={toast.hideToast}
+      />
     </div>
   );
 };

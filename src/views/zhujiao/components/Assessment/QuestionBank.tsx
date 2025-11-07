@@ -5,6 +5,10 @@ import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { validateQuestionText, validateQuestionOption } from '../../utils/validation';
+import { useToast } from '../../hooks/useToast';
+import { useConfirm } from '../../hooks/useConfirm';
+import Toast from '../Common/Toast';
+import ConfirmDialog from '../Common/ConfirmDialog';
 
 type QuestionFormType = 'single' | 'multiple' | 'boolean';
 
@@ -112,22 +116,30 @@ const QuestionBank: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
 
+  const toast = useToast();
+  const confirm = useConfirm();
+
   const secondaryKnowledgeOptions = useMemo(
     () => KNOWLEDGE_POINT_GROUPS[editorState.knowledgePrimary] ?? [],
     [editorState.knowledgePrimary],
   );
 
   const handleDeleteQuestion = async (questionId: number) => {
-    if (window.confirm('确定要永久删除这道题目吗？此操作不可撤销。')) {
-      setIsDeleting(questionId);
-      try {
-        await apiClient.delete(`/question-bank/questions/${questionId}`);
-        setQuestions((prev) => prev.filter((q) => q.question_id !== questionId));
-      } catch (err: any) {
-        alert(`删除失败: ${err.message}`);
-      } finally {
-        setIsDeleting(null);
-      }
+    const confirmed = await confirm.showConfirm(
+      '确定要永久删除这道题目吗？',
+      '此操作不可撤销',
+      'danger'
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(questionId);
+    try {
+      await apiClient.delete(`/question-bank/questions/${questionId}`);
+      setQuestions((prev) => prev.filter((q) => q.question_id !== questionId));
+    } catch (err: any) {
+      toast.showToast(`删除失败: ${err.message}`, 'error');
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -425,7 +437,7 @@ const QuestionBank: React.FC = () => {
   const handleSubmit = async () => {
     const questionValidation = validateQuestionText(editorState.questionText);
     if (!questionValidation.valid) {
-      alert(questionValidation.error);
+      toast.showToast(questionValidation.error, 'error');
       return;
     }
 
@@ -433,41 +445,41 @@ const QuestionBank: React.FC = () => {
       !editorState.knowledgePrimary.trim() ||
       !editorState.knowledgeSecondary.trim()
     ) {
-      alert('请选择知识点');
+      toast.showToast('请选择知识点', 'error');
       return;
     }
 
     if (editorState.correctAnswers.length === 0) {
-      alert('请选择正确答案');
+      toast.showToast('请选择正确答案', 'error');
       return;
     }
 
     if (editorState.questionType === 'single' && editorState.correctAnswers.length !== 1) {
-      alert('单选题只能有一个正确答案');
+      toast.showToast('单选题只能有一个正确答案', 'error');
       return;
     }
 
     if (editorState.questionType !== 'boolean') {
       const filledOptions = editorState.options.filter((option) => option.value.trim());
       if (filledOptions.length < 2) {
-        alert('请至少填写2个选项');
+        toast.showToast('请至少填写2个选项', 'error');
         return;
       }
       for (const option of filledOptions) {
         const optionValidation = validateQuestionOption(option.value);
         if (!optionValidation.valid) {
-          alert(`选项 ${option.key}: ${optionValidation.error}`);
+          toast.showToast(`选项 ${option.key}: ${optionValidation.error}`, 'error');
           return;
         }
       }
       const filledKeys = new Set(filledOptions.map((option) => option.key));
       if (!editorState.correctAnswers.every((answer) => filledKeys.has(answer))) {
-        alert('正确答案必须在选项之中');
+        toast.showToast('正确答案必须在选项之中', 'error');
         return;
       }
     } else {
       if (!editorState.correctAnswers.every((answer) => answer === '正确' || answer === '错误')) {
-        alert('判断题答案只能为“正确”或“错误”');
+        toast.showToast('判断题答案只能为"正确"或"错误"', 'error');
         return;
       }
     }
@@ -491,7 +503,7 @@ const QuestionBank: React.FC = () => {
       }
       closeEditor();
     } catch (err: any) {
-      alert(err.message || (editingQuestion ? '更新题目失败' : '创建题目失败'));
+      toast.showToast(err.message || (editingQuestion ? '更新题目失败' : '创建题目失败'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -902,6 +914,9 @@ const QuestionBank: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      <Toast />
+      <ConfirmDialog />
     </div>
   );
 };
