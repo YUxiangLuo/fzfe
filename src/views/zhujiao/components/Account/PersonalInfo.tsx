@@ -5,8 +5,11 @@ import { apiClient } from '../../../../utils/apiClient';
 import type { User as UserType, Class as ClassType } from '../../types';
 import Button from '../Common/Button';
 import { validateFullName, validateEmail, validatePhone, validatePassword, validatePasswordConfirm } from '../../utils/validation';
+import { useToast } from '../../hooks/useToast';
+import Toast from '../Common/Toast';
 
 const PersonalInfo: React.FC = () => {
+  const toast = useToast();
   const [user, setUser] = useState<UserType | null>(null);
   const [managedClasses, setManagedClasses] = useState<ClassType[]>([]);
   
@@ -75,7 +78,7 @@ const PersonalInfo: React.FC = () => {
     // 验证姓名
     const nameValidation = validateFullName(tempUser.full_name);
     if (!nameValidation.valid) {
-      alert(nameValidation.error);
+      toast.showToast(nameValidation.error || '姓名格式不正确', 'error');
       return;
     }
 
@@ -83,7 +86,7 @@ const PersonalInfo: React.FC = () => {
     if (tempUser.phone_number) {
       const phoneValidation = validatePhone(tempUser.phone_number, false);
       if (!phoneValidation.valid) {
-        alert(phoneValidation.error);
+        toast.showToast(phoneValidation.error || '手机号格式不正确', 'error');
         return;
       }
     }
@@ -91,20 +94,39 @@ const PersonalInfo: React.FC = () => {
     // 验证邮箱
     const emailValidation = validateEmail(tempUser.email, true);
     if (!emailValidation.valid) {
-      alert(emailValidation.error);
+      toast.showToast(emailValidation.error || '邮箱格式不正确', 'error');
       return;
     }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const updatedUser = await apiClient.put('/users/me', {
         full_name: tempUser.full_name.trim(),
         phone_number: tempUser.phone_number?.trim() || null,
         email: tempUser.email.trim(),
-      });
+      }, { signal: controller.signal });
+
+      clearTimeout(timeoutId);
+
       setUser(updatedUser);
       setIsEditModalOpen(false);
-    } catch (err: any) {
-      alert(`保存失败: ${err.message}`);
+
+      toast.showToast('个人信息保存成功', 'success');
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          toast.showToast('请求超时，请检查网络连接后重试', 'error');
+        } else {
+          const errorMessage = err.message || '保存失败';
+          toast.showToast(`保存失败: ${errorMessage}`, 'error');
+        }
+      } else {
+        toast.showToast('保存失败，请稍后重试', 'error');
+      }
     }
   };
 
@@ -242,15 +264,15 @@ const PersonalInfo: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">当前密码</label>
-                <input type="password" name="currentPassword" value={passwordData.currentPassword} onChange={handlePasswordChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="请输入当前密码" />
+                <input type="password" name="currentPassword" autoComplete="current-password" value={passwordData.currentPassword} onChange={handlePasswordChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="请输入当前密码" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">新密码</label>
-                <input type="password" name="newPassword" value={passwordData.newPassword} onChange={handlePasswordChange} required minLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="至少6个字符" />
+                <input type="password" name="newPassword" autoComplete="new-password" value={passwordData.newPassword} onChange={handlePasswordChange} required minLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="至少6个字符" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">确认新密码</label>
-                <input type="password" name="confirmPassword" value={passwordData.confirmPassword} onChange={handlePasswordChange} required minLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="再次输入新密码" />
+                <input type="password" name="confirmPassword" autoComplete="new-password" value={passwordData.confirmPassword} onChange={handlePasswordChange} required minLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="再次输入新密码" />
               </div>
             </div>
             {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
@@ -272,19 +294,19 @@ const PersonalInfo: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 姓名 <span className="text-red-500">*</span>
               </label>
-              <input type="text" value={tempUser.full_name} onChange={(e) => setTempUser({ ...tempUser, full_name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请输入姓名" minLength={2} maxLength={20} required />
+              <input type="text" autoComplete="name" value={tempUser.full_name} onChange={(e) => setTempUser({ ...tempUser, full_name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请输入姓名" minLength={2} maxLength={20} required />
               <p className="mt-1 text-xs text-gray-500">2-20个字符，允许中文和英文</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">手机号码（可选）</label>
-              <input type="tel" value={tempUser.phone_number || ''} onChange={(e) => setTempUser({ ...tempUser, phone_number: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请输入11位手机号" pattern="1[3-9]\d{9}" />
+              <input type="tel" autoComplete="tel" value={tempUser.phone_number || ''} onChange={(e) => setTempUser({ ...tempUser, phone_number: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请输入11位手机号" pattern="1[3-9]\d{9}" />
               <p className="mt-1 text-xs text-gray-500">请输入11位中国大陆手机号</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 邮箱 <span className="text-red-500">*</span>
               </label>
-              <input type="email" value={tempUser.email} onChange={(e) => setTempUser({ ...tempUser, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="example@email.com" required />
+              <input type="email" autoComplete="email" value={tempUser.email} onChange={(e) => setTempUser({ ...tempUser, email: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="example@email.com" required />
               <p className="mt-1 text-xs text-gray-500">用于接收系统通知</p>
             </div>
             <div className="flex justify-end space-x-3 pt-4">
@@ -294,6 +316,13 @@ const PersonalInfo: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={toast.hideToast}
+      />
     </>
   );
 };

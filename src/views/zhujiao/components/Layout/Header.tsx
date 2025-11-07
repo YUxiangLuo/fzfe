@@ -2,20 +2,32 @@ import React, { useState, useEffect } from 'react';
 import { User, LogOut } from 'lucide-react';
 import { decodeToken, type DecodedToken } from '../../../../utils/auth';
 import { getRoleByBackendValue } from '../../../../config/roles';
+import { getLogoutRedirectPath } from '../../constants/routes';
 
 const Header: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      setCurrentUser(decodeToken(token));
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        const decoded = decodeToken(token);
+        setCurrentUser(decoded);
+      }
+    } catch (error) {
+      console.error('Failed to decode token:', error);
+      // Token invalid, clear it
+      localStorage.removeItem("token");
     }
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    window.location.href = '/login';
+    try {
+      localStorage.removeItem("token");
+    } catch (error) {
+      console.error('Failed to remove token:', error);
+    }
+    window.location.href = getLogoutRedirectPath();
   };
 
   const roleDisplay = currentUser

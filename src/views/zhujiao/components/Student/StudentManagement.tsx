@@ -7,6 +7,8 @@ import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import { validateFullName, validateEmail, validatePhone, validatePassword } from '../../utils/validation';
 import SelectStudentModal from './SelectStudentModal';
+import { useToast } from '../../hooks/useToast';
+import Toast from '../Common/Toast';
 
 interface NewStudentForm {
   username: string;
@@ -17,6 +19,7 @@ interface NewStudentForm {
 }
 
 const StudentManagement: React.FC = () => {
+  const toast = useToast();
   const [classes, setClasses] = useState<Class[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -192,10 +195,10 @@ const StudentManagement: React.FC = () => {
       await apiClient.post(`/users/${studentForPasswordReset.user_id}/reset-password`, {
         newPassword: trimmedNewPassword,
       });
-      alert(`学生 ${studentForPasswordReset.full_name} 的密码已成功更新。`);
+      toast.showToast(`学生 ${studentForPasswordReset.full_name} 的密码已成功更新。`, 'success');
       setStudentForPasswordReset(null);
     } catch (err: any) {
-      alert(`密码重置失败: ${err.message}`);
+      toast.showToast(`密码重置失败: ${err.message}`, 'error');
     } finally {
       setIsResettingPassword(false);
     }
@@ -204,7 +207,7 @@ const StudentManagement: React.FC = () => {
 
   const handleOpenAddModal = () => {
     if (!selectedClassId) {
-      alert('请先选择一个班级');
+      toast.showToast('请先选择一个班级', 'error');
       return;
     }
     setNewStudent({
@@ -219,26 +222,26 @@ const StudentManagement: React.FC = () => {
 
   const handleAddStudent = async () => {
     if (!selectedClassId) {
-      alert('请先选择一个班级');
+      toast.showToast('请先选择一个班级', 'error');
       return;
     }
 
     const trimmedUsername = newStudent.username.trim();
     if (!/^\d{8,}$/.test(trimmedUsername)) {
-      alert('学号必须为至少8位的纯数字');
+      toast.showToast('学号必须为至少8位的纯数字', 'error');
       return;
     }
 
     // 验证姓名
     const nameValidation = validateFullName(newStudent.full_name);
     if (!nameValidation.valid) {
-      alert(nameValidation.error);
+      toast.showToast(nameValidation.error, 'error');
       return;
     }
 
     const passwordValidation = validatePassword(newStudent.password, { minLength: 6, requireMixed: false });
     if (!passwordValidation.valid) {
-      alert(passwordValidation.error);
+      toast.showToast(passwordValidation.error, 'error');
       return;
     }
 
@@ -246,7 +249,7 @@ const StudentManagement: React.FC = () => {
     if (newStudent.email.trim()) {
       const emailValidation = validateEmail(newStudent.email, false);
       if (!emailValidation.valid) {
-        alert(emailValidation.error);
+        toast.showToast(emailValidation.error, 'error');
         return;
       }
     }
@@ -255,7 +258,7 @@ const StudentManagement: React.FC = () => {
     if (newStudent.phone_number.trim()) {
       const phoneValidation = validatePhone(newStudent.phone_number, false);
       if (!phoneValidation.valid) {
-        alert(phoneValidation.error);
+        toast.showToast(phoneValidation.error, 'error');
         return;
       }
     }
@@ -290,9 +293,9 @@ const StudentManagement: React.FC = () => {
       });
     } catch (err: any) {
       if (err.message.includes('409') || err.message.includes('已存在')) {
-        alert('学号或邮箱已存在，请检查后重试');
+        toast.showToast('学号或邮箱已存在，请检查后重试', 'error');
       } else {
-        alert(`添加学生失败: ${err.message}`);
+        toast.showToast(`添加学生失败: ${err.message}`, 'error');
       }
     } finally {
       setIsSubmitting(false);
@@ -308,7 +311,7 @@ const StudentManagement: React.FC = () => {
       setStudents(prev => prev.filter(student => student.user_id !== studentToRemove.user_id));
       setStudentToRemove(null);
     } catch (err: any) {
-      alert(`移除学生失败: ${err.message}`);
+      toast.showToast(`移除学生失败: ${err.message}`, 'error');
     } finally {
       setIsProcessingRemoval(false);
     }
@@ -421,7 +424,7 @@ const StudentManagement: React.FC = () => {
             variant="outline"
             onClick={() => {
               if (!selectedClassId) {
-                alert('请先选择一个班级');
+                toast.showToast('请先选择一个班级', 'error');
                 return;
               }
               setShowSelectModal(true);
@@ -771,6 +774,7 @@ const StudentManagement: React.FC = () => {
         classId={selectedClassId}
         onStudentEnrolled={() => setShouldRefreshAfterSelectModal(true)}
       />
+      <Toast message={toast.message} type={toast.type} isVisible={toast.isVisible} onClose={toast.hideToast} />
     </div>
   );
 };
