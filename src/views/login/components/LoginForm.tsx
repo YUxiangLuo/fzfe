@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { User, Lock, Eye, EyeOff, LogIn, AlertCircle } from "lucide-react";
+import { User, Lock, Eye, EyeOff, LogIn } from "lucide-react";
+import { ErrorAlert } from "./ErrorAlert";
+import { validateUsername } from "../utils/registerValidation";
 
 interface LoginFormProps {
   selectedRole: string;
@@ -29,23 +31,21 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     return selectedRole === "student" ? "学号" : "用户名";
   };
 
-  // 验证用户名格式
-  const validateUsername = useCallback((value: string, role: string): string => {
+  // 验证用户名格式（使用与注册表单相同的验证逻辑）
+  const validateUsernameInput = useCallback((value: string, role: string): string => {
     if (!value.trim()) {
       return "";
     }
-    if (role === "student" && !/^\d+$/.test(value.trim())) {
-      return "学号只能包含数字";
-    }
-    return "";
+    const result = validateUsername(value, role);
+    return result.error;
   }, []);
 
   // 处理用户名输入
   const handleUsernameChange = useCallback((value: string) => {
     setUsername(value);
-    const error = validateUsername(value, selectedRole);
+    const error = validateUsernameInput(value, selectedRole);
     setValidationError(error);
-  }, [selectedRole, validateUsername]);
+  }, [selectedRole, validateUsernameInput]);
 
   // 登录失败后清空密码并聚焦
   useEffect(() => {
@@ -73,7 +73,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     }
 
     // 验证用户名格式
-    const usernameError = validateUsername(username, selectedRole);
+    const usernameError = validateUsernameInput(username, selectedRole);
     if (usernameError) {
       setValidationError(usernameError);
       return;
@@ -85,19 +85,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [username, password, selectedRole, isSubmitting, isLoading, validateUsername, onSubmit]);
+  }, [username, password, selectedRole, isSubmitting, isLoading, validateUsernameInput, onSubmit]);
 
   const isFormValid = username.trim() && password.trim() && selectedRole && !validationError;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* 服务器错误信息提示 */}
-      {error && (
-        <div className="bg-red-500/20 border border-red-500/50 text-red-300 text-sm rounded-lg p-3 flex items-center space-x-2">
-          <AlertCircle className="w-5 h-5" />
-          <span>{error}</span>
-        </div>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       {/* 用户名输入 */}
       <div className="space-y-2">
@@ -112,6 +107,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             value={username}
             onChange={(e) => handleUsernameChange(e.target.value)}
             inputMode={selectedRole === "student" ? "numeric" : "text"}
+            autoComplete="username"
+            aria-describedby={validationError ? "login-username-error" : undefined}
+            aria-invalid={!!validationError}
             className={`w-full pl-10 pr-4 py-3 bg-white/10 border rounded-lg
                      text-white placeholder-white/50 backdrop-blur-sm
                      focus:outline-none focus:ring-2 focus:border-transparent
@@ -123,7 +121,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           />
         </div>
         {validationError && (
-          <p className="text-red-400 text-xs">{validationError}</p>
+          <p id="login-username-error" className="text-red-400 text-xs" role="alert">
+            {validationError}
+          </p>
         )}
       </div>
 
@@ -140,6 +140,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             type={showPassword ? "text" : "password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
             className="w-full pl-10 pr-12 py-3 bg-white/10 border border-white/20 rounded-lg
                      text-white placeholder-white/50 backdrop-blur-sm
                      focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent
