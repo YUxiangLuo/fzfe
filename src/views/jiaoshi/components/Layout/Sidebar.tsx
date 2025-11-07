@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   User,
@@ -22,11 +22,24 @@ interface SidebarProps {
   onMenuItemClick: (item: MenuItem) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ 
-  activeMenuItem, 
+const EXPANDED_MENUS_KEY = 'jiaoshi_expanded_menus';
+
+const Sidebar: React.FC<SidebarProps> = ({
+  activeMenuItem,
   onMenuItemClick
 }) => {
   const [expandedMenus, setExpandedMenus] = useState<string[]>(() => {
+    // 尝试从 localStorage 读取
+    try {
+      const stored = localStorage.getItem(EXPANDED_MENUS_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Failed to load expanded menus from localStorage:', error);
+    }
+
+    // 如果没有存储，则根据当前菜单项设置默认值
     const parentMenu = activeMenuItem.split('-')[0];
     if (parentMenu && ['account', 'experiment', 'assessment'].includes(parentMenu)) {
       return [parentMenu];
@@ -34,9 +47,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     return ['account'];
   });
 
+  // 持久化展开状态到 localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(EXPANDED_MENUS_KEY, JSON.stringify(expandedMenus));
+    } catch (error) {
+      console.error('Failed to save expanded menus to localStorage:', error);
+    }
+  }, [expandedMenus]);
+
   const toggleMenu = (menu: string) => {
-    setExpandedMenus(prev => 
-      prev.includes(menu) 
+    setExpandedMenus(prev =>
+      prev.includes(menu)
         ? prev.filter(m => m !== menu)
         : [...prev, menu]
     );

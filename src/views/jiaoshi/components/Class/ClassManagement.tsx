@@ -6,6 +6,10 @@ import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import { validateClassName, validateClassCode } from '../../utils/validation';
+import { useToast } from '../../hooks/useToast';
+import { useConfirm } from '../../hooks/useConfirm';
+import Toast from '../Common/Toast';
+import ConfirmDialog from '../Common/ConfirmDialog';
 
 interface CreateClassForm {
   class_name: string;
@@ -24,7 +28,11 @@ interface CreateClassResponse {
   errors: string[];
 }
 
+const MAX_CSV_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 const ClassManagement: React.FC = () => {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [classes, setClasses] = useState<EnrichedClass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,11 +115,27 @@ const ClassManagement: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // 验证文件扩展名
       if (!file.name.endsWith('.csv')) {
-        alert('请上传 CSV 格式的文件');
+        toast.showToast('请上传 CSV 格式的文件', 'error');
         e.target.value = '';
         return;
       }
+
+      // 验证 MIME 类型
+      if (file.type && !['text/csv', 'application/vnd.ms-excel', 'text/plain'].includes(file.type)) {
+        toast.showToast('文件类型不正确，请上传有效的 CSV 文件', 'error');
+        e.target.value = '';
+        return;
+      }
+
+      // 验证文件大小
+      if (file.size > MAX_CSV_FILE_SIZE) {
+        toast.showToast('文件大小不能超过 5MB', 'error');
+        e.target.value = '';
+        return;
+      }
+
       setCsvFile(file);
     }
   };
@@ -128,18 +152,21 @@ const ClassManagement: React.FC = () => {
     // 验证班级名称
     const nameValidation = validateClassName(formData.class_name);
     if (!nameValidation.valid) {
-      alert(nameValidation.error);
+      toast.showToast(nameValidation.error || '班级名称格式不正确', 'error');
       return;
     }
 
     // 验证班级代码
     const codeValidation = validateClassCode(formData.class_code);
     if (!codeValidation.valid) {
-      alert(codeValidation.error);
+      toast.showToast(codeValidation.error || '班级代码格式不正确', 'error');
       return;
     }
 
     setIsSubmitting(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
       const formDataToSend = new FormData();
       formDataToSend.append('class_name', formData.class_name.trim());
@@ -148,7 +175,9 @@ const ClassManagement: React.FC = () => {
         formDataToSend.append('student_list', csvFile);
       }
 
-      const result = await apiClient.postFormData<CreateClassResponse>('/classes', formDataToSend);
+      const result = await apiClient.postFormData<CreateClassResponse>('/classes', formDataToSend, { signal: controller.signal });
+
+      clearTimeout(timeoutId);
 
       // 添加新班级到列表
       setClasses(prev => [{ ...result.class, assistants: [] }, ...prev]);
@@ -161,8 +190,21 @@ const ClassManagement: React.FC = () => {
       // 重置表单
       setFormData({ class_name: '', class_code: '' });
       setCsvFile(null);
-    } catch (err: any) {
-      alert(`创建班级失败: ${err.message}`);
+
+      toast.showToast('班级创建成功', 'success');
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          toast.showToast('请求超时，请检查网络连接后重试', 'error');
+        } else {
+          const errorMessage = err.message || '创建班级失败';
+          toast.showToast(`创建班级失败: ${errorMessage}`, 'error');
+        }
+      } else {
+        toast.showToast('创建班级失败，请稍后重试', 'error');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -183,25 +225,31 @@ const ClassManagement: React.FC = () => {
     // 验证班级名称
     const nameValidation = validateClassName(formData.class_name);
     if (!nameValidation.valid) {
-      alert(nameValidation.error);
+      toast.showToast(nameValidation.error || '班级名称格式不正确', 'error');
       return;
     }
 
     // 验证班级代码
     const codeValidation = validateClassCode(formData.class_code);
     if (!codeValidation.valid) {
-      alert(codeValidation.error);
+      toast.showToast(codeValidation.error || '班级代码格式不正确', 'error');
       return;
     }
 
     setIsSubmitting(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
       const payload = {
         class_name: formData.class_name.trim(),
         class_code: formData.class_code.trim(),
       };
 
-      const updatedClass = await apiClient.put(`/classes/${selectedClass.class_id}`, payload);
+      const updatedClass = await apiClient.put(`/classes/${selectedClass.class_id}`, payload, { signal: controller.signal });
+
+      clearTimeout(timeoutId);
+
       setClasses(prev =>
         prev.map(cls =>
           cls.class_id === updatedClass.class_id
@@ -212,26 +260,64 @@ const ClassManagement: React.FC = () => {
       setShowEditModal(false);
       setSelectedClass(null);
       setFormData({ class_name: '', class_code: '' });
-    } catch (err: any) {
-      alert(`更新班级失败: ${err.message}`);
+
+      toast.showToast('班级信息更新成功', 'success');
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          toast.showToast('请求超时，请检查网络连接后重试', 'error');
+        } else {
+          const errorMessage = err.message || '更新班级失败';
+          toast.showToast(`更新班级失败: ${errorMessage}`, 'error');
+        }
+      } else {
+        toast.showToast('更新班级失败，请稍后重试', 'error');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async (classItem: Class) => {
-    if (!window.confirm(`确定要删除班级“${classItem.class_name}”吗？`)) return;
+    const confirmed = await confirm.showConfirm(
+      `确定要删除班级"${classItem.class_name}"吗？`,
+      '此操作不可撤销，删除班级将同时移除该班级下的所有关联数据。',
+      'danger'
+    );
+
+    if (!confirmed) return;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
-      await apiClient.delete(`/classes/${classItem.class_id}`);
+      await apiClient.delete(`/classes/${classItem.class_id}`, { signal: controller.signal });
+
+      clearTimeout(timeoutId);
+
       setClasses(prev => prev.filter(cls => cls.class_id !== classItem.class_id));
       if (selectedClass && selectedClass.class_id === classItem.class_id) {
         setShowEditModal(false);
         setSelectedClass(null);
         setFormData({ class_name: '', class_code: '' });
       }
-    } catch (err: any) {
-      alert(`删除班级失败: ${err.message}`);
+
+      toast.showToast('班级删除成功', 'success');
+    } catch (err: unknown) {
+      clearTimeout(timeoutId);
+
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          toast.showToast('请求超时，请检查网络连接后重试', 'error');
+        } else {
+          const errorMessage = err.message || '删除班级失败';
+          toast.showToast(`删除班级失败: ${errorMessage}`, 'error');
+        }
+      } else {
+        toast.showToast('删除班级失败，请稍后重试', 'error');
+      }
     }
   };
 
@@ -690,6 +776,22 @@ const ClassManagement: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={toast.hideToast}
+      />
+
+      <ConfirmDialog
+        isOpen={confirm.isOpen}
+        title={confirm.title}
+        message={confirm.message}
+        variant={confirm.variant}
+        onConfirm={confirm.handleConfirm}
+        onCancel={confirm.hideConfirm}
+      />
     </div>
   );
 };
