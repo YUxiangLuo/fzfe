@@ -7,14 +7,22 @@ const Header: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      setCurrentUser(decodeToken(token));
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        setCurrentUser(decodeToken(token));
+      }
+    } catch (err) {
+      console.error('Failed to read token from localStorage:', err);
     }
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
+    try {
+      localStorage.removeItem("token");
+    } catch (err) {
+      console.error('Failed to remove token from localStorage:', err);
+    }
     window.location.href = "/login";
   };
 

@@ -12,6 +12,10 @@ import type { ExperimentData } from "../types";
 import { apiClient } from "../../../utils/apiClient";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig";
 import Modal from "./Modal";
+import Toast from "./Toast";
+import ConfirmDialog from "./ConfirmDialog";
+import { useToast } from "../hooks/useToast";
+import { useConfirm } from "../hooks/useConfirm";
 
 const DATASET_NAME_MIN_LENGTH = 2;
 const MAX_DATASET_NAME_LENGTH = 100;
@@ -91,6 +95,10 @@ const ExperimentDataView: React.FC = () => {
     INITIAL_EDIT_ERRORS,
   );
 
+  // Toast and Confirm hooks
+  const { toast, showToast, hideToast } = useToast();
+  const { confirmState, showConfirm, hideConfirm } = useConfirm();
+
   const handleDatasetNameChange = (value: string) => {
     setDatasetName(value);
     setUploadErrors((prev) => ({
@@ -158,14 +166,24 @@ const ExperimentDataView: React.FC = () => {
   }, []);
 
   const handleDelete = async (datasetId: number) => {
-    if (confirm("确定要删除此数据集吗？此操作会删除服务器上的文件。")) {
-      try {
-        await apiClient.delete(`/datasets/${datasetId}`);
-        setDatasets((prev) => prev.filter((d) => d.dataset_id !== datasetId));
-      } catch (err: any) {
-        alert(`删除失败: ${err.message}`);
+    showConfirm(
+      "确定要删除此数据集吗？此操作会删除服务器上的文件且不可恢复。",
+      async () => {
+        try {
+          await apiClient.delete(`/datasets/${datasetId}`);
+          setDatasets((prev) => prev.filter((d) => d.dataset_id !== datasetId));
+          showToast('删除成功', 'success');
+        } catch (err: any) {
+          showToast(`删除失败: ${err.message}`, 'error');
+        }
+      },
+      {
+        title: '确认删除',
+        confirmText: '删除',
+        cancelText: '取消',
+        variant: 'danger',
       }
-    }
+    );
   };
 
   const handleUpload = async () => {
@@ -193,8 +211,9 @@ const ExperimentDataView: React.FC = () => {
       const newDataset = await apiClient.postFormData("/datasets", formData);
       setDatasets((prev) => [newDataset, ...prev]);
       resetUploadModal();
+      showToast('上传成功', 'success');
     } catch (err: any) {
-      alert(`上传失败: ${err.message}`);
+      showToast(`上传失败: ${err.message}`, 'error');
     } finally {
       setIsUploading(false);
     }
@@ -220,8 +239,9 @@ const ExperimentDataView: React.FC = () => {
         ),
       );
       closeEditModal();
+      showToast('保存成功', 'success');
     } catch (err: any) {
-      alert(`保存失败: ${err.message}`);
+      showToast(`保存失败: ${err.message}`, 'error');
     }
   };
 
@@ -551,6 +571,26 @@ const ExperimentDataView: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* Toast Notification */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmText={confirmState.confirmText}
+        cancelText={confirmState.cancelText}
+        variant={confirmState.variant}
+        onConfirm={confirmState.onConfirm}
+        onCancel={hideConfirm}
+      />
     </div>
   );
 };

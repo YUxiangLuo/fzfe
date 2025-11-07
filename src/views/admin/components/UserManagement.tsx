@@ -5,6 +5,10 @@ import { apiClient } from "../../../utils/apiClient";
 import { decodeToken } from "../../../utils/auth";
 import Modal from "./Modal";
 import Pagination from "./Pagination";
+import Toast from "./Toast";
+import ConfirmDialog from "./ConfirmDialog";
+import { useToast } from "../hooks/useToast";
+import { useConfirm } from "../hooks/useConfirm";
 import {
   validateEmail,
   validateFullName,
@@ -102,6 +106,10 @@ const UserManagement: React.FC = () => {
     ...INITIAL_BATCH_ERRORS,
   });
   const [isBatchSubmitting, setIsBatchSubmitting] = useState(false);
+
+  // Toast and Confirm hooks
+  const { toast, showToast, hideToast } = useToast();
+  const { confirmState, showConfirm, hideConfirm } = useConfirm();
 
   const roleLabels: { [key: string]: string } = {
     student: "学生",
@@ -323,10 +331,14 @@ const UserManagement: React.FC = () => {
     batchErrors.password === "";
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      const decoded = decodeToken(token);
-      if (decoded) setCurrentAdminId(decoded.sub);
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        const decoded = decodeToken(token);
+        if (decoded) setCurrentAdminId(decoded.sub);
+      }
+    } catch (err) {
+      console.error('Failed to read token from localStorage:', err);
     }
   }, []);
 
@@ -347,29 +359,38 @@ const UserManagement: React.FC = () => {
       await apiClient.put(`/users/${selectedUser.user_id}/password`, {
         newPassword: newPassword.trim(),
       });
-      alert(`已成功为用户 ${selectedUser.full_name} 重置密码`);
+      showToast(`已成功为用户 ${selectedUser.full_name} 重置密码`, 'success');
       closePasswordModal();
     } catch (error: any) {
-      alert(`密码重置失败: ${error.message}`);
+      showToast(`密码重置失败: ${error.message}`, 'error');
     } finally {
       setIsSavingPassword(false);
     }
   };
 
   const handleDelete = async (userToDelete: User) => {
-    if (window.confirm(`确定要删除用户 "${userToDelete.full_name}" 吗？`)) {
-      try {
-        await apiClient.delete(`/users/${userToDelete.user_id}`);
-        if (users.length === 1 && currentPage > 1) {
-          setCurrentPage(currentPage - 1);
-        } else {
-          await fetchUsers(currentPage, debouncedSearchTerm);
+    showConfirm(
+      `确定要删除用户 "${userToDelete.full_name}" 吗？此操作不可恢复。`,
+      async () => {
+        try {
+          await apiClient.delete(`/users/${userToDelete.user_id}`);
+          if (users.length === 1 && currentPage > 1) {
+            setCurrentPage(currentPage - 1);
+          } else {
+            await fetchUsers(currentPage, debouncedSearchTerm);
+          }
+          showToast('用户删除成功', 'success');
+        } catch (err: any) {
+          showToast(`删除失败: ${err.message}`, 'error');
         }
-        alert("用户删除成功！");
-      } catch (err: any) {
-        alert(`删除失败: ${err.message}`);
+      },
+      {
+        title: '确认删除',
+        confirmText: '删除',
+        cancelText: '取消',
+        variant: 'danger',
       }
-    }
+    );
   };
 
   const handleCreateTeacher = async () => {
@@ -400,11 +421,11 @@ const UserManagement: React.FC = () => {
         phone: newTeacherData.phone.trim(),
         password: newTeacherData.password.trim(),
       });
-      alert("教师添加成功！");
+      showToast('教师添加成功', 'success');
       closeAddTeacherModal();
       await fetchUsers(currentPage, debouncedSearchTerm);
     } catch (err: any) {
-      alert(`添加教师失败: ${err.message}`);
+      showToast(`添加教师失败: ${err.message}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -435,11 +456,11 @@ const UserManagement: React.FC = () => {
     try {
       setIsBatchSubmitting(true);
       await apiClient.postFormData("/users/teachers/batch", formData);
-      alert("批量添加教师成功！");
+      showToast('批量添加教师成功', 'success');
       closeBatchModal();
       await fetchUsers(currentPage, debouncedSearchTerm);
     } catch (err: any) {
-      alert(`批量添加失败: ${err.message}`);
+      showToast(`批量添加失败: ${err.message}`, 'error');
     } finally {
       setIsBatchSubmitting(false);
     }
@@ -861,6 +882,26 @@ const UserManagement: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Toast Notification */}
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        isVisible={toast.isVisible}
+        onClose={hideToast}
+      />
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmText={confirmState.confirmText}
+        cancelText={confirmState.cancelText}
+        variant={confirmState.variant}
+        onConfirm={confirmState.onConfirm}
+        onCancel={hideConfirm}
+      />
     </>
   );
 };
