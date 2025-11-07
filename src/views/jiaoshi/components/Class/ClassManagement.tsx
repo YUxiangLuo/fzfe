@@ -164,8 +164,6 @@ const ClassManagement: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const formDataToSend = new FormData();
@@ -175,9 +173,7 @@ const ClassManagement: React.FC = () => {
         formDataToSend.append('student_list', csvFile);
       }
 
-      const result = await apiClient.postFormData<CreateClassResponse>('/classes', formDataToSend, { signal: controller.signal });
-
-      clearTimeout(timeoutId);
+      const result = await apiClient.postFormData<CreateClassResponse>('/classes', formDataToSend);
 
       // 添加新班级到列表
       setClasses(prev => [{ ...result.class, assistants: [] }, ...prev]);
@@ -193,17 +189,10 @@ const ClassManagement: React.FC = () => {
 
       toast.showToast('班级创建成功', 'success');
     } catch (err: unknown) {
-      clearTimeout(timeoutId);
-
       if (err instanceof Error) {
-        if (err.name === 'AbortError') {
-          toast.showToast('请求超时，请检查网络连接后重试', 'error');
-        } else {
-          const errorMessage = err.message || '创建班级失败';
-          toast.showToast(`创建班级失败: ${errorMessage}`, 'error');
-        }
+        toast.showToast(err.message, 'error');
       } else {
-        toast.showToast('创建班级失败，请稍后重试', 'error');
+        toast.showToast('操作失败，请稍后重试', 'error');
       }
     } finally {
       setIsSubmitting(false);
@@ -237,8 +226,6 @@ const ClassManagement: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const payload = {
@@ -246,9 +233,7 @@ const ClassManagement: React.FC = () => {
         class_code: formData.class_code.trim(),
       };
 
-      const updatedClass = await apiClient.put(`/classes/${selectedClass.class_id}`, payload, { signal: controller.signal });
-
-      clearTimeout(timeoutId);
+      const updatedClass = await apiClient.put(`/classes/${selectedClass.class_id}`, payload);
 
       setClasses(prev =>
         prev.map(cls =>
@@ -263,17 +248,10 @@ const ClassManagement: React.FC = () => {
 
       toast.showToast('班级信息更新成功', 'success');
     } catch (err: unknown) {
-      clearTimeout(timeoutId);
-
       if (err instanceof Error) {
-        if (err.name === 'AbortError') {
-          toast.showToast('请求超时，请检查网络连接后重试', 'error');
-        } else {
-          const errorMessage = err.message || '更新班级失败';
-          toast.showToast(`更新班级失败: ${errorMessage}`, 'error');
-        }
+        toast.showToast(err.message, 'error');
       } else {
-        toast.showToast('更新班级失败，请稍后重试', 'error');
+        toast.showToast('操作失败，请稍后重试', 'error');
       }
     } finally {
       setIsSubmitting(false);
@@ -289,13 +267,8 @@ const ClassManagement: React.FC = () => {
 
     if (!confirmed) return;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
     try {
-      await apiClient.delete(`/classes/${classItem.class_id}`, { signal: controller.signal });
-
-      clearTimeout(timeoutId);
+      await apiClient.delete(`/classes/${classItem.class_id}`);
 
       setClasses(prev => prev.filter(cls => cls.class_id !== classItem.class_id));
       if (selectedClass && selectedClass.class_id === classItem.class_id) {
@@ -306,17 +279,10 @@ const ClassManagement: React.FC = () => {
 
       toast.showToast('班级删除成功', 'success');
     } catch (err: unknown) {
-      clearTimeout(timeoutId);
-
       if (err instanceof Error) {
-        if (err.name === 'AbortError') {
-          toast.showToast('请求超时，请检查网络连接后重试', 'error');
-        } else {
-          const errorMessage = err.message || '删除班级失败';
-          toast.showToast(`删除班级失败: ${errorMessage}`, 'error');
-        }
+        toast.showToast(err.message, 'error');
       } else {
-        toast.showToast('删除班级失败，请稍后重试', 'error');
+        toast.showToast('操作失败，请稍后重试', 'error');
       }
     }
   };
