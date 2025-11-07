@@ -17,14 +17,7 @@ const DATASET_NAME_MIN_LENGTH = 2;
 const MAX_DATASET_NAME_LENGTH = 100;
 const MAX_DATASET_NOTES_LENGTH = 200;
 const MAX_DATASET_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const ALLOWED_DATASET_EXTENSIONS = [
-  ".zip",
-  ".csv",
-  ".xlsx",
-  ".xls",
-  ".json",
-  ".txt",
-];
+const ALLOWED_DATASET_EXTENSIONS = [".csv"];
 
 const getDatasetNameError = (value: string) => {
   const trimmed = value.trim();
@@ -48,7 +41,7 @@ const getDatasetFileError = (file: File | null) => {
   if (!file) return "请上传数据文件";
   const extension = file.name.toLowerCase().slice(file.name.lastIndexOf("."));
   if (extension && !ALLOWED_DATASET_EXTENSIONS.includes(extension)) {
-    return "不支持的文件格式，请上传常见数据文件";
+    return "仅支持上传CSV文件";
   }
   if (file.size > MAX_DATASET_FILE_SIZE) {
     return "文件大小不能超过50MB";
@@ -412,7 +405,7 @@ const ExperimentDataView: React.FC = () => {
             </label>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
               <p className="font-semibold mb-2">
-                请确保上传的CSV或Excel文件包含以下列标题：
+                请确保上传的CSV文件包含以下列标题：
               </p>
               <ul className="list-disc list-inside space-y-1">
                 <li>
@@ -457,7 +450,7 @@ const ExperimentDataView: React.FC = () => {
               />
               <p className="text-blue-600 font-medium">点击或拖拽文件到此处</p>
               <p className="text-sm text-gray-500 mt-2">
-                支持CSV、Excel、ZIP等常见格式，文件大小不超过50MB
+                仅支持CSV格式，文件大小不超过50MB
               </p>
               {uploadFile && (
                 <p className="text-sm text-green-600 mt-2 font-semibold">
