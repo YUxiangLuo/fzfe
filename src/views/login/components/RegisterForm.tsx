@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { User, Lock, Mail, Phone, Eye, EyeOff, UserPlus, AlertCircle, IdCard } from "lucide-react";
+import { User, Lock, Mail, Phone, Eye, EyeOff, UserPlus, IdCard } from "lucide-react";
+import { ErrorAlert } from "./ErrorAlert";
 import {
   validateUsername,
   validatePassword,
@@ -205,12 +206,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* 服务器错误信息提示 */}
-      {error && (
-        <div className="bg-red-500/20 border border-red-500/50 text-red-300 text-sm rounded-lg p-3 flex items-center space-x-2">
-          <AlertCircle className="w-5 h-5" />
-          <span>{error}</span>
-        </div>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       {/* 用户名/学号输入 */}
       <div className="space-y-2">
@@ -222,6 +218,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             value={username}
             onChange={(e) => handleUsernameChange(e.target.value)}
             onBlur={() => handleBlur("username")}
+            autoComplete="username"
+            aria-describedby={touched.username && errors.username ? "register-username-error" : undefined}
+            aria-invalid={!!(touched.username && errors.username)}
             className={`w-full pl-10 pr-4 py-2.5 bg-white/10 border rounded-lg
                      text-white placeholder-white/50 backdrop-blur-sm
                      focus:outline-none focus:ring-2 focus:border-transparent
@@ -232,7 +231,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           />
         </div>
         {touched.username && errors.username && (
-          <p className="text-red-400 text-xs">{errors.username}</p>
+          <p id="register-username-error" className="text-red-400 text-xs" role="alert">
+            {errors.username}
+          </p>
         )}
       </div>
 
@@ -246,6 +247,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             value={name}
             onChange={(e) => handleNameChange(e.target.value)}
             onBlur={() => handleBlur("name")}
+            autoComplete="name"
+            aria-describedby={touched.name && errors.name ? "register-name-error" : undefined}
+            aria-invalid={!!(touched.name && errors.name)}
             className={`w-full pl-10 pr-4 py-2.5 bg-white/10 border rounded-lg
                      text-white placeholder-white/50 backdrop-blur-sm
                      focus:outline-none focus:ring-2 focus:border-transparent
@@ -256,7 +260,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           />
         </div>
         {touched.name && errors.name && (
-          <p className="text-red-400 text-xs">{errors.name}</p>
+          <p id="register-name-error" className="text-red-400 text-xs" role="alert">
+            {errors.name}
+          </p>
         )}
       </div>
 
@@ -270,6 +276,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             value={email}
             onChange={(e) => handleEmailChange(e.target.value)}
             onBlur={() => handleBlur("email")}
+            autoComplete="email"
+            aria-describedby={touched.email && errors.email ? "register-email-error" : undefined}
+            aria-invalid={!!(touched.email && errors.email)}
             className={`w-full pl-10 pr-4 py-2.5 bg-white/10 border rounded-lg
                      text-white placeholder-white/50 backdrop-blur-sm
                      focus:outline-none focus:ring-2 focus:border-transparent
@@ -280,7 +289,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           />
         </div>
         {touched.email && errors.email && (
-          <p className="text-red-400 text-xs">{errors.email}</p>
+          <p id="register-email-error" className="text-red-400 text-xs" role="alert">
+            {errors.email}
+          </p>
         )}
       </div>
 
@@ -295,6 +306,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
               value={phone}
               onChange={(e) => handlePhoneChange(e.target.value)}
               onBlur={() => handleBlur("phone")}
+              autoComplete="tel"
+              aria-describedby={touched.phone && errors.phone ? "register-phone-error" : undefined}
+              aria-invalid={!!(touched.phone && errors.phone)}
               className={`w-full pl-10 pr-4 py-2.5 bg-white/10 border rounded-lg
                        text-white placeholder-white/50 backdrop-blur-sm
                        focus:outline-none focus:ring-2 focus:border-transparent
@@ -305,7 +319,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             />
           </div>
           {touched.phone && errors.phone && (
-            <p className="text-red-400 text-xs">{errors.phone}</p>
+            <p id="register-phone-error" className="text-red-400 text-xs" role="alert">
+              {errors.phone}
+            </p>
           )}
         </div>
       )}
@@ -320,6 +336,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             value={password}
             onChange={(e) => handlePasswordChange(e.target.value)}
             onBlur={() => handleBlur("password")}
+            autoComplete="new-password"
+            aria-describedby={touched.password && errors.password ? "register-password-error" : undefined}
+            aria-invalid={!!(touched.password && errors.password)}
             className={`w-full pl-10 pr-12 py-2.5 bg-white/10 border rounded-lg
                      text-white placeholder-white/50 backdrop-blur-sm
                      focus:outline-none focus:ring-2 focus:border-transparent
@@ -332,6 +351,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             type="button"
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/50 hover:text-white/80 transition-colors"
+            aria-label={showPassword ? "隐藏密码" : "显示密码"}
           >
             {showPassword ? (
               <EyeOff className="w-5 h-5" />
@@ -341,7 +361,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           </button>
         </div>
         {touched.password && errors.password && (
-          <p className="text-red-400 text-xs">{errors.password}</p>
+          <p id="register-password-error" className="text-red-400 text-xs" role="alert">
+            {errors.password}
+          </p>
         )}
       </div>
 
@@ -355,6 +377,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             value={confirmPassword}
             onChange={(e) => handleConfirmPasswordChange(e.target.value)}
             onBlur={() => handleBlur("confirmPassword")}
+            autoComplete="new-password"
+            aria-describedby={touched.confirmPassword && errors.confirmPassword ? "register-confirm-password-error" : undefined}
+            aria-invalid={!!(touched.confirmPassword && errors.confirmPassword)}
             className={`w-full pl-10 pr-12 py-2.5 bg-white/10 border rounded-lg
                      text-white placeholder-white/50 backdrop-blur-sm
                      focus:outline-none focus:ring-2 focus:border-transparent
@@ -367,6 +392,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             type="button"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/50 hover:text-white/80 transition-colors"
+            aria-label={showConfirmPassword ? "隐藏密码" : "显示密码"}
           >
             {showConfirmPassword ? (
               <EyeOff className="w-5 h-5" />
@@ -376,7 +402,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           </button>
         </div>
         {touched.confirmPassword && errors.confirmPassword && (
-          <p className="text-red-400 text-xs">{errors.confirmPassword}</p>
+          <p id="register-confirm-password-error" className="text-red-400 text-xs" role="alert">
+            {errors.confirmPassword}
+          </p>
         )}
       </div>
 

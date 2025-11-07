@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface Particle {
   x: number;
@@ -9,12 +9,43 @@ interface Particle {
   maxLife: number;
 }
 
+/**
+ * 根据设备性能动态调整粒子数量
+ */
+const getParticleCount = (): number => {
+  // 检测是否为移动设备
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+
+  // 检测硬件并发数（CPU核心数）
+  const cores = navigator.hardwareConcurrency || 4;
+
+  if (isMobile) {
+    return 20; // 移动设备使用较少粒子
+  } else if (cores >= 8) {
+    return 60; // 高性能设备
+  } else if (cores >= 4) {
+    return 40; // 中等性能设备
+  } else {
+    return 25; // 低性能设备
+  }
+};
+
 export const ParticleBackground: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const animationFrameRef = useRef<number | null>(null);
+  const [shouldAnimate, setShouldAnimate] = useState(true);
 
   useEffect(() => {
+    // 检测用户是否偏好减少动画
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion) {
+      setShouldAnimate(false);
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -39,7 +70,8 @@ export const ParticleBackground: React.FC = () => {
 
     const initParticles = () => {
       particlesRef.current = [];
-      for (let i = 0; i < 50; i++) {
+      const particleCount = getParticleCount();
+      for (let i = 0; i < particleCount; i++) {
         particlesRef.current.push(createParticle());
       }
     };
@@ -111,11 +143,17 @@ export const ParticleBackground: React.FC = () => {
     };
   }, []);
 
+  // 如果用户偏好减少动画，不渲染canvas
+  if (!shouldAnimate) {
+    return null;
+  }
+
   return (
     <canvas
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none"
       style={{ zIndex: 1 }}
+      aria-hidden="true"
     />
   );
 };

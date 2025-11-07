@@ -3,13 +3,17 @@ import { RoleSelector } from "./RoleSelector";
 import { LoginForm } from "./LoginForm";
 import { RegisterForm } from "./RegisterForm";
 import type { RegisterFormData } from "./RegisterForm";
+import { Toast } from "./Toast";
 import { API_BASE_URL } from "../../../utils/apiClient";
+import { getRedirectPath } from "../constants/routes";
+import { useToast } from "../hooks/useToast";
 
 export const LoginContainer: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState("student");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
+  const { toast, showToast, hideToast } = useToast();
 
   const roleMap: Record<string, string> = {
     student: "Student",
@@ -22,6 +26,10 @@ export const LoginContainer: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
+    // 创建超时控制器
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+
     try {
       const role = roleMap[selectedRole] ?? "Student";
       const response = await fetch(`${API_BASE_URL}/sessions`, {
@@ -30,43 +38,58 @@ export const LoginContainer: React.FC = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ username, password, role }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "登录失败，请检查您的凭据");
+        // 根据状态码设置不同的错误消息
+        let errorMessage = "登录失败，请稍后再试";
+        switch (response.status) {
+          case 401:
+            errorMessage = "用户名或密码错误";
+            break;
+          case 403:
+            errorMessage = "您没有权限访问该系统";
+            break;
+          case 429:
+            errorMessage = "登录尝试次数过多，请稍后再试";
+            break;
+          case 500:
+          case 502:
+          case 503:
+            errorMessage = "服务器错误，请稍后再试";
+            break;
+          default:
+            errorMessage = data.error || "登录失败，请检查您的凭据";
+        }
+        throw new Error(errorMessage);
       }
 
       if (data.token) {
         localStorage.setItem("token", data.token);
-        switch (selectedRole) {
-          case "student":
-            window.location.href = "/shiyan";
-            break;
-          case "teacher":
-            window.location.href = "/jiaoshi";
-            break;
-          case "assistant":
-            window.location.href = "/zhujiao";
-            break;
-          case "admin":
-            window.location.href = "/admin";
-            break;
-          default:
-            window.location.href = "/shiyan";
-            break;
-        }
+        const redirectPath = getRedirectPath(selectedRole as any);
+        window.location.href = redirectPath;
       } else {
         throw new Error("登录失败，未能获取到Token");
       }
-    } catch (error: any) {
-      // 翻译后端错误信息为用户友好的中文提示
-      if (error.message === "Invalid credentials") {
-        setError("用户名或密码错误");
-      } else {
-        setError(error.message || "发生未知错误，请稍后再试");
+    } catch (error: unknown) {
+      clearTimeout(timeoutId);
+
+      let errorMessage = "发生未知错误，请稍后再试";
+
+      if (error instanceof Error) {
+        if (error.name === "AbortError") {
+          errorMessage = "请求超时，请检查网络连接";
+        } else {
+          errorMessage = error.message;
+        }
       }
+
+      setError(errorMessage);
       console.error("Login error:", error);
     } finally {
       setIsLoading(false);
@@ -76,6 +99,10 @@ export const LoginContainer: React.FC = () => {
   const handleRegister = async (formData: RegisterFormData) => {
     setIsLoading(true);
     setError(null);
+
+    // 创建超时控制器
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
 
     try {
       // 将角色 ID 转换为首字母大写的格式（student -> Student）
@@ -90,19 +117,54 @@ export const LoginContainer: React.FC = () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "注册失败，请检查您的信息");
+        // 根据状态码设置不同的错误消息
+        let errorMessage = "注册失败，请稍后再试";
+        switch (response.status) {
+          case 400:
+            errorMessage = data.error || "提交的信息有误，请检查";
+            break;
+          case 409:
+            errorMessage = "该账号已被注册，请使用其他账号";
+            break;
+          case 429:
+            errorMessage = "注册请求过于频繁，请稍后再试";
+            break;
+          case 500:
+          case 502:
+          case 503:
+            errorMessage = "服务器错误，请稍后再试";
+            break;
+          default:
+            errorMessage = data.error || "注册失败，请检查您的信息";
+        }
+        throw new Error(errorMessage);
       }
 
-      // 注册成功，提示用户并切换到登录模式
-      alert("注册成功！请使用您的账号登录");
+      // 注册成功，使用 Toast 提示用户并切换到登录模式
+      showToast("注册成功！请使用您的账号登录", "success");
       setMode("login");
-    } catch (error: any) {
-      setError(error.message || "注册失败，请稍后再试");
+    } catch (error: unknown) {
+      clearTimeout(timeoutId);
+
+      let errorMessage = "注册失败，请稍后再试";
+
+      if (error instanceof Error) {
+        if (error.name === "AbortError") {
+          errorMessage = "请求超时，请检查网络连接";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      setError(errorMessage);
       console.error("Register error:", error);
     } finally {
       setIsLoading(false);
@@ -168,6 +230,15 @@ export const LoginContainer: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Toast 通知 */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </div>
   );
 };
