@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Edit2, User, Phone, Mail, Calendar, Loader, AlertTriangle, BookCopy, KeyRound, Save } from 'lucide-react';
-import Modal from '../Common/Modal';
+import Modal from '../../../../shared/components/Modal';
 import { apiClient } from '../../../../utils/apiClient';
 import type { User as UserType, Class as ClassType } from '../../types';
-import Button from '../Common/Button';
+import Button from '../../../../shared/components/Button';
 import { validateFullName, validateEmail, validatePhone, validatePassword, validatePasswordConfirm } from '../../../../shared/utils/validation';
 import { useToast } from '../../../../shared/hooks/useToast';
 import { Toast } from '../../../../shared/components/Toast';

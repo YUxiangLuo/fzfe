@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Modal from '../Common/Modal';
-import Button from '../Common/Button';
+import Modal from '../../../../shared/components/Modal';
+import Button from '../../../../shared/components/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import type { Student } from '../../types';
 import { Loader, Search, AlertCircle, CheckCircle2 } from 'lucide-react';

@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Plus, Users, Loader, AlertTriangle, Edit2, Trash2, User as UserIcon, Upload, FileText, CheckCircle, XCircle } from 'lucide-react';
 import type { Class, Assistant, Student } from '../../types';
-import Modal from '../Common/Modal';
-import Button from '../Common/Button';
+import Modal from '../../../../shared/components/Modal';
+import Button from '../../../../shared/components/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import { validateClassName, validateClassCode } from '../../../../shared/utils/validation';

@@ -9,8 +9,8 @@ import {
   Search,
 } from "lucide-react";
 import type { Class, ExperimentReport } from "../../types";
-import Modal from "../Common/Modal";
-import Button from "../Common/Button";
+import Modal from "../../../../shared/components/Modal";
+import Button from "../../../../shared/components/Button";
 import { API_BASE_URL, apiClient } from "../../../../utils/apiClient";
 import { decodeToken } from "../../../../utils/auth";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../../config/appConfig";

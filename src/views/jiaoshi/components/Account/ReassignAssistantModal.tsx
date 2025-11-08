@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Modal from '../Common/Modal';
-import Button from '../Common/Button';
+import Modal from '../../../../shared/components/Modal';
+import Button from '../../../../shared/components/Button';
 import type { User as Assistant, Class } from '../../types';
 import { apiClient } from '../../../../utils/apiClient';
 import { Loader, AlertTriangle } from 'lucide-react';
@@ -13,6 +13,7 @@ interface ReassignAssistantModalProps {
   assistant: Assistant | null;
   managedClasses: Class[];
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+  onUnbindComplete?: (assistantId: number) => void;
 }
 
 interface ClassAssignmentStatus {
@@ -26,6 +27,7 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
   assistant,
   managedClasses,
   showToast,
+  onUnbindComplete,
 }) => {
   const confirm = useConfirm();
   const [assignmentStatus, setAssignmentStatus] = useState<ClassAssignmentStatus[]>([]);
@@ -116,12 +118,18 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
     setProcessingClassId(classId);
     try {
       await apiClient.delete(`/classes/${classId}/assistants/${assistant.user_id}`);
-      setAssignmentStatus(prev =>
-        prev.map(status =>
-          status.classId === classId ? { ...status, assigned: false } : status
-        )
+      const newAssignmentStatus = assignmentStatus.map(status =>
+        status.classId === classId ? { ...status, assigned: false } : status
       );
+      setAssignmentStatus(newAssignmentStatus);
       showToast('解绑成功', 'success');
+
+      // 检查是否所有班级都已解绑
+      const allUnbound = newAssignmentStatus.every(status => !status.assigned);
+      if (allUnbound && onUnbindComplete) {
+        // 通知父组件该助教已完全解绑，可以从列表中移除
+        onUnbindComplete(assistant.user_id);
+      }
     } catch (err: any) {
       showToast(`解绑失败: ${err.message}`, 'error');
     } finally {

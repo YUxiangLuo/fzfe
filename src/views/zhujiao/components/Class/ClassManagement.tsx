@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Users, Loader, AlertTriangle, User as UserIcon } from 'lucide-react';
 import type { Class, Assistant, Student } from '../../types';
-import Modal from '../Common/Modal';
+import Modal from '../../../../shared/components/Modal';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 

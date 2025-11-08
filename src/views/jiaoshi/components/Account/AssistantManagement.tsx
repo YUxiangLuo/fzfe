@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Loader, AlertTriangle, UserPlus, RefreshCw } from 'lucide-react';
 import type { User as Assistant, Class } from '../../types';
-import Modal from '../Common/Modal';
-import Button from '../Common/Button';
+import Modal from '../../../../shared/components/Modal';
+import Button from '../../../../shared/components/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import { SelectAssistantModal } from './SelectAssistantModal';
@@ -10,6 +10,7 @@ import { ReassignAssistantModal } from './ReassignAssistantModal';
 import { validateUsername, validateFullName, validateEmail, validatePhone, validatePassword } from '../../../../shared/utils/validation';
 import { useToast } from '../../../../shared/hooks/useToast';
 import { Toast } from '../../../../shared/components/Toast';
+import { UI_CONSTANTS } from '../../../../shared/constants/ui';
 
 const AssistantManagement: React.FC = () => {
   const { toast, showToast, hideToast } = useToast();
@@ -42,7 +43,10 @@ const AssistantManagement: React.FC = () => {
   const [newAssistant, setNewAssistant] = useState(INITIAL_ASSISTANT);
   const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
 
+  // P1-2: Add AbortController for proper cleanup
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
@@ -51,23 +55,35 @@ const AssistantManagement: React.FC = () => {
         if (!token) throw new Error('Authentication token not found.');
         const decoded = decodeToken(token);
         if (!decoded) throw new Error('Invalid token.');
-        
+
         const teacherId = decoded.sub;
 
         const [assistantsData, classesData] = await Promise.all([
-          apiClient.get(`/teachers/${teacherId}/assistants`),
-          apiClient.get(`/teachers/${teacherId}/classes`)
+          apiClient.get(`/teachers/${teacherId}/assistants`, { signal: controller.signal }),
+          apiClient.get(`/teachers/${teacherId}/classes`, { signal: controller.signal })
         ]);
 
-        setAssistants(assistantsData || []);
-        setManagedClasses(classesData || []);
+        if (!controller.signal.aborted) {
+          setAssistants(assistantsData || []);
+          setManagedClasses(classesData || []);
+        }
       } catch (err: any) {
-        setError(err.message || 'Failed to fetch data.');
+        if (err.name === 'AbortError') return;
+        if (!controller.signal.aborted) {
+          setError(err.message || 'Failed to fetch data.');
+        }
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
       }
     };
+
     fetchData();
+
+    return () => {
+      controller.abort();
+    };
   }, []);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,8 +118,10 @@ const AssistantManagement: React.FC = () => {
       return;
     }
 
-    // 验证密码
-    const passwordValidation = validatePassword(newAssistant.password, { minLength: 6 });
+    // P2-1: 验证密码 - 使用常量
+    const passwordValidation = validatePassword(newAssistant.password, {
+      minLength: UI_CONSTANTS.PASSWORD_MIN_LENGTH
+    });
     if (!passwordValidation.valid) {
       showToast(passwordValidation.error, 'error');
       return;
@@ -158,6 +176,12 @@ const AssistantManagement: React.FC = () => {
     setAssistantToReassign(assistant);
     setShowReassignModal(true);
   };
+
+  const handleUnbindComplete = useCallback((assistantId: number) => {
+    // 从列表中移除已完全解绑的助教
+    setAssistants(prev => prev.filter(a => a.user_id !== assistantId));
+    showToast('助教已从所有班级解绑，已从当前列表移除', 'info');
+  }, [showToast]);
 
   if (isLoading) return <div className="flex justify-center"><Loader className="animate-spin" /></div>;
   if (error) return <div className="text-red-500"><AlertTriangle /> {error}</div>;
@@ -228,6 +252,7 @@ const AssistantManagement: React.FC = () => {
         assistant={assistantToReassign}
         managedClasses={managedClasses}
         showToast={showToast}
+        onUnbindComplete={handleUnbindComplete}
       />
       
       <Modal isOpen={showCreateModal} onClose={resetCreateModal} title="创建新助教">
@@ -250,8 +275,8 @@ const AssistantManagement: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               初始密码 <span className="text-red-500">*</span>
             </label>
-            <input name="password" type="password" value={newAssistant.password} onChange={handleInputChange} placeholder="至少6个字符" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" minLength={6} maxLength={20} required />
-            <p className="mt-1 text-xs text-gray-500">6-20个字符</p>
+            <input name="password" type="password" value={newAssistant.password} onChange={handleInputChange} placeholder={`至少${UI_CONSTANTS.PASSWORD_MIN_LENGTH}个字符`} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" minLength={UI_CONSTANTS.PASSWORD_MIN_LENGTH} maxLength={UI_CONSTANTS.PASSWORD_MAX_LENGTH} required />
+            <p className="mt-1 text-xs text-gray-500">{UI_CONSTANTS.PASSWORD_MIN_LENGTH}-{UI_CONSTANTS.PASSWORD_MAX_LENGTH}个字符</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import Modal from '../Common/Modal';
-import Button from '../Common/Button';
+import Modal from '../../../../shared/components/Modal';
+import Button from '../../../../shared/components/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import type { User as Assistant, Class } from '../../types';
 import { Loader, AlertTriangle } from 'lucide-react';

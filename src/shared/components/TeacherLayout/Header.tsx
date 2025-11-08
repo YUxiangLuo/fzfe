@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { User, LogOut } from 'lucide-react';
-import { decodeToken, type DecodedToken } from '../../../../utils/auth';
-import { getRoleByBackendValue } from '../../../../config/roles';
-import { getLogoutRedirectPath } from '../../constants/routes';
-import { useConfirm } from '../../../../shared/hooks/useConfirm';
-import { ConfirmDialog } from '../../../../shared/components/ConfirmDialog';
+import { decodeToken, type DecodedToken } from '../../../utils/auth';
+import { getRoleByBackendValue } from '../../../config/roles';
+import { useConfirm } from '../../hooks/useConfirm';
+import { ConfirmDialog } from '../ConfirmDialog';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  getLogoutRedirectPath: () => string;
+}
+
+const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
   const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
   const confirm = useConfirm();
 

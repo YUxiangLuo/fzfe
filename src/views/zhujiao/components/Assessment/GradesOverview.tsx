@@ -24,7 +24,7 @@ import { apiClient, API_BASE_URL } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
 import GradeCharts, { type GradeChartDatum } from '../../../shared/assessment/GradeCharts';
-import Button from '../Common/Button';
+import Button from '../../../../shared/components/Button';
 
 const SCORE_SEGMENT_CONFIG = {
   excellent: {

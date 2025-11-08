@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, Loader, AlertTriangle, Mail, Phone, User as UserIcon, UserPlus, ListPlus } from 'lucide-react';
 import type { Student, Class } from '../../types';
-import Modal from '../Common/Modal';
-import Button from '../Common/Button';
+import Modal from '../../../../shared/components/Modal';
+import Button from '../../../../shared/components/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import { validateFullName, validateEmail, validatePhone, validatePassword } from '../../../../shared/utils/validation';

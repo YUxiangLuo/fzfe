@@ -14,6 +14,7 @@ import {
 import type { Class, StudentExperimentProgress, ExperimentStep, ExperimentTimelineEvent } from "../../types";
 import { apiClient } from "../../../../utils/apiClient";
 import { decodeToken } from "../../../../utils/auth";
+import { UI_CONSTANTS } from "../../../../shared/constants/ui";
 
 const STEP_DEFINITIONS: { id: string; label: string; order: number }[] = [
   { id: "industry_selection", label: "选择行业", order: 1 },
@@ -104,10 +105,11 @@ const ExperimentProgress: React.FC = () => {
     fetchClasses();
   }, [teacherId]);
 
+  // P2-1: Use constant for debounce delay
   useEffect(() => {
     const handler = window.setTimeout(() => {
       setDebouncedSearchTerm(searchTerm.trim());
-    }, 300);
+    }, UI_CONSTANTS.SEARCH_DEBOUNCE_DELAY);
 
     return () => {
       window.clearTimeout(handler);
@@ -204,41 +206,51 @@ const ExperimentProgress: React.FC = () => {
     );
   };
 
-  const getCompletionMeta = (student: StudentExperimentProgress) => {
-    const steps = student.steps ?? [];
-    const completedSteps = steps.filter((step) => step?.completed_at).length;
-    const totalSteps = STEP_DEFINITIONS.length;
-    const completionPercent = Math.round((completedSteps / totalSteps) * 100);
+  // P2-2: Optimize array operations - avoid multiple filter/sort operations
+  const getCompletionMeta = useMemo(() => {
+    return (student: StudentExperimentProgress) => {
+      const steps = student.steps ?? [];
+      const completedSteps = steps.filter((step) => step?.completed_at).length;
+      const totalSteps = STEP_DEFINITIONS.length;
+      const completionPercent = Math.round((completedSteps / totalSteps) * 100);
 
-    const latestCompletedStep = [...steps]
-      .filter((step) => step?.completed_at)
-      .sort((a, b) => (b?.step_order ?? 0) - (a?.step_order ?? 0))[0];
+      // P2-2: Find latest completed step with single pass (O(n) instead of O(n log n))
+      let latestCompletedStep: ExperimentStep | null = null;
+      let highestStartedStep: ExperimentStep | null = null;
 
-    const latestCompleted = latestCompletedStep
-      ? STEP_DEFINITIONS.find((def) => def.order === latestCompletedStep.step_order) ?? null
-      : null;
-
-    let currentStep = student.current_step
-      ? STEP_DEFINITIONS.find((def) => def.order === student.current_step) ?? null
-      : null;
-
-    if (!currentStep && student.status !== "Completed") {
-      const highestStarted = [...steps]
-        .filter((step) => step?.started_at && !step?.completed_at)
-        .sort((a, b) => (b?.step_order ?? 0) - (a?.step_order ?? 0))[0];
-      if (highestStarted) {
-        currentStep = STEP_DEFINITIONS.find((def) => def.order === highestStarted.step_order) ?? null;
+      for (const step of steps) {
+        if (step?.completed_at) {
+          if (!latestCompletedStep || (step.step_order ?? 0) > (latestCompletedStep.step_order ?? 0)) {
+            latestCompletedStep = step;
+          }
+        } else if (step?.started_at) {
+          if (!highestStartedStep || (step.step_order ?? 0) > (highestStartedStep.step_order ?? 0)) {
+            highestStartedStep = step;
+          }
+        }
       }
-    }
 
-    return {
-      completedSteps,
-      totalSteps,
-      completionPercent: Math.min(100, Math.max(0, completionPercent)),
-      latestCompleted,
-      currentStep,
+      const latestCompleted = latestCompletedStep
+        ? STEP_DEFINITIONS.find((def) => def.order === latestCompletedStep.step_order) ?? null
+        : null;
+
+      let currentStep = student.current_step
+        ? STEP_DEFINITIONS.find((def) => def.order === student.current_step) ?? null
+        : null;
+
+      if (!currentStep && student.status !== "Completed" && highestStartedStep) {
+        currentStep = STEP_DEFINITIONS.find((def) => def.order === highestStartedStep.step_order) ?? null;
+      }
+
+      return {
+        completedSteps,
+        totalSteps,
+        completionPercent: Math.min(100, Math.max(0, completionPercent)),
+        latestCompleted,
+        currentStep,
+      };
     };
-  };
+  }, []); // Empty deps - pure function based on input
 
   const renderProgressRows = () => {
     if (!selectedClassId) {

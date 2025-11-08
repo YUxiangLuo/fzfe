@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Save, RotateCcw } from 'lucide-react';
 import type { GradeWeights as GradeWeightsApi } from '../../types';
-import Button from '../Common/Button';
-import Modal from '../Common/Modal';
+import Button from '../../../../shared/components/Button';
+import Modal from '../../../../shared/components/Modal';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import { validatePercentage } from '../../../../shared/utils/validation';

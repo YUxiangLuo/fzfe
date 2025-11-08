@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, Edit2, RefreshCcw, Search, AlertCircle, Plus } from 'lucide-react';
 import type { Question, QuestionTypeApi } from '../../types';
-import Modal from '../Common/Modal';
-import Button from '../Common/Button';
+import Modal from '../../../../shared/components/Modal';
+import Button from '../../../../shared/components/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { validateQuestionText, validateQuestionOption } from '../../../../shared/utils/validation';
 import { useToast } from '../../../../shared/hooks/useToast';

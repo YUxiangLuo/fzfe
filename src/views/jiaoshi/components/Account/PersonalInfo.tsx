@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Edit2, User, Phone, Mail, Calendar, Loader, AlertTriangle, BookCopy, KeyRound, Save } from 'lucide-react';
-import Modal from '../Common/Modal';
+import Modal from '../../../../shared/components/Modal';
 import { apiClient } from '../../../../utils/apiClient';
 import type { User as UserType, Class as ClassType } from '../../types';
-import Button from '../Common/Button';
+import Button from '../../../../shared/components/Button';
 import { validateFullName, validateEmail, validatePhone, validatePassword, validatePasswordConfirm } from '../../../../shared/utils/validation';
 import { useToast } from '../../../../shared/hooks/useToast';
 import { Toast } from '../../../../shared/components/Toast';
+import { UI_CONSTANTS } from '../../../../shared/constants/ui';
 
 const PersonalInfo: React.FC = () => {
   const { toast, showToast, hideToast } = useToast();
@@ -155,8 +156,10 @@ const PersonalInfo: React.FC = () => {
       return;
     }
 
-    // 验证新密码
-    const passwordValidation = validatePassword(passwordData.newPassword, { minLength: 6 });
+    // P2-1: 验证新密码 - 使用常量
+    const passwordValidation = validatePassword(passwordData.newPassword, {
+      minLength: UI_CONSTANTS.PASSWORD_MIN_LENGTH
+    });
     if (!passwordValidation.valid) {
       setPasswordError(passwordValidation.error);
       return;
@@ -277,11 +280,11 @@ const PersonalInfo: React.FC = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">新密码</label>
-                <input type="password" name="newPassword" autoComplete="new-password" value={passwordData.newPassword} onChange={handlePasswordChange} required minLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="至少6个字符" />
+                <input type="password" name="newPassword" autoComplete="new-password" value={passwordData.newPassword} onChange={handlePasswordChange} required minLength={UI_CONSTANTS.PASSWORD_MIN_LENGTH} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder={`至少${UI_CONSTANTS.PASSWORD_MIN_LENGTH}个字符`} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">确认新密码</label>
-                <input type="password" name="confirmPassword" autoComplete="new-password" value={passwordData.confirmPassword} onChange={handlePasswordChange} required minLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="再次输入新密码" />
+                <input type="password" name="confirmPassword" autoComplete="new-password" value={passwordData.confirmPassword} onChange={handlePasswordChange} required minLength={UI_CONSTANTS.PASSWORD_MIN_LENGTH} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="再次输入新密码" />
               </div>
             </div>
             {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
