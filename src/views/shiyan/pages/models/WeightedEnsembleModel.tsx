@@ -59,6 +59,13 @@ const WeightedEnsembleModel: React.FC = () => {
   const [trainingError, setTrainingError] = useState<string | null>(null);
   const [showComparison, setShowComparison] = useState(false);
 
+  // 评估数据
+  const [evaluationData, setEvaluationData] = useState<{
+    months: string[];
+    y_true: number[];
+    predictions: number[];
+  } | null>(null);
+
   const resetMetrics = () => ({
     ensemble_weighted_completed: false,
     ensemble_weighted_metrics_rmse: null,
