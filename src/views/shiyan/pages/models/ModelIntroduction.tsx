@@ -39,7 +39,7 @@ interface ModelDetail {
 const ModelIntroduction: React.FC = () => {
   const navigate = useNavigate();
   const [activeModelId, setActiveModelId] = useState<string>('moving_average');
-  const [readModels, setReadModels] = useState<Set<string>>(new Set());
+  const [readModels, setReadModels] = useState<Set<string>>(new Set(['moving_average'])); // 初始包含第一个模型
   const contentRef = useRef<HTMLDivElement>(null);
 
   const models: ModelDetail[] = [
@@ -382,34 +382,14 @@ const ModelIntroduction: React.FC = () => {
     }
   }, [activeModelId]);
 
-  // 检测滚动到底部
-  useEffect(() => {
-    const contentElement = contentRef.current;
-    if (!contentElement) return;
-
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = contentElement;
-      // 如果滚动到底部（允许20px误差）
-      if (scrollHeight - scrollTop - clientHeight < 20) {
-        setReadModels((prev) => {
-          const newSet = new Set(prev);
-          newSet.add(activeModelId);
-          return newSet;
-        });
-      }
-    };
-
-    contentElement.addEventListener('scroll', handleScroll);
-    // 检查初始状态（如果内容很短，不需要滚动）
-    handleScroll();
-
-    return () => {
-      contentElement.removeEventListener('scroll', handleScroll);
-    };
-  }, [activeModelId]);
-
   const handleModelClick = (modelId: string) => {
     setActiveModelId(modelId);
+    // 点击进入即标记为已读
+    setReadModels((prev) => {
+      const newSet = new Set(prev);
+      newSet.add(modelId);
+      return newSet;
+    });
   };
 
   const handlePrevious = () => {
