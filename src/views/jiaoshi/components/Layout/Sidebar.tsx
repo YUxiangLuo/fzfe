@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Users,
   User,
   GraduationCap,
   FlaskConical,
   ClipboardCheck,
-  ChevronDown,
   UserCog,
   School,
   Activity,
@@ -22,48 +21,10 @@ interface SidebarProps {
   onMenuItemClick: (item: MenuItem) => void;
 }
 
-const EXPANDED_MENUS_KEY = 'jiaoshi_expanded_menus';
-
 const Sidebar: React.FC<SidebarProps> = ({
   activeMenuItem,
   onMenuItemClick
 }) => {
-  const [expandedMenus, setExpandedMenus] = useState<string[]>(() => {
-    // 尝试从 localStorage 读取
-    try {
-      const stored = localStorage.getItem(EXPANDED_MENUS_KEY);
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch (error) {
-      console.error('Failed to load expanded menus from localStorage:', error);
-    }
-
-    // 如果没有存储，则根据当前菜单项设置默认值
-    const parentMenu = activeMenuItem.split('-')[0];
-    if (parentMenu && ['account', 'experiment', 'assessment'].includes(parentMenu)) {
-      return [parentMenu];
-    }
-    return ['account'];
-  });
-
-  // 持久化展开状态到 localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(EXPANDED_MENUS_KEY, JSON.stringify(expandedMenus));
-    } catch (error) {
-      console.error('Failed to save expanded menus to localStorage:', error);
-    }
-  }, [expandedMenus]);
-
-  const toggleMenu = (menu: string) => {
-    setExpandedMenus(prev =>
-      prev.includes(menu)
-        ? prev.filter(m => m !== menu)
-        : [...prev, menu]
-    );
-  };
-
   const menuItems = [
     {
       key: 'account',
@@ -119,42 +80,33 @@ const Sidebar: React.FC<SidebarProps> = ({
           {menuItems.map((item) => (
             <div key={item.key}>
               {item.children ? (
-                <>
-                  <button
-                    onClick={() => toggleMenu(item.key)}
-                    className={`flex items-center w-full px-3 py-3 text-left rounded-lg transition-colors ${
-                      expandedMenus.includes(item.key)
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : 'text-gray-700 hover:bg-gray-50 border border-transparent'
-                    }`}
-                  >
+                <div className="px-3 py-3 rounded-lg border border-transparent">
+                  <div className="flex items-center text-gray-700">
                     <item.icon className="w-5 h-5 flex-shrink-0" />
                     <div className="ml-3 flex-1">
                       <p className="font-medium text-sm">{item.label}</p>
+                      {item.description && (
+                        <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
+                      )}
                     </div>
-                    <div className={`transition-transform duration-200 ${expandedMenus.includes(item.key) ? 'rotate-180' : ''}`}>
-                      <ChevronDown className="w-4 h-4" />
-                    </div>
-                  </button>
-                  {expandedMenus.includes(item.key) && (
-                    <div className="mt-1 ml-8 space-y-1">
-                      {item.children.map((child) => (
-                        <button
-                          key={child.key}
-                          onClick={() => onMenuItemClick(child.key as MenuItem)}
-                          className={`flex items-center w-full px-3 py-2 text-sm text-left rounded-lg transition-colors ${
-                            activeMenuItem === child.key
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : 'text-gray-600 hover:bg-gray-50 border border-transparent'
-                          }`}
-                        >
-                          <child.icon className="w-4 h-4 flex-shrink-0" />
-                          <span className="ml-2 font-medium">{child.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
+                  </div>
+                  <div className="mt-2 ml-8 space-y-1">
+                    {item.children.map((child) => (
+                      <button
+                        key={child.key}
+                        onClick={() => onMenuItemClick(child.key as MenuItem)}
+                        className={`flex items-center w-full px-3 py-2 text-sm text-left rounded-lg transition-colors ${
+                          activeMenuItem === child.key
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                            : 'text-gray-600 hover:bg-gray-50 border border-transparent'
+                        }`}
+                      >
+                        <child.icon className="w-4 h-4 flex-shrink-0" />
+                        <span className="ml-2 font-medium">{child.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ) : (
                 <button
                   onClick={() => onMenuItemClick(item.key as MenuItem)}
