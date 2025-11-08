@@ -172,17 +172,6 @@ const ProductionRoleIntroduction: React.FC = () => {
                       3
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-purple-900 text-sm mb-1">服务水平设定</h4>
-                      <p className="text-xs text-gray-700 leading-relaxed">
-                        根据业务目标设定服务水平，平衡成本与客户满意度
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
-                      4
-                    </div>
-                    <div className="flex-1">
                       <h4 className="font-semibold text-purple-900 text-sm mb-1">预测量确定</h4>
                       <p className="text-xs text-gray-700 leading-relaxed">
                         应用需求预测结果，计算安全库存和预测需求量
@@ -191,7 +180,7 @@ const ProductionRoleIntroduction: React.FC = () => {
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
-                      5
+                      4
                     </div>
                     <div className="flex-1">
                       <h4 className="font-semibold text-purple-900 text-sm mb-1">投入量决策</h4>
@@ -202,7 +191,7 @@ const ProductionRoleIntroduction: React.FC = () => {
                   </div>
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
-                      6
+                      5
                     </div>
                     <div className="flex-1">
                       <h4 className="font-semibold text-purple-900 text-sm mb-1">完整计划表</h4>
@@ -210,32 +199,6 @@ const ProductionRoleIntroduction: React.FC = () => {
                         查看和分析完整的MPS，评估计划的合理性
                       </p>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 关键绩效指标 */}
-              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-semibold text-teal-900 mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  关键绩效指标（KPIs）
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white/60 rounded-lg p-3 border border-teal-200">
-                    <div className="text-2xl font-bold text-teal-700 mb-1">≥95%</div>
-                    <div className="text-xs text-teal-900">订单满足率</div>
-                  </div>
-                  <div className="bg-white/60 rounded-lg p-3 border border-teal-200">
-                    <div className="text-2xl font-bold text-teal-700 mb-1">≤5%</div>
-                    <div className="text-xs text-teal-900">缺货率目标</div>
-                  </div>
-                  <div className="bg-white/60 rounded-lg p-3 border border-teal-200">
-                    <div className="text-2xl font-bold text-teal-700 mb-1">30天</div>
-                    <div className="text-xs text-teal-900">库存周转天数</div>
-                  </div>
-                  <div className="bg-white/60 rounded-lg p-3 border border-teal-200">
-                    <div className="text-2xl font-bold text-teal-700 mb-1">20%↓</div>
-                    <div className="text-xs text-teal-900">库存成本降低</div>
                   </div>
                 </div>
               </div>
