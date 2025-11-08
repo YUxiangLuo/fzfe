@@ -1,10 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 interface ConfirmState {
   isOpen: boolean;
   title: string;
   message: string;
-  onConfirm: () => void;
   variant?: "danger" | "warning" | "info";
 }
 
@@ -13,23 +12,25 @@ export const useConfirm = () => {
     isOpen: false,
     title: "",
     message: "",
-    onConfirm: () => {},
     variant: "warning",
   });
+
+  const resolveRef = useRef<((value: boolean) => void) | null>(null);
 
   const showConfirm = useCallback(
     (
       title: string,
       message: string,
-      onConfirm: () => void,
       variant: "danger" | "warning" | "info" = "warning"
-    ) => {
-      setConfirmState({
-        isOpen: true,
-        title,
-        message,
-        onConfirm,
-        variant,
+    ): Promise<boolean> => {
+      return new Promise((resolve) => {
+        resolveRef.current = resolve;
+        setConfirmState({
+          isOpen: true,
+          title,
+          message,
+          variant,
+        });
       });
     },
     []
@@ -40,14 +41,29 @@ export const useConfirm = () => {
   }, []);
 
   const handleConfirm = useCallback(() => {
-    confirmState.onConfirm();
+    if (resolveRef.current) {
+      resolveRef.current(true);
+      resolveRef.current = null;
+    }
     hideConfirm();
-  }, [confirmState, hideConfirm]);
+  }, [hideConfirm]);
+
+  const handleCancel = useCallback(() => {
+    if (resolveRef.current) {
+      resolveRef.current(false);
+      resolveRef.current = null;
+    }
+    hideConfirm();
+  }, [hideConfirm]);
 
   return {
-    confirmState,
+    isOpen: confirmState.isOpen,
+    title: confirmState.title,
+    message: confirmState.message,
+    variant: confirmState.variant,
     showConfirm,
     hideConfirm,
     handleConfirm,
+    handleCancel,
   };
 };
