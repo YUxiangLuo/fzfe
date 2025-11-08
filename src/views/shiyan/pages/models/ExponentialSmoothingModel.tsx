@@ -151,8 +151,6 @@ const ExponentialSmoothingModel: React.FC = () => {
             months: string[];
           };
           evaluate_range: {
-            start_index: number;
-            end_index: number;
             months: string[];
           };
           evaluated_points: number;
