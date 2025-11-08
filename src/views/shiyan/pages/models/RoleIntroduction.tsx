@@ -94,42 +94,41 @@ const RoleIntroduction: React.FC = () => {
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* 决策场景示例 */}
-            <div className="bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-              <h3 className="text-lg font-semibold text-rose-900 mb-4 flex items-center gap-2">
-                <Award className="w-5 h-5" />
-                典型决策场景
-              </h3>
-              <div className="space-y-3">
-                <div className="bg-white/60 rounded-lg p-3 border border-rose-200">
-                  <p className="text-sm text-rose-900 font-semibold mb-2">
-                    场景1：淡旺季需求波动
-                  </p>
-                  <p className="text-xs text-gray-700">
-                    产品呈现明显的季节性特征时，需选择能够捕捉周期性规律的模型（如指数平滑、ARIMA），避免库存积压或缺货
-                  </p>
-                </div>
-                <div className="bg-white/60 rounded-lg p-3 border border-rose-200">
-                  <p className="text-sm text-rose-900 font-semibold mb-2">
-                    场景2：新产品市场导入
-                  </p>
-                  <p className="text-xs text-gray-700">
-                    历史数据有限时，应结合市场研判和同类产品经验，采用简单模型（如移动平均）快速响应
-                  </p>
-                </div>
-                <div className="bg-white/60 rounded-lg p-3 border border-rose-200">
-                  <p className="text-sm text-rose-900 font-semibold mb-2">
-                    场景3：复杂多因素影响
-                  </p>
-                  <p className="text-xs text-gray-700">
-                    需求受多种因素影响时，可尝试LSTM深度学习模型或集成模型，提升预测准确度
-                  </p>
+              {/* 决策场景示例 */}
+              <div className="bg-gradient-to-br from-rose-50 to-pink-50 border border-rose-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+                <h3 className="text-lg font-semibold text-rose-900 mb-4 flex items-center gap-2">
+                  <Award className="w-5 h-5" />
+                  典型决策场景
+                </h3>
+                <div className="space-y-3">
+                  <div className="bg-white/60 rounded-lg p-3 border border-rose-200">
+                    <p className="text-sm text-rose-900 font-semibold mb-2">
+                      场景1：淡旺季需求波动
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      产品呈现明显的季节性特征时，需选择能够捕捉周期性规律的模型（如指数平滑、ARIMA），避免库存积压或缺货
+                    </p>
+                  </div>
+                  <div className="bg-white/60 rounded-lg p-3 border border-rose-200">
+                    <p className="text-sm text-rose-900 font-semibold mb-2">
+                      场景2：新产品市场导入
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      历史数据有限时，应结合市场研判和同类产品经验，采用简单模型（如移动平均）快速响应
+                    </p>
+                  </div>
+                  <div className="bg-white/60 rounded-lg p-3 border border-rose-200">
+                    <p className="text-sm text-rose-900 font-semibold mb-2">
+                      场景3：复杂多因素影响
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      需求受多种因素影响时，可尝试LSTM深度学习模型或集成模型，提升预测准确度
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
             {/* 右列 */}
             <div className="space-y-5">
