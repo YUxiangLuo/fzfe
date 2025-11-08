@@ -927,7 +927,14 @@ const QuestionBank: React.FC = () => {
           </div>
         </div>
       </Modal>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+          position="bottom-right"
+        />
+      )}
       <ConfirmDialog
         isOpen={confirm.isOpen}
         title={confirm.title}

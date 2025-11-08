@@ -513,7 +513,7 @@ const ExperimentManualView: React.FC = () => {
               <p className="mt-2 text-xs text-red-500">{uploadErrors.file}</p>
             )}
           </div>
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end space-x-3 pt-4 border-gray-200">
             <button
               onClick={resetUploadModal}
               className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
@@ -569,7 +569,7 @@ const ExperimentManualView: React.FC = () => {
                 <p className="mt-1 text-xs text-red-500">{editErrors.notes}</p>
               )}
             </div>
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <div className="flex justify-end space-x-3 pt-4 border-gray-200">
               <button
                 onClick={closeEditModal}
                 className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"

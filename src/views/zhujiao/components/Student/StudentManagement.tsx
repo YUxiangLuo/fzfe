@@ -801,7 +801,14 @@ const StudentManagement: React.FC = () => {
         onStudentEnrolled={() => setShouldRefreshAfterSelectModal(true)}
         showToast={showToast}
       />
-      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+          position="bottom-right"
+        />
+      )}
     </div>
   );
 };

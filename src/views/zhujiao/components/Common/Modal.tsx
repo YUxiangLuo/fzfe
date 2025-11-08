@@ -19,13 +19,18 @@ const Modal: React.FC<ModalProps> = ({
   closeOnBackdropClick = true,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const latestOnClose = useRef(onClose);
+
+  useEffect(() => {
+    latestOnClose.current = onClose;
+  }, [onClose]);
 
   // Handle ESC key and lock body scroll
   useEffect(() => {
     if (!isOpen) return;
 
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") latestOnClose.current();
     };
 
     // Lock body scroll
@@ -44,7 +49,7 @@ const Modal: React.FC<ModalProps> = ({
       document.body.style.overflow = "";
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

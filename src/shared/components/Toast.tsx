@@ -6,6 +6,7 @@ interface ToastProps {
   type?: "success" | "error" | "info";
   onClose: () => void;
   duration?: number;
+  position?: "top-right" | "top-left" | "bottom-right" | "bottom-left";
 }
 
 export const Toast: React.FC<ToastProps> = ({
@@ -13,6 +14,7 @@ export const Toast: React.FC<ToastProps> = ({
   type = "success",
   onClose,
   duration = 3000,
+  position = "top-right",
 }) => {
   useEffect(() => {
     if (duration > 0) {
@@ -40,10 +42,16 @@ export const Toast: React.FC<ToastProps> = ({
   }[type];
 
   const Icon = config.icon;
+  const positionClasses = {
+    "top-right": "top-4 right-4",
+    "top-left": "top-4 left-4",
+    "bottom-right": "bottom-4 right-4",
+    "bottom-left": "bottom-4 left-4",
+  }[position];
 
   return (
     <div
-      className={`fixed top-4 right-4 z-50 ${config.bgColor} text-white px-6 py-4 rounded-lg shadow-2xl backdrop-blur-sm animate-slide-in-top flex items-center space-x-3 min-w-[300px] max-w-md`}
+      className={`fixed ${positionClasses} z-50 ${config.bgColor} text-white px-6 py-4 rounded-lg shadow-2xl backdrop-blur-sm animate-slide-in-top flex items-center space-x-3 min-w-[300px] max-w-md`}
       role="alert"
       aria-live="polite"
     >

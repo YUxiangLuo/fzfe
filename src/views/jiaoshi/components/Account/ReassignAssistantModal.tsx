@@ -4,8 +4,6 @@ import Button from '../Common/Button';
 import type { User as Assistant, Class } from '../../types';
 import { apiClient } from '../../../../utils/apiClient';
 import { Loader, AlertTriangle } from 'lucide-react';
-import { useToast } from '../../../../shared/hooks/useToast';
-import { Toast } from '../../../../shared/components/Toast';
 import { ConfirmDialog } from '../../../../shared/components/ConfirmDialog';
 import { useConfirm } from '../../../../shared/hooks/useConfirm';
 
@@ -14,6 +12,7 @@ interface ReassignAssistantModalProps {
   onClose: () => void;
   assistant: Assistant | null;
   managedClasses: Class[];
+  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 interface ClassAssignmentStatus {
@@ -26,8 +25,8 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
   onClose,
   assistant,
   managedClasses,
+  showToast,
 }) => {
-  const { toast, showToast, hideToast } = useToast();
   const confirm = useConfirm();
   const [assignmentStatus, setAssignmentStatus] = useState<ClassAssignmentStatus[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -227,7 +226,6 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
             </Button>
           </div>
         </div>
-        {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
       </Modal>
       <ConfirmDialog
         isOpen={confirm.isOpen}

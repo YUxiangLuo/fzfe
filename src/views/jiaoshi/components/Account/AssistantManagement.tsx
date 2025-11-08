@@ -227,6 +227,7 @@ const AssistantManagement: React.FC = () => {
         onClose={handleCloseReassignModal}
         assistant={assistantToReassign}
         managedClasses={managedClasses}
+        showToast={showToast}
       />
       
       <Modal isOpen={showCreateModal} onClose={resetCreateModal} title="创建新助教">
@@ -301,7 +302,14 @@ const AssistantManagement: React.FC = () => {
         </div>
       </Modal>
 
-      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+          position="bottom-right"
+        />
+      )}
     </>
   );
 };

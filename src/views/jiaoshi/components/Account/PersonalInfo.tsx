@@ -331,6 +331,7 @@ const PersonalInfo: React.FC = () => {
           message={toast.message}
           type={toast.type}
           onClose={hideToast}
+          position="bottom-right"
         />
       )}
     </>
