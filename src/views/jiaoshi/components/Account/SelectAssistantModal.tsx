@@ -4,6 +4,8 @@ import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import type { User as Assistant, Class } from '../../types';
 import { Loader, AlertTriangle } from 'lucide-react';
+import { useToast } from '../../hooks/useToast';
+import { Toast } from '../Common/Toast';
 
 interface SelectAssistantModalProps {
   isOpen: boolean;
@@ -20,10 +22,11 @@ export const SelectAssistantModal: React.FC<SelectAssistantModalProps> = ({
   managedClasses,
   existingAssistantIds,
 }) => {
+  const { toast, showToast, hideToast } = useToast();
   const [allAssistants, setAllAssistants] = useState<Assistant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [selectedAssistantId, setSelectedAssistantId] = useState<number | null>(null);
   const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
 
@@ -55,7 +58,7 @@ export const SelectAssistantModal: React.FC<SelectAssistantModalProps> = ({
 
   const handleAssign = async () => {
     if (!selectedAssistantId || selectedClassIds.length === 0) {
-      alert('请选择一位助教并分配至少一个班级。');
+      showToast('请选择一位助教并分配至少一个班级。', 'error');
       return;
     }
 
@@ -65,14 +68,15 @@ export const SelectAssistantModal: React.FC<SelectAssistantModalProps> = ({
           apiClient.post(`/classes/${classId}/assistants`, { assistant_id: selectedAssistantId })
         )
       );
-      
+
       const assignedAssistant = allAssistants.find(a => a.user_id === selectedAssistantId);
       if (assignedAssistant) {
         onAssignmentSuccess(assignedAssistant);
       }
+      showToast('助教分配成功', 'success');
       handleClose();
     } catch (err: any) {
-      alert(`分配失败: ${err.message}`);
+      showToast(`分配失败: ${err.message}`, 'error');
     }
   };
 
@@ -135,6 +139,7 @@ export const SelectAssistantModal: React.FC<SelectAssistantModalProps> = ({
           <Button onClick={handleAssign} disabled={!selectedAssistantId || selectedClassIds.length === 0}>确认分配</Button>
         </div>
       </div>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </Modal>
   );
 };

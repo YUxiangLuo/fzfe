@@ -8,8 +8,11 @@ import { decodeToken } from '../../../../utils/auth';
 import { SelectAssistantModal } from './SelectAssistantModal';
 import { ReassignAssistantModal } from './ReassignAssistantModal';
 import { validateUsername, validateFullName, validateEmail, validatePhone, validatePassword } from '../../utils/validation';
+import { useToast } from '../../hooks/useToast';
+import { Toast } from '../Common/Toast';
 
 const AssistantManagement: React.FC = () => {
+  const { toast, showToast, hideToast } = useToast();
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [managedClasses, setManagedClasses] = useState<Class[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,41 +77,41 @@ const AssistantManagement: React.FC = () => {
     // 验证用户名
     const usernameValidation = validateUsername(newAssistant.username);
     if (!usernameValidation.valid) {
-      alert(usernameValidation.error);
+      showToast(usernameValidation.error, 'error');
       return;
     }
 
     // 验证姓名
     const nameValidation = validateFullName(newAssistant.full_name);
     if (!nameValidation.valid) {
-      alert(nameValidation.error);
+      showToast(nameValidation.error, 'error');
       return;
     }
 
     // 验证密码
     const passwordValidation = validatePassword(newAssistant.password, { minLength: 6 });
     if (!passwordValidation.valid) {
-      alert(passwordValidation.error);
+      showToast(passwordValidation.error, 'error');
       return;
     }
 
     // 验证邮箱
     const emailValidation = validateEmail(newAssistant.email, true);
     if (!emailValidation.valid) {
-      alert(emailValidation.error);
+      showToast(emailValidation.error, 'error');
       return;
     }
 
     // 验证手机号（必填）
     const phoneValidation = validatePhone(newAssistant.phone_number, true);
     if (!phoneValidation.valid) {
-      alert(phoneValidation.error);
+      showToast(phoneValidation.error, 'error');
       return;
     }
 
     // 验证班级选择
     if (selectedClassIds.length === 0) {
-      alert('请至少选择一个班级');
+      showToast('请至少选择一个班级', 'error');
       return;
     }
 
@@ -125,8 +128,9 @@ const AssistantManagement: React.FC = () => {
       const createdAssistant = await apiClient.post('/assistants', payload);
       setAssistants(prev => [createdAssistant, ...prev]);
       resetCreateModal();
+      showToast('助教创建成功', 'success');
     } catch (err: any) {
-      alert(`创建失败: ${err.message}`);
+      showToast(`创建失败: ${err.message}`, 'error');
     }
   };
 
@@ -281,6 +285,8 @@ const AssistantManagement: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </>
   );
 };

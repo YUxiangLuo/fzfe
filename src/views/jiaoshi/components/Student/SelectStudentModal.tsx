@@ -4,6 +4,8 @@ import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import type { Student } from '../../types';
 import { Loader, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useToast } from '../../hooks/useToast';
+import { Toast } from '../Common/Toast';
 
 interface SelectStudentModalProps {
   isOpen: boolean;
@@ -22,6 +24,7 @@ const SelectStudentModal: React.FC<SelectStudentModalProps> = ({
   classId,
   onStudentEnrolled,
 }) => {
+  const { toast, showToast, hideToast } = useToast();
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,9 +71,10 @@ const SelectStudentModal: React.FC<SelectStudentModalProps> = ({
       });
       setEnrollState((prev) => ({ ...prev, [student.user_id]: 'success' }));
       onStudentEnrolled(student);
+      showToast('学生添加成功', 'success');
     } catch (err: any) {
       setEnrollState((prev) => ({ ...prev, [student.user_id]: 'error' }));
-      alert(err.message || '添加学生失败');
+      showToast(err.message || '添加学生失败', 'error');
     }
   };
 
@@ -151,6 +155,7 @@ const SelectStudentModal: React.FC<SelectStudentModalProps> = ({
           </Button>
         </div>
       </div>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </Modal>
   );
 };

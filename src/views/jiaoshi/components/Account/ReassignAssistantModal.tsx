@@ -4,6 +4,8 @@ import Button from '../Common/Button';
 import type { User as Assistant, Class } from '../../types';
 import { apiClient } from '../../../../utils/apiClient';
 import { Loader, AlertTriangle } from 'lucide-react';
+import { useToast } from '../../hooks/useToast';
+import { Toast } from '../Common/Toast';
 
 interface ReassignAssistantModalProps {
   isOpen: boolean;
@@ -23,6 +25,7 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
   assistant,
   managedClasses,
 }) => {
+  const { toast, showToast, hideToast } = useToast();
   const [assignmentStatus, setAssignmentStatus] = useState<ClassAssignmentStatus[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +84,7 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
   const handleAssign = async (classId: number) => {
     if (!assistant) return;
     const classInfo = classLookup.get(classId);
-    const confirmMessage = `确认将助教“${assistantName}”绑定到班级“${classInfo?.class_name || classId}”吗？`;
+    const confirmMessage = `确认将助教"${assistantName}"绑定到班级"${classInfo?.class_name || classId}"吗？`;
     if (!window.confirm(confirmMessage)) return;
 
     setProcessingClassId(classId);
@@ -92,8 +95,9 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
           status.classId === classId ? { ...status, assigned: true } : status
         )
       );
+      showToast('绑定成功', 'success');
     } catch (err: any) {
-      alert(`绑定失败: ${err.message}`);
+      showToast(`绑定失败: ${err.message}`, 'error');
     } finally {
       setProcessingClassId(null);
     }
@@ -102,7 +106,7 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
   const handleUnassign = async (classId: number) => {
     if (!assistant) return;
     const classInfo = classLookup.get(classId);
-    const confirmMessage = `确认解绑助教“${assistantName}”与班级“${classInfo?.class_name || classId}”的关联吗？`;
+    const confirmMessage = `确认解绑助教"${assistantName}"与班级"${classInfo?.class_name || classId}"的关联吗？`;
     if (!window.confirm(confirmMessage)) return;
 
     setProcessingClassId(classId);
@@ -113,8 +117,9 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
           status.classId === classId ? { ...status, assigned: false } : status
         )
       );
+      showToast('解绑成功', 'success');
     } catch (err: any) {
-      alert(`解绑失败: ${err.message}`);
+      showToast(`解绑失败: ${err.message}`, 'error');
     } finally {
       setProcessingClassId(null);
     }
@@ -210,12 +215,13 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
           </div>
         )}
         {renderContent()}
-        <div className="flex justify-end pt-4 border-t border-gray-100">
+        <div className="flex justify-end pt-4 border-gray-100">
           <Button variant="outline" onClick={onClose}>
             关闭
           </Button>
         </div>
       </div>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </Modal>
   );
 };
