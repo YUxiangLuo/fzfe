@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Loader, AlertTriangle, UserPlus, RefreshCw } from 'lucide-react';
 import type { User as Assistant, Class } from '../../types';
 import Modal from '../Common/Modal';
@@ -32,9 +32,14 @@ const AssistantManagement: React.FC = () => {
     setAssistantToReassign(null);
   }, []);
 
-  const [newAssistant, setNewAssistant] = useState({
-    username: '', password: '', full_name: '', email: '', phone_number: '',
-  });
+  const INITIAL_ASSISTANT = useMemo(() => ({
+    username: '',
+    password: '',
+    full_name: '',
+    email: '',
+    phone_number: '',
+  }), []);
+  const [newAssistant, setNewAssistant] = useState(INITIAL_ASSISTANT);
   const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
 
   useEffect(() => {
@@ -76,11 +81,11 @@ const AssistantManagement: React.FC = () => {
     );
   };
 
-  const resetCreateModal = () => {
+  const resetCreateModal = useCallback(() => {
     setShowCreateModal(false);
-    setNewAssistant({ username: '', password: '', full_name: '', email: '', phone_number: '' });
+    setNewAssistant(INITIAL_ASSISTANT);
     setSelectedClassIds([]);
-  };
+  }, [INITIAL_ASSISTANT]);
 
   const handleCreateAssistant = async () => {
     // 验证用户名
