@@ -8,8 +8,8 @@ import { decodeToken } from '../../../../utils/auth';
 import { validateClassName, validateClassCode } from '../../utils/validation';
 import { useToast } from '../../hooks/useToast';
 import { useConfirm } from '../../hooks/useConfirm';
-import Toast from '../Common/Toast';
-import ConfirmDialog from '../Common/ConfirmDialog';
+import { Toast } from '../Common/Toast';
+import { ConfirmDialog } from '../Common/ConfirmDialog';
 
 interface CreateClassForm {
   class_name: string;
@@ -31,7 +31,7 @@ interface CreateClassResponse {
 const MAX_CSV_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const ClassManagement: React.FC = () => {
-  const toast = useToast();
+  const { toast, showToast, hideToast } = useToast();
   const confirm = useConfirm();
   const [classes, setClasses] = useState<EnrichedClass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -117,21 +117,21 @@ const ClassManagement: React.FC = () => {
     if (file) {
       // 验证文件扩展名
       if (!file.name.endsWith('.csv')) {
-        toast.showToast('请上传 CSV 格式的文件', 'error');
+        showToast('请上传 CSV 格式的文件', 'error');
         e.target.value = '';
         return;
       }
 
       // 验证 MIME 类型
       if (file.type && !['text/csv', 'application/vnd.ms-excel', 'text/plain'].includes(file.type)) {
-        toast.showToast('文件类型不正确，请上传有效的 CSV 文件', 'error');
+        showToast('文件类型不正确，请上传有效的 CSV 文件', 'error');
         e.target.value = '';
         return;
       }
 
       // 验证文件大小
       if (file.size > MAX_CSV_FILE_SIZE) {
-        toast.showToast('文件大小不能超过 5MB', 'error');
+        showToast('文件大小不能超过 5MB', 'error');
         e.target.value = '';
         return;
       }
@@ -152,14 +152,14 @@ const ClassManagement: React.FC = () => {
     // 验证班级名称
     const nameValidation = validateClassName(formData.class_name);
     if (!nameValidation.valid) {
-      toast.showToast(nameValidation.error || '班级名称格式不正确', 'error');
+      showToast(nameValidation.error || '班级名称格式不正确', 'error');
       return;
     }
 
     // 验证班级代码
     const codeValidation = validateClassCode(formData.class_code);
     if (!codeValidation.valid) {
-      toast.showToast(codeValidation.error || '班级代码格式不正确', 'error');
+      showToast(codeValidation.error || '班级代码格式不正确', 'error');
       return;
     }
 
@@ -187,12 +187,12 @@ const ClassManagement: React.FC = () => {
       setFormData({ class_name: '', class_code: '' });
       setCsvFile(null);
 
-      toast.showToast('班级创建成功', 'success');
+      showToast('班级创建成功', 'success');
     } catch (err: unknown) {
       if (err instanceof Error) {
-        toast.showToast(err.message, 'error');
+        showToast(err.message, 'error');
       } else {
-        toast.showToast('操作失败，请稍后重试', 'error');
+        showToast('操作失败，请稍后重试', 'error');
       }
     } finally {
       setIsSubmitting(false);
@@ -214,14 +214,14 @@ const ClassManagement: React.FC = () => {
     // 验证班级名称
     const nameValidation = validateClassName(formData.class_name);
     if (!nameValidation.valid) {
-      toast.showToast(nameValidation.error || '班级名称格式不正确', 'error');
+      showToast(nameValidation.error || '班级名称格式不正确', 'error');
       return;
     }
 
     // 验证班级代码
     const codeValidation = validateClassCode(formData.class_code);
     if (!codeValidation.valid) {
-      toast.showToast(codeValidation.error || '班级代码格式不正确', 'error');
+      showToast(codeValidation.error || '班级代码格式不正确', 'error');
       return;
     }
 
@@ -246,12 +246,12 @@ const ClassManagement: React.FC = () => {
       setSelectedClass(null);
       setFormData({ class_name: '', class_code: '' });
 
-      toast.showToast('班级信息更新成功', 'success');
+      showToast('班级信息更新成功', 'success');
     } catch (err: unknown) {
       if (err instanceof Error) {
-        toast.showToast(err.message, 'error');
+        showToast(err.message, 'error');
       } else {
-        toast.showToast('操作失败，请稍后重试', 'error');
+        showToast('操作失败，请稍后重试', 'error');
       }
     } finally {
       setIsSubmitting(false);
@@ -277,12 +277,12 @@ const ClassManagement: React.FC = () => {
         setFormData({ class_name: '', class_code: '' });
       }
 
-      toast.showToast('班级删除成功', 'success');
+      showToast('班级删除成功', 'success');
     } catch (err: unknown) {
       if (err instanceof Error) {
-        toast.showToast(err.message, 'error');
+        showToast(err.message, 'error');
       } else {
-        toast.showToast('操作失败，请稍后重试', 'error');
+        showToast('操作失败，请稍后重试', 'error');
       }
     }
   };
@@ -743,12 +743,13 @@ const ClassManagement: React.FC = () => {
         )}
       </Modal>
 
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={toast.hideToast}
-      />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
 
       <ConfirmDialog
         isOpen={confirm.isOpen}
@@ -756,7 +757,7 @@ const ClassManagement: React.FC = () => {
         message={confirm.message}
         variant={confirm.variant}
         onConfirm={confirm.handleConfirm}
-        onCancel={confirm.hideConfirm}
+        onCancel={confirm.handleCancel}
       />
     </div>
   );
