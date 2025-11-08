@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination } from 'swiper/modules';
+import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import type { Swiper as SwiperType } from 'swiper';
 import 'swiper/css';
 import 'swiper/css/navigation';
@@ -31,7 +31,7 @@ const paginationStyle = `
 const ScenarioIntroduction: React.FC = () => {
   const navigate = useNavigate();
   const [hasViewedAll, setHasViewedAll] = useState(false);
-  const [maxReachedIndex, setMaxReachedIndex] = useState(0);
+  const [viewedSlides, setViewedSlides] = useState<Set<number>>(new Set([0])); // 初始包含第一张
 
   // 图片列表（暂时用同一张图片代替）
   const images = [
@@ -42,15 +42,18 @@ const ScenarioIntroduction: React.FC = () => {
   const handleSlideChange = (swiper: SwiperType) => {
     const currentIndex = swiper.realIndex;
 
-    // 更新用户浏览到的最大索引
-    if (currentIndex > maxReachedIndex) {
-      setMaxReachedIndex(currentIndex);
-    }
+    // 记录已访问的图片索引
+    setViewedSlides((prev) => {
+      const newSet = new Set(prev);
+      newSet.add(currentIndex);
 
-    // 如果到达最后一张图片，标记为已全部查看
-    if (currentIndex === images.length - 1 || maxReachedIndex >= images.length - 1) {
-      setHasViewedAll(true);
-    }
+      // 如果已经访问过所有图片，标记为已全部查看
+      if (newSet.size >= images.length) {
+        setHasViewedAll(true);
+      }
+
+      return newSet;
+    });
   };
 
   const handlePrevious = () => {
@@ -73,7 +76,7 @@ const ScenarioIntroduction: React.FC = () => {
         {/* 图片容器：宽度100%，高度为宽度的9/16，但不超过父容器高度 */}
         <div className="relative w-full max-h-full" style={{ aspectRatio: '16/9' }}>
           <Swiper
-            modules={[Navigation, Pagination]}
+            modules={[Navigation, Pagination, Autoplay]}
             navigation={{
               prevEl: '.swiper-button-prev-custom',
               nextEl: '.swiper-button-next-custom',
@@ -82,7 +85,11 @@ const ScenarioIntroduction: React.FC = () => {
               clickable: true,
               el: '.swiper-pagination-custom',
             }}
-            loop={false}
+            loop={true}
+            autoplay={{
+              delay: 5000,
+              disableOnInteraction: false,
+            }}
             speed={800}
             onSlideChange={handleSlideChange}
             className="h-full w-full rounded-lg"
@@ -133,25 +140,6 @@ const ScenarioIntroduction: React.FC = () => {
           </button>
 
           <div className="flex items-center gap-4">
-            {/* 查看进度提示 */}
-            {!hasViewedAll && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                <Eye className="w-4 h-4 text-amber-600" />
-                <span className="text-sm text-amber-700 font-medium">
-                  请查看所有图片后继续（{maxReachedIndex + 1}/{images.length}）
-                </span>
-              </div>
-            )}
-
-            {hasViewedAll && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
-                <Eye className="w-4 h-4 text-green-600" />
-                <span className="text-sm text-green-700 font-medium">
-                  已查看所有图片 ✓
-                </span>
-              </div>
-            )}
-
             <button
               onClick={handleNext}
               disabled={!hasViewedAll}
