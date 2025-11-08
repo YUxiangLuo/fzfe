@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Factory,
   Boxes,
+  Briefcase,
 } from 'lucide-react';
 
 const ProductionRoleIntroduction: React.FC = () => {
@@ -100,138 +101,7 @@ const ProductionRoleIntroduction: React.FC = () => {
                 </div>
               </div>
 
-              {/* 关键绩效指标 */}
-              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-semibold text-teal-900 mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  关键绩效指标（KPIs）
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white/60 rounded-lg p-3 border border-teal-200">
-                    <div className="text-2xl font-bold text-teal-700 mb-1">≥95%</div>
-                    <div className="text-xs text-teal-900">订单满足率</div>
-                  </div>
-                  <div className="bg-white/60 rounded-lg p-3 border border-teal-200">
-                    <div className="text-2xl font-bold text-teal-700 mb-1">≤5%</div>
-                    <div className="text-xs text-teal-900">缺货率目标</div>
-                  </div>
-                  <div className="bg-white/60 rounded-lg p-3 border border-teal-200">
-                    <div className="text-2xl font-bold text-teal-700 mb-1">30天</div>
-                    <div className="text-xs text-teal-900">库存周转天数</div>
-                  </div>
-                  <div className="bg-white/60 rounded-lg p-3 border border-teal-200">
-                    <div className="text-2xl font-bold text-teal-700 mb-1">20%↓</div>
-                    <div className="text-xs text-teal-900">库存成本降低</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 核心技能 */}
-              <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-semibold text-orange-900 mb-4 flex items-center gap-2">
-                  <Lightbulb className="w-5 h-5" />
-                  需要的核心技能
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-2 bg-white/60 rounded-lg px-3 py-2 border border-orange-200">
-                    <BarChart3 className="w-4 h-4 text-orange-600 flex-shrink-0" />
-                    <span className="text-xs text-orange-900 font-medium">计划编制</span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-white/60 rounded-lg px-3 py-2 border border-orange-200">
-                    <Boxes className="w-4 h-4 text-orange-600 flex-shrink-0" />
-                    <span className="text-xs text-orange-900 font-medium">库存管理</span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-white/60 rounded-lg px-3 py-2 border border-orange-200">
-                    <TrendingUp className="w-4 h-4 text-orange-600 flex-shrink-0" />
-                    <span className="text-xs text-orange-900 font-medium">需求分析</span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-white/60 rounded-lg px-3 py-2 border border-orange-200">
-                    <Users className="w-4 h-4 text-orange-600 flex-shrink-0" />
-                    <span className="text-xs text-orange-900 font-medium">跨部门协作</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 右列 */}
-            <div className="space-y-5">
-              {/* MPS制定流程 */}
-              <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 border border-violet-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-semibold text-violet-900 mb-4 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5" />
-                  您即将完成的工作流程
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
-                      1
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-violet-900 text-sm mb-1">规划总览</h4>
-                      <p className="text-xs text-gray-700 leading-relaxed">
-                        了解MPS表结构，理解各列指标的含义和计算逻辑
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
-                      2
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-violet-900 text-sm mb-1">生产变量计算</h4>
-                      <p className="text-xs text-gray-700 leading-relaxed">
-                        学习如何计算期初库存和缺货量，掌握库存动态变化
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
-                      3
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-violet-900 text-sm mb-1">服务水平设定</h4>
-                      <p className="text-xs text-gray-700 leading-relaxed">
-                        根据业务目标设定服务水平，平衡成本与客户满意度
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
-                      4
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-violet-900 text-sm mb-1">预测量确定</h4>
-                      <p className="text-xs text-gray-700 leading-relaxed">
-                        应用需求预测结果，计算安全库存和预测需求量
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
-                      5
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-violet-900 text-sm mb-1">投入量决策</h4>
-                      <p className="text-xs text-gray-700 leading-relaxed">
-                        确定实际生产投入量，生成完整的主生产计划
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
-                      6
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-violet-900 text-sm mb-1">完整计划表</h4>
-                      <p className="text-xs text-gray-700 leading-relaxed">
-                        查看和分析完整的MPS，评估计划的合理性
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 决策场景示例 */}
+              {/* 典型决策场景 */}
               <div className="bg-gradient-to-br from-pink-50 to-rose-50 border border-pink-200 rounded-lg p-5 hover:shadow-md transition-shadow">
                 <h3 className="text-lg font-semibold text-pink-900 mb-4 flex items-center gap-2">
                   <Award className="w-5 h-5" />
@@ -264,37 +134,108 @@ const ProductionRoleIntroduction: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* 注意事项 */}
-              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5" />
-                  重要提示
+            {/* 右列 */}
+            <div className="space-y-5">
+              {/* MPS制定流程 */}
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+                <h3 className="text-lg font-semibold text-purple-900 mb-4 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  您即将完成的工作流程
                 </h3>
-                <div className="space-y-2 text-xs text-blue-900">
-                  <div className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-600 flex-shrink-0 mt-1.5"></div>
-                    <p>
-                      <strong>预测是基础：</strong>准确的需求预测是制定有效生产计划的前提，密切关注预测精度
-                    </p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
+                      1
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-purple-900 text-sm mb-1">规划总览</h4>
+                      <p className="text-xs text-gray-700 leading-relaxed">
+                        了解MPS表结构，理解各列指标的含义和计算逻辑
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-600 flex-shrink-0 mt-1.5"></div>
-                    <p>
-                      <strong>平衡是关键：</strong>在库存成本、缺货风险、生产效率之间找到最优平衡点
-                    </p>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
+                      2
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-purple-900 text-sm mb-1">生产变量计算</h4>
+                      <p className="text-xs text-gray-700 leading-relaxed">
+                        学习如何计算期初库存和缺货量，掌握库存动态变化
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-600 flex-shrink-0 mt-1.5"></div>
-                    <p>
-                      <strong>动态调整：</strong>生产计划不是一成不变的，需根据实际情况持续优化调整
-                    </p>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
+                      3
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-purple-900 text-sm mb-1">服务水平设定</h4>
+                      <p className="text-xs text-gray-700 leading-relaxed">
+                        根据业务目标设定服务水平，平衡成本与客户满意度
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-600 flex-shrink-0 mt-1.5"></div>
-                    <p>
-                      <strong>数据驱动：</strong>用数据说话，避免拍脑袋决策，建立科学的决策机制
-                    </p>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
+                      4
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-purple-900 text-sm mb-1">预测量确定</h4>
+                      <p className="text-xs text-gray-700 leading-relaxed">
+                        应用需求预测结果，计算安全库存和预测需求量
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
+                      5
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-purple-900 text-sm mb-1">投入量决策</h4>
+                      <p className="text-xs text-gray-700 leading-relaxed">
+                        确定实际生产投入量，生成完整的主生产计划
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-600 to-pink-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md">
+                      6
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-purple-900 text-sm mb-1">完整计划表</h4>
+                      <p className="text-xs text-gray-700 leading-relaxed">
+                        查看和分析完整的MPS，评估计划的合理性
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 关键绩效指标 */}
+              <div className="bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+                <h3 className="text-lg font-semibold text-teal-900 mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  关键绩效指标（KPIs）
+                </h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white/60 rounded-lg p-3 border border-teal-200">
+                    <div className="text-2xl font-bold text-teal-700 mb-1">≥95%</div>
+                    <div className="text-xs text-teal-900">订单满足率</div>
+                  </div>
+                  <div className="bg-white/60 rounded-lg p-3 border border-teal-200">
+                    <div className="text-2xl font-bold text-teal-700 mb-1">≤5%</div>
+                    <div className="text-xs text-teal-900">缺货率目标</div>
+                  </div>
+                  <div className="bg-white/60 rounded-lg p-3 border border-teal-200">
+                    <div className="text-2xl font-bold text-teal-700 mb-1">30天</div>
+                    <div className="text-xs text-teal-900">库存周转天数</div>
+                  </div>
+                  <div className="bg-white/60 rounded-lg p-3 border border-teal-200">
+                    <div className="text-2xl font-bold text-teal-700 mb-1">20%↓</div>
+                    <div className="text-xs text-teal-900">库存成本降低</div>
                   </div>
                 </div>
               </div>
