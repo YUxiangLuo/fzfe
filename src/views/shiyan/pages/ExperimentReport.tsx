@@ -251,149 +251,125 @@ const ExperimentReport: React.FC = () => {
       };
       const currentDate = new Date().toLocaleString('zh-CN', { hour12: false });
 
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html lang="zh-CN">
-        <head>
-          <meta charset="UTF-8">
-          <title>实验报告</title>
-          <style>
-            body { font-family: 'SimSun', serif; line-height: 1.6; color: #333; max-width: 1200px; margin: 40px auto; padding-left: 30px; padding-right: 30px; box-sizing: border-box; }
-            h1, h2, h3 { color: #1a202c; }
-            h1 { text-align: center; font-size: 24px; }
-            h2 { font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-top: 24px; }
-            .report-meta { text-align: center; margin-bottom: 40px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0; }
-            .report-meta table { margin: 0 auto; border-collapse: collapse; }
-            .report-meta td { padding: 8px 15px; text-align: left; font-size: 14px; color: #555; border: none; }
-            .report-meta .label { font-weight: bold; color: #333; text-align: right; }
-            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-            th, td { border: 1px solid #cbd5e0; padding: 8px; text-align: left; font-size: 14px; }
-            th { background-color: #f7fafc; }
-            .analysis { margin-top: 16px; text-indent: 2em; }
-          </style>
-        </head>
-        <body>
-          <h1>${userInfo?.full_name || '学生'}的实验报告</h1>
-          
-          <div class="report-meta">
-            <table>
-              <tr>
-                <td class="label">学生姓名：</td><td>${userInfo?.full_name || '未知'}</td>
-                <td class="label">学生ID：</td><td>${state.student_id || '未知'}</td>
-              </tr>
-              <tr>
-                <td class="label">实验ID：</td><td>${state.experiment_id || '未知'}</td>
-                <td class="label">实验开始时间：</td><td>${formatDate(state.start_time)}</td>
-              </tr>
-              <tr>
-                <td class="label">报告生成时间：</td><td colspan="3">${currentDate}</td>
-              </tr>
-            </table>
-          </div>
+      const htmlContent = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>实验报告</title>
+<style>
+body { font-family: 'SimSun', serif; line-height: 1.6; color: #333; max-width: 1200px; margin: 40px auto; padding-left: 30px; padding-right: 30px; box-sizing: border-box; }
+h1, h2, h3 { color: #1a202c; }
+h1 { text-align: center; font-size: 24px; margin-bottom: 10px; }
+h2 { font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-top: 24px; margin-bottom: 16px; }
+h3 { font-size: 16px; margin-top: 16px; margin-bottom: 12px; }
+.report-meta { text-align: center; margin-bottom: 40px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0; }
+.report-meta table { margin: 0 auto; border-collapse: collapse; }
+.report-meta td { padding: 8px 15px; text-align: left; font-size: 14px; color: #555; border: none; }
+.report-meta .label { font-weight: bold; color: #333; text-align: right; }
+table { width: 100%; border-collapse: collapse; margin-top: 16px; margin-bottom: 16px; }
+th, td { border: 1px solid #cbd5e0; padding: 8px; text-align: left; font-size: 14px; }
+th { background-color: #f7fafc; font-weight: bold; }
+.analysis { margin-top: 16px; margin-bottom: 16px; text-indent: 2em; line-height: 1.8; }
+.info-box { background: #EFF6FF; padding: 8px; border-left: 3px solid #3B82F6; margin: 8px 0 16px 0; }
+.success-box { background: #ECFDF5; padding: 8px; border-left: 3px solid #10B981; margin: 8px 0 16px 0; }
+</style>
+</head>
+<body>
+<h1>${userInfo?.full_name || '学生'}的实验报告</h1>
+<div class="report-meta">
+<table>
+<tr>
+<td class="label">学生姓名：</td><td>${userInfo?.full_name || '未知'}</td>
+<td class="label">学生ID：</td><td>${state.student_id || '未知'}</td>
+</tr>
+<tr>
+<td class="label">实验ID：</td><td>${state.experiment_id || '未知'}</td>
+<td class="label">实验开始时间：</td><td>${formatDate(state.start_time)}</td>
+</tr>
+<tr>
+<td class="label">报告生成时间：</td><td colspan="3">${currentDate}</td>
+</tr>
+</table>
+</div>
+<h2>一、实验概述</h2>
+<table>
+<tr><th>行业</th><td>${state.selected_industry || 'N/A'}</td></tr>
+<tr><th>公司</th><td>${state.selected_company || 'N/A'}</td></tr>
+<tr><th>产品</th><td>${state.selected_product || 'N/A'}</td></tr>
+</table>
+<p class="analysis">${dataAnalysis}</p>
+<h2>二、模型性能对比</h2>
+<table>
+<thead><tr><th>模型</th><th>参数</th><th>RMSE</th><th>MAE</th><th>R²</th></tr></thead>
+<tbody>${allModels.map(m => `<tr><td>${m.name}</td><td>${m.params}</td><td>${renderValue(m.rmse)}</td><td>${renderValue(m.mae)}</td><td>${renderValue(m.r2)}</td></tr>`).join('')}</tbody>
+</table>
+<p class="analysis">${modelComparisonAnalysis}</p>
+<h2>三、最优模型选择</h2>
+<table>
+<tr><th>选定模型</th><td>${state.selected_best_model ? modelLabels[state.selected_best_model] : 'N/A'}</td></tr>
+<tr><th>RMSE</th><td>${renderValue(bestModelMetrics?.rmse)}</td></tr>
+<tr><th>MAE</th><td>${renderValue(bestModelMetrics?.mae)}</td></tr>
+<tr><th>R²</th><td>${renderValue(bestModelMetrics?.r2)}</td></tr>
+</table>
+<p class="analysis">${modelSelectionAnalysis}</p>
+<h2>四、生产计划参数计算结果</h2>
+<p class="info-box">💡 以下是您在学习过程中逐步计算出的<strong>期2（学习演示期）</strong>的各项参数</p>
+${(() => {
+const period2 = state.production_mps_table.length > 1 ? state.production_mps_table[1] : null;
+if (!period2) return '<p>暂无期2数据</p>';
+return `<h3>基础生产变量</h3>
+<table>
+<tr><th>需求预测</th><td>${period2.demand_forecast} 件</td><td>来源: ${state.selected_best_model ? modelLabels[state.selected_best_model] : ''} 模型</td></tr>
+<tr><th>产出量</th><td>${period2.production_output} 件</td><td>您手动输入的生产量</td></tr>
+<tr><th>期初库存</th><td>${period2.beginning_inventory} 件</td><td>继承自期1的期末库存</td></tr>
+<tr><th>期末库存</th><td>${period2.ending_inventory} 件</td><td>= 期初 + 产出 - 需求</td></tr>
+<tr><th>缺货量</th><td style="color: ${period2.stockout > 0 ? 'red' : 'black'}">${period2.stockout} 件</td><td>期末库存为负时的绝对值</td></tr>
+</table>
+<h3>服务水平</h3>
+<table>
+<tr><th>服务水平</th><td style="color: ${period2.service_level >= (state.production_target_service_level || 0.99) ? 'green' : 'red'}">${(period2.service_level * 100).toFixed(1)}%</td><td>= 1 - (${period2.stockout} / ${period2.demand_forecast})</td></tr>
+<tr><th>目标对比</th><td colspan="2">实际 ${(period2.service_level * 100).toFixed(1)}% vs 目标 ${((state.production_target_service_level || 0.99) * 100).toFixed(0)}% ${period2.service_level >= (state.production_target_service_level || 0.99) ? '✓ 达标' : '✗ 未达标'}</td></tr>
+</table>
+<h3>安全库存与预测量</h3>
+<table>
+<tr><th>安全库存</th><td>${period2.safety_stock} 件</td><td>= Z值 ${state.production_safety_stock_z_score || 2.33} × 标准差</td></tr>
+<tr><th>预测量</th><td>${period2.demand_forecast + period2.safety_stock} 件</td><td>= 需求 + 安全库存</td></tr>
+</table>
+<h3>计划生产</h3>
+<table>
+<tr><th>计划生产</th><td>${period2.planned_production} 件</td><td>= 预测量 - 期初库存</td></tr>
+</table>`;
+})()}
+<p class="analysis">${planParamsAnalysis}</p>
+<h2>五、生产计划决策结果</h2>
+<p class="success-box">📊 基于您在期2学习的参数计算方法，系统自动生成了完整的生产计划</p>
+<table>
+<thead><tr><th>周期</th><th>预测需求</th><th>安全库存</th><th>计划生产</th><th>期初库存</th><th>产出量</th><th>期末库存</th><th>缺货量</th><th>服务水平</th></tr></thead>
+<tbody>${state.production_mps_table.map(row => `<tr><td>${row.period_label}</td><td>${row.demand_forecast}</td><td>${row.safety_stock}</td><td>${row.planned_production}</td><td>${row.beginning_inventory}</td><td>${row.production_output}</td><td>${row.ending_inventory}</td><td>${row.stockout}</td><td>${(row.service_level * 100).toFixed(1)}%</td></tr>`).join('')}</tbody>
+</table>
+<h3>计划汇总统计</h3>
+<table>
+<tr><th>总预测需求</th><td>${state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0).toLocaleString()} 件（${state.production_mps_table.length}期累计）</td></tr>
+<tr><th>总产出量</th><td>${state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0).toLocaleString()} 件（${state.production_mps_table.length}期累计）</td></tr>
+<tr><th>平均服务水平</th><td>${((state.production_mps_table.reduce((sum, row) => sum + row.service_level, 0) / state.production_mps_table.length) * 100).toFixed(1)}%</td></tr>
+<tr><th>产能利用率</th><td>${state.production_capacity ? ((state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0) / (state.production_capacity * state.production_mps_table.length)) * 100).toFixed(1) : 'N/A'}%</td></tr>
+<tr><th>总安全库存</th><td>${state.production_mps_table.reduce((sum, row) => sum + row.safety_stock, 0).toLocaleString()} 件（${state.production_mps_table.length}期累计）</td></tr>
+<tr><th>总缺货量</th><td>${state.production_mps_table.reduce((sum, row) => sum + row.stockout, 0).toLocaleString()} 件（${state.production_mps_table.filter(row => row.stockout > 0).length}/${state.production_mps_table.length}期缺货）</td></tr>
+<tr><th>平均期末库存</th><td>${Math.round(state.production_mps_table.reduce((sum, row) => sum + row.ending_inventory, 0) / state.production_mps_table.length).toLocaleString()} 件</td></tr>
+<tr><th>供需匹配率</th><td>${((state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0) / state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0)) * 100).toFixed(1)}%</td></tr>
+</table>
+<p class="analysis">${planDecisionAnalysis}</p>
+</body>
+</html>`;
 
-          <h2>一、实验概述</h2>
-          <table>
-            <tr><th>行业</th><td>${state.selected_industry || 'N/A'}</td></tr>
-            <tr><th>公司</th><td>${state.selected_company || 'N/A'}</td></tr>
-            <tr><th>产品</th><td>${state.selected_product || 'N/A'}</td></tr>
-          </table>
-          <p class="analysis">${dataAnalysis}</p>
-
-          <h2>二、模型性能对比</h2>
-          <table>
-            <thead><tr><th>模型</th><th>参数</th><th>RMSE</th><th>MAE</th><th>R²</th></tr></thead>
-            <tbody>
-              ${allModels.map(m => `
-                <tr>
-                  <td>${m.name}</td>
-                  <td>${m.params}</td>
-                  <td>${renderValue(m.rmse)}</td>
-                  <td>${renderValue(m.mae)}</td>
-                  <td>${renderValue(m.r2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <p class="analysis">${modelComparisonAnalysis}</p>
-
-          <h2>三、最优模型选择</h2>
-          <table>
-            <tr><th>选定模型</th><td>${state.selected_best_model ? modelLabels[state.selected_best_model] : 'N/A'}</td></tr>
-            <tr><th>RMSE</th><td>${renderValue(bestModelMetrics?.rmse)}</td></tr>
-            <tr><th>MAE</th><td>${renderValue(bestModelMetrics?.mae)}</td></tr>
-            <tr><th>R²</th><td>${renderValue(bestModelMetrics?.r2)}</td></tr>
-          </table>
-          <p class="analysis">${modelSelectionAnalysis}</p>
-
-          <h2>四、生产计划参数计算结果</h2>
-          <p style="background: #EFF6FF; padding: 8px; border-left: 3px solid #3B82F6; margin: 8px 0;">💡 以下是您在学习过程中逐步计算出的<strong>期2（学习演示期）</strong>的各项参数</p>
-          ${(() => {
-            const period2 = state.production_mps_table.length > 1 ? state.production_mps_table[1] : null;
-            if (!period2) return '<p>暂无期2数据</p>';
-            return `
-              <h3>基础生产变量</h3>
-              <table>
-                <tr><th>需求预测</th><td>${period2.demand_forecast} 件</td><td>来源: ${state.selected_best_model ? modelLabels[state.selected_best_model] : ''} 模型</td></tr>
-                <tr><th>产出量</th><td>${period2.production_output} 件</td><td>您手动输入的生产量</td></tr>
-                <tr><th>期初库存</th><td>${period2.beginning_inventory} 件</td><td>继承自期1的期末库存</td></tr>
-                <tr><th>期末库存</th><td>${period2.ending_inventory} 件</td><td>= 期初 + 产出 - 需求</td></tr>
-                <tr><th>缺货量</th><td style="color: ${period2.stockout > 0 ? 'red' : 'black'}">${period2.stockout} 件</td><td>期末库存为负时的绝对值</td></tr>
-              </table>
-              <h3>服务水平</h3>
-              <table>
-                <tr><th>服务水平</th><td style="color: ${period2.service_level >= (state.production_target_service_level || 0.99) ? 'green' : 'red'}">${(period2.service_level * 100).toFixed(1)}%</td><td>= 1 - (${period2.stockout} / ${period2.demand_forecast})</td></tr>
-                <tr><th>目标对比</th><td colspan="2">实际 ${(period2.service_level * 100).toFixed(1)}% vs 目标 ${((state.production_target_service_level || 0.99) * 100).toFixed(0)}% ${period2.service_level >= (state.production_target_service_level || 0.99) ? '✓ 达标' : '✗ 未达标'}</td></tr>
-              </table>
-              <h3>安全库存与预测量</h3>
-              <table>
-                <tr><th>安全库存</th><td>${period2.safety_stock} 件</td><td>= Z值 ${state.production_safety_stock_z_score || 2.33} × 标准差</td></tr>
-                <tr><th>预测量</th><td>${period2.demand_forecast + period2.safety_stock} 件</td><td>= 需求 + 安全库存</td></tr>
-              </table>
-              <h3>计划生产</h3>
-              <table>
-                <tr><th>计划生产</th><td>${period2.planned_production} 件</td><td>= 预测量 - 期初库存</td></tr>
-              </table>
-            `;
-          })()}
-          <p class="analysis">${planParamsAnalysis}</p>
-
-          <h2>五、生产计划决策结果</h2>
-          <p style="background: #ECFDF5; padding: 8px; border-left: 3px solid #10B981; margin: 8px 0;">📊 基于您在期2学习的参数计算方法，系统自动生成了完整的生产计划</p>
-          <table>
-            <thead><tr><th>周期</th><th>预测需求</th><th>安全库存</th><th>计划生产</th><th>期初库存</th><th>产出量</th><th>期末库存</th><th>缺货量</th><th>服务水平</th></tr></thead>
-            <tbody>
-              ${state.production_mps_table.map(row => `
-                <tr>
-                  <td>${row.period_label}</td>
-                  <td>${row.demand_forecast}</td>
-                  <td>${row.safety_stock}</td>
-                  <td>${row.planned_production}</td>
-                  <td>${row.beginning_inventory}</td>
-                  <td>${row.production_output}</td>
-                  <td>${row.ending_inventory}</td>
-                  <td>${row.stockout}</td>
-                  <td>${(row.service_level * 100).toFixed(1)}%</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <h3>计划汇总统计</h3>
-          <table>
-            <tr><th>总预测需求</th><td>${state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0).toLocaleString()} 件（${state.production_mps_table.length}期累计）</td></tr>
-            <tr><th>总产出量</th><td>${state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0).toLocaleString()} 件（${state.production_mps_table.length}期累计）</td></tr>
-            <tr><th>平均服务水平</th><td>${((state.production_mps_table.reduce((sum, row) => sum + row.service_level, 0) / state.production_mps_table.length) * 100).toFixed(1)}%</td></tr>
-            <tr><th>产能利用率</th><td>${state.production_capacity ? ((state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0) / (state.production_capacity * state.production_mps_table.length)) * 100).toFixed(1) : 'N/A'}%</td></tr>
-            <tr><th>总安全库存</th><td>${state.production_mps_table.reduce((sum, row) => sum + row.safety_stock, 0).toLocaleString()} 件（${state.production_mps_table.length}期累计）</td></tr>
-            <tr><th>总缺货量</th><td>${state.production_mps_table.reduce((sum, row) => sum + row.stockout, 0).toLocaleString()} 件（${state.production_mps_table.filter(row => row.stockout > 0).length}/${state.production_mps_table.length}期缺货）</td></tr>
-            <tr><th>平均期末库存</th><td>${Math.round(state.production_mps_table.reduce((sum, row) => sum + row.ending_inventory, 0) / state.production_mps_table.length).toLocaleString()} 件</td></tr>
-            <tr><th>供需匹配率</th><td>${((state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0) / state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0)) * 100).toFixed(1)}%</td></tr>
-          </table>
-          <p class="analysis">${planDecisionAnalysis}</p>
-        </body>
-        </html>
-      `;
-
-      const base64Content = btoa(unescape(encodeURIComponent(htmlContent)));
+      // 使用现代的 base64 编码方式，支持 UTF-8
+      const encoder = new TextEncoder();
+      const utf8Bytes = encoder.encode(htmlContent);
+      let binaryString = '';
+      for (let i = 0; i < utf8Bytes.length; i++) {
+        binaryString += String.fromCharCode(utf8Bytes[i]);
+      }
+      const base64Content = btoa(binaryString);
 
       const response = await apiClient.post<{ message: string; report_id: number; pdf_path: string }>(`/experiment-runs/${state.experiment_id}/report`, {
         report_content: base64Content,
