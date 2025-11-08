@@ -5,8 +5,10 @@ import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
-import { validateFullName, validateEmail, validatePhone, validatePassword } from '../../utils/validation';
+import { validateFullName, validateEmail, validatePhone, validatePassword } from '../../../../shared/utils/validation';
 import SelectStudentModal from './SelectStudentModal';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { Toast } from '../../../../shared/components/Toast';
 
 interface NewStudentForm {
   username: string;
@@ -17,6 +19,7 @@ interface NewStudentForm {
 }
 
 const StudentManagement: React.FC = () => {
+  const { toast, showToast, hideToast } = useToast();
   const [classes, setClasses] = useState<Class[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -69,46 +72,70 @@ const StudentManagement: React.FC = () => {
   useEffect(() => {
     if (teacherId === null) return;
 
+    const controller = new AbortController();
+
     const fetchClasses = async () => {
       setIsLoadingClasses(true);
       setError(null);
       try {
-        const response = await apiClient.get(`/teachers/${teacherId}/classes`);
-        const list = Array.isArray(response) ? response : [];
-        setClasses(list);
-        if (list.length > 0) {
-          setSelectedClassId(String(list[0].class_id));
+        const response = await apiClient.get(`/teachers/${teacherId}/classes`, { signal: controller.signal });
+
+        if (!controller.signal.aborted) {
+          const list = Array.isArray(response) ? response : [];
+          setClasses(list);
+          if (list.length > 0) {
+            setSelectedClassId(String(list[0].class_id));
+          }
         }
       } catch (err: any) {
-        setError(err.message || '获取班级列表失败');
+        if (err.name === 'AbortError') return;
+
+        if (!controller.signal.aborted) {
+          setError(err.message || '获取班级列表失败');
+        }
       } finally {
-        setIsLoadingClasses(false);
+        if (!controller.signal.aborted) {
+          setIsLoadingClasses(false);
+        }
       }
     };
 
     fetchClasses();
+
+    return () => {
+      controller.abort();
+    };
   }, [teacherId]);
 
-  const loadStudents = useCallback(async (classId: string) => {
+  const loadStudents = useCallback(async (classId: string, signal?: AbortSignal) => {
     setIsLoadingStudents(true);
     setError(null);
     try {
-      const response = await apiClient.get(`/classes/${classId}/students`);
-      const list = Array.isArray(response) ? response : [];
-      const sorted = [...list].sort((a, b) => {
-        const numA = Number(a.username);
-        const numB = Number(b.username);
-        if (Number.isNaN(numA) || Number.isNaN(numB)) {
-          return a.username.localeCompare(b.username);
-        }
-        return numA - numB;
-      });
-      setStudents(sorted);
+      const response = await apiClient.get(`/classes/${classId}/students`, { signal });
+
+      if (!signal?.aborted) {
+        const list = Array.isArray(response) ? response : [];
+        const sorted = [...list].sort((a, b) => {
+          const numA = Number(a.username);
+          const numB = Number(b.username);
+          if (Number.isNaN(numA) || Number.isNaN(numB)) {
+            return a.username.localeCompare(b.username);
+          }
+          return numA - numB;
+        });
+        setStudents(sorted);
+      }
     } catch (err: any) {
-      setError(err.message || '获取学生列表失败');
-      setStudents([]);
+      if (err.name === 'AbortError') return;
+
+      if (!signal?.aborted) {
+        setError(err.message || '获取学生列表失败');
+        setStudents([]);
+      }
     } finally {
-      setIsLoadingStudents(false);
+      if (!signal?.aborted) {
+        setIsLoadingStudents(false);
+      }
     }
   }, []);
 
@@ -117,7 +144,13 @@ const StudentManagement: React.FC = () => {
       setStudents([]);
       return;
     }
-    void loadStudents(selectedClassId);
+
+    const controller = new AbortController();
+    void loadStudents(selectedClassId, controller.signal);
+
+    return () => {
+      controller.abort();
+    };
   }, [selectedClassId, loadStudents]);
 
   useEffect(() => {
@@ -192,10 +225,10 @@ const StudentManagement: React.FC = () => {
       await apiClient.post(`/users/${studentForPasswordReset.user_id}/reset-password`, {
         newPassword: trimmedNewPassword,
       });
-      alert(`学生 ${studentForPasswordReset.full_name} 的密码已成功更新。`);
+      showToast(`学生 ${studentForPasswordReset.full_name} 的密码已成功更新。`, 'success');
       setStudentForPasswordReset(null);
     } catch (err: any) {
-      alert(`密码重置失败: ${err.message}`);
+      showToast(`密码重置失败: ${err.message}`, 'error');
     } finally {
       setIsResettingPassword(false);
     }
@@ -204,7 +237,7 @@ const StudentManagement: React.FC = () => {
 
   const handleOpenAddModal = () => {
     if (!selectedClassId) {
-      alert('请先选择一个班级');
+      showToast('请先选择一个班级', 'error');
       return;
     }
     setNewStudent({
@@ -219,27 +252,27 @@ const StudentManagement: React.FC = () => {
 
   const handleAddStudent = async () => {
     if (!selectedClassId) {
-      alert('请先选择一个班级');
+      showToast('请先选择一个班级', 'error');
       return;
     }
 
     const trimmedUsername = newStudent.username.trim();
     if (!/^\d{8,}$/.test(trimmedUsername)) {
-      alert('学号必须为至少8位的纯数字');
+      showToast('学号必须为至少8位的纯数字', 'error');
       return;
     }
 
     // 验证姓名
     const nameValidation = validateFullName(newStudent.full_name);
     if (!nameValidation.valid) {
-      alert(nameValidation.error);
+      showToast(nameValidation.error || '姓名格式不正确', 'error');
       return;
     }
 
     // 验证密码
     const passwordValidation = validatePassword(newStudent.password, { minLength: 6, requireMixed: false });
     if (!passwordValidation.valid) {
-      alert(passwordValidation.error);
+      showToast(passwordValidation.error || '密码格式不正确', 'error');
       return;
     }
 
@@ -247,7 +280,7 @@ const StudentManagement: React.FC = () => {
     if (newStudent.email.trim()) {
       const emailValidation = validateEmail(newStudent.email, false);
       if (!emailValidation.valid) {
-        alert(emailValidation.error);
+        showToast(emailValidation.error || '邮箱格式不正确', 'error');
         return;
       }
     }
@@ -256,7 +289,7 @@ const StudentManagement: React.FC = () => {
     if (newStudent.phone_number.trim()) {
       const phoneValidation = validatePhone(newStudent.phone_number, false);
       if (!phoneValidation.valid) {
-        alert(phoneValidation.error);
+        showToast(phoneValidation.error || '手机号格式不正确', 'error');
         return;
       }
     }
@@ -291,9 +324,9 @@ const StudentManagement: React.FC = () => {
       });
     } catch (err: any) {
       if (err.message.includes('409') || err.message.includes('已存在')) {
-        alert('学号或邮箱已存在，请检查后重试');
+        showToast('学号或邮箱已存在，请检查后重试', 'error');
       } else {
-        alert(`添加学生失败: ${err.message}`);
+        showToast(`添加学生失败: ${err.message}`, 'error');
       }
     } finally {
       setIsSubmitting(false);
@@ -308,8 +341,9 @@ const StudentManagement: React.FC = () => {
       await apiClient.delete(`/classes/${selectedClassId}/students/${studentToRemove.user_id}`);
       setStudents(prev => prev.filter(student => student.user_id !== studentToRemove.user_id));
       setStudentToRemove(null);
+      showToast('学生已成功移除', 'success');
     } catch (err: any) {
-      alert(`移除学生失败: ${err.message}`);
+      showToast(`移除学生失败: ${err.message}`, 'error');
     } finally {
       setIsProcessingRemoval(false);
     }
@@ -422,7 +456,7 @@ const StudentManagement: React.FC = () => {
             variant="outline"
             onClick={() => {
               if (!selectedClassId) {
-                alert('请先选择一个班级');
+                showToast('请先选择一个班级', 'error');
                 return;
               }
               setShowSelectModal(true);
@@ -781,6 +815,8 @@ const StudentManagement: React.FC = () => {
           setShouldRefreshAfterSelectModal(true);
         }}
       />
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </div>
   );
 };

@@ -14,8 +14,8 @@ import Button from "../Common/Button";
 import { API_BASE_URL, apiClient } from "../../../../utils/apiClient";
 import { decodeToken } from "../../../../utils/auth";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../../config/appConfig";
-import { useToast } from "../../hooks/useToast";
-import Toast from "../Common/Toast";
+import { useToast } from "../../../../shared/hooks/useToast";
+import { Toast } from "../../../../shared/components/Toast";
 
 const extractFileName = (filePath: string | null) => {
   if (!filePath) return "在线填写";
@@ -41,7 +41,7 @@ const formatDateTime = (value: string | null) => {
 };
 
 const ExperimentReports: React.FC = () => {
-  const toast = useToast();
+  const { toast, showToast, hideToast } = useToast();
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>("");
   const [reports, setReports] = useState<ExperimentReport[]>([]);
@@ -241,7 +241,7 @@ const ExperimentReports: React.FC = () => {
     if (tempScore.trim()) {
       const gradeValue = Number(tempScore);
       if (Number.isNaN(gradeValue) || gradeValue < 0 || gradeValue > 100) {
-        toast.showToast("请填写 0-100 之间的分数", "error");
+        showToast("请填写 0-100 之间的分数", "error");
         return;
       }
       payload.grade = gradeValue;
@@ -251,7 +251,7 @@ const ExperimentReports: React.FC = () => {
     }
 
     if (payload.grade === undefined && payload.feedback === undefined) {
-      toast.showToast("请至少填写分数或评语", "error");
+      showToast("请至少填写分数或评语", "error");
       return;
     }
 
@@ -269,10 +269,10 @@ const ExperimentReports: React.FC = () => {
         ),
       );
       resetReviewState();
-      toast.showToast("评阅结果保存成功", "success");
+      showToast("评阅结果保存成功", "success");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "保存评阅结果失败";
-      toast.showToast(errorMessage, "error");
+      showToast(errorMessage, "error");
     } finally {
       setIsSubmittingReview(false);
     }
@@ -280,13 +280,13 @@ const ExperimentReports: React.FC = () => {
 
   const handleDownload = useCallback((report: ExperimentReport) => {
     if (!report.pdf_file_path) {
-      toast.showToast("该报告暂未提供可下载的文件", "error");
+      showToast("该报告暂未提供可下载的文件", "error");
       return;
     }
 
     const url = buildDownloadUrl(report.pdf_file_path);
     window.open(url, "_blank");
-  }, []);
+  }, [showToast]);
 
   const handleClassChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedClassId(event.target.value);
@@ -770,12 +770,7 @@ const ExperimentReports: React.FC = () => {
         )}
       </Modal>
 
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={toast.hideToast}
-      />
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </div>
   );
 };

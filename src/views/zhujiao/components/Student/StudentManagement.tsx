@@ -5,10 +5,10 @@ import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
-import { validateFullName, validateEmail, validatePhone, validatePassword } from '../../utils/validation';
+import { validateFullName, validateEmail, validatePhone, validatePassword } from '../../../../shared/utils/validation';
 import SelectStudentModal from './SelectStudentModal';
-import { useToast } from '../../hooks/useToast';
-import Toast from '../Common/Toast';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { Toast } from '../../../../shared/components/Toast';
 
 interface NewStudentForm {
   username: string;
@@ -19,7 +19,7 @@ interface NewStudentForm {
 }
 
 const StudentManagement: React.FC = () => {
-  const toast = useToast();
+  const { toast, showToast, hideToast } = useToast();
   const [classes, setClasses] = useState<Class[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -72,46 +72,70 @@ const StudentManagement: React.FC = () => {
   useEffect(() => {
     if (assistantId === null) return;
 
+    const controller = new AbortController();
+
     const fetchClasses = async () => {
       setIsLoadingClasses(true);
       setError(null);
       try {
-        const response = await apiClient.get(`/assistants/${assistantId}/classes`);
-        const list = Array.isArray(response) ? response : [];
-        setClasses(list);
-        if (list.length > 0) {
-          setSelectedClassId(String(list[0].class_id));
+        const response = await apiClient.get(`/assistants/${assistantId}/classes`, { signal: controller.signal });
+
+        if (!controller.signal.aborted) {
+          const list = Array.isArray(response) ? response : [];
+          setClasses(list);
+          if (list.length > 0) {
+            setSelectedClassId(String(list[0].class_id));
+          }
         }
       } catch (err: any) {
-        setError(err.message || '获取班级列表失败');
+        if (err.name === 'AbortError') return;
+
+        if (!controller.signal.aborted) {
+          setError(err.message || '获取班级列表失败');
+        }
       } finally {
-        setIsLoadingClasses(false);
+        if (!controller.signal.aborted) {
+          setIsLoadingClasses(false);
+        }
       }
     };
 
     fetchClasses();
+
+    return () => {
+      controller.abort();
+    };
   }, [assistantId]);
 
-  const loadStudents = useCallback(async (classId: string) => {
+  const loadStudents = useCallback(async (classId: string, signal?: AbortSignal) => {
     setIsLoadingStudents(true);
     setError(null);
     try {
-      const response = await apiClient.get(`/classes/${classId}/students`);
-      const list = Array.isArray(response) ? response : [];
-      const sorted = [...list].sort((a, b) => {
-        const numA = Number(a.username);
-        const numB = Number(b.username);
-        if (Number.isNaN(numA) || Number.isNaN(numB)) {
-          return a.username.localeCompare(b.username);
-        }
-        return numA - numB;
-      });
-      setStudents(sorted);
+      const response = await apiClient.get(`/classes/${classId}/students`, { signal });
+
+      if (!signal?.aborted) {
+        const list = Array.isArray(response) ? response : [];
+        const sorted = [...list].sort((a, b) => {
+          const numA = Number(a.username);
+          const numB = Number(b.username);
+          if (Number.isNaN(numA) || Number.isNaN(numB)) {
+            return a.username.localeCompare(b.username);
+          }
+          return numA - numB;
+        });
+        setStudents(sorted);
+      }
     } catch (err: any) {
-      setError(err.message || '获取学生列表失败');
-      setStudents([]);
+      if (err.name === 'AbortError') return;
+
+      if (!signal?.aborted) {
+        setError(err.message || '获取学生列表失败');
+        setStudents([]);
+      }
     } finally {
-      setIsLoadingStudents(false);
+      if (!signal?.aborted) {
+        setIsLoadingStudents(false);
+      }
     }
   }, []);
 
@@ -120,7 +144,13 @@ const StudentManagement: React.FC = () => {
       setStudents([]);
       return;
     }
-    void loadStudents(selectedClassId);
+
+    const controller = new AbortController();
+    void loadStudents(selectedClassId, controller.signal);
+
+    return () => {
+      controller.abort();
+    };
   }, [selectedClassId, loadStudents]);
 
   useEffect(() => {
@@ -195,10 +225,10 @@ const StudentManagement: React.FC = () => {
       await apiClient.post(`/users/${studentForPasswordReset.user_id}/reset-password`, {
         newPassword: trimmedNewPassword,
       });
-      toast.showToast(`学生 ${studentForPasswordReset.full_name} 的密码已成功更新。`, 'success');
+      showToast(`学生 ${studentForPasswordReset.full_name} 的密码已成功更新。`, 'success');
       setStudentForPasswordReset(null);
     } catch (err: any) {
-      toast.showToast(`密码重置失败: ${err.message}`, 'error');
+      showToast(`密码重置失败: ${err.message}`, 'error');
     } finally {
       setIsResettingPassword(false);
     }
@@ -207,7 +237,7 @@ const StudentManagement: React.FC = () => {
 
   const handleOpenAddModal = () => {
     if (!selectedClassId) {
-      toast.showToast('请先选择一个班级', 'error');
+      showToast('请先选择一个班级', 'error');
       return;
     }
     setNewStudent({
@@ -222,26 +252,26 @@ const StudentManagement: React.FC = () => {
 
   const handleAddStudent = async () => {
     if (!selectedClassId) {
-      toast.showToast('请先选择一个班级', 'error');
+      showToast('请先选择一个班级', 'error');
       return;
     }
 
     const trimmedUsername = newStudent.username.trim();
     if (!/^\d{8,}$/.test(trimmedUsername)) {
-      toast.showToast('学号必须为至少8位的纯数字', 'error');
+      showToast('学号必须为至少8位的纯数字', 'error');
       return;
     }
 
     // 验证姓名
     const nameValidation = validateFullName(newStudent.full_name);
     if (!nameValidation.valid) {
-      toast.showToast(nameValidation.error, 'error');
+      showToast(nameValidation.error, 'error');
       return;
     }
 
     const passwordValidation = validatePassword(newStudent.password, { minLength: 6, requireMixed: false });
     if (!passwordValidation.valid) {
-      toast.showToast(passwordValidation.error, 'error');
+      showToast(passwordValidation.error, 'error');
       return;
     }
 
@@ -249,7 +279,7 @@ const StudentManagement: React.FC = () => {
     if (newStudent.email.trim()) {
       const emailValidation = validateEmail(newStudent.email, false);
       if (!emailValidation.valid) {
-        toast.showToast(emailValidation.error, 'error');
+        showToast(emailValidation.error, 'error');
         return;
       }
     }
@@ -258,7 +288,7 @@ const StudentManagement: React.FC = () => {
     if (newStudent.phone_number.trim()) {
       const phoneValidation = validatePhone(newStudent.phone_number, false);
       if (!phoneValidation.valid) {
-        toast.showToast(phoneValidation.error, 'error');
+        showToast(phoneValidation.error, 'error');
         return;
       }
     }
@@ -293,9 +323,9 @@ const StudentManagement: React.FC = () => {
       });
     } catch (err: any) {
       if (err.message.includes('409') || err.message.includes('已存在')) {
-        toast.showToast('学号或邮箱已存在，请检查后重试', 'error');
+        showToast('学号或邮箱已存在，请检查后重试', 'error');
       } else {
-        toast.showToast(`添加学生失败: ${err.message}`, 'error');
+        showToast(`添加学生失败: ${err.message}`, 'error');
       }
     } finally {
       setIsSubmitting(false);
@@ -311,7 +341,7 @@ const StudentManagement: React.FC = () => {
       setStudents(prev => prev.filter(student => student.user_id !== studentToRemove.user_id));
       setStudentToRemove(null);
     } catch (err: any) {
-      toast.showToast(`移除学生失败: ${err.message}`, 'error');
+      showToast(`移除学生失败: ${err.message}`, 'error');
     } finally {
       setIsProcessingRemoval(false);
     }
@@ -424,7 +454,7 @@ const StudentManagement: React.FC = () => {
             variant="outline"
             onClick={() => {
               if (!selectedClassId) {
-                toast.showToast('请先选择一个班级', 'error');
+                showToast('请先选择一个班级', 'error');
                 return;
               }
               setShowSelectModal(true);
@@ -669,11 +699,11 @@ const StudentManagement: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="例如：张三"
               minLength={2}
-              maxLength={50}
+              maxLength={20}
               required
               disabled={isSubmitting}
             />
-            <p className="mt-1 text-xs text-gray-500">2-50个字符</p>
+            <p className="mt-1 text-xs text-gray-500">2-20个字符</p>
           </div>
 
           <div>
@@ -774,7 +804,7 @@ const StudentManagement: React.FC = () => {
         classId={selectedClassId}
         onStudentEnrolled={() => setShouldRefreshAfterSelectModal(true)}
       />
-      <Toast message={toast.message} type={toast.type} isVisible={toast.isVisible} onClose={toast.hideToast} />
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </div>
   );
 };

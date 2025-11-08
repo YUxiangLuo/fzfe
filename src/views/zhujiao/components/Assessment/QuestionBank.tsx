@@ -4,11 +4,11 @@ import type { Question, QuestionTypeApi } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
-import { validateQuestionText, validateQuestionOption } from '../../utils/validation';
-import { useToast } from '../../hooks/useToast';
-import { useConfirm } from '../../hooks/useConfirm';
-import Toast from '../Common/Toast';
-import ConfirmDialog from '../Common/ConfirmDialog';
+import { validateQuestionText, validateQuestionOption } from '../../../../shared/utils/validation';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { useConfirm } from '../../../../shared/hooks/useConfirm';
+import { Toast } from '../../../../shared/components/Toast';
+import { ConfirmDialog } from '../../../../shared/components/ConfirmDialog';
 
 type QuestionFormType = 'single' | 'multiple' | 'boolean';
 
@@ -116,7 +116,7 @@ const QuestionBank: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState<number | null>(null);
 
-  const toast = useToast();
+  const { toast, showToast, hideToast } = useToast();
   const confirm = useConfirm();
 
   const secondaryKnowledgeOptions = useMemo(
@@ -137,7 +137,7 @@ const QuestionBank: React.FC = () => {
       await apiClient.delete(`/question-bank/questions/${questionId}`);
       setQuestions((prev) => prev.filter((q) => q.question_id !== questionId));
     } catch (err: any) {
-      toast.showToast(`删除失败: ${err.message}`, 'error');
+      showToast(`删除失败: ${err.message}`, 'error');
     } finally {
       setIsDeleting(null);
     }
@@ -437,7 +437,7 @@ const QuestionBank: React.FC = () => {
   const handleSubmit = async () => {
     const questionValidation = validateQuestionText(editorState.questionText);
     if (!questionValidation.valid) {
-      toast.showToast(questionValidation.error, 'error');
+      showToast(questionValidation.error, 'error');
       return;
     }
 
@@ -445,41 +445,41 @@ const QuestionBank: React.FC = () => {
       !editorState.knowledgePrimary.trim() ||
       !editorState.knowledgeSecondary.trim()
     ) {
-      toast.showToast('请选择知识点', 'error');
+      showToast('请选择知识点', 'error');
       return;
     }
 
     if (editorState.correctAnswers.length === 0) {
-      toast.showToast('请选择正确答案', 'error');
+      showToast('请选择正确答案', 'error');
       return;
     }
 
     if (editorState.questionType === 'single' && editorState.correctAnswers.length !== 1) {
-      toast.showToast('单选题只能有一个正确答案', 'error');
+      showToast('单选题只能有一个正确答案', 'error');
       return;
     }
 
     if (editorState.questionType !== 'boolean') {
       const filledOptions = editorState.options.filter((option) => option.value.trim());
       if (filledOptions.length < 2) {
-        toast.showToast('请至少填写2个选项', 'error');
+        showToast('请至少填写2个选项', 'error');
         return;
       }
       for (const option of filledOptions) {
         const optionValidation = validateQuestionOption(option.value);
         if (!optionValidation.valid) {
-          toast.showToast(`选项 ${option.key}: ${optionValidation.error}`, 'error');
+          showToast(`选项 ${option.key}: ${optionValidation.error}`, 'error');
           return;
         }
       }
       const filledKeys = new Set(filledOptions.map((option) => option.key));
       if (!editorState.correctAnswers.every((answer) => filledKeys.has(answer))) {
-        toast.showToast('正确答案必须在选项之中', 'error');
+        showToast('正确答案必须在选项之中', 'error');
         return;
       }
     } else {
       if (!editorState.correctAnswers.every((answer) => answer === '正确' || answer === '错误')) {
-        toast.showToast('判断题答案只能为"正确"或"错误"', 'error');
+        showToast('判断题答案只能为"正确"或"错误"', 'error');
         return;
       }
     }
@@ -503,7 +503,7 @@ const QuestionBank: React.FC = () => {
       }
       closeEditor();
     } catch (err: any) {
-      toast.showToast(err.message || (editingQuestion ? '更新题目失败' : '创建题目失败'), 'error');
+      showToast(err.message || (editingQuestion ? '更新题目失败' : '创建题目失败'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -915,8 +915,15 @@ const QuestionBank: React.FC = () => {
         </div>
       </Modal>
 
-      <Toast />
-      <ConfirmDialog />
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+      <ConfirmDialog
+        isOpen={confirm.isOpen}
+        title={confirm.title}
+        message={confirm.message}
+        variant={confirm.variant}
+        onConfirm={confirm.handleConfirm}
+        onCancel={confirm.handleCancel}
+      />
     </div>
   );
 };

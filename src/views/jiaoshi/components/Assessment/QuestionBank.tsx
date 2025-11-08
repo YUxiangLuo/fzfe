@@ -4,7 +4,9 @@ import type { Question, QuestionTypeApi } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
-import { validateQuestionText, validateQuestionOption } from '../../utils/validation';
+import { validateQuestionText, validateQuestionOption } from '../../../../shared/utils/validation';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { Toast } from '../../../../shared/components/Toast';
 
 type QuestionFormType = 'single' | 'multiple' | 'boolean';
 
@@ -87,6 +89,7 @@ const getDefaultBooleanOptions = (): QuestionOption[] => DEFAULT_BOOLEAN_OPTIONS
 const getDefaultChoiceOptions = (): QuestionOption[] => DEFAULT_CHOICE_OPTIONS.map((option) => ({ ...option }));
 
 const QuestionBank: React.FC = () => {
+  const { toast, showToast, hideToast } = useToast();
   const defaultKnowledge = getDefaultKnowledgeSelection();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -123,8 +126,9 @@ const QuestionBank: React.FC = () => {
       try {
         await apiClient.delete(`/question-bank/questions/${questionId}`);
         setQuestions((prev) => prev.filter((q) => q.question_id !== questionId));
+        showToast('题目删除成功', 'success');
       } catch (err: any) {
-        alert(`删除失败: ${err.message}`);
+        showToast(`删除失败: ${err.message}`, 'error');
       } finally {
         setIsDeleting(null);
       }
@@ -434,7 +438,7 @@ const QuestionBank: React.FC = () => {
     // 提交前验证题目内容
     const questionValidation = validateQuestionText(editorState.questionText);
     if (!questionValidation.valid) {
-      alert(questionValidation.error);
+      showToast(questionValidation.error, 'error');
       return;
     }
 
@@ -443,7 +447,7 @@ const QuestionBank: React.FC = () => {
       !editorState.knowledgePrimary.trim() ||
       !editorState.knowledgeSecondary.trim()
     ) {
-      alert('请选择知识点');
+      showToast('请选择知识点', 'error');
       return;
     }
 
@@ -453,25 +457,25 @@ const QuestionBank: React.FC = () => {
       for (const option of filledOptions) {
         const optionValidation = validateQuestionOption(option.value);
         if (!optionValidation.valid) {
-          alert(`选项 ${option.key}: ${optionValidation.error}`);
+          showToast(`选项 ${option.key}: ${optionValidation.error}`, 'error');
           return;
         }
       }
 
       if (filledOptions.length < 2) {
-        alert('请至少填写2个选项');
+        showToast('请至少填写2个选项', 'error');
         return;
       }
     }
 
     // 验证正确答案
     if (editorState.correctAnswers.length === 0) {
-      alert('请选择正确答案');
+      showToast('请选择正确答案', 'error');
       return;
     }
 
     if (editorState.questionType === 'single' && editorState.correctAnswers.length !== 1) {
-      alert('单选题只能有一个正确答案');
+      showToast('单选题只能有一个正确答案', 'error');
       return;
     }
 
@@ -488,13 +492,15 @@ const QuestionBank: React.FC = () => {
               : question,
           ),
         );
+        showToast('题目更新成功', 'success');
       } else {
         await apiClient.post('/question-bank/questions', payload);
         await fetchQuestions();
+        showToast('题目创建成功', 'success');
       }
       closeEditor();
     } catch (err: any) {
-      alert(err.message || (editingQuestion ? '更新题目失败' : '创建题目失败'));
+      showToast(err.message || (editingQuestion ? '更新题目失败' : '创建题目失败'), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -913,6 +919,7 @@ const QuestionBank: React.FC = () => {
           </div>
         </div>
       </Modal>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </div>
   );
 };

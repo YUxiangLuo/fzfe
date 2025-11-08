@@ -4,12 +4,12 @@ import Modal from '../Common/Modal';
 import { apiClient } from '../../../../utils/apiClient';
 import type { User as UserType, Class as ClassType } from '../../types';
 import Button from '../Common/Button';
-import { validateFullName, validateEmail, validatePhone, validatePassword, validatePasswordConfirm } from '../../utils/validation';
-import { useToast } from '../../hooks/useToast';
-import Toast from '../Common/Toast';
+import { validateFullName, validateEmail, validatePhone, validatePassword, validatePasswordConfirm } from '../../../../shared/utils/validation';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { Toast } from '../../../../shared/components/Toast';
 
 const PersonalInfo: React.FC = () => {
-  const toast = useToast();
+  const { toast, showToast, hideToast } = useToast();
   const [user, setUser] = useState<UserType | null>(null);
   const [managedClasses, setManagedClasses] = useState<ClassType[]>([]);
   
@@ -41,30 +41,47 @@ const PersonalInfo: React.FC = () => {
   };
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchInitialData = async () => {
       try {
         setIsUserLoading(true);
         setUserError(null);
-        const userData = await apiClient.get('/users/me');
-        setUser(userData);
-        setTempUser(userData);
-        setIsUserLoading(false);
+        const userData = await apiClient.get('/users/me', { signal: controller.signal });
 
-        if (userData && userData.user_id) {
+        if (!controller.signal.aborted) {
+          setUser(userData);
+          setTempUser(userData);
+          setIsUserLoading(false);
+        }
+
+        if (userData && userData.user_id && !controller.signal.aborted) {
           setIsClassesLoading(true);
           setClassesError(null);
-          const classesData = await apiClient.get(`/teachers/${userData.user_id}/classes`);
-          setManagedClasses(classesData || []);
-          setIsClassesLoading(false);
+          const classesData = await apiClient.get(`/teachers/${userData.user_id}/classes`, { signal: controller.signal });
+
+          if (!controller.signal.aborted) {
+            setManagedClasses(classesData || []);
+            setIsClassesLoading(false);
+          }
         }
       } catch (err: any) {
-        setUserError(err.message || '获取用户信息失败');
-        setClassesError(err.message || '获取班级信息失败');
-        setIsUserLoading(false);
-        setIsClassesLoading(false);
+        if (err.name === 'AbortError') return;
+
+        if (!controller.signal.aborted) {
+          setUserError(err.message || '获取用户信息失败');
+          setClassesError(err.message || '获取班级信息失败');
+          setIsUserLoading(false);
+          setIsClassesLoading(false);
+        }
       }
     };
+
     fetchInitialData();
+
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   const handleOpenModal = () => {
@@ -78,7 +95,7 @@ const PersonalInfo: React.FC = () => {
     // 验证姓名
     const nameValidation = validateFullName(tempUser.full_name);
     if (!nameValidation.valid) {
-      toast.showToast(nameValidation.error || '姓名格式不正确', 'error');
+      showToast(nameValidation.error || '姓名格式不正确', 'error');
       return;
     }
 
@@ -86,7 +103,7 @@ const PersonalInfo: React.FC = () => {
     if (tempUser.phone_number) {
       const phoneValidation = validatePhone(tempUser.phone_number, false);
       if (!phoneValidation.valid) {
-        toast.showToast(phoneValidation.error || '手机号格式不正确', 'error');
+        showToast(phoneValidation.error || '手机号格式不正确', 'error');
         return;
       }
     }
@@ -94,7 +111,7 @@ const PersonalInfo: React.FC = () => {
     // 验证邮箱
     const emailValidation = validateEmail(tempUser.email, true);
     if (!emailValidation.valid) {
-      toast.showToast(emailValidation.error || '邮箱格式不正确', 'error');
+      showToast(emailValidation.error || '邮箱格式不正确', 'error');
       return;
     }
 
@@ -108,12 +125,12 @@ const PersonalInfo: React.FC = () => {
       setUser(updatedUser);
       setIsEditModalOpen(false);
 
-      toast.showToast('个人信息保存成功', 'success');
+      showToast('个人信息保存成功', 'success');
     } catch (err: unknown) {
       if (err instanceof Error) {
-        toast.showToast(err.message, 'error');
+        showToast(err.message, 'error');
       } else {
-        toast.showToast('保存失败，请稍后重试', 'error');
+        showToast('保存失败，请稍后重试', 'error');
       }
     }
   };
@@ -305,12 +322,13 @@ const PersonalInfo: React.FC = () => {
         </Modal>
       )}
 
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={toast.hideToast}
-      />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </>
   );
 };
