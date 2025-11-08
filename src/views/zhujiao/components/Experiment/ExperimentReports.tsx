@@ -194,13 +194,13 @@ const ExperimentReports: React.FC = () => {
     return Math.round(total / reviewedReports.length).toString();
   }, [reviewedReports]);
 
-  const resetReviewState = () => {
+  const resetReviewState = useCallback(() => {
     setShowReviewModal(false);
     setSelectedReport(null);
     setTempScore("");
     setTempComments("");
     setIsSubmittingReview(false);
-  };
+  }, []);
 
   const handleReview = useCallback((report: ExperimentReport) => {
     if (!report.report_id) return;
