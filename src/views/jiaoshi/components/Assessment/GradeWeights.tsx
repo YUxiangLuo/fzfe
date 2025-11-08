@@ -6,6 +6,8 @@ import Modal from '../Common/Modal';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import { validatePercentage } from '../../utils/validation';
+import { useToast } from '../../hooks/useToast';
+import { Toast } from '../Common/Toast';
 
 type FlowKey = keyof Pick<GradeWeightsApi,
   'exp_flow_demand_data_preparation' |
@@ -67,6 +69,7 @@ const DEFAULT_WEIGHTS: GradeWeightsApi = {
 };
 
 const GradeWeights: React.FC = () => {
+  const { toast, showToast, hideToast } = useToast();
   const [weights, setWeights] = useState<GradeWeightsApi>(DEFAULT_WEIGHTS);
   const [tempWeights, setTempWeights] = useState<GradeWeightsApi>(DEFAULT_WEIGHTS);
   const [isLoading, setIsLoading] = useState(true);
@@ -184,7 +187,7 @@ const GradeWeights: React.FC = () => {
 
   const resetToDefault = () => {
     setTempWeights(DEFAULT_WEIGHTS);
-    alert('已恢复默认的成绩权重。');
+    showToast('已恢复默认的成绩权重。', 'success');
   };
 
   const resetFlowDetails = () => {
@@ -195,12 +198,12 @@ const GradeWeights: React.FC = () => {
         return acc;
       }, {} as Record<FlowKey, number>),
     }));
-    alert('实验流程子项已恢复默认。');
+    showToast('实验流程子项已恢复默认。', 'success');
   };
 
   const saveWeights = async () => {
     if (!selectedClassId) {
-      alert('请先选择一个班级');
+      showToast('请先选择一个班级。', 'error');
       return;
     }
 
@@ -215,17 +218,17 @@ const GradeWeights: React.FC = () => {
     for (const [name, value] of allWeights) {
       const validation = validatePercentage(value, name);
       if (!validation.valid) {
-        alert(validation.error);
+        showToast(`${name}：${validation.error}`, 'error');
         return;
       }
     }
 
     if (topLevelTotal !== 100) {
-      alert(`一级权重总和必须为 100%，当前为 ${topLevelTotal}%`);
+      showToast(`一级权重总和必须为 100%，当前总和为 ${topLevelTotal}%。`, 'error');
       return;
     }
     if (flowTotal !== 100) {
-      alert(`实验流程子项权重总和必须为 100%，当前为 ${flowTotal}%`);
+      showToast(`实验流程子项权重总和必须为 100%，当前总和为 ${flowTotal}%。`, 'error');
       return;
     }
 
@@ -241,9 +244,9 @@ const GradeWeights: React.FC = () => {
       setTempWeights(response as GradeWeightsApi);
       setHasExistingPlan(true);
       setInfoMessage(null); // Clear info message on successful save
-      alert('成绩权重已保存');
+      showToast('成绩权重已保存', 'success');
     } catch (err: any) {
-      alert(err.message || '保存成绩权重失败');
+      showToast(err.message || '保存成绩权重失败', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -473,7 +476,7 @@ const GradeWeights: React.FC = () => {
             </Button>
             <Button onClick={() => {
               if (flowTotal !== 100) {
-                alert('实验流程子项权重总和必须为 100%。');
+                showToast('实验流程子项权重总和必须为 100%。', 'error');
                 return;
               }
               setIsDetailModalOpen(false);
@@ -483,6 +486,8 @@ const GradeWeights: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </div>
   );
 };
