@@ -253,13 +253,13 @@ const ExperimentReports: React.FC = () => {
     return isScoreValid && !isSubmittingReview;
   }, [selectedReport, tempScore, tempFeedback, isScoreValid, isSubmittingReview]);
 
-  const resetReviewState = () => {
+  const resetReviewState = useCallback(() => {
     setShowReviewModal(false);
     setSelectedReport(null);
     setTempScore("");
     setTempFeedback("");
     setIsSubmittingReview(false);
-  };
+  }, []);
 
   const handleSaveReview = async () => {
     if (!selectedReport || !selectedReport.report_id) return;

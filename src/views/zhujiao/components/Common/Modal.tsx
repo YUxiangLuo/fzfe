@@ -52,13 +52,18 @@ const Modal: React.FC<ModalProps> = ({
     small: "max-w-md",
     medium: "max-w-2xl",
     large: "max-w-6xl",
-    fullscreen: "w-full h-full",
+    fullscreen: "w-full max-w-none",
   };
 
   const containerPadding =
     size === "fullscreen"
-      ? "p-6 sm:p-10 md:p-16 lg:p-[100px]"
+      ? "p-4 sm:p-8 lg:p-[100px]"
       : "p-0";
+  const containerAlignment = size === "fullscreen" ? "items-stretch" : "items-center";
+  const fullscreenHeightClass =
+    size === "fullscreen"
+      ? "h-[calc(100vh-2rem)] sm:h-[calc(100vh-4rem)] lg:h-[calc(100vh-200px)]"
+      : "";
 
   const handleBackdropClick = () => {
     if (closeOnBackdropClick) {
@@ -69,7 +74,7 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div
-        className={`flex min-h-screen items-center justify-center ${containerPadding}`}
+        className={`flex min-h-screen ${containerAlignment} justify-center ${containerPadding}`}
       >
         <div
           className="fixed inset-0 bg-black/50 transition-opacity"
@@ -78,7 +83,7 @@ const Modal: React.FC<ModalProps> = ({
         ></div>
         <div
           ref={modalRef}
-          className={`relative bg-white rounded-lg shadow-xl w-full max-h-full ${sizeClasses[size]} flex flex-col`}
+          className={`relative bg-white rounded-lg shadow-xl w-full max-h-full ${sizeClasses[size]} ${fullscreenHeightClass} flex flex-col`}
         >
           <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
             <h2 id="modal-title" className="text-xl font-semibold text-gray-900">{title}</h2>
