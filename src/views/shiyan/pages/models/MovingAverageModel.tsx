@@ -34,6 +34,13 @@ const MovingAverageModel: React.FC = () => {
   const [isCalculating, setIsCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 评估数据
+  const [evaluationData, setEvaluationData] = useState<{
+    months: string[];
+    y_true: number[];
+    predictions: number[];
+  } | null>(null);
+
   const baseModelsCompletedCount = [
     state.moving_average_completed,
     state.exponential_smoothing_completed,
@@ -140,12 +147,27 @@ const MovingAverageModel: React.FC = () => {
             evaluate_indices: number[];
             evaluate_months: string[];
           };
+          evaluate_range: {
+            months: string[];
+          };
+          eval_y_true: number[];
+          eval_predictions: number[];
           saved_model?: string;
         };
       }>("/models/ma/training", requestBody);
 
       if (response.status === "success") {
         const metrics = response.results?.metrics ?? { rmse: null, mae: null, r2: null };
+
+        // 保存评估数据
+        if (response.results?.eval_y_true && response.results?.eval_predictions && response.results?.evaluate_range?.months) {
+          setEvaluationData({
+            months: response.results.evaluate_range.months,
+            y_true: response.results.eval_y_true,
+            predictions: response.results.eval_predictions,
+          });
+        }
+
         await updateState({
           moving_average_window: windowSize,
           moving_average_completed: true,
@@ -460,20 +482,60 @@ const MovingAverageModel: React.FC = () => {
                   <p className="text-sm text-green-700">窗口大小：{modelState.window ?? windowSize} 个月</p>
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">RMSE</p>
-                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{modelState.metrics.rmse ?? '—'}</p>
+
+              {/* 评估区间预测对比表格 */}
+              {evaluationData && evaluationData.months.length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+                    <h4 className="font-semibold text-gray-900">评估区间预测对比</h4>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">日期</th>
+                          <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">真实值</th>
+                          <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">预测值</th>
+                          <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-gray-900">预测准确率</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {evaluationData.months.map((month, index) => {
+                          const trueValue = evaluationData.y_true[index];
+                          const predictedValue = evaluationData.predictions[index];
+
+                          // 计算预测准确率：100% - |真实值 - 预测值| / 真实值 * 100%
+                          const accuracy = trueValue !== 0
+                            ? Math.max(0, 100 - Math.abs(trueValue - predictedValue) / Math.abs(trueValue) * 100)
+                            : (predictedValue === 0 ? 100 : 0);
+
+                          return (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="border border-gray-200 px-4 py-3 font-medium text-gray-900">{month}</td>
+                              <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                                {trueValue?.toLocaleString() ?? '—'}
+                              </td>
+                              <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
+                                {predictedValue?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? '—'}
+                              </td>
+                              <td className="border border-gray-200 px-4 py-3 text-center">
+                                <span className={`font-semibold ${
+                                  accuracy >= 80 ? 'text-green-600' :
+                                  accuracy >= 60 ? 'text-yellow-600' :
+                                  'text-red-600'
+                                }`}>
+                                  {accuracy.toFixed(2)}%
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">MAE</p>
-                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{modelState.metrics.mae ?? '—'}</p>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-lg p-4 text-center">
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">R²</p>
-                  <p className="text-2xl font-semibold text-[#27579d] mt-2">{modelState.metrics.r2 ?? '—'}</p>
-                </div>
-              </div>
+              )}
+
               {shouldShowFusionUnlockedNotice && (
                 <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3 text-sm text-purple-800">
                   🎉 已完成至少两个基础模型，融合模型现已解锁！尝试组合不同算法，进一步提升预测表现。
