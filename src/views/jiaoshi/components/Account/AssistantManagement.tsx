@@ -215,6 +215,7 @@ const AssistantManagement: React.FC = () => {
         managedClasses={managedClasses}
         existingAssistantIds={assistants.map(a => a.user_id)}
         onAssignmentSuccess={handleAssignmentSuccess}
+        showToast={showToast}
       />
       <ReassignAssistantModal
         isOpen={showReassignModal}

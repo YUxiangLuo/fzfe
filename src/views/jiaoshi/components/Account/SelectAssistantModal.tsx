@@ -4,8 +4,6 @@ import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import type { User as Assistant, Class } from '../../types';
 import { Loader, AlertTriangle } from 'lucide-react';
-import { useToast } from '../../../../shared/hooks/useToast';
-import { Toast } from '../../../../shared/components/Toast';
 
 interface SelectAssistantModalProps {
   isOpen: boolean;
@@ -13,6 +11,7 @@ interface SelectAssistantModalProps {
   onAssignmentSuccess: (newAssistant: Assistant) => void;
   managedClasses: Class[];
   existingAssistantIds: number[];
+  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const SelectAssistantModal: React.FC<SelectAssistantModalProps> = ({
@@ -21,8 +20,8 @@ export const SelectAssistantModal: React.FC<SelectAssistantModalProps> = ({
   onAssignmentSuccess,
   managedClasses,
   existingAssistantIds,
+  showToast,
 }) => {
-  const { toast, showToast, hideToast } = useToast();
   const [allAssistants, setAllAssistants] = useState<Assistant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +138,6 @@ export const SelectAssistantModal: React.FC<SelectAssistantModalProps> = ({
           <Button onClick={handleAssign} disabled={!selectedAssistantId || selectedClassIds.length === 0}>确认分配</Button>
         </div>
       </div>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </Modal>
   );
 };
