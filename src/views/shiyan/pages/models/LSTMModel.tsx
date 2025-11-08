@@ -13,7 +13,7 @@ const sanitizeFeatures = (features: string[], target: string | null): string[] =
   target ? features.filter((field) => field !== target) : [...features];
 
 const LSTMModel: React.FC = () => {
-  const { state, updateState, productFieldOptions, isLoadingFields, productFieldsError } = useExperiment();
+  const { state, updateState, productSalesData, productFieldOptions, isLoadingFields, productFieldsError } = useExperiment();
   const lstmState = {
     completed: state.lstm_completed,
     normalization: state.lstm_normalization,
@@ -69,6 +69,20 @@ const LSTMModel: React.FC = () => {
     y_true: number[];
     predictions: number[];
   } | null>(null);
+
+  // 从前端状态计算评估区间的月份
+  const evaluateMonths = useMemo(() => {
+    if (!productSalesData ||
+        state.data_window_evaluate_start_index === null ||
+        state.data_window_evaluate_end_index === null) {
+      return [];
+    }
+    const start = state.data_window_evaluate_start_index;
+    const end = state.data_window_evaluate_end_index;
+    return productSalesData.monthlySales
+      .slice(start, end + 1)
+      .map(item => item.month);
+  }, [productSalesData, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
 
   const buildDownstreamReset = () => ({
     ensemble_weighted_completed: false,
@@ -255,10 +269,10 @@ const LSTMModel: React.FC = () => {
       if (response.status === "success") {
         const metrics = response.results?.metrics ?? { rmse: null, mae: null, r2: null };
 
-        // 保存评估数据
-        if (response.results?.eval_y_true && response.results?.eval_predictions && response.results?.evaluate_range?.months) {
+        // 保存评估数据 - 使用前端计算的月份
+        if (response.results?.eval_y_true && response.results?.eval_predictions && evaluateMonths.length > 0) {
           setEvaluationData({
-            months: response.results.evaluate_range.months,
+            months: evaluateMonths,
             y_true: response.results.eval_y_true,
             predictions: response.results.eval_predictions,
           });

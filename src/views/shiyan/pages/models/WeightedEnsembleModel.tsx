@@ -10,7 +10,7 @@ const steps = [
 ] as const;
 
 const WeightedEnsembleModel: React.FC = () => {
-  const { state, updateState } = useExperiment();
+  const { state, updateState, productSalesData } = useExperiment();
   const modelState = {
     completed: state.ensemble_weighted_completed,
     baseModels: state.ensemble_weighted_base_models,
@@ -65,6 +65,20 @@ const WeightedEnsembleModel: React.FC = () => {
     y_true: number[];
     predictions: number[];
   } | null>(null);
+
+  // 从前端状态计算评估区间的月份
+  const evaluateMonths = useMemo(() => {
+    if (!productSalesData ||
+        state.data_window_evaluate_start_index === null ||
+        state.data_window_evaluate_end_index === null) {
+      return [];
+    }
+    const start = state.data_window_evaluate_start_index;
+    const end = state.data_window_evaluate_end_index;
+    return productSalesData.monthlySales
+      .slice(start, end + 1)
+      .map(item => item.month);
+  }, [productSalesData, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
 
   const resetMetrics = () => ({
     ensemble_weighted_completed: false,
@@ -167,10 +181,10 @@ const WeightedEnsembleModel: React.FC = () => {
       if (response.status === "success") {
         const metrics = response.results?.metrics;
 
-        // 保存评估数据
-        if (response.results?.eval_y_true && response.results?.eval_predictions && response.results?.evaluate_range?.months) {
+        // 保存评估数据 - 使用前端计算的月份
+        if (response.results?.eval_y_true && response.results?.eval_predictions && evaluateMonths.length > 0) {
           setEvaluationData({
-            months: response.results.evaluate_range.months,
+            months: evaluateMonths,
             y_true: response.results.eval_y_true,
             predictions: response.results.eval_predictions,
           });
