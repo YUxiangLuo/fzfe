@@ -29,7 +29,7 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; badge: string; dot: string }
 > = {
-  Completed: {
+  "Completed": {
     label: "已完成",
     badge: "bg-emerald-50 text-emerald-700 border border-emerald-200",
     dot: "bg-emerald-500",
@@ -40,7 +40,7 @@ const STATUS_CONFIG: Record<
     dot: "bg-blue-500",
   },
   "Not Started": {
-    label: "未开始",
+    label: "实验已创建",
     badge: "bg-slate-50 text-slate-600 border border-slate-200",
     dot: "bg-slate-400",
   },
@@ -48,7 +48,7 @@ const STATUS_CONFIG: Record<
 
 const getStatusConfig = (status: string) =>
   STATUS_CONFIG[status] ?? {
-    label: status || "未知状态",
+    label: status || "还未进行任何实验",
     badge: "bg-slate-50 text-slate-600 border border-slate-200",
     dot: "bg-slate-400",
   };
