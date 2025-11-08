@@ -4,9 +4,9 @@ import Modal from '../Common/Modal';
 import { apiClient } from '../../../../utils/apiClient';
 import type { User as UserType, Class as ClassType } from '../../types';
 import Button from '../Common/Button';
-import { validateFullName, validateEmail, validatePhone, validatePassword, validatePasswordConfirm } from '../../utils/validation';
-import { useToast } from '../../hooks/useToast';
-import { Toast } from '../Common/Toast';
+import { validateFullName, validateEmail, validatePhone, validatePassword, validatePasswordConfirm } from '../../../../shared/utils/validation';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { Toast } from '../../../../shared/components/Toast';
 
 const PersonalInfo: React.FC = () => {
   const { toast, showToast, hideToast } = useToast();
@@ -41,30 +41,47 @@ const PersonalInfo: React.FC = () => {
   };
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchInitialData = async () => {
       try {
         setIsUserLoading(true);
         setUserError(null);
-        const userData = await apiClient.get('/users/me');
-        setUser(userData);
-        setTempUser(userData);
-        setIsUserLoading(false);
+        const userData = await apiClient.get('/users/me', { signal: controller.signal });
 
-        if (userData && userData.user_id) {
+        if (!controller.signal.aborted) {
+          setUser(userData);
+          setTempUser(userData);
+          setIsUserLoading(false);
+        }
+
+        if (userData && userData.user_id && !controller.signal.aborted) {
           setIsClassesLoading(true);
           setClassesError(null);
-          const classesData = await apiClient.get(`/teachers/${userData.user_id}/classes`);
-          setManagedClasses(classesData || []);
-          setIsClassesLoading(false);
+          const classesData = await apiClient.get(`/teachers/${userData.user_id}/classes`, { signal: controller.signal });
+
+          if (!controller.signal.aborted) {
+            setManagedClasses(classesData || []);
+            setIsClassesLoading(false);
+          }
         }
       } catch (err: any) {
-        setUserError(err.message || '获取用户信息失败');
-        setClassesError(err.message || '获取班级信息失败');
-        setIsUserLoading(false);
-        setIsClassesLoading(false);
+        if (err.name === 'AbortError') return;
+
+        if (!controller.signal.aborted) {
+          setUserError(err.message || '获取用户信息失败');
+          setClassesError(err.message || '获取班级信息失败');
+          setIsUserLoading(false);
+          setIsClassesLoading(false);
+        }
       }
     };
+
     fetchInitialData();
+
+    return () => {
+      controller.abort();
+    };
   }, []);
 
   const handleOpenModal = () => {

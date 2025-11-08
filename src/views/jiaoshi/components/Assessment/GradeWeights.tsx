@@ -5,9 +5,9 @@ import Button from '../Common/Button';
 import Modal from '../Common/Modal';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
-import { validatePercentage } from '../../utils/validation';
-import { useToast } from '../../hooks/useToast';
-import { Toast } from '../Common/Toast';
+import { validatePercentage } from '../../../../shared/utils/validation';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { Toast } from '../../../../shared/components/Toast';
 
 type FlowKey = keyof Pick<GradeWeightsApi,
   'exp_flow_demand_data_preparation' |

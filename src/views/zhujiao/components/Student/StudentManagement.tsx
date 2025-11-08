@@ -5,10 +5,10 @@ import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
-import { validateFullName, validateEmail, validatePhone, validatePassword } from '../../utils/validation';
+import { validateFullName, validateEmail, validatePhone, validatePassword } from '../../../../shared/utils/validation';
 import SelectStudentModal from './SelectStudentModal';
-import { useToast } from '../../hooks/useToast';
-import { Toast } from '../Common/Toast';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { Toast } from '../../../../shared/components/Toast';
 
 interface NewStudentForm {
   username: string;
@@ -72,46 +72,70 @@ const StudentManagement: React.FC = () => {
   useEffect(() => {
     if (assistantId === null) return;
 
+    const controller = new AbortController();
+
     const fetchClasses = async () => {
       setIsLoadingClasses(true);
       setError(null);
       try {
-        const response = await apiClient.get(`/assistants/${assistantId}/classes`);
-        const list = Array.isArray(response) ? response : [];
-        setClasses(list);
-        if (list.length > 0) {
-          setSelectedClassId(String(list[0].class_id));
+        const response = await apiClient.get(`/assistants/${assistantId}/classes`, { signal: controller.signal });
+
+        if (!controller.signal.aborted) {
+          const list = Array.isArray(response) ? response : [];
+          setClasses(list);
+          if (list.length > 0) {
+            setSelectedClassId(String(list[0].class_id));
+          }
         }
       } catch (err: any) {
-        setError(err.message || '获取班级列表失败');
+        if (err.name === 'AbortError') return;
+
+        if (!controller.signal.aborted) {
+          setError(err.message || '获取班级列表失败');
+        }
       } finally {
-        setIsLoadingClasses(false);
+        if (!controller.signal.aborted) {
+          setIsLoadingClasses(false);
+        }
       }
     };
 
     fetchClasses();
+
+    return () => {
+      controller.abort();
+    };
   }, [assistantId]);
 
-  const loadStudents = useCallback(async (classId: string) => {
+  const loadStudents = useCallback(async (classId: string, signal?: AbortSignal) => {
     setIsLoadingStudents(true);
     setError(null);
     try {
-      const response = await apiClient.get(`/classes/${classId}/students`);
-      const list = Array.isArray(response) ? response : [];
-      const sorted = [...list].sort((a, b) => {
-        const numA = Number(a.username);
-        const numB = Number(b.username);
-        if (Number.isNaN(numA) || Number.isNaN(numB)) {
-          return a.username.localeCompare(b.username);
-        }
-        return numA - numB;
-      });
-      setStudents(sorted);
+      const response = await apiClient.get(`/classes/${classId}/students`, { signal });
+
+      if (!signal?.aborted) {
+        const list = Array.isArray(response) ? response : [];
+        const sorted = [...list].sort((a, b) => {
+          const numA = Number(a.username);
+          const numB = Number(b.username);
+          if (Number.isNaN(numA) || Number.isNaN(numB)) {
+            return a.username.localeCompare(b.username);
+          }
+          return numA - numB;
+        });
+        setStudents(sorted);
+      }
     } catch (err: any) {
-      setError(err.message || '获取学生列表失败');
-      setStudents([]);
+      if (err.name === 'AbortError') return;
+
+      if (!signal?.aborted) {
+        setError(err.message || '获取学生列表失败');
+        setStudents([]);
+      }
     } finally {
-      setIsLoadingStudents(false);
+      if (!signal?.aborted) {
+        setIsLoadingStudents(false);
+      }
     }
   }, []);
 
@@ -120,7 +144,13 @@ const StudentManagement: React.FC = () => {
       setStudents([]);
       return;
     }
-    void loadStudents(selectedClassId);
+
+    const controller = new AbortController();
+    void loadStudents(selectedClassId, controller.signal);
+
+    return () => {
+      controller.abort();
+    };
   }, [selectedClassId, loadStudents]);
 
   useEffect(() => {
@@ -669,11 +699,11 @@ const StudentManagement: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="例如：张三"
               minLength={2}
-              maxLength={50}
+              maxLength={20}
               required
               disabled={isSubmitting}
             />
-            <p className="mt-1 text-xs text-gray-500">2-50个字符</p>
+            <p className="mt-1 text-xs text-gray-500">2-20个字符</p>
           </div>
 
           <div>

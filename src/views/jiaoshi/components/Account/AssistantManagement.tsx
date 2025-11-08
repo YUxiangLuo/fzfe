@@ -7,9 +7,9 @@ import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import { SelectAssistantModal } from './SelectAssistantModal';
 import { ReassignAssistantModal } from './ReassignAssistantModal';
-import { validateUsername, validateFullName, validateEmail, validatePhone, validatePassword } from '../../utils/validation';
-import { useToast } from '../../hooks/useToast';
-import { Toast } from '../Common/Toast';
+import { validateUsername, validateFullName, validateEmail, validatePhone, validatePassword } from '../../../../shared/utils/validation';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { Toast } from '../../../../shared/components/Toast';
 
 const AssistantManagement: React.FC = () => {
   const { toast, showToast, hideToast } = useToast();

@@ -4,8 +4,8 @@ import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import type { Student } from '../../types';
 import { Loader, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { useToast } from '../../hooks/useToast';
-import { Toast } from '../Common/Toast';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { Toast } from '../../../../shared/components/Toast';
 
 interface SelectStudentModalProps {
   isOpen: boolean;

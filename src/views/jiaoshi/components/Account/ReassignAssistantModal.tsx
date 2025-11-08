@@ -4,8 +4,8 @@ import Button from '../Common/Button';
 import type { User as Assistant, Class } from '../../types';
 import { apiClient } from '../../../../utils/apiClient';
 import { Loader, AlertTriangle } from 'lucide-react';
-import { useToast } from '../../hooks/useToast';
-import { Toast } from '../Common/Toast';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { Toast } from '../../../../shared/components/Toast';
 
 interface ReassignAssistantModalProps {
   isOpen: boolean;

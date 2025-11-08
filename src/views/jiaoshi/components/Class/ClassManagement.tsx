@@ -5,11 +5,11 @@ import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
-import { validateClassName, validateClassCode } from '../../utils/validation';
-import { useToast } from '../../hooks/useToast';
-import { useConfirm } from '../../hooks/useConfirm';
-import { Toast } from '../Common/Toast';
-import { ConfirmDialog } from '../Common/ConfirmDialog';
+import { validateClassName, validateClassCode } from '../../../../shared/utils/validation';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { useConfirm } from '../../../../shared/hooks/useConfirm';
+import { Toast } from '../../../../shared/components/Toast';
+import { ConfirmDialog } from '../../../../shared/components/ConfirmDialog';
 
 interface CreateClassForm {
   class_name: string;

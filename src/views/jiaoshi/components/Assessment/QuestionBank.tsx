@@ -4,9 +4,9 @@ import type { Question, QuestionTypeApi } from '../../types';
 import Modal from '../Common/Modal';
 import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
-import { validateQuestionText, validateQuestionOption } from '../../utils/validation';
-import { useToast } from '../../hooks/useToast';
-import { Toast } from '../Common/Toast';
+import { validateQuestionText, validateQuestionOption } from '../../../../shared/utils/validation';
+import { useToast } from '../../../../shared/hooks/useToast';
+import { Toast } from '../../../../shared/components/Toast';
 
 type QuestionFormType = 'single' | 'multiple' | 'boolean';
 

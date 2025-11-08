@@ -14,8 +14,8 @@ import Button from "../Common/Button";
 import { API_BASE_URL, apiClient } from "../../../../utils/apiClient";
 import { decodeToken } from "../../../../utils/auth";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../../config/appConfig";
-import { useToast } from "../../hooks/useToast";
-import { Toast } from "../Common/Toast";
+import { useToast } from "../../../../shared/hooks/useToast";
+import { Toast } from "../../../../shared/components/Toast";
 
 const extractFileName = (filePath: string | null) => {
   if (!filePath) return "在线填写";
