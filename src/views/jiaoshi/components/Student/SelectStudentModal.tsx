@@ -4,14 +4,13 @@ import Button from '../Common/Button';
 import { apiClient } from '../../../../utils/apiClient';
 import type { Student } from '../../types';
 import { Loader, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { useToast } from '../../../../shared/hooks/useToast';
-import { Toast } from '../../../../shared/components/Toast';
 
 interface SelectStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
   classId: string;
   onStudentEnrolled: (student: Student) => void;
+  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 interface EnrollState {
@@ -23,8 +22,8 @@ const SelectStudentModal: React.FC<SelectStudentModalProps> = ({
   onClose,
   classId,
   onStudentEnrolled,
+  showToast,
 }) => {
-  const { toast, showToast, hideToast } = useToast();
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -155,7 +154,6 @@ const SelectStudentModal: React.FC<SelectStudentModalProps> = ({
           </Button>
         </div>
       </div>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     </Modal>
   );
 };
