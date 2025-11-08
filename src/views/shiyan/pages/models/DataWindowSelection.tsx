@@ -126,33 +126,86 @@ const DataWindowSelection: React.FC = () => {
   } = useExperiment();
 
   const [processedSalesData, setProcessedSalesData] = useState<typeof productSalesData>(null);
+  // 填充索引到原始索引的映射数组
+  const [filledToOriginalIndexMap, setFilledToOriginalIndexMap] = useState<(number | null)[]>([]);
+  // 原始索引到填充索引的映射
+  const [originalToFilledIndexMap, setOriginalToFilledIndexMap] = useState<Map<number, number>>(new Map());
 
-  // 填充缺失月份
+  // 填充缺失月份并创建索引映射
   useEffect(() => {
     if (productSalesData) {
-      const monthlySales = productSalesData.monthlySales || [];
-      const filledData = fillMissingMonths([...monthlySales]);
+      const originalMonthlySales = productSalesData.monthlySales || [];
+      const filledData = fillMissingMonths([...originalMonthlySales]);
 
+      // 创建填充索引 -> 原始索引的映射
+      // 思路：遍历填充后的数据，对于每个非null的sales，记录它在原始数据中的索引
+      const indexMap: (number | null)[] = [];
+      const reverseMap = new Map<number, number>();
+      let originalIndex = 0;
+
+      for (let filledIndex = 0; filledIndex < filledData.length; filledIndex++) {
+        const record = filledData[filledIndex];
+
+        // 如果sales不为null，说明这是原始数据，记录映射关系
+        if (record && record.sales !== null && !isNaN(record.sales)) {
+          // 验证月份是否匹配（双重检查）
+          if (originalIndex < originalMonthlySales.length &&
+              originalMonthlySales[originalIndex]?.month === record.month) {
+            indexMap.push(originalIndex);
+            reverseMap.set(originalIndex, filledIndex);
+            originalIndex++;
+          } else {
+            // 如果不匹配，需要在原始数据中查找对应的月份
+            const foundIndex = originalMonthlySales.findIndex(
+              (item, idx) => idx >= originalIndex && item.month === record.month
+            );
+            if (foundIndex !== -1) {
+              indexMap.push(foundIndex);
+              reverseMap.set(foundIndex, filledIndex);
+              originalIndex = foundIndex + 1;
+            } else {
+              indexMap.push(null); // 找不到对应的原始数据
+            }
+          }
+        } else {
+          // sales为null，说明这是填充的数据，没有对应的原始索引
+          indexMap.push(null);
+        }
+      }
+
+      setFilledToOriginalIndexMap(indexMap);
+      setOriginalToFilledIndexMap(reverseMap);
       setProcessedSalesData({
         ...productSalesData,
         monthlySales: filledData,
       });
     } else {
       setProcessedSalesData(null);
+      setFilledToOriginalIndexMap([]);
+      setOriginalToFilledIndexMap(new Map());
     }
   }, [productSalesData]);
 
   const points = processedSalesData?.monthlySales ?? [];
   const meta = processedSalesData?.meta;
 
+  // 从全局状态读取的是原始索引，需要转换为填充索引用于UI显示
   const trainingRange: RangeSelection = {
-    startIndex: state.data_window_train_start_index,
-    endIndex: state.data_window_train_end_index,
+    startIndex: state.data_window_train_start_index !== null
+      ? (originalToFilledIndexMap.get(state.data_window_train_start_index) ?? null)
+      : null,
+    endIndex: state.data_window_train_end_index !== null
+      ? (originalToFilledIndexMap.get(state.data_window_train_end_index) ?? null)
+      : null,
   };
 
   const evaluateRange: RangeSelection = {
-    startIndex: state.data_window_evaluate_start_index,
-    endIndex: state.data_window_evaluate_end_index,
+    startIndex: state.data_window_evaluate_start_index !== null
+      ? (originalToFilledIndexMap.get(state.data_window_evaluate_start_index) ?? null)
+      : null,
+    endIndex: state.data_window_evaluate_end_index !== null
+      ? (originalToFilledIndexMap.get(state.data_window_evaluate_end_index) ?? null)
+      : null,
   };
 
   // 验证选择的区间
@@ -306,8 +359,25 @@ const DataWindowSelection: React.FC = () => {
       | 'data_window_evaluate_end_index',
     rawValue: string,
   ) => {
-    const value = rawValue === '' ? null : Number(rawValue);
-    await updateState({ [field]: value } as Partial<typeof state>);
+    if (rawValue === '') {
+      await updateState({ [field]: null } as Partial<typeof state>);
+      return;
+    }
+
+    const filledIndex = Number(rawValue);
+
+    // 将填充后的索引转换为原始数据的索引
+    const originalIndex = filledToOriginalIndexMap[filledIndex];
+
+    if (originalIndex === null || originalIndex === undefined) {
+      // 用户选择了一个空白数据（填充的月份），这应该被验证逻辑捕获
+      // 但为了安全起见，我们不更新状态
+      console.warn(`Selected index ${filledIndex} corresponds to a filled (blank) month, not updating state`);
+      return;
+    }
+
+    // 存储原始数据的索引到全局状态
+    await updateState({ [field]: originalIndex } as Partial<typeof state>);
   };
 
   const handlePrevious = () => {
