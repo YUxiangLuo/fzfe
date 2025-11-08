@@ -5,7 +5,7 @@
 
 export interface ValidationResult {
   valid: boolean;
-  error: string | null;
+  error: string;
 }
 
 /**
@@ -33,7 +33,7 @@ export const validateUsername = (username: string): ValidationResult => {
     return { valid: false, error: '用户名只能包含英文、数字和下划线' };
   }
 
-  return { valid: true, error: null };
+  return { valid: true, error: "" };
 };
 
 /**
@@ -61,7 +61,7 @@ export const validateFullName = (fullName: string): ValidationResult => {
     return { valid: false, error: '姓名只能包含中文、英文和空格' };
   }
 
-  return { valid: true, error: null };
+  return { valid: true, error: "" };
 };
 
 /**
@@ -97,7 +97,7 @@ export const validatePassword = (password: string, options?: {
     }
   }
 
-  return { valid: true, error: null };
+  return { valid: true, error: "" };
 };
 
 /**
@@ -112,7 +112,7 @@ export const validatePasswordConfirm = (password: string, confirmPassword: strin
     return { valid: false, error: '两次输入的密码不一致' };
   }
 
-  return { valid: true, error: null };
+  return { valid: true, error: "" };
 };
 
 /**
@@ -126,7 +126,7 @@ export const validateEmail = (email: string, required: boolean = true): Validati
     if (required) {
       return { valid: false, error: '邮箱不能为空' };
     }
-    return { valid: true, error: null };
+    return { valid: true, error: "" };
   }
 
   // 标准邮箱格式验证
@@ -139,7 +139,7 @@ export const validateEmail = (email: string, required: boolean = true): Validati
     return { valid: false, error: '邮箱长度不能超过100个字符' };
   }
 
-  return { valid: true, error: null };
+  return { valid: true, error: "" };
 };
 
 /**
@@ -153,7 +153,7 @@ export const validatePhone = (phone: string, required: boolean = false): Validat
     if (required) {
       return { valid: false, error: '手机号不能为空' };
     }
-    return { valid: true, error: null };
+    return { valid: true, error: "" };
   }
 
   // 中国大陆手机号：11位，1开头
@@ -162,7 +162,7 @@ export const validatePhone = (phone: string, required: boolean = false): Validat
     return { valid: false, error: '手机号格式不正确（请输入11位手机号）' };
   }
 
-  return { valid: true, error: null };
+  return { valid: true, error: "" };
 };
 
 /**
@@ -190,7 +190,7 @@ export const validateClassName = (name: string): ValidationResult => {
     return { valid: false, error: '班级名称只能包含中文、英文、数字、短横线和下划线' };
   }
 
-  return { valid: true, error: null };
+  return { valid: true, error: "" };
 };
 
 /**
@@ -218,7 +218,7 @@ export const validateClassCode = (code: string): ValidationResult => {
     return { valid: false, error: '班级代码只能包含英文、数字、短横线和下划线' };
   }
 
-  return { valid: true, error: null };
+  return { valid: true, error: "" };
 };
 
 /**
@@ -240,7 +240,7 @@ export const validateQuestionText = (text: string): ValidationResult => {
     return { valid: false, error: '题目内容不能超过500个字符' };
   }
 
-  return { valid: true, error: null };
+  return { valid: true, error: "" };
 };
 
 /**
@@ -258,7 +258,7 @@ export const validateQuestionOption = (option: string): ValidationResult => {
     return { valid: false, error: '选项内容不能超过100个字符' };
   }
 
-  return { valid: true, error: null };
+  return { valid: true, error: "" };
 };
 
 /**
@@ -282,7 +282,7 @@ export const validateNumberRange = (
     return { valid: false, error: `${fieldName}不能大于${max}` };
   }
 
-  return { valid: true, error: null };
+  return { valid: true, error: "" };
 };
 
 /**
@@ -309,5 +309,5 @@ export const validateAll = (...validations: ValidationResult[]): ValidationResul
       return validation;
     }
   }
-  return { valid: true, error: null };
+  return { valid: true, error: "" };
 };

@@ -89,13 +89,31 @@ const handleResponse = async <T = any>(response: Response, endpoint: string): Pr
     throw new Error("会话已过期，请重新登录");
   }
 
-  const data = await response.json().catch(() => null);
+  const rawBody = await response.text();
+  let parsedBody: unknown = null;
 
-  if (!response.ok) {
-    throw new Error(JSON.stringify(data));
+  if (rawBody) {
+    try {
+      parsedBody = JSON.parse(rawBody);
+    } catch {
+      parsedBody = rawBody;
+    }
   }
 
-  return data as T;
+  if (!response.ok) {
+    const detail =
+      typeof parsedBody === 'string'
+        ? parsedBody
+        : parsedBody !== null && parsedBody !== undefined
+          ? JSON.stringify(parsedBody)
+          : rawBody || '无响应内容';
+    const statusLabel = response.statusText
+      ? `HTTP ${response.status} ${response.statusText}`
+      : `HTTP ${response.status}`;
+    throw new Error(detail ? `${statusLabel} - ${detail}` : statusLabel);
+  }
+
+  return (parsedBody as T) ?? (null as T);
 };
 
 const request = async <T = any>(

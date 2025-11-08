@@ -541,30 +541,44 @@ const ExponentialSmoothingModel: React.FC = () => {
                       </thead>
                       <tbody>
                         {evaluationData.months.map((month, index) => {
-                          const trueValue = evaluationData.y_true[index];
-                          const predictedValue = evaluationData.predictions[index];
+                          const trueValueRaw = evaluationData.y_true[index];
+                          const predictedValueRaw = evaluationData.predictions[index];
+
+                          const hasValidValues =
+                            typeof trueValueRaw === 'number' && typeof predictedValueRaw === 'number';
 
                           // 计算预测准确率：100% - |真实值 - 预测值| / 真实值 * 100%
-                          const accuracy = trueValue !== 0
-                            ? Math.max(0, 100 - Math.abs(trueValue - predictedValue) / Math.abs(trueValue) * 100)
-                            : (predictedValue === 0 ? 100 : 0);
+                          const accuracy = hasValidValues
+                            ? (trueValueRaw !== 0
+                                ? Math.max(
+                                  0,
+                                  100 - Math.abs(trueValueRaw - predictedValueRaw) / Math.abs(trueValueRaw) * 100,
+                                )
+                                : (predictedValueRaw === 0 ? 100 : 0))
+                            : null;
+
+                          const accuracyClass = accuracy === null
+                            ? 'text-gray-400'
+                            : accuracy >= 80
+                              ? 'text-green-600'
+                              : accuracy >= 60
+                                ? 'text-yellow-600'
+                                : 'text-red-600';
 
                           return (
                             <tr key={index} className="hover:bg-gray-50">
                               <td className="border border-gray-200 px-4 py-3 font-medium text-gray-900">{month}</td>
                               <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
-                                {trueValue?.toLocaleString() ?? '—'}
+                                {hasValidValues ? trueValueRaw.toLocaleString() : '—'}
                               </td>
                               <td className="border border-gray-200 px-4 py-3 text-center text-gray-700">
-                                {predictedValue?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? '—'}
+                                {hasValidValues
+                                  ? predictedValueRaw.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                                  : '—'}
                               </td>
                               <td className="border border-gray-200 px-4 py-3 text-center">
-                                <span className={`font-semibold ${
-                                  accuracy >= 80 ? 'text-green-600' :
-                                  accuracy >= 60 ? 'text-yellow-600' :
-                                  'text-red-600'
-                                }`}>
-                                  {accuracy.toFixed(2)}%
+                                <span className={`font-semibold ${accuracyClass}`}>
+                                  {accuracy !== null ? `${accuracy.toFixed(2)}%` : '—'}
                                 </span>
                               </td>
                             </tr>
