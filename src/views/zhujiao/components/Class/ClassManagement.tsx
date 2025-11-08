@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Users, Loader, AlertTriangle, User as UserIcon } from 'lucide-react';
 import type { Class, Assistant, Student } from '../../types';
 import Modal from '../Common/Modal';
@@ -165,6 +165,13 @@ const ClassManagement: React.FC = () => {
     });
   };
 
+  const handleCloseStudentsModal = useCallback(() => {
+    setShowStudentsModal(false);
+    setSelectedClass(null);
+    setStudents([]);
+    setStudentsError(null);
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -196,12 +203,7 @@ const ClassManagement: React.FC = () => {
 
       <Modal
         isOpen={showStudentsModal}
-        onClose={() => {
-          setShowStudentsModal(false);
-          setSelectedClass(null);
-          setStudents([]);
-          setStudentsError(null);
-        }}
+        onClose={handleCloseStudentsModal}
         title={selectedClass ? `${selectedClass.class_name} 的学生列表` : '学生列表'}
       >
         <div className="space-y-4">

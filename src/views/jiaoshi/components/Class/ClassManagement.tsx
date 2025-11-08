@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Plus, Users, Loader, AlertTriangle, Edit2, Trash2, User as UserIcon, Upload, FileText, CheckCircle, XCircle } from 'lucide-react';
 import type { Class, Assistant, Student } from '../../types';
 import Modal from '../Common/Modal';
@@ -49,6 +49,30 @@ const ClassManagement: React.FC = () => {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [createResult, setCreateResult] = useState<CreateClassResponse | null>(null);
   const [showResultModal, setShowResultModal] = useState(false);
+
+  const handleCloseStudentsModal = useCallback(() => {
+    setShowStudentsModal(false);
+    setSelectedClass(null);
+    setStudents([]);
+    setStudentsError(null);
+  }, []);
+
+  const handleCloseCreateModal = useCallback(() => {
+    setShowCreateModal(false);
+    setFormData({ class_name: '', class_code: '' });
+    setCsvFile(null);
+  }, []);
+
+  const handleCloseEditModal = useCallback(() => {
+    setShowEditModal(false);
+    setSelectedClass(null);
+    setFormData({ class_name: '', class_code: '' });
+  }, []);
+
+  const handleCloseResultModal = useCallback(() => {
+    setShowResultModal(false);
+    setCreateResult(null);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -434,12 +458,7 @@ const ClassManagement: React.FC = () => {
 
       <Modal
         isOpen={showStudentsModal}
-        onClose={() => {
-          setShowStudentsModal(false);
-          setSelectedClass(null);
-          setStudents([]);
-          setStudentsError(null);
-        }}
+        onClose={handleCloseStudentsModal}
         title={selectedClass ? `${selectedClass.class_name} 的学生列表` : '学生列表'}
       >
         <div className="space-y-4">
@@ -484,7 +503,7 @@ const ClassManagement: React.FC = () => {
           </div>
 
           <div className="flex justify-end pt-4 border-t border-gray-100">
-            <Button variant="outline" onClick={() => setShowStudentsModal(false)}>
+            <Button variant="outline" onClick={handleCloseStudentsModal}>
               关闭
             </Button>
           </div>
@@ -493,11 +512,7 @@ const ClassManagement: React.FC = () => {
 
       <Modal
         isOpen={showCreateModal}
-        onClose={() => {
-          setShowCreateModal(false);
-          setFormData({ class_name: '', class_code: '' });
-          setCsvFile(null);
-        }}
+        onClose={handleCloseCreateModal}
         title="新增班级"
       >
         <div className="space-y-4">
@@ -581,11 +596,7 @@ const ClassManagement: React.FC = () => {
           <div className="flex justify-end space-x-3 pt-4">
             <Button
               variant="outline"
-              onClick={() => {
-                setShowCreateModal(false);
-                setFormData({ class_name: '', class_code: '' });
-                setCsvFile(null);
-              }}
+              onClick={handleCloseCreateModal}
             >
               取消
             </Button>
@@ -598,11 +609,7 @@ const ClassManagement: React.FC = () => {
 
       <Modal
         isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          setSelectedClass(null);
-          setFormData({ class_name: '', class_code: '' });
-        }}
+        onClose={handleCloseEditModal}
         title="修改班级信息"
       >
         <div className="space-y-4">
@@ -641,11 +648,7 @@ const ClassManagement: React.FC = () => {
           <div className="flex justify-end space-x-3 pt-4">
             <Button
               variant="outline"
-              onClick={() => {
-                setShowEditModal(false);
-                setSelectedClass(null);
-                setFormData({ class_name: '', class_code: '' });
-              }}
+              onClick={handleCloseEditModal}
             >
               取消
             </Button>
@@ -658,10 +661,7 @@ const ClassManagement: React.FC = () => {
 
       <Modal
         isOpen={showResultModal}
-        onClose={() => {
-          setShowResultModal(false);
-          setCreateResult(null);
-        }}
+        onClose={handleCloseResultModal}
         title="班级创建成功"
       >
         {createResult && (

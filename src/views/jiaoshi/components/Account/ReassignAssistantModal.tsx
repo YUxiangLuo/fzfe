@@ -6,6 +6,8 @@ import { apiClient } from '../../../../utils/apiClient';
 import { Loader, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../../../shared/hooks/useToast';
 import { Toast } from '../../../../shared/components/Toast';
+import { ConfirmDialog } from '../../../../shared/components/ConfirmDialog';
+import { useConfirm } from '../../../../shared/hooks/useConfirm';
 
 interface ReassignAssistantModalProps {
   isOpen: boolean;
@@ -26,6 +28,7 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
   managedClasses,
 }) => {
   const { toast, showToast, hideToast } = useToast();
+  const confirm = useConfirm();
   const [assignmentStatus, setAssignmentStatus] = useState<ClassAssignmentStatus[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +88,8 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
     if (!assistant) return;
     const classInfo = classLookup.get(classId);
     const confirmMessage = `确认将助教"${assistantName}"绑定到班级"${classInfo?.class_name || classId}"吗？`;
-    if (!window.confirm(confirmMessage)) return;
+    const confirmed = await confirm.showConfirm('绑定助教', confirmMessage, 'warning');
+    if (!confirmed) return;
 
     setProcessingClassId(classId);
     try {
@@ -107,7 +111,8 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
     if (!assistant) return;
     const classInfo = classLookup.get(classId);
     const confirmMessage = `确认解绑助教"${assistantName}"与班级"${classInfo?.class_name || classId}"的关联吗？`;
-    if (!window.confirm(confirmMessage)) return;
+    const confirmed = await confirm.showConfirm('解绑助教', confirmMessage, 'danger');
+    if (!confirmed) return;
 
     setProcessingClassId(classId);
     try {
@@ -196,33 +201,43 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="重新分配助教"
-    >
-      <div className="space-y-4">
-        {assistant && (
-          <div className="bg-blue-50 border border-blue-100 text-sm text-blue-700 rounded-lg p-3">
-            <p>当前助教：<span className="font-semibold">{assistantName}</span></p>
-            <p>请选择需要绑定或解绑的班级。</p>
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="重新分配助教"
+      >
+        <div className="space-y-4">
+          {assistant && (
+            <div className="bg-blue-50 border border-blue-100 text-sm text-blue-700 rounded-lg p-3">
+              <p>当前助教：<span className="font-semibold">{assistantName}</span></p>
+              <p>请选择需要绑定或解绑的班级。</p>
+            </div>
+          )}
+          {error && (
+            <div className="flex items-center space-x-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">
+              <AlertTriangle size={16} />
+              <span>{error}</span>
+            </div>
+          )}
+          {renderContent()}
+          <div className="flex justify-end pt-4 border-gray-100">
+            <Button variant="outline" onClick={onClose}>
+              关闭
+            </Button>
           </div>
-        )}
-        {error && (
-          <div className="flex items-center space-x-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">
-            <AlertTriangle size={16} />
-            <span>{error}</span>
-          </div>
-        )}
-        {renderContent()}
-        <div className="flex justify-end pt-4 border-gray-100">
-          <Button variant="outline" onClick={onClose}>
-            关闭
-          </Button>
         </div>
-      </div>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
-    </Modal>
+        {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+      </Modal>
+      <ConfirmDialog
+        isOpen={confirm.isOpen}
+        title={confirm.title}
+        message={confirm.message}
+        variant={confirm.variant}
+        onConfirm={confirm.handleConfirm}
+        onCancel={confirm.handleCancel}
+      />
+    </>
   );
 };
 

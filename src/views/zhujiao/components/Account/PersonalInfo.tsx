@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Edit2, User, Phone, Mail, Calendar, Loader, AlertTriangle, BookCopy, KeyRound, Save } from 'lucide-react';
 import Modal from '../Common/Modal';
 import { apiClient } from '../../../../utils/apiClient';
@@ -84,10 +84,14 @@ const PersonalInfo: React.FC = () => {
     };
   }, []);
 
-  const handleOpenModal = () => {
+  const handleOpenModal = useCallback(() => {
     setTempUser(user);
     setIsEditModalOpen(true);
-  };
+  }, [user]);
+
+  const handleCloseModal = useCallback(() => {
+    setIsEditModalOpen(false);
+  }, []);
 
   const handleSave = async () => {
     if (!tempUser) return;
@@ -293,7 +297,7 @@ const PersonalInfo: React.FC = () => {
       </div>
 
       {tempUser && (
-        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="编辑个人信息">
+        <Modal isOpen={isEditModalOpen} onClose={handleCloseModal} title="编辑个人信息">
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

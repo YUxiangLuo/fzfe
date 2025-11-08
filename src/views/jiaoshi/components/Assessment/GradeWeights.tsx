@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Save, RotateCcw } from 'lucide-react';
 import type { GradeWeights as GradeWeightsApi } from '../../types';
 import Button from '../Common/Button';
@@ -81,6 +81,10 @@ const GradeWeights: React.FC = () => {
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
 
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  const handleCloseDetailModal = useCallback(() => {
+    setIsDetailModalOpen(false);
+  }, []);
   const [teacherId, setTeacherId] = useState<number | null>(null);
   const [hasExistingPlan, setHasExistingPlan] = useState(false);
 
@@ -454,7 +458,7 @@ const GradeWeights: React.FC = () => {
 
       <Modal
         isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
+        onClose={handleCloseDetailModal}
         title="实验流程权重细分"
         size="large"
       >

@@ -7,6 +7,8 @@ import { apiClient } from '../../../../utils/apiClient';
 import { validateQuestionText, validateQuestionOption } from '../../../../shared/utils/validation';
 import { useToast } from '../../../../shared/hooks/useToast';
 import { Toast } from '../../../../shared/components/Toast';
+import { ConfirmDialog } from '../../../../shared/components/ConfirmDialog';
+import { useConfirm } from '../../../../shared/hooks/useConfirm';
 
 type QuestionFormType = 'single' | 'multiple' | 'boolean';
 
@@ -90,6 +92,7 @@ const getDefaultChoiceOptions = (): QuestionOption[] => DEFAULT_CHOICE_OPTIONS.m
 
 const QuestionBank: React.FC = () => {
   const { toast, showToast, hideToast } = useToast();
+  const confirm = useConfirm();
   const defaultKnowledge = getDefaultKnowledgeSelection();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -121,17 +124,22 @@ const QuestionBank: React.FC = () => {
   );
 
   const handleDeleteQuestion = async (questionId: number) => {
-    if (window.confirm('确定要永久删除这道题目吗？此操作不可撤销。')) {
-      setIsDeleting(questionId);
-      try {
-        await apiClient.delete(`/question-bank/questions/${questionId}`);
-        setQuestions((prev) => prev.filter((q) => q.question_id !== questionId));
-        showToast('题目删除成功', 'success');
-      } catch (err: any) {
-        showToast(`删除失败: ${err.message}`, 'error');
-      } finally {
-        setIsDeleting(null);
-      }
+    const confirmed = await confirm.showConfirm(
+      '删除题目',
+      '确定要永久删除这道题目吗？此操作不可撤销。',
+      'danger'
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(questionId);
+    try {
+      await apiClient.delete(`/question-bank/questions/${questionId}`);
+      setQuestions((prev) => prev.filter((q) => q.question_id !== questionId));
+      showToast('题目删除成功', 'success');
+    } catch (err: any) {
+      showToast(`删除失败: ${err.message}`, 'error');
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -920,6 +928,14 @@ const QuestionBank: React.FC = () => {
         </div>
       </Modal>
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+      <ConfirmDialog
+        isOpen={confirm.isOpen}
+        title={confirm.title}
+        message={confirm.message}
+        variant={confirm.variant}
+        onConfirm={confirm.handleConfirm}
+        onCancel={confirm.handleCancel}
+      />
     </div>
   );
 };

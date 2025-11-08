@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Edit2, Trash2, Loader, AlertTriangle, UserPlus, RefreshCw } from 'lucide-react';
 import type { User as Assistant, Class } from '../../types';
 import Modal from '../Common/Modal';
@@ -22,6 +22,15 @@ const AssistantManagement: React.FC = () => {
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [assistantToReassign, setAssistantToReassign] = useState<Assistant | null>(null);
+
+  const handleCloseSelectModal = useCallback(() => {
+    setShowSelectModal(false);
+  }, []);
+
+  const handleCloseReassignModal = useCallback(() => {
+    setShowReassignModal(false);
+    setAssistantToReassign(null);
+  }, []);
 
   const [newAssistant, setNewAssistant] = useState({
     username: '', password: '', full_name: '', email: '', phone_number: '',
@@ -202,14 +211,14 @@ const AssistantManagement: React.FC = () => {
       {/* Modals */}
       <SelectAssistantModal
         isOpen={showSelectModal}
-        onClose={() => setShowSelectModal(false)}
+        onClose={handleCloseSelectModal}
         managedClasses={managedClasses}
         existingAssistantIds={assistants.map(a => a.user_id)}
         onAssignmentSuccess={handleAssignmentSuccess}
       />
       <ReassignAssistantModal
         isOpen={showReassignModal}
-        onClose={() => setShowReassignModal(false)}
+        onClose={handleCloseReassignModal}
         assistant={assistantToReassign}
         managedClasses={managedClasses}
       />

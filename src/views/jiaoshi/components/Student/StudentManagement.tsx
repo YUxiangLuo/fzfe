@@ -18,6 +18,14 @@ interface NewStudentForm {
   password: string;
 }
 
+const INITIAL_NEW_STUDENT: NewStudentForm = {
+  username: '',
+  full_name: '',
+  email: '',
+  phone_number: '',
+  password: '',
+};
+
 const StudentManagement: React.FC = () => {
   const { toast, showToast, hideToast } = useToast();
   const [classes, setClasses] = useState<Class[]>([]);
@@ -33,13 +41,7 @@ const StudentManagement: React.FC = () => {
   const [showSelectModal, setShowSelectModal] = useState(false);
   const [shouldRefreshAfterSelectModal, setShouldRefreshAfterSelectModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [newStudent, setNewStudent] = useState<NewStudentForm>({
-    username: '',
-    full_name: '',
-    email: '',
-    phone_number: '',
-    password: '',
-  });
+  const [newStudent, setNewStudent] = useState<NewStudentForm>(INITIAL_NEW_STUDENT);
 
   const formatDate = (value: string | null | undefined) => {
     if (!value) return '—';
@@ -197,6 +199,29 @@ const StudentManagement: React.FC = () => {
   const [resetPasswordForm, setResetPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
   const [resetPasswordErrors, setResetPasswordErrors] = useState({ newPassword: '', confirmPassword: '' });
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+
+  const handleCloseRemoveStudentModal = useCallback(() => {
+    if (isProcessingRemoval) return;
+    setStudentToRemove(null);
+  }, [isProcessingRemoval]);
+
+  const handleClosePasswordResetModal = useCallback(() => {
+    if (isResettingPassword) return;
+    setStudentForPasswordReset(null);
+  }, [isResettingPassword]);
+
+  const handleCloseAddModal = useCallback(() => {
+    setShowAddModal(false);
+    setNewStudent(INITIAL_NEW_STUDENT);
+  }, []);
+
+  const handleCloseSelectModal = useCallback(() => {
+    setShowSelectModal(false);
+    if (shouldRefreshAfterSelectModal && selectedClassId) {
+      void loadStudents(selectedClassId);
+      setShouldRefreshAfterSelectModal(false);
+    }
+  }, [shouldRefreshAfterSelectModal, selectedClassId, loadStudents]);
 
   const handleResetPassword = (student: Student) => {
     setStudentForPasswordReset(student);
@@ -540,7 +565,7 @@ const StudentManagement: React.FC = () => {
       </div>
       <Modal
         isOpen={!!studentToRemove}
-        onClose={() => setStudentToRemove(null)}
+        onClose={handleCloseRemoveStudentModal}
         title="确认移除学生"
         size="small"
       >
@@ -557,7 +582,7 @@ const StudentManagement: React.FC = () => {
             </div>
           </div>
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <Button variant="outline" onClick={() => setStudentToRemove(null)} disabled={isProcessingRemoval}>
+            <Button variant="outline" onClick={handleCloseRemoveStudentModal} disabled={isProcessingRemoval}>
               取消
             </Button>
             <Button
@@ -573,10 +598,7 @@ const StudentManagement: React.FC = () => {
 
       <Modal
         isOpen={!!studentForPasswordReset}
-        onClose={() => {
-          if (isResettingPassword) return;
-          setStudentForPasswordReset(null);
-        }}
+        onClose={handleClosePasswordResetModal}
         title="重置学生密码"
       >
         <div className="space-y-4">
@@ -636,10 +658,7 @@ const StudentManagement: React.FC = () => {
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <Button
               variant="outline"
-              onClick={() => {
-                if (isResettingPassword) return;
-                setStudentForPasswordReset(null);
-              }}
+              onClick={handleClosePasswordResetModal}
               disabled={isResettingPassword}
             >
               取消
@@ -657,16 +676,7 @@ const StudentManagement: React.FC = () => {
 
       <Modal
         isOpen={showAddModal}
-        onClose={() => {
-          setShowAddModal(false);
-          setNewStudent({
-            username: '',
-            full_name: '',
-            email: '',
-            phone_number: '',
-            password: '',
-          });
-        }}
+        onClose={handleCloseAddModal}
         title="添加学生"
       >
         <div className="space-y-4">
@@ -776,16 +786,7 @@ const StudentManagement: React.FC = () => {
           <div className="flex justify-end space-x-3 pt-4">
             <Button
               variant="outline"
-              onClick={() => {
-                setShowAddModal(false);
-                setNewStudent({
-                  username: '',
-                  full_name: '',
-                  email: '',
-                  phone_number: '',
-                  password: '',
-                });
-              }}
+              onClick={handleCloseAddModal}
               disabled={isSubmitting}
             >
               取消
@@ -803,13 +804,7 @@ const StudentManagement: React.FC = () => {
 
       <SelectStudentModal
         isOpen={showSelectModal}
-        onClose={() => {
-          setShowSelectModal(false);
-          if (shouldRefreshAfterSelectModal && selectedClassId) {
-            void loadStudents(selectedClassId);
-            setShouldRefreshAfterSelectModal(false);
-          }
-        }}
+        onClose={handleCloseSelectModal}
         classId={selectedClassId}
         onStudentEnrolled={() => {
           setShouldRefreshAfterSelectModal(true);
