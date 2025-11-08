@@ -363,17 +363,9 @@ ${state.production_mps_table.map(row => `| ${row.period_label} | ${row.demand_fo
 
 ${planDecisionAnalysis}`;
 
-      // 使用现代的 base64 编码方式，支持 UTF-8
-      const encoder = new TextEncoder();
-      const utf8Bytes = encoder.encode(markdownContent);
-      let binaryString = '';
-      for (let i = 0; i < utf8Bytes.length; i++) {
-        binaryString += String.fromCharCode(utf8Bytes[i]);
-      }
-      const base64Content = btoa(binaryString);
-
+      // Markdown 文本直接发送，无需 base64 编码
       const response = await apiClient.post<{ message: string; report_id: number; pdf_path: string }>(`/experiment-runs/${state.experiment_id}/report`, {
-        report_content: base64Content,
+        report_content: markdownContent,
       });
 
       setSubmitSuccess(true);
