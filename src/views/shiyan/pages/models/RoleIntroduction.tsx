@@ -5,14 +5,9 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
-  TrendingUp,
-  Users,
-  Lightbulb,
   Award,
-  AlertCircle,
   CheckCircle2,
   Briefcase,
-  LineChart,
 } from 'lucide-react';
 
 const RoleIntroduction: React.FC = () => {
@@ -96,58 +91,6 @@ const RoleIntroduction: React.FC = () => {
                         评估预测准确度，不断调整和优化预测模型
                       </p>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 关键绩效指标 */}
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-semibold text-emerald-900 mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  关键绩效指标（KPIs）
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white/60 rounded-lg p-3 border border-emerald-200">
-                    <div className="text-2xl font-bold text-emerald-700 mb-1">±5%</div>
-                    <div className="text-xs text-emerald-900">预测误差目标</div>
-                  </div>
-                  <div className="bg-white/60 rounded-lg p-3 border border-emerald-200">
-                    <div className="text-2xl font-bold text-emerald-700 mb-1">90%+</div>
-                    <div className="text-xs text-emerald-900">预测准确率</div>
-                  </div>
-                  <div className="bg-white/60 rounded-lg p-3 border border-emerald-200">
-                    <div className="text-2xl font-bold text-emerald-700 mb-1">85%+</div>
-                    <div className="text-xs text-emerald-900">服务水平目标</div>
-                  </div>
-                  <div className="bg-white/60 rounded-lg p-3 border border-emerald-200">
-                    <div className="text-2xl font-bold text-emerald-700 mb-1">15%↓</div>
-                    <div className="text-xs text-emerald-900">库存成本降低</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 核心技能 */}
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-semibold text-amber-900 mb-4 flex items-center gap-2">
-                  <Lightbulb className="w-5 h-5" />
-                  需要的核心技能
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-2 bg-white/60 rounded-lg px-3 py-2 border border-amber-200">
-                    <LineChart className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                    <span className="text-xs text-amber-900 font-medium">数据分析</span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-white/60 rounded-lg px-3 py-2 border border-amber-200">
-                    <BarChart3 className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                    <span className="text-xs text-amber-900 font-medium">统计建模</span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-white/60 rounded-lg px-3 py-2 border border-amber-200">
-                    <TrendingUp className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                    <span className="text-xs text-amber-900 font-medium">趋势识别</span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-white/60 rounded-lg px-3 py-2 border border-amber-200">
-                    <Users className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                    <span className="text-xs text-amber-900 font-medium">跨部门协作</span>
                   </div>
                 </div>
               </div>
@@ -238,40 +181,6 @@ const RoleIntroduction: React.FC = () => {
                     </p>
                     <p className="text-xs text-gray-700">
                       需求受多种因素影响时，可尝试LSTM深度学习模型或集成模型，提升预测准确度
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 注意事项 */}
-              <div className="bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-semibold text-cyan-900 mb-4 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5" />
-                  重要提示
-                </h3>
-                <div className="space-y-2 text-xs text-cyan-900">
-                  <div className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-600 flex-shrink-0 mt-1.5"></div>
-                    <p>
-                      <strong>数据质量优先：</strong>确保训练数据的完整性和准确性，数据质量决定预测效果
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-600 flex-shrink-0 mt-1.5"></div>
-                    <p>
-                      <strong>模型不是万能的：</strong>没有一种模型适用于所有场景，需根据实际情况选择
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-600 flex-shrink-0 mt-1.5"></div>
-                    <p>
-                      <strong>持续跟踪验证：</strong>预测结果需要与实际销售对比，不断调整优化
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-600 flex-shrink-0 mt-1.5"></div>
-                    <p>
-                      <strong>跨部门沟通：</strong>与生产、采购、财务部门保持密切沟通，及时反馈市场变化
                     </p>
                   </div>
                 </div>
