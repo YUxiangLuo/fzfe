@@ -28,6 +28,16 @@ interface CreateClassResponse {
 const MAX_CSV_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const ClassManagement: React.FC = () => {
+  const formatDate = (value: string | null | undefined) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const { toast, showToast, hideToast } = useToast();
   const confirm = useConfirm();
   const { role } = useRole();
@@ -299,7 +309,11 @@ const ClassManagement: React.FC = () => {
             {assistantNames || ''}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-            {classItem.created_at ? new Date(classItem.created_at).toLocaleDateString() : '未知'}
+            {classItem.created_at ? (
+              <span className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-600">
+                {formatDate(classItem.created_at)}
+              </span>
+            ) : '—'}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
             <button
