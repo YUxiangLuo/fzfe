@@ -77,6 +77,7 @@ const NewStep2: React.FC = () => {
     const { endingInventory, stockout } = calculateInventoryAndStockout();
     updatePeriod2Data({
       demandForecast: period2Demand,
+      beginningInventory: period2BeginningInventory,
       productionOutput,
       endingInventory,
       stockout,
@@ -95,6 +96,7 @@ const NewStep2: React.FC = () => {
     // 保存第2期数据
     updatePeriod2Data({
       demandForecast: period2Demand,
+      beginningInventory: period2BeginningInventory,
       productionOutput,
       endingInventory,
       stockout,
