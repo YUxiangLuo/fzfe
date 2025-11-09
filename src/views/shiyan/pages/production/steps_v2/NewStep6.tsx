@@ -54,7 +54,8 @@ const NewStep6: React.FC = () => {
         console.error('保存MPS数据失败:', err);
       });
     }
-  }, [state.isFullPlanGenerated, state.hasSavedToGlobal, state.predictions, saveMPSDataToGlobal, updateState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.isFullPlanGenerated, state.hasSavedToGlobal, state.predictions]);
 
   const handleGenerate = async () => {
     setIsGenerating(true);

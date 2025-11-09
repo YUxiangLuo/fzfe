@@ -230,6 +230,12 @@ export const ProductionPlanProvider: React.FC<{
     getDefaultState(initialModel, avgDemand)
   );
 
+  // 🔄 使用ref保存最新的state，避免闭包问题
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   useEffect(() => {
     initialPropsRef.current = { initialModel, avgDemand };
   }, [initialModel, avgDemand]);
@@ -491,24 +497,27 @@ export const ProductionPlanProvider: React.FC<{
     try {
       console.log('💾 保存生产计划数据到全局状态...');
 
-      // 转换MPS表格数据类型
-      const globalMPSTable = convertToGlobalMPSTable(state.fullMPSTable);
+      // 🔄 使用ref获取最新的state数据，避免闭包问题
+      const currentState = stateRef.current;
 
-      console.log('📊 完整MPS表数据（期1-' + state.fullMPSTable.length + '）:', state.fullMPSTable);
+      // 转换MPS表格数据类型
+      const globalMPSTable = convertToGlobalMPSTable(currentState.fullMPSTable);
+
+      console.log('📊 完整MPS表数据（期1-' + currentState.fullMPSTable.length + '）:', currentState.fullMPSTable);
 
       // 使用重试机制保存数据（最多重试3次，指数退避）
       await retryAsync(
         async () => {
           await updateStateFunc({
             production_plan_completed: true,
-            production_forecast_periods: state.forecastPeriods,
-            production_initial_inventory: state.initialInventory,
-            production_target_service_level: state.targetServiceLevel,
-            production_safety_stock_z_score: state.safetyStockZScore,
-            production_forecast_results: state.predictions,
+            production_forecast_periods: currentState.forecastPeriods,
+            production_initial_inventory: currentState.initialInventory,
+            production_target_service_level: currentState.targetServiceLevel,
+            production_safety_stock_z_score: currentState.safetyStockZScore,
+            production_forecast_results: currentState.predictions,
             production_mps_table: globalMPSTable,
-            production_capacity_scenario: state.capacityScenario,
-            production_capacity: state.productionCapacity,
+            production_capacity_scenario: currentState.capacityScenario,
+            production_capacity: currentState.productionCapacity,
           });
         },
         3, // 最多重试3次
