@@ -497,9 +497,8 @@ const NewStep6: React.FC = () => {
               type="button"
               onClick={() => {
                 hideStep6Teaching();
-                // 标记step6为完成
+                // 标记step6为完成（production_plan_completed已在saveMPSDataToGlobal中设置）
                 completeCurrentStep();
-                updateState({ production_plan_completed: true });
               }}
               className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-lg"
             >
