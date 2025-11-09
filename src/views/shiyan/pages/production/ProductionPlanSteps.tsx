@@ -13,7 +13,7 @@ import NewStep6 from './steps_v2/NewStep6';
 
 const ProductionPlanContent: React.FC = () => {
   const navigate = useNavigate();
-  const { state, goToStep, resetAll } = useProductionPlan();
+  const { state, goToStep, resetAll, saveMPSDataToGlobal } = useProductionPlan();
   const { updateState } = useExperiment();
 
   const steps = [
@@ -53,6 +53,18 @@ const ProductionPlanContent: React.FC = () => {
   // 完成生产计划并进入测验
   const handleComplete = async () => {
     try {
+      // 🔄 如果之前保存失败，先尝试重新保存MPS数据
+      if (state.savingError && !state.hasSavedToGlobal) {
+        console.log('🔄 检测到之前的保存失败，正在重试保存MPS数据...');
+        try {
+          await saveMPSDataToGlobal(updateState);
+          console.log('✅ 重试保存成功');
+        } catch (retryErr) {
+          console.error('⚠️ 重试保存失败，但将继续进入测验:', retryErr);
+          // 继续执行，不阻止用户进入测验
+        }
+      }
+
       console.log('📊 更新步骤进度：完成步骤7');
       await updateState({
         highest_completed_step: 7,
@@ -82,6 +94,23 @@ const ProductionPlanContent: React.FC = () => {
             <span>重置</span>
           </button>
         </div>
+
+        {/* 进度指示器 */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+            <span>学习进度</span>
+            <span className="font-semibold text-blue-600">
+              {state.completedSteps.length} / {steps.length} 完成
+            </span>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500 ease-out"
+              style={{ width: `${(state.completedSteps.length / steps.length) * 100}%` }}
+            />
+          </div>
+        </div>
+
         <div className="flex gap-2 overflow-x-auto pb-2">
           {steps.map((step) => (
             <button

@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import type { CapacityMode, CapacityScenario } from './utils/productionCapacityHelper';
 import { validateAndFixStdDev } from './utils/predictionValidator';
 import { MPS_CALCULATION, DEFAULT_PARAMETERS } from './config/mpsConstants';
+import { retryAsync } from '../../../utils/retryAsync';
+import type { MPSTableRow as GlobalMPSTableRow } from '../../contexts/ExperimentContext';
 
 // MPS表格行接口
 export interface MPSTableRow {
@@ -70,6 +72,11 @@ export interface ProductionPlanState {
 
   // Step6教学内容是否已隐藏（用于全屏显示MPS表）
   isStep6TeachingHidden: boolean;
+
+  // 保存状态
+  isSaving: boolean;
+  savingError: string | null;
+  hasSavedToGlobal: boolean;
 }
 
 // Context值接口
@@ -115,11 +122,30 @@ interface ProductionPlanContextValue {
   // Step6教学内容控制
   hideStep6Teaching: () => void;
 
+  // 保存MPS数据到全局状态（带重试机制）
+  saveMPSDataToGlobal: (updateStateFunc: Function) => Promise<void>;
+
   // 重置
   resetAll: () => void;
 }
 
 const ProductionPlanContext = createContext<ProductionPlanContextValue | undefined>(undefined);
+
+// 🔄 将本地MPS表格数据转换为全局类型（去除null）
+const convertToGlobalMPSTable = (localTable: MPSTableRow[]): GlobalMPSTableRow[] => {
+  return localTable.map(row => ({
+    period: row.period,
+    period_label: row.period_label,
+    demand_forecast: row.demand_forecast ?? 0,
+    safety_stock: row.safety_stock ?? 0,
+    planned_production: row.planned_production ?? 0,
+    beginning_inventory: row.beginning_inventory ?? 0,
+    production_output: row.production_output ?? 0,
+    ending_inventory: row.ending_inventory ?? 0,
+    stockout: row.stockout ?? 0,
+    service_level: row.service_level ?? 0,
+  }));
+};
 
 // 默认状态
 const getDefaultState = (
@@ -182,6 +208,11 @@ const getDefaultState = (
     isFullPlanGenerated: false,
 
     isStep6TeachingHidden: false,
+
+    // 保存状态
+    isSaving: false,
+    savingError: null,
+    hasSavedToGlobal: false,
   };
 };
 
@@ -198,6 +229,12 @@ export const ProductionPlanProvider: React.FC<{
   const [state, setState] = useState<ProductionPlanState>(() =>
     getDefaultState(initialModel, avgDemand)
   );
+
+  // 🔄 使用ref保存最新的state，避免闭包问题
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     initialPropsRef.current = { initialModel, avgDemand };
@@ -449,6 +486,68 @@ export const ProductionPlanProvider: React.FC<{
     }));
   };
 
+  // 💾 保存MPS数据到全局状态（带重试机制）
+  const saveMPSDataToGlobal = async (updateStateFunc: Function) => {
+    setState((prev) => ({
+      ...prev,
+      isSaving: true,
+      savingError: null,
+    }));
+
+    try {
+      console.log('💾 保存生产计划数据到全局状态...');
+
+      // 🔄 使用ref获取最新的state数据，避免闭包问题
+      const currentState = stateRef.current;
+
+      // 转换MPS表格数据类型
+      const globalMPSTable = convertToGlobalMPSTable(currentState.fullMPSTable);
+
+      console.log('📊 完整MPS表数据（期1-' + currentState.fullMPSTable.length + '）:', currentState.fullMPSTable);
+
+      // 使用重试机制保存数据（最多重试3次，指数退避）
+      await retryAsync(
+        async () => {
+          await updateStateFunc({
+            production_plan_completed: true,
+            production_forecast_periods: currentState.forecastPeriods,
+            production_initial_inventory: currentState.initialInventory,
+            production_target_service_level: currentState.targetServiceLevel,
+            production_safety_stock_z_score: currentState.safetyStockZScore,
+            production_forecast_results: currentState.predictions,
+            production_mps_table: globalMPSTable,
+            production_capacity_scenario: currentState.capacityScenario,
+            production_capacity: currentState.productionCapacity,
+          });
+        },
+        3, // 最多重试3次
+        1000 // 初始延迟1秒
+      );
+
+      console.log('✅ 生产计划数据已保存到全局状态');
+
+      setState((prev) => ({
+        ...prev,
+        isSaving: false,
+        savingError: null,
+        hasSavedToGlobal: true,
+      }));
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '未知错误';
+      console.error('❌ 保存生产计划数据失败（已重试3次）:', err);
+
+      setState((prev) => ({
+        ...prev,
+        isSaving: false,
+        savingError: `保存失败: ${errorMessage}。数据将在您进入测验前再次尝试保存。`,
+        hasSavedToGlobal: false,
+      }));
+
+      // 重新抛出错误，让调用者知道保存失败
+      throw err;
+    }
+  };
+
   const resetAll = () => {
     const { initialModel: model, avgDemand: avg } = initialPropsRef.current;
     setState(getDefaultState(model, avg));
@@ -468,6 +567,7 @@ export const ProductionPlanProvider: React.FC<{
         savePredictions,
         generateFullMPS,
         hideStep6Teaching,
+        saveMPSDataToGlobal,
         resetAll,
       }}
     >

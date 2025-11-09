@@ -3,6 +3,8 @@ import { Target, ArrowRight, Calculator, Info, BarChart2, Shield } from 'lucide-
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useToast } from '../../../hooks/useToast';
 import Toast from '../../../components/Common/Toast';
+import { validateAndFixStdDev } from '../utils/predictionValidator';
+import { STD_DEV_ESTIMATION } from '../config/mpsConstants';
 
 /**
  * Step 4: 预测量
@@ -27,19 +29,30 @@ const NewStep4: React.FC = () => {
     // 优先使用predictions[1]的标准差（第2期）
     const secondPrediction = state.predictions?.[1];
     if (secondPrediction) {
-      const stdDev = secondPrediction.std_dev;
-      const safetyStock = Math.round(zScore * stdDev);
+      // 🛡️ 使用验证函数确保标准差有效
+      const validationResult = validateAndFixStdDev(
+        secondPrediction.std_dev,
+        period2Demand,
+        1 // 第2期索引为1
+      );
+
+      // 输出警告信息（如有）
+      validationResult.warnings.forEach(warning => {
+        console.warn(`⚠️ ${warning}`);
+      });
+
+      const safetyStock = Math.round(zScore * validationResult.value);
       return Math.max(0, safetyStock);
     }
     // 如果没有预测数据，使用简化估算
     const avgDemand = state.avgDemand;
-    const stdDev = avgDemand * 0.2;
+    const stdDev = avgDemand * STD_DEV_ESTIMATION.FALLBACK_RATIO;
     const safetyStock = Math.round(zScore * stdDev);
     return Math.max(0, safetyStock);
   };
 
   // 获取第2期的标准差（用于显示）
-  const period2StdDev = state.predictions?.[1]?.std_dev ?? state.avgDemand * 0.2;
+  const period2StdDev = state.predictions?.[1]?.std_dev ?? state.avgDemand * STD_DEV_ESTIMATION.FALLBACK_RATIO;
 
   const safetyStock = hasCalculated ? calculateSafetyStock() : null;
   const forecastQuantity = hasCalculated && safetyStock !== null
@@ -59,8 +72,21 @@ const NewStep4: React.FC = () => {
     // 同时填充第1期的安全库存（使用predictions[0]的标准差）
     const period1Prediction = state.predictions?.[0];
     if (period1Prediction) {
-      const period1StdDev = period1Prediction.std_dev;
-      const period1SafetyStock = Math.round(state.safetyStockZScore * period1StdDev);
+      const period1Demand = state.period1Data.demandForecast ?? 0;
+
+      // 🛡️ 使用验证函数确保标准差有效
+      const validationResult = validateAndFixStdDev(
+        period1Prediction.std_dev,
+        period1Demand,
+        0 // 第1期索引为0
+      );
+
+      // 输出警告信息（如有）
+      validationResult.warnings.forEach(warning => {
+        console.warn(`⚠️ ${warning}`);
+      });
+
+      const period1SafetyStock = Math.round(state.safetyStockZScore * validationResult.value);
       fillPeriod1Data({
         ...state.period1Data,
         safetyStock: period1SafetyStock,
