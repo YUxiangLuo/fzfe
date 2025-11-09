@@ -619,7 +619,6 @@ ${planDecisionAnalysis}`;
                   </div>
                 );
               })()}
-            </div>
           </ReportCard>
 
           <ReportCard icon={<ClipboardList className="w-6 h-6 text-indigo-600" />} title="五、生产计划决策结果" analysisKey="decision" getAnalysisValue={getAnalysisValue} getAnalysisSetter={getAnalysisSetter} isSubmitting={isSubmitting}>
