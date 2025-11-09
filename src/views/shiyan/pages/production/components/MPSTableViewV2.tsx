@@ -8,6 +8,7 @@ type ColumnKey =
   | 'safety_stock'  // 安全库存
   | 'forecast_quantity'  // 预测量（需求+安全库存，计算列）
   | 'planned_production'  // 投入量（计划生产）
+  | 'beginning_inventory'  // 期初库存
   | 'production_output'  // 产出量
   | 'ending_inventory'  // 库存（期末库存）
   | 'stockout'  // 缺货
@@ -15,12 +16,12 @@ type ColumnKey =
 
 // 定义每一步应该显示的列
 const STEP_COLUMNS: Record<number, ColumnKey[]> = {
-  1: ['period', 'demand_forecast', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 1: 基础数据（不含安全库存）
-  2: ['period', 'demand_forecast', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 2: 基础数据（不含安全库存）
-  3: ['period', 'demand_forecast', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 3: 基础数据（不含安全库存）
-  4: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 4: 添加安全库存和预测量
-  5: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'planned_production', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 5: 添加投入量
-  6: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'planned_production', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 6: 完整表
+  1: ['period', 'demand_forecast', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 1: 基础数据 + 期初库存
+  2: ['period', 'demand_forecast', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 2: 需求量、产出量、库存量、缺货量
+  3: ['period', 'demand_forecast', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 3: 服务水平
+  4: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 4: 添加安全库存和预测量
+  5: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'planned_production', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 5: 添加投入量
+  6: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'planned_production', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 6: 完整表
 };
 
 const DEFAULT_COLUMNS = STEP_COLUMNS[1]!;
@@ -75,8 +76,9 @@ const MPSTableViewV2: React.FC = () => {
       safety_stock: { title: '安全库存' },
       forecast_quantity: { title: '预测量', subtitle: '需求+安全库存' },
       planned_production: { title: '投入量', subtitle: '计划生产' },
+      beginning_inventory: { title: '期初库存' },
       production_output: { title: '产出量' },
-      ending_inventory: { title: '库存', subtitle: '期末库存' },
+      ending_inventory: { title: '期末库存' },
       stockout: { title: '缺货' },
       service_level: { title: '服务水平' },
     };
@@ -132,6 +134,11 @@ const MPSTableViewV2: React.FC = () => {
             {isColumnVisible('planned_production') && (
               <td className={getCellStyle(state.period1Data.plannedProduction)}>
                 {formatValue(state.period1Data.plannedProduction)}
+              </td>
+            )}
+            {isColumnVisible('beginning_inventory') && (
+              <td className={getCellStyle(state.period1Data.beginningInventory)}>
+                {formatValue(state.period1Data.beginningInventory)}
               </td>
             )}
             {isColumnVisible('production_output') && (
@@ -190,6 +197,11 @@ const MPSTableViewV2: React.FC = () => {
                 {formatValue(state.period2Data.plannedProduction)}
               </td>
             )}
+            {isColumnVisible('beginning_inventory') && (
+              <td className={getCellStyle(state.period2Data.beginningInventory, isFilled(state.period2Data.beginningInventory))}>
+                {formatValue(state.period2Data.beginningInventory)}
+              </td>
+            )}
             {isColumnVisible('production_output') && (
               <td className={getCellStyle(state.period2Data.productionOutput, isFilled(state.period2Data.productionOutput))}>
                 {formatValue(state.period2Data.productionOutput)}
@@ -237,6 +249,9 @@ const MPSTableViewV2: React.FC = () => {
                 )}
                 {isColumnVisible('planned_production') && (
                   <td className="py-3 px-4 text-right text-gray-800">{formatValue(row.planned_production)}</td>
+                )}
+                {isColumnVisible('beginning_inventory') && (
+                  <td className="py-3 px-4 text-right text-gray-800">{formatValue(row.beginning_inventory)}</td>
                 )}
                 {isColumnVisible('production_output') && (
                   <td className="py-3 px-4 text-right text-gray-800">{formatValue(row.production_output)}</td>

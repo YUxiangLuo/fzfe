@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle, Circle, Lock, RotateCcw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { ProductionPlanProvider, useProductionPlan } from './ProductionPlanContextV2';
 import { useExperiment } from '../../contexts/ExperimentContext';
 import MPSTableViewV2 from './components/MPSTableViewV2';
@@ -11,7 +12,9 @@ import NewStep5 from './steps_v2/NewStep5';
 import NewStep6 from './steps_v2/NewStep6';
 
 const ProductionPlanContent: React.FC = () => {
+  const navigate = useNavigate();
   const { state, goToStep, resetAll } = useProductionPlan();
+  const { updateState } = useExperiment();
 
   const steps = [
     { id: 1, title: '规划总览', component: NewStep1 },
@@ -45,6 +48,23 @@ const ProductionPlanContent: React.FC = () => {
     if (status === 'current') return 'bg-blue-50 border-blue-400 text-blue-800 ring-2 ring-blue-300';
     if (status === 'available') return 'bg-gray-50 border-gray-300 text-gray-700 cursor-pointer hover:bg-gray-100';
     return 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed';
+  };
+
+  // 完成生产计划并进入测验
+  const handleComplete = async () => {
+    try {
+      console.log('📊 更新步骤进度：完成步骤7');
+      await updateState({
+        highest_completed_step: 7,
+        current_step: 7,
+      });
+      console.log('✅ 步骤进度已更新');
+      navigate('/quiz-plan');
+    } catch (err) {
+      console.error('更新步骤进度失败:', err);
+      // 即使失败也继续导航
+      navigate('/quiz-plan');
+    }
   };
 
   return (
@@ -83,31 +103,63 @@ const ProductionPlanContent: React.FC = () => {
       </div>
 
       {/* 下方：概念学习 + MPS表格 */}
-      <div className="flex gap-6 flex-1 min-h-0 overflow-hidden">
-        {/* 左侧：概念学习区（可滚动） */}
-        <div className="flex-1 min-w-0 h-full overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <CurrentStepComponent />
-          </div>
-        </div>
-
-        {/* 右侧：MPS表格（固定高度，表格内容可滚动） */}
-        <div className="flex-1 min-w-0 h-full overflow-y-auto">
+      {state.currentStep === 6 && state.isStep6TeachingHidden ? (
+        // Step6教学内容已隐藏：全屏显示MPS表格 + 完成按钮
+        <div className="flex-1 min-h-0 overflow-hidden">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full flex flex-col">
             <div className="mb-4 flex-shrink-0">
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                主生产计划表（MPS）
-              </h2>
-              <p className="text-sm text-gray-600">
-                期1作为参考示例，期2用于渐进式学习，随着学习进度逐步填充完整
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                    主生产计划表（MPS）- 完整视图
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    完整的生产计划表，包含所有{state.forecastPeriods}期的详细数据
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleComplete}
+                  className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors shadow-lg"
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  <span>完成生产计划，进入测验</span>
+                </button>
+              </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
               <MPSTableViewV2 />
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        // 正常布局：左侧教学内容 + 右侧MPS表格
+        <div className="flex gap-6 flex-1 min-h-0 overflow-hidden">
+          {/* 左侧：概念学习区（可滚动） */}
+          <div className="flex-1 min-w-0 h-full overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <CurrentStepComponent />
+            </div>
+          </div>
+
+          {/* 右侧：MPS表格（固定高度，表格内容可滚动） */}
+          <div className="flex-1 min-w-0 h-full overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full flex flex-col">
+              <div className="mb-4 flex-shrink-0">
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                  主生产计划表（MPS）
+                </h2>
+                <p className="text-sm text-gray-600">
+                  期1作为参考示例，期2用于渐进式学习，随着学习进度逐步填充完整
+                </p>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <MPSTableViewV2 />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
