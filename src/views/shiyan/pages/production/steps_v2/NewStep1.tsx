@@ -104,14 +104,14 @@ const NewStep1: React.FC = () => {
         safetyStock: 0, // 占位，实际不显示
       });
 
-      // 填充到Context
+      // 填充到Context（按客户文档：第一月标准化处理）
       fillPeriod1Data({
         demandForecast: period1Demand, // 实际需求 = 预测值
         safetyStock: null, // 安全库存在Step4才计算
-        plannedProduction: period1Demand, // 投入量 = 预测需求（简化）
-        beginningInventory: INITIAL_INVENTORY, // 期初库存 = 0（标准化）
-        productionOutput: period1Demand, // 产出量 = 预测需求（假设正好满足）
-        endingInventory: INITIAL_INVENTORY, // 期末库存 = 0（标准化：产出=需求）
+        plannedProduction: period1Demand, // 投入量 = 预测量（第一月预测量=需求预测，不含安全库存）
+        beginningInventory: INITIAL_INVENTORY, // 期初库存 = 0（标准化基准）
+        productionOutput: period1Demand, // 产出量 = 需求量（假设生产完全满足需求）
+        endingInventory: INITIAL_INVENTORY, // 期末库存 = 0（标准化：产出=需求，因而库存=0）
         stockout: 0, // 缺货 = 0（标准化假设）
         serviceLevel: 1.0, // 服务水平 = 100%
       });
@@ -255,6 +255,12 @@ const NewStep1: React.FC = () => {
             在制定生产计划时，我们首先对第一个月进行<strong>"标准化"</strong>处理。这意味着我们假设第一个月的产出量刚好满足市场需求，而库存量和缺货量均为 0。这样的处理有助于简化计算，并为后续的生产计划制定打下基础。
           </p>
           <div className="space-y-2 text-sm text-amber-800">
+            <div className="flex items-start space-x-2">
+              <span>•</span>
+              <div>
+                <strong>期初库存：</strong>第一个月的期初库存为 0（标准化基准）。
+              </div>
+            </div>
             <div className="flex items-start space-x-2">
               <span>•</span>
               <div>
@@ -419,8 +425,11 @@ const NewStep1: React.FC = () => {
               </div>
 
               <div className="mt-3 p-3 bg-white rounded-lg border border-green-200">
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-gray-700 mb-2">
                   📊 <strong>MPS表第一排已填充</strong>：期初库存=0、产出量={period1Data.demand}、期末库存=0、缺货=0、服务水平=100%
+                </p>
+                <p className="text-sm text-gray-700">
+                  🏭 <strong>产能已设定</strong>：{Math.round(avgDemand * 1.1)}件/月（历史平均需求 × 1.1）
                 </p>
                 <p className="text-xs text-gray-600 mt-2">
                   💡 第一期采用标准化设置，为后续计划提供参考基准
