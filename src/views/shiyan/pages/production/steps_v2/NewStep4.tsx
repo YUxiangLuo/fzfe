@@ -93,7 +93,7 @@ const NewStep4: React.FC = () => {
         </div>
         <div>
           <h3 className="text-xl font-bold text-gray-900">第4步：预测量</h3>
-          <p className="text-sm text-amber-600">Forecast Quantity with Safety Stock</p>
+          <p className="text-sm text-amber-600">Safety Stock</p>
         </div>
       </div>
 
@@ -150,7 +150,7 @@ const NewStep4: React.FC = () => {
                 </div>
               </div>
               <div className="text-xs text-purple-800 space-y-1">
-                <div>• <strong>Z分数</strong>：基于目标服务水平的统计参数（您设置的目标：{(targetServiceLevel * 100).toFixed(0)}% → Z = {zScore.toFixed(2)}）</div>
+                <div>• <strong>Z分数</strong>：基于目标服务水平的统计参数（您设置的目标：{(targetServiceLevel * 100).toFixed(0)}% → Z = {zScore.toFixed(1)}）</div>
                 <div>• <strong>需求标准差</strong>：需求波动的度量（从预测模型获得：σ = {period2StdDev.toFixed(1)}）</div>
                 <div className="mt-2 p-2 bg-purple-100 rounded">
                   💡 <strong>服务水平越高</strong> → Z分数越大 → 安全库存越多 → 成本越高
@@ -191,7 +191,7 @@ const NewStep4: React.FC = () => {
               </div>
               <div className="bg-white p-3 rounded border border-gray-200">
                 <div className="text-xs text-gray-600">Z分数</div>
-                <div className="text-lg font-bold text-gray-900">{zScore.toFixed(2)}</div>
+                <div className="text-lg font-bold text-gray-900">{zScore.toFixed(1)}</div>
               </div>
               <div className="bg-blue-50 p-3 rounded border border-blue-200">
                 <div className="text-xs text-blue-600">第2期实际需求</div>
@@ -230,7 +230,7 @@ const NewStep4: React.FC = () => {
                   <div className="text-sm font-semibold text-amber-900 mb-2">步骤2：计算安全库存</div>
                   <div className="font-mono text-sm text-amber-800 space-y-1">
                     <div>安全库存 = Z分数 × 需求标准差</div>
-                    <div className="ml-4">= {zScore.toFixed(2)} × {period2StdDev.toFixed(1)}</div>
+                    <div className="ml-4">= {zScore.toFixed(1)} × {period2StdDev.toFixed(1)}</div>
                     <div className="ml-4">= {(zScore * period2StdDev).toFixed(1)}</div>
                     <div className="ml-4 font-bold text-amber-900">≈ {safetyStock}（取整）</div>
                   </div>
@@ -297,8 +297,8 @@ const NewStep4: React.FC = () => {
                 <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
                   <p className="text-sm text-blue-900">
                     💡 <strong>关键洞察：</strong>
-                    如果我们只准备{period2Demand}的库存（等于实际需求），那么需求稍有波动就会缺货。
-                    通过增加{safetyStock}的安全库存，我们能够以{(targetServiceLevel * 100).toFixed(0)}%的概率满足需求波动，
+                    如果我们只准备{period2Demand}的库存（仅满足预期需求），需求波动时就会缺货。
+                    通过增加{safetyStock}的安全库存，我们能够以{(targetServiceLevel * 100).toFixed(0)}%的概率应对需求不确定性，
                     大幅提高服务水平。
                   </p>
                 </div>

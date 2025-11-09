@@ -109,7 +109,7 @@ const NewStep2: React.FC = () => {
         </div>
         <div>
           <h3 className="text-xl font-bold text-gray-900">第2步：生产变量（基础四列）</h3>
-          <p className="text-sm text-green-600">Core Production Variables</p>
+          <p className="text-sm text-green-600">Core Variables</p>
         </div>
       </div>
 
@@ -194,7 +194,7 @@ const NewStep2: React.FC = () => {
             <li>• <strong>缺货</strong> = 0（无缺货）</li>
           </ul>
           <p className="mt-3 font-medium">
-            ⚠️ 真实的动态计算从<strong>第2期</strong>开始！第2期的期初库存 = 第1期的期末库存 = <strong>0</strong>
+            ⚠️ <strong>第2期开始</strong>进入动态计算！第2期的期初库存 = 第1期的期末库存 = <strong>0</strong>
           </p>
         </div>
       </div>
@@ -301,7 +301,7 @@ const NewStep2: React.FC = () => {
               placeholder="输入产出量"
             />
             <p className="mt-1 text-xs text-gray-500">
-              💡 提示：产出量来自上期投入（提前期1月）。尝试输入 {period2Demand} 或其他值看看效果。
+              💡 提示：产出量来自上期投入（提前期1月）。尝试输入 {period2Demand} 或其他值观察计算结果。
             </p>
           </div>
 

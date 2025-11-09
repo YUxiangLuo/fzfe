@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { CapacityMode, CapacityScenario } from './utils/productionCapacityHelper';
+import { validateAndFixStdDev } from './utils/predictionValidator';
+import { MPS_CALCULATION, DEFAULT_PARAMETERS } from './config/mpsConstants';
 
 // MPS表格行接口
 export interface MPSTableRow {
@@ -43,8 +45,6 @@ export interface ProductionPlanState {
   targetServiceLevel: number;
   safetyStockZScore: number;
   selectedBestModel: string;
-  demoPrediction: number;
-  demoStdDev: number;
 
   // 产能参数
   capacityMode: CapacityMode;
@@ -105,7 +105,6 @@ interface ProductionPlanContextValue {
 
   // 保存预测结果（从预测接口获取的完整数据）
   savePredictions: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
-  updateDemoPrediction: (prediction: number, stdDev: number) => void;
 
   // 生成完整MPS表
   generateFullMPS: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
@@ -131,13 +130,11 @@ const getDefaultState = (
     currentStep: 1,
     completedSteps: [],
 
-    forecastPeriods: 6,
-    initialInventory: 0, // 固定为0（第一月标准化）
-    targetServiceLevel: 0.99, // 固定为99%
-    safetyStockZScore: 2.33, // 对应99%服务水平的Z分数
+    forecastPeriods: DEFAULT_PARAMETERS.forecastPeriods,
+    initialInventory: DEFAULT_PARAMETERS.initialInventory,
+    targetServiceLevel: DEFAULT_PARAMETERS.targetServiceLevel,
+    safetyStockZScore: DEFAULT_PARAMETERS.safetyStockZScore,
     selectedBestModel: initialModel || 'lstm',
-    demoPrediction: defaultAvgDemand,
-    demoStdDev: Math.round(defaultAvgDemand * 0.05),
 
     // 产能参数（默认使用 normal 场景）
     capacityMode: 'scenario',
@@ -312,14 +309,6 @@ export const ProductionPlanProvider: React.FC<{
     }));
   };
 
-  const updateDemoPrediction = (prediction: number, stdDev: number) => {
-    setState((prev) => ({
-      ...prev,
-      demoPrediction: prediction,
-      demoStdDev: stdDev,
-    }));
-  };
-
   const generateFullMPS = (predictions: Array<{ prediction: number; std_dev: number }>) => {
     console.log('🏭 ===== 开始生成完整MPS表 =====');
     console.log(`📊 参数: 预测期数=${predictions.length}, 初始库存=${state.initialInventory}, 产能=${state.productionCapacity}, 服务水平目标=${state.targetServiceLevel}, Z值=${state.safetyStockZScore}`);
@@ -367,23 +356,15 @@ export const ProductionPlanProvider: React.FC<{
 
       const demandForecast = Math.round(prediction.prediction);
 
-      // 🛡️ 数据验证和修正：检查std_dev是否异常
-      let stdDev = prediction.std_dev;
+      // 🛡️ 数据验证和修正：使用专用验证函数
+      const validationResult = validateAndFixStdDev(prediction.std_dev, demandForecast, i);
 
-      // 1. 检查是否为负数或非法值（必须修正，否则会导致NaN）
-      if (stdDev < 0 || !isFinite(stdDev) || isNaN(stdDev)) {
-        console.warn(`⚠️ 期 ${i + 1} 的std_dev非法: ${stdDev}，使用需求的5%作为替代`);
-        stdDev = demandForecast * 0.05;
-      }
-      // 2. 检查是否为0（MA等模型可能返回0）
-      else if (stdDev === 0) {
-        console.warn(`⚠️ 期 ${i + 1} 的std_dev为0，安全库存将为0`);
-      }
-      // 3. 检查是否异常大（超过预测值的30%）- 仅警告
-      else if (stdDev > demandForecast * 0.3) {
-        console.warn(`⚠️ 期 ${i + 1} 的std_dev异常大: ${stdDev.toFixed(2)}，占预测值 ${((stdDev/demandForecast)*100).toFixed(1)}%`);
-      }
+      // 输出所有警告信息
+      validationResult.warnings.forEach(warning => {
+        console.warn(`⚠️ ${warning}`);
+      });
 
+      const stdDev = validationResult.value;
       const safetyStock = Math.round(state.safetyStockZScore * stdDev);
 
       const beginningInventory = previousEndingInventory;
@@ -470,7 +451,6 @@ export const ProductionPlanProvider: React.FC<{
         fillPeriod2Field,
         updatePeriod2Data,
         savePredictions,
-        updateDemoPrediction,
         generateFullMPS,
         resetAll,
       }}
