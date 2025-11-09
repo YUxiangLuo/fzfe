@@ -67,6 +67,9 @@ export interface ProductionPlanState {
   // 完整MPS表（生成后）
   fullMPSTable: MPSTableRow[];
   isFullPlanGenerated: boolean;
+
+  // Step6教学内容是否已隐藏（用于全屏显示MPS表）
+  isStep6TeachingHidden: boolean;
 }
 
 // Context值接口
@@ -108,6 +111,9 @@ interface ProductionPlanContextValue {
 
   // 生成完整MPS表
   generateFullMPS: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
+
+  // Step6教学内容控制
+  hideStep6Teaching: () => void;
 
   // 重置
   resetAll: () => void;
@@ -174,6 +180,8 @@ const getDefaultState = (
 
     fullMPSTable: [],
     isFullPlanGenerated: false,
+
+    isStep6TeachingHidden: false,
   };
 };
 
@@ -434,6 +442,13 @@ export const ProductionPlanProvider: React.FC<{
     }));
   };
 
+  const hideStep6Teaching = () => {
+    setState((prev) => ({
+      ...prev,
+      isStep6TeachingHidden: true,
+    }));
+  };
+
   const resetAll = () => {
     const { initialModel: model, avgDemand: avg } = initialPropsRef.current;
     setState(getDefaultState(model, avg));
@@ -452,6 +467,7 @@ export const ProductionPlanProvider: React.FC<{
         updatePeriod2Data,
         savePredictions,
         generateFullMPS,
+        hideStep6Teaching,
         resetAll,
       }}
     >

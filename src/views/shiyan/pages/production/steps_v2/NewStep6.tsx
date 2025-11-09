@@ -46,7 +46,7 @@ const convertToGlobalMPSTable = (localTable: LocalMPSTableRow[]): GlobalMPSTable
  */
 const NewStep6: React.FC = () => {
   const navigate = useNavigate();
-  const { state, generateFullMPS } = useProductionPlan();
+  const { state, generateFullMPS, hideStep6Teaching } = useProductionPlan();
   const { updateState } = useExperiment();
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -494,23 +494,23 @@ const NewStep6: React.FC = () => {
             <h4 className="font-semibold text-green-900 mb-3">🎓 恭喜！您已完成生产计划学习</h4>
             <div className="text-sm text-green-800 space-y-3">
               <p>
-                接下来，请点击下方按钮，<strong>查看完整的生产计划表</strong>，并通过观察和分析这张表格，进一步巩固所学的知识。
+                接下来，请点击下方"下一步"按钮，<strong>全屏查看完整的生产计划表</strong>，并通过观察和分析这张表格，进一步巩固所学的知识。
               </p>
               <p className="font-semibold">
-                您可以在右侧的MPS表格中查看完整的生产计划数据，包括所有{summary.totalPeriods}期的详细信息。
+                教学内容将隐藏，MPS表格将全屏显示所有{summary.totalPeriods}期的详细信息。
               </p>
             </div>
           </div>
 
-          {/* 完成按钮 */}
+          {/* 下一步按钮 */}
           <div className="flex justify-center pt-4">
             <button
               type="button"
-              onClick={handleComplete}
-              className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors shadow-lg"
+              onClick={hideStep6Teaching}
+              className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-lg"
             >
               <CheckCircle className="w-5 h-5" />
-              <span>完成生产计划制定，进入测验</span>
+              <span>下一步：全屏查看MPS表</span>
             </button>
           </div>
         </div>
