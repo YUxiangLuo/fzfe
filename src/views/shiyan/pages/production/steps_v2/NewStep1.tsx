@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Factory, ArrowRight, Info, Loader2, TrendingUp, Target, Shield, PlayCircle } from 'lucide-react';
+import { Factory, ArrowRight, Info, Loader2, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { apiClient } from '../../../../../utils/apiClient';
-import { calculateCapacityAuto } from '../utils/productionCapacityHelper';
 import { MPS_CALCULATION, SERVICE_LEVELS } from '../config/mpsConstants';
 
 // 固定预测期数为6期（不在UI显示）
@@ -117,9 +116,9 @@ const NewStep1: React.FC = () => {
         serviceLevel: 1.0, // 服务水平 = 100%
       });
 
-      // 🔧 自动计算产能（使用auto模式）
-      const autoCapacity = calculateCapacityAuto(predictions);
-      console.log('🔧 自动计算产能:', autoCapacity);
+      // 🔧 基于历史销售数据计算产能（平均需求 × 1.1）
+      const capacity = Math.round(avgDemand * 1.1);
+      console.log('🔧 计算产能: 平均需求', avgDemand, '× 1.1 =', capacity);
 
       // 保存参数（使用固定值）
       updateParameters({
@@ -129,10 +128,10 @@ const NewStep1: React.FC = () => {
         safetyStockZScore: Z_SCORE,
       });
 
-      // 保存产能（使用自动计算的值）
+      // 保存产能（基于历史数据计算）
       updateCapacity({
         scenario: 'normal', // 标记为normal场景
-        capacity: autoCapacity,
+        capacity: capacity,
       });
 
       setIsPeriod1Generated(true);
