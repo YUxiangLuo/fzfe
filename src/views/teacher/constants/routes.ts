@@ -4,9 +4,9 @@
 
 export const ROUTES = {
   LOGIN: '/login',
-  SHIYAN: '/shiyan',
-  JIAOSHI: '/jiaoshi',
-  ZHUJIAO: '/zhujiao',
+  EXPERIMENT: '/shiyan',
+  TEACHER: '/teacher',
+  ASSISTANT: '/teacher',  // 助教使用相同的 teacher 端
   ADMIN: '/admin',
 } as const;
 

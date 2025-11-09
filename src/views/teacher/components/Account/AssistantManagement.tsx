@@ -42,6 +42,7 @@ const AssistantManagement: React.FC = () => {
   }), []);
   const [newAssistant, setNewAssistant] = useState(INITIAL_ASSISTANT);
   const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // P1-2: Add AbortController for proper cleanup
   useEffect(() => {
@@ -101,9 +102,13 @@ const AssistantManagement: React.FC = () => {
     setShowCreateModal(false);
     setNewAssistant(INITIAL_ASSISTANT);
     setSelectedClassIds([]);
+    setIsSubmitting(false);
   }, [INITIAL_ASSISTANT]);
 
   const handleCreateAssistant = async () => {
+    // 防止重复提交
+    if (isSubmitting) return;
+
     // 验证用户名
     const usernameValidation = validateUsername(newAssistant.username);
     if (!usernameValidation.valid) {
@@ -147,6 +152,7 @@ const AssistantManagement: React.FC = () => {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const payload = {
         username: newAssistant.username.trim(),
@@ -163,6 +169,8 @@ const AssistantManagement: React.FC = () => {
       showToast('助教创建成功', 'success');
     } catch (err: any) {
       showToast(`创建失败: ${err.message}`, 'error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -321,8 +329,10 @@ const AssistantManagement: React.FC = () => {
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
-            <Button variant="outline" onClick={resetCreateModal}>取消</Button>
-            <Button onClick={handleCreateAssistant}>创建</Button>
+            <Button variant="outline" onClick={resetCreateModal} disabled={isSubmitting}>取消</Button>
+            <Button onClick={handleCreateAssistant} disabled={isSubmitting}>
+              {isSubmitting ? '创建中...' : '创建'}
+            </Button>
           </div>
         </div>
       </Modal>

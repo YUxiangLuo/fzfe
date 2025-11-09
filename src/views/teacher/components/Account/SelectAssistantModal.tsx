@@ -30,21 +30,34 @@ export const SelectAssistantModal: React.FC<SelectAssistantModalProps> = ({
   const [selectedClassIds, setSelectedClassIds] = useState<number[]>([]);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     if (isOpen) {
       const fetchAllAssistants = async () => {
         setIsLoading(true);
         setError(null);
         try {
-          const data = await apiClient.get('/assistants');
-          setAllAssistants(data.filter((a: Assistant) => !existingAssistantIds.includes(a.user_id)) || []);
+          const data = await apiClient.get('/assistants', { signal: controller.signal });
+          if (!controller.signal.aborted) {
+            setAllAssistants(data.filter((a: Assistant) => !existingAssistantIds.includes(a.user_id)) || []);
+          }
         } catch (err: any) {
-          setError(err.message || '获取助教库失败');
+          if (err.name === 'AbortError') return;
+          if (!controller.signal.aborted) {
+            setError(err.message || '获取助教库失败');
+          }
         } finally {
-          setIsLoading(false);
+          if (!controller.signal.aborted) {
+            setIsLoading(false);
+          }
         }
       };
       fetchAllAssistants();
     }
+
+    return () => {
+      controller.abort();
+    };
   }, [isOpen, existingAssistantIds]);
 
   const handleClassSelection = (classId: number) => {
