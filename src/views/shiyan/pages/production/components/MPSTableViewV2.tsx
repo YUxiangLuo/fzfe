@@ -92,11 +92,14 @@ const MPSTableViewV2: React.FC = () => {
           <tr className="bg-gray-100">
             {visibleColumns.map((column) => {
               const { title, subtitle } = getColumnInfo(column);
+              const isFirstColumn = column === 'period';
               return (
                 <th
                   key={column}
                   className={`py-3 px-4 font-semibold text-gray-700 border-b-2 border-gray-300 ${
                     column === 'period' ? 'text-left' : 'text-right'
+                  } ${
+                    isFirstColumn ? 'sticky left-0 bg-gray-100 z-10 shadow-[2px_0_4px_rgba(0,0,0,0.1)]' : ''
                   }`}
                 >
                   <div>{title}</div>
@@ -110,7 +113,7 @@ const MPSTableViewV2: React.FC = () => {
           {/* 第1期：完整数据（作为参考） */}
           <tr className="border-b border-gray-200 bg-gray-50">
             {isColumnVisible('period') && (
-              <td className="py-3 px-4 text-left text-gray-600 font-medium">
+              <td className="py-3 px-4 text-left text-gray-600 font-medium sticky left-0 bg-gray-50 z-10 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
                 期 1 <span className="text-xs text-gray-500">(参考)</span>
               </td>
             )}
@@ -170,7 +173,7 @@ const MPSTableViewV2: React.FC = () => {
           {/* 第2期：渐进式填充（学习重点） */}
           <tr className="border-b-2 border-blue-200 bg-blue-50">
             {isColumnVisible('period') && (
-              <td className="py-3 px-4 text-left text-blue-800 font-semibold">
+              <td className="py-3 px-4 text-left text-blue-800 font-semibold sticky left-0 bg-blue-50 z-10 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
                 期 2 <span className="text-xs text-blue-600">(学习演示)</span>
               </td>
             )}
@@ -234,7 +237,7 @@ const MPSTableViewV2: React.FC = () => {
             state.fullMPSTable.slice(2).map((row) => (
               <tr key={row.period} className="border-b border-gray-100 hover:bg-gray-50">
                 {isColumnVisible('period') && (
-                  <td className="py-3 px-4 text-left text-gray-700 font-medium">{row.period_label}</td>
+                  <td className="py-3 px-4 text-left text-gray-700 font-medium sticky left-0 bg-white z-10 shadow-[2px_0_4px_rgba(0,0,0,0.05)] hover:bg-gray-50">{row.period_label}</td>
                 )}
                 {isColumnVisible('demand_forecast') && (
                   <td className="py-3 px-4 text-right text-gray-800">{formatValue(row.demand_forecast)}</td>
@@ -285,16 +288,21 @@ const MPSTableViewV2: React.FC = () => {
             // 显示占位符
             Array.from({ length: Math.max(0, state.forecastPeriods - 2) }).map((_, idx) => (
               <tr key={idx + 3} className="border-b border-gray-100">
-                {visibleColumns.map((column, colIdx) => (
-                  <td
-                    key={column}
-                    className={`py-3 px-4 text-gray-300 bg-gray-50 ${
-                      column === 'period' ? 'text-left' : 'text-center'
-                    }`}
-                  >
-                    {column === 'period' ? `期 ${idx + 3}` : '?'}
-                  </td>
-                ))}
+                {visibleColumns.map((column, colIdx) => {
+                  const isFirstColumn = column === 'period';
+                  return (
+                    <td
+                      key={column}
+                      className={`py-3 px-4 text-gray-300 bg-gray-50 ${
+                        column === 'period' ? 'text-left' : 'text-center'
+                      } ${
+                        isFirstColumn ? 'sticky left-0 z-10 shadow-[2px_0_4px_rgba(0,0,0,0.05)]' : ''
+                      }`}
+                    >
+                      {column === 'period' ? `期 ${idx + 3}` : '?'}
+                    </td>
+                  );
+                })}
               </tr>
             ))
           )}
