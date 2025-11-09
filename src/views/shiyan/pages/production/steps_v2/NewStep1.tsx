@@ -7,6 +7,12 @@ import {
   calculateCapacityByScenario,
   type CapacityScenario,
 } from '../utils/productionCapacityHelper';
+import {
+  MPS_CALCULATION,
+  SERVICE_LEVELS,
+  FORECAST_PERIODS,
+  getForecastPeriodsRecommendation,
+} from '../config/mpsConstants';
 
 // 模型类型映射：前端模型ID -> 后端API参数
 const MODEL_TYPE_MAP: Record<string, string> = {
@@ -53,11 +59,11 @@ const NewStep1: React.FC = () => {
   const avgDemand = state.avgDemand;
 
   // 🔒 根据客户需求：第一月标准化，初始库存固定为 0
-  const INITIAL_INVENTORY = 0;
+  const INITIAL_INVENTORY = MPS_CALCULATION.INITIAL_INVENTORY;
 
   // 🎯 固定目标服务水平为 99%（追求卓越服务）
-  const TARGET_SERVICE_LEVEL = 0.99;
-  const Z_SCORE = 2.33;
+  const TARGET_SERVICE_LEVEL = SERVICE_LEVELS.EXCELLENT.value;
+  const Z_SCORE = SERVICE_LEVELS.EXCELLENT.zScore;
 
   const getScenarioBorderClass = (scenarioId: CapacityScenario) => {
     if (selectedScenario === scenarioId) {
@@ -69,7 +75,7 @@ const NewStep1: React.FC = () => {
     return 'border border-gray-200 hover:bg-gray-50';
   };
 
-  const isForecastPeriodValid = forecastPeriods >= 2;
+  const isForecastPeriodValid = forecastPeriods >= FORECAST_PERIODS.MIN && forecastPeriods <= FORECAST_PERIODS.MAX;
 
   // 🔹 预测第一期需求
   const handlePredictPeriod1 = async () => {
@@ -245,8 +251,8 @@ const NewStep1: React.FC = () => {
             </label>
             <input
               type="number"
-              min="2"
-              max="12"
+              min={FORECAST_PERIODS.MIN}
+              max={FORECAST_PERIODS.MAX}
               value={forecastPeriods}
               onChange={(e) => {
                 setForecastPeriods(Number(e.target.value));
@@ -259,9 +265,11 @@ const NewStep1: React.FC = () => {
               }`}
             />
             {hasTouchedForecast && !isForecastPeriodValid && (
-              <p className="mt-1 text-sm text-red-600">预测期数至少需要2期</p>
+              <p className="mt-1 text-sm text-red-600">
+                预测期数需要在 {FORECAST_PERIODS.MIN}-{FORECAST_PERIODS.MAX} 期之间
+              </p>
             )}
-            <p className="mt-1 text-xs text-gray-500">推荐设置 4-8 期</p>
+            <p className="mt-1 text-xs text-gray-500">{getForecastPeriodsRecommendation()}</p>
           </div>
 
           {/* 产能场景选择 */}

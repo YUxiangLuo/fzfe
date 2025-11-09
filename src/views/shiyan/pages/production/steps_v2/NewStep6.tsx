@@ -59,6 +59,12 @@ const NewStep6: React.FC = () => {
     }
   }, []);
 
+  // 💾 使用ref保存最新的state，避免长依赖数组
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   // 💾 当MPS表生成完成后，保存到全局状态
   useEffect(() => {
     if (state.isFullPlanGenerated && !hasSavedMPSRef.current && state.predictions) {
@@ -66,21 +72,24 @@ const NewStep6: React.FC = () => {
         try {
           console.log('💾 保存生产计划数据到全局状态');
 
-          // 转换MPS表格数据类型（fullMPSTable已包含所有期数1-N）
-          const globalMPSTable = convertToGlobalMPSTable(state.fullMPSTable);
+          // 使用ref获取最新的state数据
+          const currentState = stateRef.current;
 
-          console.log('📊 完整MPS表数据（期1-' + state.fullMPSTable.length + '）:', state.fullMPSTable);
+          // 转换MPS表格数据类型（fullMPSTable已包含所有期数1-N）
+          const globalMPSTable = convertToGlobalMPSTable(currentState.fullMPSTable);
+
+          console.log('📊 完整MPS表数据（期1-' + currentState.fullMPSTable.length + '）:', currentState.fullMPSTable);
 
           await updateState({
             production_plan_completed: true,
-            production_forecast_periods: state.forecastPeriods,
-            production_initial_inventory: state.initialInventory,
-            production_target_service_level: state.targetServiceLevel,
-            production_safety_stock_z_score: state.safetyStockZScore,
-            production_forecast_results: state.predictions,
+            production_forecast_periods: currentState.forecastPeriods,
+            production_initial_inventory: currentState.initialInventory,
+            production_target_service_level: currentState.targetServiceLevel,
+            production_safety_stock_z_score: currentState.safetyStockZScore,
+            production_forecast_results: currentState.predictions,
             production_mps_table: globalMPSTable,
-            production_capacity_scenario: state.capacityScenario,
-            production_capacity: state.productionCapacity,
+            production_capacity_scenario: currentState.capacityScenario,
+            production_capacity: currentState.productionCapacity,
           });
           console.log('✅ 生产计划数据已保存到全局状态');
           hasSavedMPSRef.current = true;
@@ -91,7 +100,7 @@ const NewStep6: React.FC = () => {
 
       saveMPSData();
     }
-  }, [state.isFullPlanGenerated, state.fullMPSTable, state.predictions, state.forecastPeriods, state.initialInventory, state.targetServiceLevel, state.safetyStockZScore, state.capacityScenario, state.productionCapacity, updateState]);
+  }, [state.isFullPlanGenerated, state.predictions, updateState]);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
