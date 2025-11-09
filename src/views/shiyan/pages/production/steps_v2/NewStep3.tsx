@@ -220,13 +220,13 @@ const NewStep3: React.FC = () => {
                       <div className="text-xs" style={{
                         color: serviceLevel >= 0.99 ? '#15803d' : serviceLevel >= 0.95 ? '#a16207' : '#b91c1c',
                       }}>
-                        {serviceLevel === 1
+                        {serviceLevel >= 1
                           ? '完美！满足了所有需求，无缺货。'
                           : serviceLevel >= 0.99
-                          ? '服务水平达到目标（≥99%），客户满意度高。'
+                          ? '优秀！服务水平达到目标（≥99%），客户满意度高。'
                           : serviceLevel >= 0.95
-                          ? '服务水平尚可（95%+），但离目标99%仍有差距。'
-                          : '服务水平较低，建议增加产能或提高库存。'}
+                          ? '良好！服务水平在95%以上，但离目标99%仍有差距。'
+                          : '服务水平较低（<95%），建议增加产能或安全库存。'}
                       </div>
                     </div>
                   </div>

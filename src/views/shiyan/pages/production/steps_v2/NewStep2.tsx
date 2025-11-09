@@ -194,7 +194,7 @@ const NewStep2: React.FC = () => {
             <li>• <strong>缺货</strong> = 0（无缺货）</li>
           </ul>
           <p className="mt-3 font-medium">
-            ⚠️ 真实的动态计算从<strong>第2期</strong>开始！第2期的期初库存 = 第1期的期末库存 = <strong>0</strong>
+            ⚠️ <strong>第2期开始</strong>进入动态计算！第2期的期初库存 = 第1期的期末库存 = <strong>0</strong>
           </p>
         </div>
       </div>
