@@ -38,8 +38,8 @@ const palette = {
 const AVERAGE_METRICS = [
   { key: 'expFlowScore', label: '实验流程' },
   { key: 'knowledgeTest', label: '知识测试' },
-  { key: 'modelQuality', label: '模型质量' },
-  { key: 'reportQuality', label: '报告质量' },
+  { key: 'modelQuality', label: '模型选择' },
+  { key: 'reportQuality', label: '实验报告' },
 ] as const;
 
 type MetricLabel = typeof AVERAGE_METRICS[number]['label'];
@@ -160,7 +160,7 @@ const GradeCharts: React.FC<GradeChartsProps> = ({ grades }) => {
                   <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
                   <YAxis allowDecimals={false} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
                   <Tooltip />
-                  <Bar dataKey="count" fill={palette.blue} radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="count" fill={palette.blue} radius={[6, 6, 0, 0]} name="人数" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -182,7 +182,7 @@ const GradeCharts: React.FC<GradeChartsProps> = ({ grades }) => {
                   <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
                   <YAxis domain={[0, 100]} tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
                   <Tooltip formatter={(value: number) => value.toFixed(2)} />
-                  <Bar dataKey="average" fill={palette.green} radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="average" fill={palette.green} radius={[6, 6, 0, 0]} name="平均分" />
                 </BarChart>
               </ResponsiveContainer>
             )}

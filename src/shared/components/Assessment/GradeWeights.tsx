@@ -48,8 +48,8 @@ const FLOW_ITEMS: FlowItem[] = [
 const TOP_LEVEL_ITEMS: TopLevelItem[] = [
   { key: 'exp_flow_weight', label: '实验流程', color: 'bg-blue-500' },
   { key: 'knowledge_test_weight', label: '知识点测试', color: 'bg-green-500' },
-  { key: 'model_quality_weight', label: '模型质量', color: 'bg-yellow-500' },
-  { key: 'report_quality_weight', label: '实验报告质量', color: 'bg-purple-500' },
+  { key: 'model_quality_weight', label: '模型选择', color: 'bg-yellow-500' },
+  { key: 'report_quality_weight', label: '实验报告', color: 'bg-purple-500' },
 ];
 
 const DEFAULT_WEIGHTS: GradeWeightsApi = {
@@ -215,8 +215,8 @@ const GradeWeights: React.FC = () => {
     const allWeights: [string, number][] = [
       ['实验流程', tempWeights.exp_flow_weight],
       ['知识点测试', tempWeights.knowledge_test_weight],
-      ['模型质量', tempWeights.model_quality_weight],
-      ['实验报告质量', tempWeights.report_quality_weight],
+      ['模型选择', tempWeights.model_quality_weight],
+      ['实验报告', tempWeights.report_quality_weight],
     ];
 
     for (const [name, value] of allWeights) {
@@ -436,9 +436,9 @@ const GradeWeights: React.FC = () => {
                 <div
                   key={item.key}
                   className={`${item.color} flex items-center justify-center text-white text-sm font-medium`}
-                  style={{ width: `${weights[item.key]}%` }}
+                  style={{ width: `${tempWeights[item.key]}%` }}
                 >
-                  {item.label} {weights[item.key]}%
+                  {item.label} {tempWeights[item.key]}%
                 </div>
               ))}
             </div>
@@ -448,7 +448,7 @@ const GradeWeights: React.FC = () => {
                 <div key={item.key} className="flex items-center space-x-2">
                   <span className={`inline-block w-3 h-3 rounded-full ${item.color}`}></span>
                   <span>{item.label}</span>
-                  <span className="font-medium text-gray-900">{weights[item.key]}%</span>
+                  <span className="font-medium text-gray-900">{tempWeights[item.key]}%</span>
                 </div>
               ))}
             </div>

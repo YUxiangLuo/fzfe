@@ -9,6 +9,7 @@ import {
   ArrowUpDown,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   Download,
   AlertTriangle,
 } from 'lucide-react';
@@ -55,6 +56,25 @@ const SCORE_SEGMENT_CONFIG = {
 } as const;
 
 type ScoreSegmentKey = keyof typeof SCORE_SEGMENT_CONFIG;
+
+const FINAL_BREAKDOWN_LABELS: Record<'exp_flow' | 'knowledge_test' | 'model_quality' | 'report_quality', string> = {
+  exp_flow: '实验流程',
+  knowledge_test: '知识点测试',
+  model_quality: '模型选择',
+  report_quality: '实验报告',
+};
+
+const EXP_FLOW_FIELD_LABELS: Record<string, string> = {
+  exp_flow_demand_data_preparation: '需求预测 - 数据准备',
+  exp_flow_demand_descriptive_stats: '需求预测 - 描述性统计',
+  exp_flow_demand_model_selection: '需求预测 - 模型选择',
+  exp_flow_demand_generate_results: '需求预测 - 生成预测结果',
+  exp_flow_production_inventory_calc: '生产计划 - 库存变量计算',
+  exp_flow_production_service_level: '生产计划 - 服务水平计算',
+  exp_flow_production_variable_calc: '生产计划 - 生产变量计算',
+  exp_flow_production_plan_creation: '生产计划 - 制定计划',
+  exp_flow_report_submission: '提交实验报告',
+};
 
 const formatScore = (value: number | null) => {
   if (value === null || Number.isNaN(value)) {
@@ -135,6 +155,7 @@ const GradesOverview: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [exportedFileUrl, setExportedFileUrl] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [expandedRows, setExpandedRows] = useState<number[]>([]);
 
   const [teacherId, setTeacherId] = useState<number | null>(null);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
@@ -195,6 +216,7 @@ const GradesOverview: React.FC = () => {
   useEffect(() => {
     if (!selectedClassId) {
       setGrades([]);
+      setExpandedRows([]);
       return;
     }
     // Clear export state when class changes
@@ -207,6 +229,7 @@ const GradesOverview: React.FC = () => {
       try {
         const response = await apiClient.get<StudentGradeOverview[]>(`/classes/${selectedClassId}/grade-summaries`);
         setGrades(Array.isArray(response) ? response : []);
+        setExpandedRows([]);
         if (!Array.isArray(response) || response.length === 0) {
           setError('该班级暂无成绩记录。');
         }
@@ -470,6 +493,103 @@ const GradesOverview: React.FC = () => {
     }
   };
 
+  const toggleRow = (studentId: number) => {
+    setExpandedRows((prev) =>
+      prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId],
+    );
+  };
+
+  const renderFinalBreakdown = (grade: StudentGradeOverview) => {
+    const breakdown = grade.final_score_breakdown;
+    const entries = Object.entries(FINAL_BREAKDOWN_LABELS).map(([key, label]) => {
+      const data = breakdown?.[key as keyof typeof breakdown];
+      return { key, label, data };
+    });
+
+    const expFlowDetails = grade.exp_flow_breakdown ?? [];
+
+    const renderValue = (value: number | null | undefined) => {
+      if (value === null || value === undefined) return '—';
+      return Number.isFinite(value) ? value.toFixed(2) : '—';
+    };
+
+    const renderWeight = (value: number | null | undefined) => {
+      if (value === null || value === undefined) return '—';
+      return `${value}%`;
+    };
+
+    const hasTopLevelData = entries.some((entry) => entry.data);
+    const hasExpFlowDetails = expFlowDetails.length > 0;
+
+    if (!hasTopLevelData && !hasExpFlowDetails) {
+      return <p className="text-sm text-gray-500">暂无成绩构成数据。</p>;
+    }
+
+    return (
+      <div className="space-y-4">
+        {hasTopLevelData && (
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">最终得分构成</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-100 text-gray-600 uppercase tracking-wider text-xs">
+                  <tr>
+                    <th className="px-4 py-2 text-left">考核项</th>
+                    <th className="px-4 py-2 text-right">原始分</th>
+                    <th className="px-4 py-2 text-right">权重</th>
+                    <th className="px-4 py-2 text-right">加权得分</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {entries.map(({ key, label, data }) => (
+                    <tr key={key}>
+                      <td className="px-4 py-2 text-gray-800">{label}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{renderValue(data?.score)}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{renderWeight(data?.weight)}</td>
+                      <td className="px-4 py-2 text-right text-gray-900 font-medium">
+                        {renderValue(data?.weighted_score)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {hasExpFlowDetails && (
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">实验流程细分</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-100 text-gray-600 uppercase tracking-wider text-xs">
+                  <tr>
+                    <th className="px-4 py-2 text-left">步骤</th>
+                    <th className="px-4 py-2 text-right">原始分</th>
+                    <th className="px-4 py-2 text-right">权重</th>
+                    <th className="px-4 py-2 text-right">加权得分</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {expFlowDetails.map((item) => (
+                    <tr key={item.field}>
+                      <td className="px-4 py-2 text-gray-800">{EXP_FLOW_FIELD_LABELS[item.field] ?? item.field}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{renderValue(item.score)}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{renderWeight(item.weight)}</td>
+                      <td className="px-4 py-2 text-right text-gray-900 font-medium">
+                        {renderValue(item.weighted_score)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
@@ -498,7 +618,7 @@ const GradesOverview: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <StatCard icon={Users} color="blue" title="班级人数" value={grades.length} />
-          <StatCard icon={Award} color="green" title="平均总分" value={formatStatValue(gradeInsights.avgFinalGrade)} />
+          <StatCard icon={Award} color="green" title="平均分" value={formatStatValue(gradeInsights.avgFinalGrade)} />
           <StatCard icon={TrendingUp} color="yellow" title="最高分" value={formatStatValue(gradeInsights.highestGrade)} />
           <StatCard icon={TrendingDown} color="red" title="最低分" value={formatStatValue(gradeInsights.lowestGrade)} />
           <StatCard
@@ -521,7 +641,7 @@ const GradesOverview: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold text-gray-900">总分分布</h3>
+        <h3 className="text-lg font-semibold text-gray-900">最终得分分布</h3>
         {gradedTotal === 0 ? (
           <p className="mt-4 text-sm text-gray-500">目前尚无评分数据，待学生完成实验并评分后将显示分布情况。</p>
         ) : (
@@ -692,7 +812,7 @@ const GradesOverview: React.FC = () => {
                     onClick={() => handleSort('final_score')}
                     className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
                   >
-                    <span>总分</span>
+                    <span>最终得分</span>
                     {renderSortIcon('final_score')}
                   </button>
                 </th>
@@ -706,30 +826,61 @@ const GradesOverview: React.FC = () => {
                     {renderSortIcon('evaluation')}
                   </button>
                 </th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  详情
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {isLoadingGrades ? (
-                <tr><td colSpan={9} className="text-center py-10"><Loader className="mx-auto animate-spin text-blue-500" /></td></tr>
+                <tr><td colSpan={10} className="text-center py-10"><Loader className="mx-auto animate-spin text-blue-500" /></td></tr>
               ) : sortedGrades.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-10 text-gray-500">无数据显示。</td></tr>
+                <tr><td colSpan={10} className="text-center py-10 text-gray-500">无数据显示。</td></tr>
               ) : (
                 sortedGrades.map((grade, index) => {
                   const badge = getEvaluationBadge(grade);
                   return (
-                    <tr key={grade.student_id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900 font-medium">{grade.full_name}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{grade.username}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.exp_flow_score)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.knowledge_test)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.model_quality)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.report_quality)}</td>
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">{formatScore(grade.final_score)}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>{badge.text}</span>
-                      </td>
-                    </tr>
+                    <React.Fragment key={grade.student_id}>
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">{grade.full_name}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{grade.username}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.exp_flow_score)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.knowledge_test)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.model_quality)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.report_quality)}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">{formatScore(grade.final_score)}</td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>{badge.text}</span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleRow(grade.student_id)}
+                            className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            {expandedRows.includes(grade.student_id) ? (
+                              <>
+                                <ChevronDown className="w-4 h-4 mr-1" />
+                                收起
+                              </>
+                            ) : (
+                              <>
+                                <ChevronRight className="w-4 h-4 mr-1" />
+                                查看
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedRows.includes(grade.student_id) && (
+                        <tr className="bg-gray-50">
+                          <td colSpan={10} className="px-6 py-4">
+                            {renderFinalBreakdown(grade)}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })
               )}

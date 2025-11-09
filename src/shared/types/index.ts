@@ -58,6 +58,26 @@ export interface GradeWeights {
   report_quality_weight: number;
 }
 
+export interface GradeBreakdownEntry {
+  field: string;
+  score: number | null;
+  weight: number;
+  weighted_score: number | null;
+}
+
+export interface FinalScoreBreakdownNode {
+  score: number | null;
+  weight: number;
+  weighted_score: number | null;
+}
+
+export interface FinalScoreBreakdown {
+  exp_flow?: FinalScoreBreakdownNode | null;
+  knowledge_test?: FinalScoreBreakdownNode | null;
+  model_quality?: FinalScoreBreakdownNode | null;
+  report_quality?: FinalScoreBreakdownNode | null;
+}
+
 export interface StudentGradeOverview {
   student_id: number;
   username: string;
@@ -68,6 +88,8 @@ export interface StudentGradeOverview {
   knowledge_test: number | null;
   report_quality: number | null;
   final_score: number | null;
+  exp_flow_breakdown?: GradeBreakdownEntry[] | null;
+  final_score_breakdown?: FinalScoreBreakdown | null;
 }
 
 export type QuestionTypeApi = 'Single Choice' | 'Multiple Choice' | 'True/False';
