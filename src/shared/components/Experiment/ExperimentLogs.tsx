@@ -7,6 +7,8 @@ import {
   ChevronRight,
   AlertTriangle,
   Loader,
+  ArrowUpDown,
+  ChevronUp,
 } from 'lucide-react';
 import type { Class, StudentExperimentLog } from '@/shared/types';
 import { apiClient } from '@/utils/apiClient';
@@ -37,6 +39,8 @@ interface StudentExperimentDetailSummary {
   product: string | null;
 }
 
+type SortKey = 'username' | 'totalExperiments' | 'totalDurationSeconds' | 'averageDurationSeconds';
+
 const ExperimentLogs: React.FC = () => {
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -50,6 +54,7 @@ const ExperimentLogs: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -165,20 +170,11 @@ const ExperimentLogs: React.FC = () => {
         product: experiment.selected_product,
       }));
 
-      const sortedDetails = details.sort((a, b) => {
-        const aDate = getLatestTimestamp(a);
-        const bDate = getLatestTimestamp(b);
-        if (!aDate && !bDate) return 0;
-        if (!aDate) return 1;
-        if (!bDate) return -1;
-        return bDate.getTime() - aDate.getTime();
-      });
-
-      const totalDurationSeconds = sortedDetails.reduce((sum, detail) => sum + detail.durationSeconds, 0);
-      const totalExperiments = sortedDetails.length;
+      const totalDurationSeconds = details.reduce((sum, detail) => sum + detail.durationSeconds, 0);
+      const totalExperiments = details.length;
       const averageDurationSeconds = totalExperiments > 0 ? Math.round(totalDurationSeconds / totalExperiments) : 0;
 
-      const latestActivity = sortedDetails.reduce<Date | null>((latest, detail) => {
+      const latestActivity = details.reduce<Date | null>((latest, detail) => {
         const candidate = getLatestTimestamp(detail);
         if (!candidate) return latest;
         if (!latest || candidate > latest) return candidate;
@@ -193,11 +189,11 @@ const ExperimentLogs: React.FC = () => {
         totalDurationSeconds,
         averageDurationSeconds,
         lastActivityAt: latestActivity ? latestActivity.toISOString() : null,
-        experiments: sortedDetails,
+        experiments: details,
       };
     });
 
-    return summaries.sort((a, b) => a.studentName.localeCompare(b.studentName, 'zh-CN'));
+    return summaries;
   }, [rawLogs]);
 
   const filteredSummaries = useMemo(() => {
@@ -207,6 +203,37 @@ const ExperimentLogs: React.FC = () => {
       summary.studentUsername.toLowerCase().includes(debouncedSearchTerm),
     );
   }, [summaries, debouncedSearchTerm]);
+
+  const sortedSummaries = useMemo(() => {
+    if (!sortConfig) return filteredSummaries;
+
+    const next = [...filteredSummaries];
+    const { key, direction } = sortConfig;
+    const sortFactor = direction === 'asc' ? 1 : -1;
+
+    next.sort((a, b) => {
+      switch (key) {
+        case 'username': {
+          const aValue = a.studentUsername ?? '';
+          const bValue = b.studentUsername ?? '';
+          return aValue.localeCompare(bValue) * sortFactor;
+        }
+        case 'totalExperiments': {
+          return (a.totalExperiments - b.totalExperiments) * sortFactor;
+        }
+        case 'totalDurationSeconds': {
+          return (a.totalDurationSeconds - b.totalDurationSeconds) * sortFactor;
+        }
+        case 'averageDurationSeconds': {
+          return (a.averageDurationSeconds - b.averageDurationSeconds) * sortFactor;
+        }
+        default:
+          return 0;
+      }
+    });
+
+    return next;
+  }, [filteredSummaries, sortConfig]);
 
   const totalStudents = summaries.length;
   const totalExperiments = summaries.reduce((sum, summary) => sum + summary.totalExperiments, 0);
@@ -222,6 +249,29 @@ const ExperimentLogs: React.FC = () => {
       prev.includes(studentId)
         ? prev.filter((id) => id !== studentId)
         : [...prev, studentId],
+    );
+  };
+
+  const handleSort = (key: SortKey) => {
+    setSortConfig((prev) => {
+      if (!prev || prev.key !== key) {
+        return { key, direction: 'desc' };
+      }
+      return {
+        key,
+        direction: prev.direction === 'desc' ? 'asc' : 'desc',
+      };
+    });
+  };
+
+  const renderSortIcon = (key: SortKey) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />;
+    }
+    return sortConfig.direction === 'desc' ? (
+      <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+    ) : (
+      <ChevronUp className="w-3.5 h-3.5 text-blue-600" />
     );
   };
 
@@ -372,18 +422,53 @@ const ExperimentLogs: React.FC = () => {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学号</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实验次数</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总时长</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">平均时长</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最近活动</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('username')}
+                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <span>学号</span>
+                    {renderSortIcon('username')}
+                  </button>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('totalExperiments')}
+                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <span>实验次数</span>
+                    {renderSortIcon('totalExperiments')}
+                  </button>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('totalDurationSeconds')}
+                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <span>总时长</span>
+                    {renderSortIcon('totalDurationSeconds')}
+                  </button>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('averageDurationSeconds')}
+                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <span>平均时长</span>
+                    {renderSortIcon('averageDurationSeconds')}
+                  </button>
+                </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">详情</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {!selectedClassId && (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-gray-500">
+                  <td colSpan={7} className="py-12 text-center text-gray-500">
                     请先选择一个班级查看实验日志。
                   </td>
                 </tr>
@@ -391,7 +476,7 @@ const ExperimentLogs: React.FC = () => {
 
               {selectedClassId && isLoadingStatuses && (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-gray-500">
+                  <td colSpan={7} className="py-12 text-center text-gray-500">
                     <div className="flex items-center justify-center space-x-2">
                       <Loader className="animate-spin" size={18} />
                       <span>正在加载实验日志...</span>
@@ -400,15 +485,15 @@ const ExperimentLogs: React.FC = () => {
                 </tr>
               )}
 
-              {selectedClassId && !isLoadingStatuses && filteredSummaries.length === 0 && (
+              {selectedClassId && !isLoadingStatuses && sortedSummaries.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-gray-500">
+                  <td colSpan={7} className="py-12 text-center text-gray-500">
                     {debouncedSearchTerm ? '未找到符合搜索条件的学生。' : '该班级暂无实验日志记录。'}
                   </td>
                 </tr>
               )}
 
-              {selectedClassId && !isLoadingStatuses && filteredSummaries.map((summary, index) => {
+              {selectedClassId && !isLoadingStatuses && sortedSummaries.map((summary, index) => {
                 const isExpanded = expandedRows.includes(summary.studentId);
                 return (
                   <React.Fragment key={summary.studentId}>
@@ -421,7 +506,6 @@ const ExperimentLogs: React.FC = () => {
                         {formatDuration(summary.totalDurationSeconds)}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">{formatDuration(summary.averageDurationSeconds)}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{formatDateTime(summary.lastActivityAt)}</td>
                       <td className="px-6 py-4 text-center">
                         <button
                           onClick={() => toggleRowExpansion(summary.studentId)}
@@ -438,7 +522,7 @@ const ExperimentLogs: React.FC = () => {
 
                     {isExpanded && (
                       <tr className="bg-slate-50">
-                        <td colSpan={8} className="px-8 py-6">
+                        <td colSpan={7} className="px-8 py-6">
                           <div className="space-y-4">
                             <h3 className="text-sm font-semibold text-gray-700">实验记录</h3>
                             <div className="space-y-3">

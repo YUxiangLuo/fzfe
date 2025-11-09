@@ -4,18 +4,19 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Clock,
   Loader,
   PlayCircle,
   Search,
   Users,
   Activity,
+  ArrowUpDown,
 } from "lucide-react";
 import type { Class, StudentExperimentProgress, ExperimentStep, ExperimentTimelineEvent } from "@/shared/types";
 import { apiClient } from "@/utils/apiClient";
 import { decodeToken } from "@/utils/auth";
 import { UI_CONSTANTS } from "@/shared/constants/ui";
-
 const STEP_DEFINITIONS: { id: string; label: string; order: number }[] = [
   { id: "industry_selection", label: "选择行业", order: 1 },
   { id: "company_selection", label: "选择企业", order: 2 },
@@ -54,6 +55,8 @@ const getStatusConfig = (status: string) =>
     dot: "bg-slate-400",
   };
 
+type SortKey = "username" | "status" | "completion" | "steps";
+
 const ExperimentProgress: React.FC = () => {
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>("");
@@ -62,6 +65,7 @@ const ExperimentProgress: React.FC = () => {
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: "asc" | "desc" } | null>(null);
 
   const [teacherId, setTeacherId] = useState<number | null>(null);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
@@ -252,6 +256,61 @@ const ExperimentProgress: React.FC = () => {
     };
   }, []); // Empty deps - pure function based on input
 
+  const sortedStudents = useMemo(() => {
+    if (!sortConfig) return filteredStudents;
+    const { key, direction } = sortConfig;
+    const factor = direction === "asc" ? 1 : -1;
+
+    return [...filteredStudents].sort((a, b) => {
+      switch (key) {
+        case "username":
+          return a.username.localeCompare(b.username, "zh-CN") * factor;
+        case "status": {
+          const order: Record<string, number> = { "Not Started": 0, "In Progress": 1, "Completed": 2 };
+          const aOrder = order[a.status] ?? 99;
+          const bOrder = order[b.status] ?? 99;
+          if (aOrder === bOrder) return 0;
+          return (aOrder - bOrder) * factor;
+        }
+        case "completion": {
+          const metaA = getCompletionMeta(a);
+          const metaB = getCompletionMeta(b);
+          return (metaA.completionPercent - metaB.completionPercent) * factor;
+        }
+        case "steps": {
+          const metaA = getCompletionMeta(a);
+          const metaB = getCompletionMeta(b);
+          return (metaA.completedSteps - metaB.completedSteps) * factor;
+        }
+        default:
+          return 0;
+      }
+    });
+  }, [filteredStudents, sortConfig, getCompletionMeta]);
+
+  const handleSort = (key: SortKey) => {
+    setSortConfig((prev) => {
+      if (!prev || prev.key !== key) {
+        return { key, direction: "desc" };
+      }
+      return {
+        key,
+        direction: prev.direction === "desc" ? "asc" : "desc",
+      };
+    });
+  };
+
+  const renderSortIcon = (key: SortKey) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />;
+    }
+    return sortConfig.direction === "desc" ? (
+      <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+    ) : (
+      <ChevronUp className="w-3.5 h-3.5 text-blue-600" />
+    );
+  };
+
   const renderProgressRows = () => {
     if (!selectedClassId) {
       return (
@@ -286,9 +345,8 @@ const ExperimentProgress: React.FC = () => {
       );
     }
 
-    return filteredStudents.map((student, index) => {
-      const { completionPercent, completedSteps, totalSteps, latestCompleted, currentStep } =
-        getCompletionMeta(student);
+    return sortedStudents.map((student, index) => {
+      const { completionPercent, completedSteps, totalSteps } = getCompletionMeta(student);
       const isExpanded = expandedRows.includes(student.student_id);
       const statusConfig = getStatusConfig(student.status);
 
@@ -296,17 +354,13 @@ const ExperimentProgress: React.FC = () => {
         <React.Fragment key={student.student_id}>
           <tr className="hover:bg-slate-50">
             <td className="w-12 text-center text-sm text-gray-500">{index + 1}</td>
+            <td className="px-4 py-4 text-sm font-semibold text-gray-900">{student.full_name}</td>
+            <td className="px-4 py-4 text-sm text-gray-600">{student.username}</td>
             <td className="px-4 py-4 text-sm text-gray-900">
-              <div className="flex items-center justify-between space-x-3">
-                <div>
-                  <div className="font-semibold">{student.full_name}</div>
-                  <div className="text-xs text-gray-500">{student.username}</div>
-                </div>
-                <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.badge}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
-                  <span>{statusConfig.label}</span>
-                </span>
-              </div>
+              <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.badge}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
+                <span>{statusConfig.label}</span>
+              </span>
             </td>
             <td className="px-4 py-4">
               <div className="flex items-center space-x-2">
@@ -320,16 +374,6 @@ const ExperimentProgress: React.FC = () => {
                 </div>
                 <span className="text-sm text-gray-600 w-12 text-right">{completionPercent}%</span>
               </div>
-            </td>
-            <td className="px-4 py-4 text-sm text-gray-700">
-              {latestCompleted ? latestCompleted.label : "—"}
-            </td>
-            <td className="px-4 py-4 text-sm text-gray-700">
-              {student.status === "Completed"
-                ? "已完成全部节点"
-                : currentStep
-                ? currentStep.label
-                : "—"}
             </td>
             <td className="px-4 py-4 text-sm text-gray-500 text-right">
               {completedSteps}/{totalSteps} 步
@@ -470,11 +514,47 @@ const ExperimentProgress: React.FC = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="w-12 text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学生</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">完成进度</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最新完成</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">当前节点</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">完成步数</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("username")}
+                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <span>学号</span>
+                    {renderSortIcon("username")}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("status")}
+                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <span>实验状态</span>
+                    {renderSortIcon("status")}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("completion")}
+                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <span>完成进度</span>
+                    {renderSortIcon("completion")}
+                  </button>
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("steps")}
+                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <span>完成步数</span>
+                    {renderSortIcon("steps")}
+                  </button>
+                </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">最近操作时间</th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>

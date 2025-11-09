@@ -95,6 +95,14 @@ export interface ExperimentReport {
   feedback: string | null;
   experiment_grade?: {
     model_quality?: number | null;
+    exp_flow_demand_data_preparation?: number | null;
+    exp_flow_demand_descriptive_stats?: number | null;
+    exp_flow_demand_model_selection?: number | null;
+    exp_flow_demand_generate_results?: number | null;
+    exp_flow_production_inventory_calc?: number | null;
+    exp_flow_production_service_level?: number | null;
+    exp_flow_production_variable_calc?: number | null;
+    exp_flow_production_plan_creation?: number | null;
   };
 }
 

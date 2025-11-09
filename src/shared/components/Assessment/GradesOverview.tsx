@@ -70,18 +70,13 @@ const getEvaluationBadge = (grade: StudentGradeOverview) => {
     return { text: '未进行实验', color: 'bg-gray-100 text-gray-600 border border-gray-200' };
   }
   if (status === 'in-progress') {
-    return { text: '评分进行中', color: 'bg-amber-100 text-amber-800 border border-amber-200' };
+    return { text: '实验进行中', color: 'bg-amber-100 text-amber-800 border border-amber-200' };
+  }
+  if (status === 'waiting-evaluation') {
+    return { text: '实验待评分', color: 'bg-indigo-100 text-indigo-800 border border-indigo-200' };
   }
 
-  const score = grade.final_score;
-  if (score === null || Number.isNaN(score)) {
-    return { text: '已完成评分', color: 'bg-blue-100 text-blue-800 border border-blue-200' };
-  }
-  if (score >= 90) return { text: '优秀', color: 'bg-blue-100 text-blue-800 border border-blue-200' };
-  if (score >= 80) return { text: '良好', color: 'bg-green-100 text-green-800 border border-green-200' };
-  if (score >= 70) return { text: '中等', color: 'bg-yellow-100 text-yellow-800 border border-yellow-200' };
-  if (score >= 60) return { text: '及格', color: 'bg-purple-100 text-purple-800 border border-purple-200' };
-  return { text: '不及格', color: 'bg-red-100 text-red-800 border border-red-200' };
+  return { text: '已完成评分', color: 'bg-blue-100 text-blue-800 border border-blue-200' };
 };
 
 const formatStatValue = (value: number | null) => {
@@ -100,24 +95,26 @@ type SortKey =
   | 'final_score'
   | 'evaluation';
 
-type ProgressStatus = 'not-started' | 'in-progress' | 'completed';
+type ProgressStatus = 'not-started' | 'in-progress' | 'waiting-evaluation' | 'completed';
 
 const getProgressStatus = (grade: StudentGradeOverview): ProgressStatus => {
-  if(grade.experiment_id === null) {
-    return "not-started";
-  }else {
-    if(grade.report_quality === 0 || grade.model_quality === 0) {
-      return "in-progress";
-    }else {
-      return "completed";
-    }
+  if (grade.experiment_id === null) {
+    return 'not-started';
   }
+  if (grade.exp_flow_score === 0) {
+    return 'in-progress';
+  }
+  if (grade.model_quality === 0 || grade.report_quality === 0) {
+    return 'waiting-evaluation';
+  }
+  return 'completed';
 };
 
-type StatusVariant = 'completed' | 'progress' | 'idle';
+type StatusVariant = 'completed' | 'waiting' | 'progress' | 'idle';
 
 const STATUS_STYLES: Record<StatusVariant, string> = {
   completed: 'bg-blue-50 text-blue-700 border border-blue-100',
+  waiting: 'bg-indigo-50 text-indigo-700 border border-indigo-100',
   progress: 'bg-amber-50 text-amber-700 border border-amber-100',
   idle: 'bg-gray-50 text-gray-600 border border-gray-200',
 };
@@ -134,7 +131,6 @@ const GradesOverview: React.FC = () => {
   const [grades, setGrades] = useState<StudentGradeOverview[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportedFileUrl, setExportedFileUrl] = useState<string | null>(null);
@@ -239,12 +235,6 @@ const GradesOverview: React.FC = () => {
     );
   }, [grades, debouncedSearch]);
 
-  const currentClass = useMemo(
-    () =>
-      classes.find((cls) => String(cls.class_id) === selectedClassId) ?? null,
-    [classes, selectedClassId],
-  );
-
   const sortedGrades = useMemo(() => {
     if (!sortConfig) return filteredGrades;
     const { key, direction } = sortConfig;
@@ -261,7 +251,9 @@ const GradesOverview: React.FC = () => {
         case 'username': {
           const aValue = a.username ?? '';
           const bValue = b.username ?? '';
-          return direction === 'asc' ? aValue.localeCompare(bValue, 'zh-Hans-CN') : bValue.localeCompare(aValue, 'zh-Hans-CN');
+          return direction === 'asc'
+            ? aValue.localeCompare(bValue)
+            : bValue.localeCompare(aValue);
         }
         case 'exp_flow_score': {
           const aValue = normalizeNumeric(a.exp_flow_score);
@@ -292,7 +284,8 @@ const GradesOverview: React.FC = () => {
           const statusOrder: Record<ProgressStatus, number> = {
             'not-started': 0,
             'in-progress': 1,
-            'completed': 2,
+            'waiting-evaluation': 2,
+            'completed': 3,
           };
           const aStatus = getProgressStatus(a);
           const bStatus = getProgressStatus(b);
@@ -341,9 +334,16 @@ const GradesOverview: React.FC = () => {
     );
   };
 
+  const currentClass = useMemo(
+    () =>
+      classes.find((cls) => String(cls.class_id) === selectedClassId) ?? null,
+    [classes, selectedClassId],
+  );
+
   const gradeInsights = useMemo(() => {
     const completed = grades.filter((grade) => getProgressStatus(grade) === 'completed');
     const inProgress = grades.filter((grade) => getProgressStatus(grade) === 'in-progress');
+    const waitingEvaluation = grades.filter((grade) => getProgressStatus(grade) === 'waiting-evaluation');
     const notStarted = grades.filter((grade) => getProgressStatus(grade) === 'not-started');
 
     const validScores = completed
@@ -355,6 +355,7 @@ const GradesOverview: React.FC = () => {
         completedStudents: completed,
         completedCount: completed.length,
         inProgressCount: inProgress.length,
+        waitingEvaluationCount: waitingEvaluation.length,
         notStartedCount: notStarted.length,
         avgFinalGrade: null as number | null,
         highestGrade: null as number | null,
@@ -370,6 +371,7 @@ const GradesOverview: React.FC = () => {
       completedStudents: completed,
       completedCount: completed.length,
       inProgressCount: inProgress.length,
+      waitingEvaluationCount: waitingEvaluation.length,
       notStartedCount: notStarted.length,
       avgFinalGrade: parseFloat((sum / validScores.length).toFixed(2)),
       highestGrade: validScores.length ? Math.max(...validScores) : null,
@@ -419,10 +421,11 @@ const GradesOverview: React.FC = () => {
     [scoreDistribution],
   );
 
-  const pendingCount = gradeInsights.inProgressCount + gradeInsights.notStartedCount;
+  const pendingCount =
+    gradeInsights.inProgressCount + gradeInsights.waitingEvaluationCount + gradeInsights.notStartedCount;
   const pendingMessage =
     pendingCount > 0
-      ? `提示：未进行实验或评分进行中的学生暂不纳入平均分、分布等统计（当前共 ${pendingCount} 人）。`
+      ? `提示：未进行实验、实验进行中或等待评分的学生暂不纳入平均分、分布等统计（当前共 ${pendingCount} 人）。`
       : '提示：当前班级所有学生都已完成评分，统计数据包含全部学生。';
 
   const chartGrades = useMemo<GradeChartDatum[]>(
@@ -508,7 +511,8 @@ const GradesOverview: React.FC = () => {
 
         <div className="flex flex-wrap gap-2">
           <StatusChip variant="completed" label="已完成评分" value={gradeInsights.completedCount} />
-          <StatusChip variant="progress" label="评分进行中" value={gradeInsights.inProgressCount} />
+          <StatusChip variant="waiting" label="实验待评分" value={gradeInsights.waitingEvaluationCount} />
+          <StatusChip variant="progress" label="实验进行中" value={gradeInsights.inProgressCount} />
           <StatusChip variant="idle" label="未进行实验" value={gradeInsights.notStartedCount} />
         </div>
         <div className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
@@ -668,7 +672,7 @@ const GradesOverview: React.FC = () => {
                     onClick={() => handleSort('model_quality')}
                     className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
                   >
-                    <span>模型质量</span>
+                    <span>模型选择</span>
                     {renderSortIcon('model_quality')}
                   </button>
                 </th>
@@ -678,7 +682,7 @@ const GradesOverview: React.FC = () => {
                     onClick={() => handleSort('report_quality')}
                     className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
                   >
-                    <span>报告质量</span>
+                    <span>实验报告</span>
                     {renderSortIcon('report_quality')}
                   </button>
                 </th>
@@ -698,7 +702,7 @@ const GradesOverview: React.FC = () => {
                     onClick={() => handleSort('evaluation')}
                     className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
                   >
-                    <span>评价</span>
+                    <span>状态</span>
                     {renderSortIcon('evaluation')}
                   </button>
                 </th>

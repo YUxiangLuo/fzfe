@@ -11,6 +11,9 @@ import {
   Activity,
   Clock,
   Search,
+  ChevronDown,
+  ChevronUp,
+  ArrowUpDown,
 } from "lucide-react";
 import type { Class, ExperimentReport } from "@/shared/types";
 import Modal from "@/shared/components/common/Modal";
@@ -20,12 +23,6 @@ import { decodeToken } from "@/utils/auth";
 import { DOWNLOAD_SERVER_BASE_URL } from "@/config/appConfig";
 import { useToast } from "@/shared/hooks/useToast";
 import { Toast } from "@/shared/components/common/Toast";
-
-const extractFileName = (filePath: string | null) => {
-  if (!filePath) return "在线填写";
-  const parts = filePath.split(/[\\/\\\\]/);
-  return parts[parts.length - 1] || filePath;
-};
 
 const buildDownloadUrl = (filePath: string) => {
   const filename = filePath.split("/").pop();
@@ -50,7 +47,16 @@ const STATUS_META = {
   },
 } as const;
 
-type StatusMeta = (typeof STATUS_META)[keyof typeof STATUS_META];
+type StatusKey = keyof typeof STATUS_META;
+type StatusMeta = (typeof STATUS_META)[StatusKey];
+
+type SortKey = "status" | "username" | "submitted_at" | "grade";
+
+const getReportStatusKey = (report: ExperimentReport): StatusKey => {
+  if (!report.report_id) return "draft";
+  if (report.grade !== null && report.grade !== undefined) return "submitted";
+  return "pending";
+};
 
 const formatDateTime = (value: string | null) => {
   if (!value) return "—";
@@ -71,6 +77,7 @@ const ExperimentReports: React.FC = () => {
   const [reports, setReports] = useState<ExperimentReport[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: "asc" | "desc" } | null>(null);
 
   const [teacherId, setTeacherId] = useState<number | null>(null);
   const [isLoadingClasses, setIsLoadingClasses] = useState(true);
@@ -83,6 +90,17 @@ const ExperimentReports: React.FC = () => {
   const [tempModelQualityScore, setTempModelQualityScore] = useState("");
   const [tempFeedback, setTempFeedback] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [showExpFlowScores, setShowExpFlowScores] = useState(false);
+  const [expFlowScores, setExpFlowScores] = useState({
+    exp_flow_demand_data_preparation: "",
+    exp_flow_demand_descriptive_stats: "",
+    exp_flow_demand_model_selection: "",
+    exp_flow_demand_generate_results: "",
+    exp_flow_production_inventory_calc: "",
+    exp_flow_production_service_level: "",
+    exp_flow_production_variable_calc: "",
+    exp_flow_production_plan_creation: "",
+  });
   const [isExportingReports, setIsExportingReports] = useState(false);
   const [exportedFileUrl, setExportedFileUrl] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -188,6 +206,47 @@ const ExperimentReports: React.FC = () => {
     );
   }, [reports, debouncedSearchTerm]);
 
+  const sortedReports = useMemo(() => {
+    if (!sortConfig) return filteredReports;
+    const next = [...filteredReports];
+    const { key, direction } = sortConfig;
+    const sortFactor = direction === "asc" ? 1 : -1;
+
+    next.sort((a, b) => {
+      switch (key) {
+        case "status": {
+          const order: Record<StatusKey, number> = { draft: 0, pending: 1, submitted: 2 };
+          const aKey = getReportStatusKey(a);
+          const bKey = getReportStatusKey(b);
+          if (aKey === bKey) return 0;
+          return (order[aKey] - order[bKey]) * sortFactor;
+        }
+        case "username":
+          return a.username.localeCompare(b.username, "zh-CN") * sortFactor;
+        case "submitted_at": {
+          const aTime = a.submitted_at ? new Date(a.submitted_at).getTime() : null;
+          const bTime = b.submitted_at ? new Date(b.submitted_at).getTime() : null;
+          if (aTime === null && bTime === null) return 0;
+          if (aTime === null) return 1;
+          if (bTime === null) return -1;
+          return (aTime - bTime) * sortFactor;
+        }
+        case "grade": {
+          const aHasGrade = a.grade !== null && a.grade !== undefined;
+          const bHasGrade = b.grade !== null && b.grade !== undefined;
+          if (!aHasGrade && !bHasGrade) return 0;
+          if (!aHasGrade) return 1;
+          if (!bHasGrade) return -1;
+          return ((a.grade as number) - (b.grade as number)) * sortFactor;
+        }
+        default:
+          return 0;
+      }
+    });
+
+    return next;
+  }, [filteredReports, sortConfig]);
+
   const handleClassChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedClassId(event.target.value);
     setExportedFileUrl(null);
@@ -218,10 +277,32 @@ const ExperimentReports: React.FC = () => {
   }, [selectedClassId, filteredReports.length, isExportingReports]);
 
   const getReportStatus = useCallback((report: ExperimentReport): StatusMeta => {
-    if (!report.report_id) return STATUS_META.draft;
-    if (report.grade !== null && report.grade !== undefined) return STATUS_META.submitted;
-    return STATUS_META.pending;
+    const key = getReportStatusKey(report);
+    return STATUS_META[key];
   }, []);
+
+  const handleSort = (key: SortKey) => {
+    setSortConfig((prev) => {
+      if (!prev || prev.key !== key) {
+        return { key, direction: "desc" };
+      }
+      return {
+        key,
+        direction: prev.direction === "desc" ? "asc" : "desc",
+      };
+    });
+  };
+
+  const renderSortIcon = (key: SortKey) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />;
+    }
+    return sortConfig.direction === "desc" ? (
+      <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+    ) : (
+      <ChevronUp className="w-3.5 h-3.5 text-blue-600" />
+    );
+  };
 
   const handleReview = useCallback((report: ExperimentReport) => {
     if (!report.report_id) return;
@@ -233,6 +314,20 @@ const ExperimentReports: React.FC = () => {
         : ""
     );
     setTempFeedback(report.feedback ?? "");
+
+    // 初始化实验步骤评分
+    const eg = report.experiment_grade;
+    setExpFlowScores({
+      exp_flow_demand_data_preparation: eg?.exp_flow_demand_data_preparation != null ? String(eg.exp_flow_demand_data_preparation) : "",
+      exp_flow_demand_descriptive_stats: eg?.exp_flow_demand_descriptive_stats != null ? String(eg.exp_flow_demand_descriptive_stats) : "",
+      exp_flow_demand_model_selection: eg?.exp_flow_demand_model_selection != null ? String(eg.exp_flow_demand_model_selection) : "",
+      exp_flow_demand_generate_results: eg?.exp_flow_demand_generate_results != null ? String(eg.exp_flow_demand_generate_results) : "",
+      exp_flow_production_inventory_calc: eg?.exp_flow_production_inventory_calc != null ? String(eg.exp_flow_production_inventory_calc) : "",
+      exp_flow_production_service_level: eg?.exp_flow_production_service_level != null ? String(eg.exp_flow_production_service_level) : "",
+      exp_flow_production_variable_calc: eg?.exp_flow_production_variable_calc != null ? String(eg.exp_flow_production_variable_calc) : "",
+      exp_flow_production_plan_creation: eg?.exp_flow_production_plan_creation != null ? String(eg.exp_flow_production_plan_creation) : "",
+    });
+
     setShowReviewModal(true);
   }, []);
 
@@ -257,14 +352,27 @@ const ExperimentReports: React.FC = () => {
     return !Number.isNaN(value) && value >= 0 && value <= 100;
   }, [tempModelQualityScore]);
 
+  const areExpFlowScoresValid = useMemo(() => {
+    for (const score of Object.values(expFlowScores)) {
+      if (score.trim()) {
+        const value = Number(score);
+        if (Number.isNaN(value) || value < 0 || value > 100) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }, [expFlowScores]);
+
   const canSubmitReview = useMemo(() => {
     if (!selectedReport) return false;
     const hasGrade = tempScore.trim().length > 0;
     const hasModelQuality = tempModelQualityScore.trim().length > 0;
     const hasFeedback = tempFeedback.trim().length > 0;
-    if (!hasGrade && !hasModelQuality && !hasFeedback) return false;
-    return isScoreValid && isModelQualityScoreValid && !isSubmittingReview;
-  }, [selectedReport, tempScore, tempModelQualityScore, tempFeedback, isScoreValid, isModelQualityScoreValid, isSubmittingReview]);
+    const hasAnyExpFlowScore = Object.values(expFlowScores).some(score => score.trim().length > 0);
+    if (!hasGrade && !hasModelQuality && !hasFeedback && !hasAnyExpFlowScore) return false;
+    return isScoreValid && isModelQualityScoreValid && areExpFlowScoresValid && !isSubmittingReview;
+  }, [selectedReport, tempScore, tempModelQualityScore, tempFeedback, expFlowScores, isScoreValid, isModelQualityScoreValid, areExpFlowScoresValid, isSubmittingReview]);
 
   const resetReviewState = useCallback(() => {
     setShowReviewModal(false);
@@ -273,6 +381,17 @@ const ExperimentReports: React.FC = () => {
     setTempModelQualityScore("");
     setTempFeedback("");
     setIsSubmittingReview(false);
+    setShowExpFlowScores(false);
+    setExpFlowScores({
+      exp_flow_demand_data_preparation: "",
+      exp_flow_demand_descriptive_stats: "",
+      exp_flow_demand_model_selection: "",
+      exp_flow_demand_generate_results: "",
+      exp_flow_production_inventory_calc: "",
+      exp_flow_production_service_level: "",
+      exp_flow_production_variable_calc: "",
+      exp_flow_production_plan_creation: "",
+    });
   }, []);
 
   const handleSaveReview = async () => {
@@ -281,7 +400,7 @@ const ExperimentReports: React.FC = () => {
     const payload: {
       grade?: number;
       feedback?: string;
-      experiment_grade?: { model_quality?: number };
+      experiment_grade?: any;
     } = {};
 
     if (tempScore.trim()) {
@@ -293,13 +412,35 @@ const ExperimentReports: React.FC = () => {
       payload.grade = scoreValue;
     }
 
+    // 构建 experiment_grade 对象
+    const experimentGrade: any = {};
+    let hasExperimentGrade = false;
+
     if (tempModelQualityScore.trim()) {
       const modelQualityValue = Number(tempModelQualityScore);
       if (Number.isNaN(modelQualityValue) || modelQualityValue < 0 || modelQualityValue > 100) {
         showToast("模型选择得分需在 0-100 之间", "error");
         return;
       }
-      payload.experiment_grade = { model_quality: modelQualityValue };
+      experimentGrade.model_quality = modelQualityValue;
+      hasExperimentGrade = true;
+    }
+
+    // 处理实验步骤评分
+    for (const [key, value] of Object.entries(expFlowScores)) {
+      if (value.trim()) {
+        const scoreValue = Number(value);
+        if (Number.isNaN(scoreValue) || scoreValue < 0 || scoreValue > 100) {
+          showToast("实验步骤评分需在 0-100 之间", "error");
+          return;
+        }
+        experimentGrade[key] = scoreValue;
+        hasExperimentGrade = true;
+      }
+    }
+
+    if (hasExperimentGrade) {
+      payload.experiment_grade = experimentGrade;
     }
 
     if (tempFeedback.trim()) {
@@ -334,7 +475,7 @@ const ExperimentReports: React.FC = () => {
     if (!selectedClassId) {
       return (
         <tr>
-          <td colSpan={7} className="py-12 text-center text-gray-500">
+          <td colSpan={8} className="py-12 text-center text-gray-500">
             请先选择一个班级查看实验报告。
           </td>
         </tr>
@@ -344,7 +485,7 @@ const ExperimentReports: React.FC = () => {
     if (isLoadingReports) {
       return (
         <tr>
-          <td colSpan={7} className="py-12 text-center text-gray-500">
+          <td colSpan={8} className="py-12 text-center text-gray-500">
             <div className="flex items-center justify-center space-x-2">
               <Loader className="animate-spin" size={18} />
               <span>正在加载实验报告...</span>
@@ -357,7 +498,7 @@ const ExperimentReports: React.FC = () => {
     if (reports.length === 0) {
       return (
         <tr>
-          <td colSpan={7} className="py-12 text-center text-gray-500">
+          <td colSpan={8} className="py-12 text-center text-gray-500">
             暂无学生可供显示。
           </td>
         </tr>
@@ -367,16 +508,15 @@ const ExperimentReports: React.FC = () => {
     if (filteredReports.length === 0) {
       return (
         <tr>
-          <td colSpan={7} className="py-12 text-center text-gray-500">
+          <td colSpan={8} className="py-12 text-center text-gray-500">
             未找到匹配的学生，请调整搜索条件。
           </td>
         </tr>
       );
     }
 
-    return filteredReports.map((report, index) => {
+    return sortedReports.map((report, index) => {
       const status = getReportStatus(report);
-      const fileName = extractFileName(report.pdf_file_path);
       const submittedAt = formatDateTime(report.submitted_at);
       const hasReport = !!report.report_id;
 
@@ -384,40 +524,29 @@ const ExperimentReports: React.FC = () => {
         <tr key={report.user_id} className="hover:bg-gray-50">
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            <div className="flex items-center justify-between space-x-3">
-              <div>
-                <p className="font-semibold">{report.full_name}</p>
-                <p className="text-xs text-gray-500">{report.username}</p>
-              </div>
-              <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium ${status.badge}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                <span>{status.label}</span>
-              </span>
-            </div>
+            <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium ${status.badge}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+              <span>{status.label}</span>
+            </span>
           </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{report.full_name}</td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{report.username}</td>
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{submittedAt}</td>
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
             {report.grade !== null && report.grade !== undefined ? (
-              <span className="font-semibold text-blue-600">{report.grade} 分</span>
+              <span className="font-semibold text-gray-900">{report.grade}</span>
             ) : (
               <span className="text-gray-400">--</span>
             )}
           </td>
           <td className="px-6 py-4 text-sm text-gray-700">
             {report.feedback ? (
-              <span className="inline-flex items-center text-blue-600">
+              <span className="inline-flex items-center text-gray-700">
                 <MessageCircle size={14} className="mr-1" />
                 <span className="truncate max-w-xs" title={report.feedback}>
                   {report.feedback}
                 </span>
               </span>
-            ) : (
-              <span className="text-gray-400">—</span>
-            )}
-          </td>
-          <td className="px-6 py-4 text-sm text-gray-700">
-            {hasReport ? (
-              <span className="truncate max-w-xs" title={fileName}>{fileName}</span>
             ) : (
               <span className="text-gray-400">—</span>
             )}
@@ -451,7 +580,7 @@ const ExperimentReports: React.FC = () => {
     isLoadingReports,
     reports,
     filteredReports,
-    debouncedSearchTerm,
+    sortedReports,
     getReportStatus,
     handleReview,
     handleDownload,
@@ -604,11 +733,48 @@ const ExperimentReports: React.FC = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="w-12 text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学生</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">提交时间</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">成绩</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("status")}
+                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <span>评阅状态</span>
+                    {renderSortIcon("status")}
+                  </button>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("username")}
+                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <span>学号</span>
+                    {renderSortIcon("username")}
+                  </button>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("submitted_at")}
+                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <span>提交时间</span>
+                    {renderSortIcon("submitted_at")}
+                  </button>
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    type="button"
+                    onClick={() => handleSort("grade")}
+                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <span>成绩</span>
+                    {renderSortIcon("grade")}
+                  </button>
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">评语</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">报告文件</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
@@ -659,11 +825,6 @@ const ExperimentReports: React.FC = () => {
                 </Button>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
-                <h4 className="text-sm font-medium text-blue-900">评阅提示</h4>
-                <p className="text-xs text-blue-700 mt-1">请先在左侧预览报告，再填写分数与评语。</p>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">实验报告得分（0-100）</label>
                 <input
@@ -690,6 +851,142 @@ const ExperimentReports: React.FC = () => {
                   placeholder="请输入模型选择得分"
                 />
                 {!isModelQualityScoreValid && <p className="mt-1 text-xs text-red-500">分数需在 0-100 之间</p>}
+              </div>
+
+              {/* 实验步骤评分 - 可折叠 */}
+              <div className="border border-gray-300 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setShowExpFlowScores(!showExpFlowScores)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  <span className="text-sm font-medium text-gray-700">实验步骤评分（可选）</span>
+                  {showExpFlowScores ? (
+                    <ChevronUp size={18} className="text-gray-500" />
+                  ) : (
+                    <ChevronDown size={18} className="text-gray-500" />
+                  )}
+                </button>
+
+                {showExpFlowScores && (
+                  <div className="p-4 space-y-4 border-t border-gray-300">
+                    <div className="text-xs text-gray-600 mb-3">
+                      <p className="font-medium mb-1">需求预测任务：</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">（1）数据准备</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={expFlowScores.exp_flow_demand_data_preparation}
+                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_data_preparation: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        placeholder="0-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">（2）描述性统计</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={expFlowScores.exp_flow_demand_descriptive_stats}
+                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_descriptive_stats: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        placeholder="0-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">（3）预测模型选择</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={expFlowScores.exp_flow_demand_model_selection}
+                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_model_selection: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        placeholder="0-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">（4）生成预测结果</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={expFlowScores.exp_flow_demand_generate_results}
+                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_generate_results: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        placeholder="0-100"
+                      />
+                    </div>
+
+                    <div className="text-xs text-gray-600 mb-3 pt-3 border-t border-gray-200">
+                      <p className="font-medium mb-1">生产计划决策任务：</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">（1）库存变量参数计算</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={expFlowScores.exp_flow_production_inventory_calc}
+                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_inventory_calc: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        placeholder="0-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">（2）服务水平参数计算</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={expFlowScores.exp_flow_production_service_level}
+                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_service_level: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        placeholder="0-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">（3）生产变量参数计算</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={expFlowScores.exp_flow_production_variable_calc}
+                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_variable_calc: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        placeholder="0-100"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">（4）制定生产计划</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={expFlowScores.exp_flow_production_plan_creation}
+                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_plan_creation: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        placeholder="0-100"
+                      />
+                    </div>
+
+                    {!areExpFlowScoresValid && (
+                      <p className="text-xs text-red-500">所有步骤评分需在 0-100 之间</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
