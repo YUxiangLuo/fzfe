@@ -103,10 +103,15 @@ type SortKey =
 type ProgressStatus = 'not-started' | 'in-progress' | 'completed';
 
 const getProgressStatus = (grade: StudentGradeOverview): ProgressStatus => {
-  if (grade.report_quality === null) {
-    return grade.experiment_id === null ? 'not-started' : 'in-progress';
+  if(grade.experiment_id === null) {
+    return "not-started";
+  }else {
+    if(grade.report_quality === 0 || grade.model_quality === 0) {
+      return "in-progress";
+    }else {
+      return "completed";
+    }
   }
-  return 'completed';
 };
 
 type StatusVariant = 'completed' | 'progress' | 'idle';
