@@ -71,6 +71,10 @@ export const LoginContainer: React.FC = () => {
 
       if (data.token) {
         localStorage.setItem("token", data.token);
+        // Only store the role for the main SPA (teacher/assistant)
+        if (selectedRole === "teacher" || selectedRole === "assistant") {
+          localStorage.setItem("userRole", selectedRole);
+        }
         const redirectPath = getRedirectPath(selectedRole as any);
         window.location.href = redirectPath;
       } else {

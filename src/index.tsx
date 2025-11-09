@@ -1,17 +1,16 @@
 import { serve } from "bun";
 import shiyan from "./views/shiyan/shiyan.html";
-import jiaoshi from "./views/jiaoshi/jiaoshi.html";
 import login from "./views/login/login.html";
 import admin from "./views/admin/admin.html";
-import zhujiao from "./views/zhujiao/zhujiao.html";
+import teacher from "./views/teacher/teacher.html";
 
 const server = serve({
   routes: {
     "/*": login,
     "/login": login,
     "/admin": admin,
-    "/jiaoshi": jiaoshi,
-    "/zhujiao": zhujiao,
+    "/teacher": teacher,
+    "/teacher/*": teacher,
     "/shiyan": shiyan,
     "/shiyan/*": shiyan,
 

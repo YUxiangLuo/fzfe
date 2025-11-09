@@ -15,7 +15,7 @@ import {
   validatePassword,
   validatePhone,
   validateUsername,
-} from "../../jiaoshi/utils/validation";
+} from "@/shared/utils/validation";
 
 const PAGE_LIMIT = 10;
 const SEARCH_DEBOUNCE_MS = 400;

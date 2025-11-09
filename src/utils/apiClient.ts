@@ -116,11 +116,40 @@ const handleResponse = async <T = any>(response: Response, endpoint: string): Pr
   return (parsedBody as T) ?? (null as T);
 };
 
+import { decodeToken, type DecodedToken } from './auth';
+
+// Helper to get user info from token
+const getUserInfo = (): DecodedToken | null => {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+  return decodeToken(token);
+};
+
+// Centralized logic for rewriting endpoints based on role
+const rewriteEndpointForRole = (endpoint: string): string => {
+  const userInfo = getUserInfo();
+  if (!userInfo || userInfo.role !== 'Assistant') {
+    return endpoint;
+  }
+
+  // Rule: If the user is an Assistant, rewrite /teachers/{id} paths to /assistants/{id}
+  const teacherPattern = /^\/teachers\/\d+/;
+  if (teacherPattern.test(endpoint)) {
+    return endpoint.replace(/^\/teachers\/\d+/, `/assistants/${userInfo.sub}`);
+  }
+
+  return endpoint;
+};
+
+
 const request = async <T = any>(
   endpoint: string,
   options: RequestInit = {},
   isFormData = false,
 ): Promise<T> => {
+  // Rewrite the endpoint before making the request
+  const finalEndpoint = rewriteEndpointForRole(endpoint);
+
   const token = localStorage.getItem("token");
   const headers: HeadersInit = isFormData
     ? {}
@@ -139,7 +168,7 @@ const request = async <T = any>(
   };
 
   // 自动确定超时时间
-  const timeout = getTimeoutForEndpoint(endpoint);
+  const timeout = getTimeoutForEndpoint(finalEndpoint);
 
   // 如果需要超时控制
   if (timeout !== undefined) {
@@ -147,12 +176,12 @@ const request = async <T = any>(
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      const response = await fetch(buildUrl(endpoint), {
+      const response = await fetch(buildUrl(finalEndpoint), {
         ...config,
         signal: options.signal || controller.signal, // 优先使用传入的signal
       });
       clearTimeout(timeoutId);
-      return handleResponse<T>(response, endpoint);
+      return handleResponse<T>(response, finalEndpoint);
     } catch (err: unknown) {
       clearTimeout(timeoutId);
 
@@ -166,8 +195,8 @@ const request = async <T = any>(
   }
 
   // 无超时的默认行为（用于模型训练等长时间操作）
-  const response = await fetch(buildUrl(endpoint), config);
-  return handleResponse<T>(response, endpoint);
+  const response = await fetch(buildUrl(finalEndpoint), config);
+  return handleResponse<T>(response, finalEndpoint);
 };
 
 export const apiClient = {
