@@ -892,21 +892,62 @@ const GradesOverview: React.FC = () => {
   );
 };
 
-const StatCard: React.FC<{ icon: React.ElementType; color: string; title: string; value: string | number | null }> = ({
-  icon: Icon,
-  color,
-  title,
-  value,
-}) => (
-  <div className={`bg-${color}-50 border border-${color}-100 rounded-xl p-4`}>
-    <div className="flex items-center space-x-3">
-      <Icon className={`text-${color}-600`} size={20} />
-      <div>
-        <p className={`text-sm text-${color}-600`}>{title}</p>
-        <p className={`text-2xl font-bold text-${color}-900`}>{value === null || value === undefined || value === '' ? '—' : value}</p>
+const COLOR_VARIANTS = {
+  blue: {
+    bg: 'bg-blue-50',
+    border: 'border-blue-100',
+    text: 'text-blue-600',
+    textBold: 'text-blue-900',
+  },
+  green: {
+    bg: 'bg-green-50',
+    border: 'border-green-100',
+    text: 'text-green-600',
+    textBold: 'text-green-900',
+  },
+  yellow: {
+    bg: 'bg-yellow-50',
+    border: 'border-yellow-100',
+    text: 'text-yellow-600',
+    textBold: 'text-yellow-900',
+  },
+  red: {
+    bg: 'bg-red-50',
+    border: 'border-red-100',
+    text: 'text-red-600',
+    textBold: 'text-red-900',
+  },
+  purple: {
+    bg: 'bg-purple-50',
+    border: 'border-purple-100',
+    text: 'text-purple-600',
+    textBold: 'text-purple-900',
+  },
+} as const;
+
+type ColorVariant = keyof typeof COLOR_VARIANTS;
+
+const StatCard: React.FC<{
+  icon: React.ElementType;
+  color: ColorVariant;
+  title: string;
+  value: string | number | null;
+}> = ({ icon: Icon, color, title, value }) => {
+  const colors = COLOR_VARIANTS[color];
+
+  return (
+    <div className={`${colors.bg} border ${colors.border} rounded-xl p-4`}>
+      <div className="flex items-center space-x-3">
+        <Icon className={colors.text} size={20} />
+        <div>
+          <p className={`text-sm ${colors.text}`}>{title}</p>
+          <p className={`text-2xl font-bold ${colors.textBold}`}>
+            {value === null || value === undefined || value === '' ? '—' : value}
+          </p>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default GradesOverview;
