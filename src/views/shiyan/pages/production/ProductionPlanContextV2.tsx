@@ -117,7 +117,7 @@ interface ProductionPlanContextValue {
   savePredictions: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
 
   // 生成完整MPS表
-  generateFullMPS: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
+  generateFullMPS: (predictions: Array<{ prediction: number; std_dev: number }>) => MPSTableRow[];
 
   // Step6教学内容控制
   hideStep6Teaching: () => void;
@@ -357,6 +357,8 @@ export const ProductionPlanProvider: React.FC<{
   const generateFullMPS = (predictions: Array<{ prediction: number; std_dev: number }>) => {
     console.log('🏭 ===== 开始生成完整MPS表 =====');
     console.log(`📊 参数: 预测期数=${predictions.length}, 初始库存=${state.initialInventory}, 产能=${state.productionCapacity}, 服务水平目标=${state.targetServiceLevel}, Z值=${state.safetyStockZScore}`);
+    console.log('📋 Period1 数据:', state.period1Data);
+    console.log('📋 Period2 数据:', state.period2Data);
 
     // 🆕 构建期1和期2的数据（来自用户的实际学习操作）
     const period1Row: MPSTableRow = {
@@ -472,11 +474,16 @@ export const ProductionPlanProvider: React.FC<{
       previousStockout = stockout;
     }
 
+    console.log(`\n✅ MPS表生成完成，共 ${generatedTable.length} 期`);
+    console.log('生成的表格:', generatedTable);
+
     setState((prev) => ({
       ...prev,
       fullMPSTable: generatedTable,
       isFullPlanGenerated: true,
     }));
+
+    return generatedTable;
   };
 
   const hideStep6Teaching = () => {
@@ -487,7 +494,7 @@ export const ProductionPlanProvider: React.FC<{
   };
 
   // 💾 保存MPS数据到全局状态（带重试机制）
-  const saveMPSDataToGlobal = async (updateStateFunc: Function) => {
+  const saveMPSDataToGlobal = async (updateStateFunc: Function, mpsTableOverride?: MPSTableRow[]) => {
     setState((prev) => ({
       ...prev,
       isSaving: true,
@@ -500,10 +507,14 @@ export const ProductionPlanProvider: React.FC<{
       // 🔄 使用ref获取最新的state数据，避免闭包问题
       const currentState = stateRef.current;
 
-      // 转换MPS表格数据类型
-      const globalMPSTable = convertToGlobalMPSTable(currentState.fullMPSTable);
+      // 如果提供了 mpsTableOverride，使用它；否则使用 currentState.fullMPSTable
+      const mpsTableToSave = mpsTableOverride || currentState.fullMPSTable;
 
-      console.log('📊 完整MPS表数据（期1-' + currentState.fullMPSTable.length + '）:', currentState.fullMPSTable);
+      console.log('📊 使用的MPS表数据来源:', mpsTableOverride ? '直接传入' : 'stateRef');
+      console.log('📊 完整MPS表数据（期1-' + mpsTableToSave.length + '）:', mpsTableToSave);
+
+      // 转换MPS表格数据类型
+      const globalMPSTable = convertToGlobalMPSTable(mpsTableToSave);
 
       // 使用重试机制保存数据（最多重试3次，指数退避）
       await retryAsync(

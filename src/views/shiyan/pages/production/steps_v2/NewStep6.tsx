@@ -46,16 +46,8 @@ const NewStep6: React.FC = () => {
     }
   }, []);
 
-  // 💾 当MPS表生成完成后，保存到全局状态（带重试机制）
-  useEffect(() => {
-    if (state.isFullPlanGenerated && !state.hasSavedToGlobal && state.predictions) {
-      saveMPSDataToGlobal(updateState).catch((err) => {
-        // 错误已经在context中处理，这里只是为了避免未捕获的promise rejection
-        console.error('保存MPS数据失败:', err);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.isFullPlanGenerated, state.hasSavedToGlobal, state.predictions]);
+  // 💾 保存逻辑已移至 handleGenerate 中，在生成表格后立即保存
+  // 不再需要这个 useEffect
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -67,8 +59,14 @@ const NewStep6: React.FC = () => {
         console.log('✅ 使用Step1中已保存的预测数据:', state.predictions);
         // 添加1秒虚拟loading
         await new Promise(resolve => setTimeout(resolve, 1000));
-        generateFullMPS(state.predictions);
+        const generatedTable = generateFullMPS(state.predictions);
         setHasGenerated(true);
+
+        // 立即保存生成的表格到全局状态
+        console.log('📤 立即保存生成的MPS表到全局状态...');
+        saveMPSDataToGlobal(updateState, generatedTable).catch((err) => {
+          console.error('保存MPS数据失败:', err);
+        });
       } else {
         // 如果没有保存的预测数据，则调用API获取
         console.log('📌 使用的最佳模型:', state.selectedBestModel);
@@ -94,8 +92,14 @@ const NewStep6: React.FC = () => {
           // 添加1秒虚拟loading
           await new Promise(resolve => setTimeout(resolve, 1000));
           // 生成完整MPS表
-          generateFullMPS(response.results.predictions);
+          const generatedTable = generateFullMPS(response.results.predictions);
           setHasGenerated(true);
+
+          // 立即保存生成的表格到全局状态
+          console.log('📤 立即保存生成的MPS表到全局状态...');
+          saveMPSDataToGlobal(updateState, generatedTable).catch((err) => {
+            console.error('保存MPS数据失败:', err);
+          });
         } else {
           throw new Error('预测API返回数据格式错误');
         }
