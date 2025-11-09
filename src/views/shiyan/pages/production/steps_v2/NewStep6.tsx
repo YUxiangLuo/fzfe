@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Loader2, AlertCircle, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
-import { useExperiment, type MPSTableRow as GlobalMPSTableRow } from '../../../contexts/ExperimentContext';
+import { useExperiment } from '../../../contexts/ExperimentContext';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../../../../utils/apiClient';
-import type { MPSTableRow as LocalMPSTableRow } from '../ProductionPlanContextV2';
 
 // 模型类型映射：前端模型ID -> 后端API参数
 const MODEL_TYPE_MAP: Record<string, string> = {
@@ -15,22 +14,6 @@ const MODEL_TYPE_MAP: Record<string, string> = {
   'ensemble_weighted': 'weighted_average',
   'ensemble_boosting': 'boosting',
   'ensemble_stacking': 'stacking',
-};
-
-// 🔄 将本地MPS表格数据转换为全局类型（去除null）
-const convertToGlobalMPSTable = (localTable: LocalMPSTableRow[]): GlobalMPSTableRow[] => {
-  return localTable.map(row => ({
-    period: row.period,
-    period_label: row.period_label,
-    demand_forecast: row.demand_forecast ?? 0,
-    safety_stock: row.safety_stock ?? 0,
-    planned_production: row.planned_production ?? 0,
-    beginning_inventory: row.beginning_inventory ?? 0,
-    production_output: row.production_output ?? 0,
-    ending_inventory: row.ending_inventory ?? 0,
-    stockout: row.stockout ?? 0,
-    service_level: row.service_level ?? 0,
-  }));
 };
 
 /**
@@ -46,7 +29,7 @@ const convertToGlobalMPSTable = (localTable: LocalMPSTableRow[]): GlobalMPSTable
  */
 const NewStep6: React.FC = () => {
   const navigate = useNavigate();
-  const { state, generateFullMPS, hideStep6Teaching } = useProductionPlan();
+  const { state, generateFullMPS, hideStep6Teaching, saveMPSDataToGlobal } = useProductionPlan();
   const { updateState } = useExperiment();
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -54,7 +37,6 @@ const NewStep6: React.FC = () => {
   const [hasGenerated, setHasGenerated] = useState(false);
 
   const generationTriggeredRef = useRef(false);
-  const hasSavedMPSRef = useRef(false);
 
   // 自动生成完整计划（仅执行一次）
   useEffect(() => {
@@ -64,48 +46,15 @@ const NewStep6: React.FC = () => {
     }
   }, []);
 
-  // 💾 使用ref保存最新的state，避免长依赖数组
-  const stateRef = useRef(state);
+  // 💾 当MPS表生成完成后，保存到全局状态（带重试机制）
   useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
-  // 💾 当MPS表生成完成后，保存到全局状态
-  useEffect(() => {
-    if (state.isFullPlanGenerated && !hasSavedMPSRef.current && state.predictions) {
-      const saveMPSData = async () => {
-        try {
-          console.log('💾 保存生产计划数据到全局状态');
-
-          // 使用ref获取最新的state数据
-          const currentState = stateRef.current;
-
-          // 转换MPS表格数据类型（fullMPSTable已包含所有期数1-N）
-          const globalMPSTable = convertToGlobalMPSTable(currentState.fullMPSTable);
-
-          console.log('📊 完整MPS表数据（期1-' + currentState.fullMPSTable.length + '）:', currentState.fullMPSTable);
-
-          await updateState({
-            production_plan_completed: true,
-            production_forecast_periods: currentState.forecastPeriods,
-            production_initial_inventory: currentState.initialInventory,
-            production_target_service_level: currentState.targetServiceLevel,
-            production_safety_stock_z_score: currentState.safetyStockZScore,
-            production_forecast_results: currentState.predictions,
-            production_mps_table: globalMPSTable,
-            production_capacity_scenario: currentState.capacityScenario,
-            production_capacity: currentState.productionCapacity,
-          });
-          console.log('✅ 生产计划数据已保存到全局状态');
-          hasSavedMPSRef.current = true;
-        } catch (err) {
-          console.error('保存生产计划数据失败:', err);
-        }
-      };
-
-      saveMPSData();
+    if (state.isFullPlanGenerated && !state.hasSavedToGlobal && state.predictions) {
+      saveMPSDataToGlobal(updateState).catch((err) => {
+        // 错误已经在context中处理，这里只是为了避免未捕获的promise rejection
+        console.error('保存MPS数据失败:', err);
+      });
     }
-  }, [state.isFullPlanGenerated, state.predictions, updateState]);
+  }, [state.isFullPlanGenerated, state.hasSavedToGlobal, state.predictions, saveMPSDataToGlobal, updateState]);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -278,6 +227,34 @@ const NewStep6: React.FC = () => {
         </div>
       )}
 
+      {/* 保存状态提示 */}
+      {state.isSaving && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 animate-pulse">
+          <div className="flex items-center space-x-3">
+            <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
+            <div className="text-sm text-blue-900">
+              正在保存生产计划数据到全局状态...
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 保存错误提示 */}
+      {state.savingError && (
+        <div className="bg-amber-50 border border-amber-300 rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-amber-900">数据保存遇到问题</div>
+              <div className="text-sm text-amber-800 mt-1">{state.savingError}</div>
+              <div className="text-xs text-amber-700 mt-2">
+                💡 您仍可以查看和分析生产计划表。点击"完成"按钮时会自动重试保存。
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 成功生成 */}
       {state.isFullPlanGenerated && summary && (
         <div className="space-y-6">
@@ -290,6 +267,13 @@ const NewStep6: React.FC = () => {
                 <div className="text-sm text-green-700">您已成功掌握MPS（主生产计划）的制定流程</div>
               </div>
             </div>
+            {/* 保存状态指示 */}
+            {!state.isSaving && !state.savingError && state.hasSavedToGlobal && (
+              <div className="mt-2 text-sm text-green-700 flex items-center space-x-2">
+                <CheckCircle className="w-4 h-4" />
+                <span>数据已安全保存</span>
+              </div>
+            )}
           </div>
 
           {/* (1) 第二个月的成功案例 */}

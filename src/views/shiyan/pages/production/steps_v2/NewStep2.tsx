@@ -29,7 +29,6 @@ const NewStep2: React.FC = () => {
   const { state, updatePeriod2Data, completeCurrentStep } = useProductionPlan();
   const toast = useToast();
 
-  const [productionOutput, setProductionOutput] = useState(state.period2Data.productionOutput ?? 0);
   const [hasCalculated, setHasCalculated] = useState(false);
   const [isPeriod2Loaded, setIsPeriod2Loaded] = useState(false);
   const [period2DemandValue, setPeriod2DemandValue] = useState<number | null>(null);
@@ -37,6 +36,13 @@ const NewStep2: React.FC = () => {
 
   // 第2期期初库存 = 第1期期末库存（标准化后为0）
   const period2BeginningInventory = state.period1Data.endingInventory ?? 0;
+
+  // 🆕 第2期产出量 = 第1期投入量（受产能约束限制）
+  // 产出量 = min(上月投入量, 产能上限)
+  const period1PlannedProduction = state.period1Data.plannedProduction ?? 0;
+  const productionCapacity = state.productionCapacity;
+  const productionOutput = Math.min(period1PlannedProduction, productionCapacity);
+  const isCapacityConstrained = period1PlannedProduction > productionCapacity;
 
   // 获取第二期预测需求
   const handleLoadPeriod2Demand = async () => {
@@ -340,24 +346,33 @@ const NewStep2: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 产出量输入 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    第2期产出量（请输入）
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={productionOutput}
-                    onChange={(e) => {
-                      setProductionOutput(Number(e.target.value));
-                      setHasCalculated(false);
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="输入产出量"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    💡 提示：第二个月的产出量 = 第一个月的投入量（提前期1月）。尝试输入 {period2Demand} 或其他值观察计算结果。
+                {/* 产出量计算结果 */}
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-4">
+                  <div className="text-sm font-semibold text-green-900 mb-3">第2期产出量（自动计算）</div>
+                  <div className="bg-white rounded-lg p-4 border border-green-300">
+                    <div className="font-mono text-sm text-gray-800 space-y-1">
+                      <div>产出量 = min(第1期投入量, 产能上限)</div>
+                      <div className="ml-4">= min({period1PlannedProduction}, {productionCapacity})</div>
+                      <div className="ml-4 text-lg font-bold text-green-900">= {productionOutput}</div>
+                    </div>
+                  </div>
+                  {isCapacityConstrained && (
+                    <div className="mt-3 p-3 bg-amber-50 border-l-4 border-amber-400 rounded">
+                      <p className="text-sm text-amber-900">
+                        ⚠️ <strong>产能受限</strong>：第1期计划投入 {period1PlannedProduction} 单位，但产能上限为 {productionCapacity} 单位，
+                        因此实际产出量受到约束。
+                      </p>
+                    </div>
+                  )}
+                  {!isCapacityConstrained && period1PlannedProduction > 0 && (
+                    <div className="mt-3 p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                      <p className="text-sm text-green-900">
+                        ✓ <strong>产能充足</strong>：第1期投入量 ({period1PlannedProduction}) 在产能范围内，全部转化为产出。
+                      </p>
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs text-gray-600">
+                    💡 提示：由于提前期为1个月，第2期的产出来自第1期的投入，但受到产能上限的约束。
                   </p>
                 </div>
 
