@@ -94,6 +94,23 @@ const ProductionPlanContent: React.FC = () => {
             <span>重置</span>
           </button>
         </div>
+
+        {/* 进度指示器 */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+            <span>学习进度</span>
+            <span className="font-semibold text-blue-600">
+              {state.completedSteps.length} / {steps.length} 完成
+            </span>
+          </div>
+          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500 ease-out"
+              style={{ width: `${(state.completedSteps.length / steps.length) * 100}%` }}
+            />
+          </div>
+        </div>
+
         <div className="flex gap-2 overflow-x-auto pb-2">
           {steps.map((step) => (
             <button

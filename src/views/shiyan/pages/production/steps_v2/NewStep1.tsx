@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Factory, ArrowRight, Info, Loader2, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { apiClient } from '../../../../../utils/apiClient';
-import { MPS_CALCULATION, SERVICE_LEVELS } from '../config/mpsConstants';
+import { MPS_CALCULATION, SERVICE_LEVELS, CAPACITY_CONFIG } from '../config/mpsConstants';
 
 // 固定预测期数为6期（不在UI显示）
 const FIXED_FORECAST_PERIODS = 6;
@@ -116,9 +116,9 @@ const NewStep1: React.FC = () => {
         serviceLevel: 1.0, // 服务水平 = 100%
       });
 
-      // 🔧 基于历史销售数据计算产能（平均需求 × 1.1）
-      const capacity = Math.round(avgDemand * 1.1);
-      console.log('🔧 计算产能: 平均需求', avgDemand, '× 1.1 =', capacity);
+      // 🔧 基于历史销售数据计算产能（平均需求 × 简化倍数）
+      const capacity = Math.round(avgDemand * CAPACITY_CONFIG.SIMPLE_MULTIPLIER);
+      console.log('🔧 计算产能: 平均需求', avgDemand, '×', CAPACITY_CONFIG.SIMPLE_MULTIPLIER, '=', capacity);
 
       // 保存参数（使用固定值）
       updateParameters({
@@ -270,7 +270,10 @@ const NewStep1: React.FC = () => {
             <div className="flex items-start space-x-2">
               <span>•</span>
               <div>
-                <strong>预测量：</strong>第一个月的预测量不包含安全库存，仅为需求预测量。这一预测量为第二个月的生产计划提供了基础。
+                <strong>预测量：</strong>第一个月的预测量<span className="text-amber-700 font-semibold">不包含安全库存</span>，仅为需求预测量。
+                <div className="mt-1 text-xs bg-amber-50 border-l-4 border-amber-400 pl-3 py-2 rounded">
+                  💡 <strong>概念说明</strong>：从第二个月开始，预测量 = 需求预测 + 安全库存。但第一个月作为参考基准，假设期初库存=0、安全库存=0，因此预测量直接等于需求预测。这是为了简化第一期的计算，帮助您理解MPS的基本逻辑。
+                </div>
               </div>
             </div>
             <div className="flex items-start space-x-2">
@@ -429,7 +432,7 @@ const NewStep1: React.FC = () => {
                   📊 <strong>MPS表第一排已填充</strong>：期初库存=0、产出量={period1Data.demand}、期末库存=0、缺货=0、服务水平=100%
                 </p>
                 <p className="text-sm text-gray-700">
-                  🏭 <strong>产能已设定</strong>：{Math.round(avgDemand * 1.1)}件/月（历史平均需求 × 1.1）
+                  🏭 <strong>产能已设定</strong>：{Math.round(avgDemand * CAPACITY_CONFIG.SIMPLE_MULTIPLIER)}件/月（历史平均需求 × {CAPACITY_CONFIG.SIMPLE_MULTIPLIER}）
                 </p>
                 <p className="text-xs text-gray-600 mt-2">
                   💡 第一期采用标准化设置，为后续计划提供参考基准

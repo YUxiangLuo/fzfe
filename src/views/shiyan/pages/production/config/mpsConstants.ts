@@ -59,6 +59,19 @@ export const MPS_CALCULATION = {
 } as const;
 
 /**
+ * 标准差估算配置
+ * 当API未返回标准差或标准差数据异常时使用
+ */
+export const STD_DEV_ESTIMATION = {
+  /**
+   * Fallback标准差比率
+   * 估算标准差 = 需求预测 × 0.2 (即需求的20%)
+   * 这是一个保守的估算，适用于大多数产品
+   */
+  FALLBACK_RATIO: 0.2,
+} as const;
+
+/**
  * 预测期数配置
  */
 export const FORECAST_PERIODS = {
@@ -80,7 +93,14 @@ export const CAPACITY_CONFIG = {
   DEFAULT_SCENARIO: 'normal' as const,
 
   /**
+   * 简化示例产能倍数
+   * 用于Step1的教学演示（简化计算）
+   */
+  SIMPLE_MULTIPLIER: 1.1,
+
+  /**
    * 产能场景倍数
+   * 用于实际MPS计算（Step6及后续）
    */
   SCENARIOS: {
     TIGHT: {
