@@ -83,18 +83,18 @@ const ProductionPlanContent: React.FC = () => {
       </div>
 
       {/* 下方：概念学习 + MPS表格 */}
-      <div className="flex gap-6 items-start flex-1 min-h-0">
-        {/* 左侧：概念学习区 */}
-        <div className="flex-1 min-w-0">
+      <div className="flex gap-6 flex-1 min-h-0 overflow-hidden">
+        {/* 左侧：概念学习区（可滚动） */}
+        <div className="flex-1 min-w-0 h-full overflow-y-auto">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <CurrentStepComponent />
           </div>
         </div>
 
-        {/* 右侧：MPS表格 */}
-        <div className="flex-1 min-w-0 sticky top-8 self-start">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="mb-4">
+        {/* 右侧：MPS表格（固定高度，表格内容可滚动） */}
+        <div className="flex-1 min-w-0 h-full overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full flex flex-col">
+            <div className="mb-4 flex-shrink-0">
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
                 主生产计划表（MPS）
               </h2>
@@ -102,7 +102,9 @@ const ProductionPlanContent: React.FC = () => {
                 期1作为参考示例，期2用于渐进式学习，随着学习进度逐步填充完整
               </p>
             </div>
-            <MPSTableViewV2 />
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <MPSTableViewV2 />
+            </div>
           </div>
         </div>
       </div>
