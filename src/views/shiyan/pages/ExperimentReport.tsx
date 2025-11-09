@@ -304,7 +304,25 @@ ${modelSelectionAnalysis}
 
 ${(() => {
 const period2 = state.production_mps_table.length > 1 ? state.production_mps_table[1] : null;
-if (!period2) return '暂无期2数据';
+if (!period2) return `**📝 说明：生产计划数据未保存**
+
+以下是生产计划关键参数的参考说明：
+
+| 参数名称 | 计算公式 | 说明 |
+|---------|---------|------|
+| 需求预测 | 模型预测值 | 使用选定的最佳预测模型生成 |
+| 安全库存 | Z × σ | Z值（通常2.33）乘以需求标准差 |
+| 预测量 | 需求 + 安全库存 | 总需求量（包含缓冲） |
+| 计划生产 | 预测量 - 期初库存 | 本期应投入的生产量 |
+| 产出量 | min(上期投入, 产能) | 受产能约束的实际产出 |
+| 期末库存 | 期初 + 产出 - 需求 | 本期结束后的库存 |
+| 缺货量 | max(0, -期末库存) | 未满足的需求量 |
+| 服务水平 | 1 - (缺货/需求) | 满足需求的比例 |
+
+**核心概念：**
+- **提前期：** 从投入生产到产出的时间间隔（本系统为1期）
+- **安全库存：** 用于应对需求波动，基于服务水平目标和需求不确定性计算
+- **产能约束：** 实际产出不能超过生产能力上限`;
 return `### 基础生产变量
 
 | 项目 | 值 | 说明 |
@@ -342,7 +360,7 @@ ${planParamsAnalysis}
 
 ## 五、生产计划决策结果
 
-> 📊 基于您在期2学习的参数计算方法，系统自动生成了完整的生产计划
+${state.production_mps_table.length > 0 ? `> 📊 基于您在期2学习的参数计算方法，系统自动生成了完整的生产计划
 
 | 周期 | 预测需求 | 安全库存 | 计划生产 | 期初库存 | 产出量 | 期末库存 | 缺货量 | 服务水平 |
 |------|----------|----------|----------|----------|--------|----------|--------|----------|
@@ -359,7 +377,32 @@ ${state.production_mps_table.map(row => `| ${row.period_label} | ${row.demand_fo
 | 总安全库存 | ${state.production_mps_table.reduce((sum, row) => sum + row.safety_stock, 0).toLocaleString()} 件（${state.production_mps_table.length}期累计） |
 | 总缺货量 | ${state.production_mps_table.reduce((sum, row) => sum + row.stockout, 0).toLocaleString()} 件（${state.production_mps_table.filter(row => row.stockout > 0).length}/${state.production_mps_table.length}期缺货） |
 | 平均期末库存 | ${Math.round(state.production_mps_table.reduce((sum, row) => sum + row.ending_inventory, 0) / state.production_mps_table.length).toLocaleString()} 件 |
-| 供需匹配率 | ${((state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0) / state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0)) * 100).toFixed(1)}% |
+| 供需匹配率 | ${((state.production_mps_table.reduce((sum, row) => sum + row.production_output, 0) / state.production_mps_table.reduce((sum, row) => sum + row.demand_forecast, 0)) * 100).toFixed(1)}% |` : `**📝 说明：生产计划数据未保存**
+
+以下是 MPS（主生产计划）表格结构的参考说明：
+
+### MPS 表格列说明
+
+| 列名 | 含义 | 计算方法 |
+|------|------|----------|
+| 周期 | 时间期次 | 期1、期2、...、期N |
+| 预测需求 | 市场需求预测值 | 由预测模型生成 |
+| 安全库存 | 应对不确定性的缓冲库存 | Z × 需求标准差 |
+| 计划生产 | 本期计划投入的生产量 | 预测量 - 期初库存 |
+| 期初库存 | 期初的可用库存 | 上期期末库存 |
+| 产出量 | 本期实际产出 | min(上期投入, 产能) |
+| 期末库存 | 期末剩余库存 | 期初 + 产出 - 需求 |
+| 缺货量 | 未满足的需求 | max(0, -期末库存) |
+| 服务水平 | 需求满足率 | 1 - (缺货/需求) |
+
+### 关键性能指标（KPI）
+
+- **平均服务水平：** 所有期次服务水平的平均值，反映整体需求满足能力
+- **产能利用率：** 实际产出 ÷ (产能 × 期数)，反映产能使用效率
+- **供需匹配率：** 总产出 ÷ 总需求，反映生产与需求的匹配程度
+- **平均期末库存：** 反映库存持有成本和资金占用情况
+- **缺货频率：** 发生缺货的期数占比，反映供应稳定性
+- **总缺货量：** 累计未满足需求，影响客户满意度`}
 
 ${planDecisionAnalysis}`;
 
@@ -468,7 +511,80 @@ ${planDecisionAnalysis}`;
                 const zScore = state.production_safety_stock_z_score || 2.33;
 
                 if (!period2) {
-                  return <div className="text-gray-500 text-sm">暂无期2数据</div>;
+                  return (
+                    <div className="space-y-4">
+                      <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded">
+                        <p className="text-sm text-amber-900 mb-2">
+                          <strong>📝 说明：</strong>您的生产计划学习数据未保存。以下是生产计划参数的参考说明，帮助您理解 MPS 的核心概念。
+                        </p>
+                      </div>
+
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <h3 className="text-sm font-semibold text-gray-700 mb-3">生产计划关键参数</h3>
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50">
+                            <tr className="border-b">
+                              <th className="py-2 px-3 text-left text-gray-600 font-semibold">参数名称</th>
+                              <th className="py-2 px-3 text-left text-gray-600 font-semibold">计算公式</th>
+                              <th className="py-2 px-3 text-left text-gray-600 font-semibold">说明</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 text-gray-700">需求预测</td>
+                              <td className="py-2 px-3 font-mono text-xs">模型预测值</td>
+                              <td className="py-2 px-3 text-xs text-gray-500">使用选定的最佳预测模型生成</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 text-gray-700">安全库存</td>
+                              <td className="py-2 px-3 font-mono text-xs">Z × σ</td>
+                              <td className="py-2 px-3 text-xs text-gray-500">Z值（通常2.33）乘以需求标准差</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 text-gray-700">预测量</td>
+                              <td className="py-2 px-3 font-mono text-xs">需求 + 安全库存</td>
+                              <td className="py-2 px-3 text-xs text-gray-500">总需求量（包含缓冲）</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 text-gray-700">计划生产</td>
+                              <td className="py-2 px-3 font-mono text-xs">预测量 - 期初库存</td>
+                              <td className="py-2 px-3 text-xs text-gray-500">本期应投入的生产量</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 text-gray-700">产出量</td>
+                              <td className="py-2 px-3 font-mono text-xs">min(上期投入, 产能)</td>
+                              <td className="py-2 px-3 text-xs text-gray-500">受产能约束的实际产出</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 text-gray-700">期末库存</td>
+                              <td className="py-2 px-3 font-mono text-xs">期初 + 产出 - 需求</td>
+                              <td className="py-2 px-3 text-xs text-gray-500">本期结束后的库存</td>
+                            </tr>
+                            <tr className="border-b">
+                              <td className="py-2 px-3 text-gray-700">缺货量</td>
+                              <td className="py-2 px-3 font-mono text-xs">max(0, -期末库存)</td>
+                              <td className="py-2 px-3 text-xs text-gray-500">未满足的需求量</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 px-3 text-gray-700">服务水平</td>
+                              <td className="py-2 px-3 font-mono text-xs">1 - (缺货/需求)</td>
+                              <td className="py-2 px-3 text-xs text-gray-500">满足需求的比例</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 className="text-sm font-semibold text-blue-900 mb-2">🔍 核心概念</h4>
+                        <ul className="text-sm text-blue-800 space-y-1">
+                          <li>• <strong>提前期：</strong>从投入生产到产出的时间间隔（本系统为1期）</li>
+                          <li>• <strong>安全库存：</strong>用于应对需求波动，基于服务水平目标（通常99%）和需求不确定性计算</li>
+                          <li>• <strong>产能约束：</strong>实际产出不能超过生产能力上限</li>
+                          <li>• <strong>库存平衡：</strong>期末库存 = 期初库存 + 产出 - 实际需求</li>
+                        </ul>
+                      </div>
+                    </div>
+                  );
                 }
 
                 const isServiceLevelMet = period2.service_level >= targetServiceLevel;
@@ -586,38 +702,149 @@ ${planDecisionAnalysis}`;
 
           <ReportCard icon={<ClipboardList className="w-6 h-6 text-indigo-600" />} title="五、生产计划决策结果" analysisKey="decision" getAnalysisValue={getAnalysisValue} getAnalysisSetter={getAnalysisSetter} isSubmitting={isSubmitting}>
             <div className="space-y-4">
-              {/* 提示说明 */}
-              <div className="bg-green-50 border-l-4 border-green-500 p-3 rounded">
-                <p className="text-sm text-green-800">
-                  📊 基于您在期2学习的参数计算方法，系统自动生成了完整的 <strong>{state.production_forecast_periods || 6} 期生产计划</strong>，这是最终的生产决策结果。
-                </p>
-              </div>
+              {state.production_mps_table.length > 0 ? (
+                <>
+                  {/* 提示说明 */}
+                  <div className="bg-green-50 border-l-4 border-green-500 p-3 rounded">
+                    <p className="text-sm text-green-800">
+                      📊 基于您在期2学习的参数计算方法，系统自动生成了完整的 <strong>{state.production_forecast_periods || 6} 期生产计划</strong>，这是最终的生产决策结果。
+                    </p>
+                  </div>
 
-              {/* MPS表格 */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-100 text-gray-600 text-xs">
-                    <tr>
-                      {['周期', '预测需求', '安全库存', '计划生产', '期初库存', '产出量', '期末库存', '缺货量', '服务水平'].map(h => <th key={h} className="p-2 font-semibold">{h}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {state.production_mps_table.map((row, i) => (
-                      <tr key={i} className="border-b">
-                        <td className="p-2 font-medium">{row.period_label}</td>
-                        <td className="p-2">{row.demand_forecast}</td>
-                        <td className="p-2">{row.safety_stock}</td>
-                        <td className="p-2">{row.planned_production}</td>
-                        <td className="p-2">{row.beginning_inventory}</td>
-                        <td className="p-2">{row.production_output}</td>
-                        <td className="p-2">{row.ending_inventory}</td>
-                        <td className="p-2">{row.stockout > 0 ? <span className="text-red-600 font-semibold">{row.stockout}</span> : row.stockout}</td>
-                        <td className="p-2">{`${(row.service_level * 100).toFixed(1)}%`}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                  {/* MPS表格 */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-gray-100 text-gray-600 text-xs">
+                        <tr>
+                          {['周期', '预测需求', '安全库存', '计划生产', '期初库存', '产出量', '期末库存', '缺货量', '服务水平'].map(h => <th key={h} className="p-2 font-semibold">{h}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {state.production_mps_table.map((row, i) => (
+                          <tr key={i} className="border-b">
+                            <td className="p-2 font-medium">{row.period_label}</td>
+                            <td className="p-2">{row.demand_forecast}</td>
+                            <td className="p-2">{row.safety_stock}</td>
+                            <td className="p-2">{row.planned_production}</td>
+                            <td className="p-2">{row.beginning_inventory}</td>
+                            <td className="p-2">{row.production_output}</td>
+                            <td className="p-2">{row.ending_inventory}</td>
+                            <td className="p-2">{row.stockout > 0 ? <span className="text-red-600 font-semibold">{row.stockout}</span> : row.stockout}</td>
+                            <td className="p-2">{`${(row.service_level * 100).toFixed(1)}%`}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded">
+                    <p className="text-sm text-amber-900 mb-2">
+                      <strong>📝 说明：</strong>您的生产计划数据未保存。以下是 MPS（主生产计划）表格结构的参考说明。
+                    </p>
+                  </div>
+
+                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">MPS 表格结构说明</h3>
+                    <p className="text-sm text-gray-600 mb-3">
+                      主生产计划（MPS）表格通常包含以下列，按时间周期（通常为月度）展示：
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm border-collapse">
+                        <thead className="bg-gray-100">
+                          <tr className="border-b">
+                            <th className="p-2 text-left text-gray-600 font-semibold">列名</th>
+                            <th className="p-2 text-left text-gray-600 font-semibold">含义</th>
+                            <th className="p-2 text-left text-gray-600 font-semibold">计算方法</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-gray-700">
+                          <tr className="border-b">
+                            <td className="p-2">周期</td>
+                            <td className="p-2">时间期次</td>
+                            <td className="p-2 text-xs text-gray-500">期1、期2、...、期N</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2">预测需求</td>
+                            <td className="p-2">市场需求预测值</td>
+                            <td className="p-2 text-xs text-gray-500">由预测模型生成</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2">安全库存</td>
+                            <td className="p-2">应对不确定性的缓冲库存</td>
+                            <td className="p-2 text-xs text-gray-500">Z × 需求标准差</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2">计划生产</td>
+                            <td className="p-2">本期计划投入的生产量</td>
+                            <td className="p-2 text-xs text-gray-500">预测量 - 期初库存</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2">期初库存</td>
+                            <td className="p-2">期初的可用库存</td>
+                            <td className="p-2 text-xs text-gray-500">上期期末库存</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2">产出量</td>
+                            <td className="p-2">本期实际产出</td>
+                            <td className="p-2 text-xs text-gray-500">min(上期投入, 产能)</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2">期末库存</td>
+                            <td className="p-2">期末剩余库存</td>
+                            <td className="p-2 text-xs text-gray-500">期初 + 产出 - 需求</td>
+                          </tr>
+                          <tr className="border-b">
+                            <td className="p-2">缺货量</td>
+                            <td className="p-2">未满足的需求</td>
+                            <td className="p-2 text-xs text-gray-500">max(0, -期末库存)</td>
+                          </tr>
+                          <tr>
+                            <td className="p-2">服务水平</td>
+                            <td className="p-2">需求满足率</td>
+                            <td className="p-2 text-xs text-gray-500">1 - (缺货/需求)</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-green-900 mb-2">📊 关键性能指标（KPI）</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-green-800">
+                      <div>
+                        <strong>• 平均服务水平：</strong>所有期次服务水平的平均值，反映整体需求满足能力
+                      </div>
+                      <div>
+                        <strong>• 产能利用率：</strong>实际产出 ÷ (产能 × 期数)，反映产能使用效率
+                      </div>
+                      <div>
+                        <strong>• 供需匹配率：</strong>总产出 ÷ 总需求，反映生产与需求的匹配程度
+                      </div>
+                      <div>
+                        <strong>• 平均期末库存：</strong>反映库存持有成本和资金占用情况
+                      </div>
+                      <div>
+                        <strong>• 缺货频率：</strong>发生缺货的期数占比，反映供应稳定性
+                      </div>
+                      <div>
+                        <strong>• 总缺货量：</strong>累计未满足需求，影响客户满意度
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-blue-900 mb-2">🎯 决策优化方向</h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• <strong>提升服务水平：</strong>增加安全库存系数或提升产能</li>
+                      <li>• <strong>降低库存成本：</strong>优化安全库存设置，平衡服务水平与成本</li>
+                      <li>• <strong>提高产能利用率：</strong>调整产能配置，避免产能过剩或不足</li>
+                      <li>• <strong>改进预测准确性：</strong>选择更优的预测模型，减少不确定性</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
 
               {/* 计划汇总统计 */}
               {state.production_mps_table.length > 0 && (() => {
