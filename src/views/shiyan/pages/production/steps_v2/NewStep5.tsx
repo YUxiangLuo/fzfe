@@ -76,7 +76,7 @@ const NewStep5: React.FC = () => {
         </div>
         <div>
           <h3 className="text-xl font-bold text-gray-900">第5步：投入量（核心公式）</h3>
-          <p className="text-sm text-indigo-600">Planned Production - The Core MPS Formula</p>
+          <p className="text-sm text-indigo-600">Planned Production</p>
         </div>
       </div>
 
@@ -253,7 +253,7 @@ const NewStep5: React.FC = () => {
                     {/* 箭头 */}
                     <div className="flex justify-center">
                       <div className="text-indigo-400">
-                        ↓ 生产周期（1个月）
+                        ↓ 提前期（1个月）
                       </div>
                     </div>
 
@@ -300,7 +300,7 @@ const NewStep5: React.FC = () => {
                 <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
                   <p className="text-sm text-blue-900">
                     💡 <strong>关键洞察：</strong>
-                    我们在第2期投入{plannedProduction}，经过1个月的生产周期，在第3期获得{plannedProduction}的产出。
+                    我们在第2期投入{plannedProduction}，经过1个月的提前期，在第3期获得{plannedProduction}的产出。
                     结合第3期期初库存{period3BeginningInventory}，总共有{period3BeginningInventory + plannedProduction}可用，
                     {period3BeginningInventory + plannedProduction >= period3ForecastQuantity
                       ? '能够满足'

@@ -210,7 +210,7 @@ const NewStep6: React.FC = () => {
         </div>
         <div>
           <h3 className="text-xl font-bold text-gray-900">第6步：完整计划表</h3>
-          <p className="text-sm text-green-600">Complete MPS Plan</p>
+          <p className="text-sm text-green-600">Complete Plan</p>
         </div>
       </div>
 

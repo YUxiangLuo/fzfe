@@ -93,7 +93,7 @@ const NewStep4: React.FC = () => {
         </div>
         <div>
           <h3 className="text-xl font-bold text-gray-900">第4步：预测量</h3>
-          <p className="text-sm text-amber-600">Forecast Quantity with Safety Stock</p>
+          <p className="text-sm text-amber-600">Safety Stock</p>
         </div>
       </div>
 

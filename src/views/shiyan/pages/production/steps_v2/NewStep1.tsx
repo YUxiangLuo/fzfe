@@ -185,7 +185,7 @@ const NewStep1: React.FC = () => {
         </div>
         <div>
           <h3 className="text-xl font-bold text-gray-900">第1步：规划总览</h3>
-          <p className="text-sm text-blue-600">Master Production Schedule Overview</p>
+          <p className="text-sm text-blue-600">MPS Overview</p>
         </div>
       </div>
 
