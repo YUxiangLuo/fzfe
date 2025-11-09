@@ -155,62 +155,6 @@ const ExperimentReport: React.FC = () => {
     return metricsMap[modelKey];
   }, [state]);
 
-  const generateHTMLForTables = () => {
-    const modelLabels: Record<SelectedBestModel, string> = { ma: '移动平均法', exp: '指数平滑法', arima: 'ARIMA模型', lstm: 'LSTM神经网络', ensemble_weighted: '加权平均融合', ensemble_boosting: 'Boosting融合', ensemble_stacking: 'Stacking融合' };
-
-    const renderValue = (val: number | null | undefined) => val?.toFixed(4) ?? 'N/A';
-
-    let html = '<h2>一、实验概述</h2><table>';
-    html += `<tr><td>行业</td><td>${state.selected_industry || 'N/A'}</td></tr>`;
-    html += `<tr><td>公司</td><td>${state.selected_company || 'N/A'}</td></tr>`;
-    html += `<tr><td>产品</td><td>${state.selected_product || 'N/A'}</td></tr></table>`;
-
-    html += '<h2>二、模型性能对比</h2><table><thead><tr><th>模型</th><th>参数</th><th>RMSE</th><th>MAE</th><th>R²</th></tr></thead><tbody>';
-    allModels.forEach(m => {
-      html += `<tr><td>${m.name}</td><td>${m.params}</td><td>${renderValue(m.rmse)}</td><td>${renderValue(m.mae)}</td><td>${renderValue(m.r2)}</td></tr>`;
-    });
-    html += '</tbody></table>';
-
-    html += '<h2>三、最优模型</h2><table>';
-    html += `<tr><td>选定模型</td><td colspan="2">${state.selected_best_model ? modelLabels[state.selected_best_model] : 'N/A'}</td></tr>`;
-    html += `<tr><td>RMSE</td><td colspan="2">${renderValue(bestModelMetrics?.rmse)}</td></tr>`;
-    html += `<tr><td>MAE</td><td colspan="2">${renderValue(bestModelMetrics?.mae)}</td></tr>`;
-    html += `<tr><td>R²</td><td colspan="2">${renderValue(bestModelMetrics?.r2)}</td></tr></table>`;
-
-    html += '<h2>四、生产计划参数计算结果</h2>';
-
-    // 提取期2数据
-    const period2 = state.production_mps_table.length > 1 ? state.production_mps_table[1] : null;
-    if (period2) {
-      html += '<h3>基础生产变量</h3><table>';
-      html += `<tr><td>需求预测</td><td>${period2.demand_forecast} 件</td><td>来源: ${state.selected_best_model ? { ma: '移动平均', exp: '指数平滑', arima: 'ARIMA', lstm: 'LSTM', ensemble_weighted: '加权融合', ensemble_boosting: 'Boosting融合', ensemble_stacking: 'Stacking融合' }[state.selected_best_model] : ''} 模型</td></tr>`;
-      html += `<tr><td>产出量</td><td>${period2.production_output} 件</td><td>您手动输入的生产量</td></tr>`;
-      html += `<tr><td>期初库存</td><td>${period2.beginning_inventory} 件</td><td>继承自期1的期末库存</td></tr>`;
-      html += `<tr><td>期末库存</td><td>${period2.ending_inventory} 件</td><td>= 期初 + 产出 - 需求</td></tr>`;
-      html += `<tr><td>缺货量</td><td style="color: ${period2.stockout > 0 ? 'red' : 'black'}">${period2.stockout} 件</td><td>期末库存为负时的绝对值</td></tr></table>`;
-
-      html += '<h3>服务水平</h3><table>';
-      html += `<tr><td>服务水平</td><td style="color: ${period2.service_level >= (state.production_target_service_level || 0.99) ? 'green' : 'red'}">${(period2.service_level * 100).toFixed(1)}%</td><td>= 1 - (${period2.stockout} / ${period2.demand_forecast})</td></tr>`;
-      html += `<tr><td>目标对比</td><td colspan="2">实际 ${(period2.service_level * 100).toFixed(1)}% vs 目标 ${((state.production_target_service_level || 0.99) * 100).toFixed(0)}% ${period2.service_level >= (state.production_target_service_level || 0.99) ? '✓ 达标' : '✗ 未达标'}</td></tr></table>`;
-
-      html += '<h3>安全库存与预测量</h3><table>';
-      html += `<tr><td>安全库存</td><td>${period2.safety_stock} 件</td><td>= Z值 ${state.production_safety_stock_z_score || 2.33} × 标准差</td></tr>`;
-      html += `<tr><td>预测量</td><td>${period2.demand_forecast + period2.safety_stock} 件</td><td>= 需求 + 安全库存</td></tr></table>`;
-
-      html += '<h3>计划生产</h3><table>';
-      html += `<tr><td>计划生产</td><td>${period2.planned_production} 件</td><td>= 预测量 - 期初库存</td></tr></table>`;
-    }
-
-    html += '<h2>五、生产计划决策结果</h2>';
-    html += '<table><thead><tr><th>周期</th><th>预测需求</th><th>安全库存</th><th>计划生产</th><th>期初库存</th><th>产出量</th><th>期末库存</th><th>缺货量</th><th>服务水平</th></tr></thead><tbody>';
-    state.production_mps_table.forEach(row => {
-      html += `<tr><td>${row.period_label}</td><td>${row.demand_forecast}</td><td>${row.safety_stock}</td><td>${row.planned_production}</td><td>${row.beginning_inventory}</td><td>${row.production_output}</td><td>${row.ending_inventory}</td><td>${row.stockout}</td><td>${(row.service_level * 100).toFixed(1)}%</td></tr>`;
-    });
-    html += '</tbody></table>';
-
-    return html;
-  };
-
   const handleSave = async () => {
     if (!state.experiment_id) {
       setSubmitError('实验ID不存在，无法提交报告');
@@ -290,11 +234,7 @@ ${modelSelectionAnalysis}
 
 ${(() => {
 const period2 = state.production_mps_table.length > 1 ? state.production_mps_table[1] : null;
-if (!period2) return `**📝 说明：生产计划数据未保存**
-
-以下是生产计划关键参数的参考说明：
-
-| 参数名称 | 计算公式 | 说明 |
+if (!period2) return `| 参数名称 | 计算公式 | 说明 |
 |---------|---------|------|
 | 需求预测 | 模型预测值 | 使用选定的最佳预测模型生成 |
 | 安全库存 | Z × σ | Z值（通常2.33）乘以需求标准差 |
@@ -303,12 +243,7 @@ if (!period2) return `**📝 说明：生产计划数据未保存**
 | 产出量 | min(上期投入, 产能) | 受产能约束的实际产出 |
 | 期末库存 | 期初 + 产出 - 需求 | 本期结束后的库存 |
 | 缺货量 | max(0, -期末库存) | 未满足的需求量 |
-| 服务水平 | 1 - (缺货/需求) | 满足需求的比例 |
-
-**核心概念：**
-- **提前期：** 从投入生产到产出的时间间隔（本系统为1期）
-- **安全库存：** 用于应对需求波动，基于服务水平目标和需求不确定性计算
-- **产能约束：** 实际产出不能超过生产能力上限`;
+| 服务水平 | 1 - (缺货/需求) | 满足需求的比例 |`;
 return `### 基础生产变量
 
 | 项目 | 值 | 说明 |
