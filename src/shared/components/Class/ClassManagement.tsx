@@ -58,12 +58,14 @@ const ClassManagement: React.FC = () => {
     setShowCreateModal(false);
     setFormData({ class_name: '', class_code: '' });
     setCsvFile(null);
+    setIsSubmitting(false);
   }, []);
 
   const handleCloseEditModal = useCallback(() => {
     setShowEditModal(false);
     setSelectedClass(null);
     setFormData({ class_name: '', class_code: '' });
+    setIsSubmitting(false);
   }, []);
 
   const handleCloseResultModal = useCallback(() => {

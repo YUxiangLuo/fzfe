@@ -21,6 +21,7 @@ const PersonalInfo: React.FC = () => {
   
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [tempUser, setTempUser] = useState<UserType | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -92,10 +93,14 @@ const PersonalInfo: React.FC = () => {
 
   const handleCloseModal = useCallback(() => {
     setIsEditModalOpen(false);
+    setIsSaving(false);
   }, []);
 
   const handleSave = async () => {
     if (!tempUser) return;
+
+    // 防止重复提交
+    if (isSaving) return;
 
     // 验证姓名
     const nameValidation = validateFullName(tempUser.full_name);
@@ -120,6 +125,7 @@ const PersonalInfo: React.FC = () => {
       return;
     }
 
+    setIsSaving(true);
     try {
       const updatedUser = await apiClient.put('/users/me', {
         full_name: tempUser.full_name.trim(),
@@ -137,6 +143,8 @@ const PersonalInfo: React.FC = () => {
       } else {
         showToast('保存失败，请稍后重试', 'error');
       }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -322,8 +330,10 @@ const PersonalInfo: React.FC = () => {
               <p className="mt-1 text-xs text-gray-500">用于接收系统通知</p>
             </div>
             <div className="flex justify-end space-x-3 pt-4">
-              <button onClick={handleCloseModal} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer">取消</button>
-              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer">保存修改</button>
+              <button onClick={handleCloseModal} disabled={isSaving} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">取消</button>
+              <button onClick={handleSave} disabled={isSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                {isSaving ? '保存中...' : '保存修改'}
+              </button>
             </div>
           </div>
         </Modal>

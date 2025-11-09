@@ -213,6 +213,7 @@ const StudentManagement: React.FC = () => {
   const handleCloseAddModal = useCallback(() => {
     setShowAddModal(false);
     setNewStudent(INITIAL_NEW_STUDENT);
+    setIsSubmitting(false);
   }, []);
 
   const handleCloseSelectModal = useCallback(() => {
@@ -340,13 +341,10 @@ const StudentManagement: React.FC = () => {
 
       // 更新学生列表
       setStudents(prev => [...prev, createdStudent]);
-      setNewStudent({
-        username: '',
-        full_name: '',
-        email: '',
-        phone_number: '',
-        password: '',
-      });
+
+      // 关闭modal并显示成功提示
+      handleCloseAddModal();
+      showToast('学生添加成功', 'success');
     } catch (err: any) {
       if (err.message.includes('409') || err.message.includes('已存在')) {
         showToast('学号或邮箱已存在，请检查后重试', 'error');
