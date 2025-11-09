@@ -35,9 +35,14 @@ const convertToGlobalMPSTable = (localTable: LocalMPSTableRow[]): GlobalMPSTable
 
 /**
  * Step 6: 完整计划表
- * - 自动生成完整的多期MPS计划
- * - 整合所有学过的知识点
- * - 展示汇总统计
+ *
+ * 按照客户文档重构，教学结构：
+ * - 目的与重要性
+ * - (1) 第二个月的成功案例
+ * - (2) 逐月生成完整生产计划表的逻辑
+ * - (3) 生成完整生产计划表的步骤
+ * - (4) 观察与分析完整生产计划表
+ * - (5) 总结
  */
 const NewStep6: React.FC = () => {
   const navigate = useNavigate();
@@ -214,6 +219,32 @@ const NewStep6: React.FC = () => {
         </div>
       </div>
 
+      {/* 目的与重要性 */}
+      <div className="bg-white border-2 border-blue-200 rounded-lg p-5">
+        <h4 className="font-semibold text-gray-800 mb-3">目的与重要性</h4>
+        <div className="space-y-3 text-sm text-gray-700">
+          <div className="bg-blue-50 border-l-4 border-blue-400 rounded p-3">
+            <div className="font-semibold text-blue-900 mb-1">🎯 目的</div>
+            <p className="text-blue-800">
+              将前面几步中的所有步骤整合到一个完整的生产计划表中，展示整体生产计划的全貌。
+            </p>
+          </div>
+          <div className="bg-green-50 border-l-4 border-green-400 rounded p-3">
+            <div className="font-semibold text-green-900 mb-1">⭐ 重要性</div>
+            <p className="text-green-800">
+              尽管实际操作中生产计划是<strong>逐月生成</strong>的，但完整的生产计划表能够帮助企业从<strong>全局视角审视和优化</strong>生产计划。它不仅展示了每个月的生产安排，还为未来的计划调整和资源优化提供了数据支持。通过这一表格，企业可以更好地预测和应对市场需求的变化。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 承上启下 */}
+      <div className="bg-gradient-to-r from-blue-50 to-green-50 border-l-4 border-green-500 rounded-lg p-5">
+        <p className="text-sm text-gray-700 leading-relaxed">
+          经过前面<strong>五个步骤</strong>的深入学习和操作，我们已经成功完成了第二个月的生产计划制定。在这个过程中，详细探讨了如何从<strong>需求量、产出量、库存量、缺货量、服务水平以及预测量</strong>中推导出生产计划的每个关键部分。现在，将把这些知识整合起来，生成一个<strong>完整的生产计划表</strong>。
+        </p>
+      </div>
+
       {/* 生成状态 */}
       {isGenerating && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-5">
@@ -261,57 +292,95 @@ const NewStep6: React.FC = () => {
             </div>
           </div>
 
-          {/* 学习回顾 */}
+          {/* (1) 第二个月的成功案例 */}
+          <div className="bg-white border-2 border-blue-200 rounded-lg p-5">
+            <h4 className="font-semibold text-gray-800 mb-3">(1) 第二个月的成功案例</h4>
+            <p className="text-sm text-gray-700 mb-3">
+              在第二个月中，我们运用前几步中学到的公式和逻辑，成功制定了第二个月的生产计划。这一步不仅为奠定了坚实的基础，也为未来的生产计划提供了一个清晰的模板。
+            </p>
+            <div className="bg-green-50 border border-green-300 rounded-lg p-4">
+              <div className="text-sm text-green-800 space-y-2">
+                <p><strong>✓ 第二个月我们学会了：</strong></p>
+                <ul className="ml-4 space-y-1">
+                  <li>• 如何根据需求预测计算需求量、产出量、库存量和缺货量</li>
+                  <li>• 如何评估服务水平，衡量生产计划的有效性</li>
+                  <li>• 如何计算预测量（需求预测 + 安全库存）</li>
+                  <li>• 如何根据预测量、上月库存和缺货计算投入量</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          {/* (2) 逐月生成完整生产计划表的逻辑 */}
+          <div className="bg-white border-2 border-purple-200 rounded-lg p-5">
+            <h4 className="font-semibold text-gray-800 mb-3">(2) 逐月生成完整生产计划表的逻辑</h4>
+            <p className="text-sm text-gray-700 mb-3">
+              尽管我们实际操作时是<strong>逐月生成和调整</strong>生产计划，但为了便于学习和观察，在这一刻，你们将能够看到整个生产计划表的完整展示。这张表格不仅包含了第二个月的结果，还包括了未来各个月份的生产计划数据。<strong>每个月的生产计划都是基于前一个月的计算结果，逐步推导而来的。</strong>
+            </p>
+            <div className="bg-purple-50 border border-purple-300 rounded-lg p-4">
+              <div className="text-sm text-purple-800">
+                <p className="font-semibold mb-2">📊 逐月推导逻辑：</p>
+                <div className="space-y-1">
+                  <p>• <strong>第1期</strong>：标准化基准（期初库存=0，产出=需求，无缺货）</p>
+                  <p>• <strong>第2期</strong>：根据第1期期末库存和缺货，计算第2期投入量</p>
+                  <p>• <strong>第3期及之后</strong>：依次推导，每期都基于上期的结果</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* (3) 生成完整生产计划表的步骤 */}
           <div className="bg-white border-2 border-indigo-200 rounded-lg p-5">
-            <h4 className="font-semibold text-gray-800 mb-4">📚 学习回顾：您掌握的核心知识点</h4>
-
+            <h4 className="font-semibold text-gray-800 mb-3">(3) 生成完整生产计划表的步骤</h4>
+            <p className="text-sm text-gray-700 mb-3">
+              点击下一步后，你将看到一张完整的生产计划表，其中展示了整个预测时段内的各项关键数据。这张表格将包括：
+            </p>
             <div className="grid md:grid-cols-2 gap-3">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <div className="flex items-center space-x-2 mb-1">
-                  <div className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
-                  <div className="font-semibold text-blue-900">规划总览</div>
-                </div>
-                <div className="text-xs text-blue-800">MPS流程、时间单位、提前期</div>
+              <div className="bg-indigo-50 border border-indigo-200 rounded p-3">
+                <div className="font-semibold text-indigo-900 text-sm mb-1">• 投入量</div>
+                <p className="text-xs text-indigo-800">每个月计划投入生产的资源数量</p>
               </div>
-
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <div className="flex items-center space-x-2 mb-1">
-                  <div className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
-                  <div className="font-semibold text-green-900">生产变量</div>
-                </div>
-                <div className="text-xs text-green-800">需求、产出、库存、缺货</div>
+              <div className="bg-green-50 border border-green-200 rounded p-3">
+                <div className="font-semibold text-green-900 text-sm mb-1">• 产出量</div>
+                <p className="text-xs text-green-800">根据投入量推导出的每个月的产出量</p>
               </div>
-
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                <div className="flex items-center space-x-2 mb-1">
-                  <div className="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
-                  <div className="font-semibold text-purple-900">服务水平</div>
-                </div>
-                <div className="text-xs text-purple-800">服务水平 = 1 - (缺货/需求)</div>
+              <div className="bg-purple-50 border border-purple-200 rounded p-3">
+                <div className="font-semibold text-purple-900 text-sm mb-1">• 库存量</div>
+                <p className="text-xs text-purple-800">产出量减去实际需求量后的剩余产品数量</p>
               </div>
-
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                <div className="flex items-center space-x-2 mb-1">
-                  <div className="w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
-                  <div className="font-semibold text-amber-900">预测量</div>
-                </div>
-                <div className="text-xs text-amber-800">预测量 = 需求 + 安全库存</div>
+              <div className="bg-red-50 border border-red-200 rounded p-3">
+                <div className="font-semibold text-red-900 text-sm mb-1">• 缺货量</div>
+                <p className="text-xs text-red-800">当产出量不足以满足需求时的缺货情况</p>
               </div>
-
-              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
-                <div className="flex items-center space-x-2 mb-1">
-                  <div className="w-6 h-6 bg-indigo-500 text-white rounded-full flex items-center justify-center text-xs font-bold">5</div>
-                  <div className="font-semibold text-indigo-900">投入量（核心公式）</div>
-                </div>
-                <div className="text-xs text-indigo-800">投入量 = 预测量 - 期初库存</div>
+              <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                <div className="font-semibold text-blue-900 text-sm mb-1">• 服务水平</div>
+                <p className="text-xs text-blue-800">衡量企业满足市场需求能力的指标</p>
               </div>
+              <div className="bg-amber-50 border border-amber-200 rounded p-3">
+                <div className="font-semibold text-amber-900 text-sm mb-1">• 预测量</div>
+                <p className="text-xs text-amber-800">每个月基于需求预测和安全库存的生产计划目标</p>
+              </div>
+            </div>
+          </div>
 
-              <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
-                <div className="flex items-center space-x-2 mb-1">
-                  <div className="w-6 h-6 bg-teal-500 text-white rounded-full flex items-center justify-center text-xs font-bold">6</div>
-                  <div className="font-semibold text-teal-900">完整计划</div>
-                </div>
-                <div className="text-xs text-teal-800">多期动态MPS表生成</div>
+          {/* (4) 观察与分析完整生产计划表 */}
+          <div className="bg-white border-2 border-green-200 rounded-lg p-5">
+            <h4 className="font-semibold text-gray-800 mb-3">(4) 观察与分析完整生产计划表</h4>
+            <p className="text-sm text-gray-700 mb-3">
+              看到这张完整的生产计划表后，希望你能够通过观察每个月的数据变化，进一步理解生产计划制定的逻辑与关联。你们可以看到：
+            </p>
+            <div className="space-y-3">
+              <div className="bg-blue-50 border-l-4 border-blue-400 rounded p-3">
+                <div className="font-semibold text-blue-900 text-sm mb-1">• 需求变化如何影响投入量</div>
+                <p className="text-xs text-blue-800">随着需求的变化，投入量将如何相应调整</p>
+              </div>
+              <div className="bg-purple-50 border-l-4 border-purple-400 rounded p-3">
+                <div className="font-semibold text-purple-900 text-sm mb-1">• 服务水平的动态变化</div>
+                <p className="text-xs text-purple-800">通过不同月份的服务水平，了解生产计划的有效性</p>
+              </div>
+              <div className="bg-green-50 border-l-4 border-green-400 rounded p-3">
+                <div className="font-semibold text-green-900 text-sm mb-1">• 库存与缺货的管理</div>
+                <p className="text-xs text-green-800">观察每个月的库存和缺货情况，分析这些量如何影响企业的整体运营</p>
               </div>
             </div>
           </div>
@@ -378,6 +447,28 @@ const NewStep6: React.FC = () => {
             </div>
           </div>
 
+          {/* (5) 总结 */}
+          <div className="bg-white border-2 border-teal-200 rounded-lg p-5">
+            <h4 className="font-semibold text-gray-800 mb-3">(5) 总结</h4>
+            <div className="space-y-3 text-sm text-gray-700">
+              <p>
+                这张完整的生产计划表不仅是学习的成果，也是未来在实际生产管理中可以参考和应用的工具。尽管在现实中生产计划需要<strong>逐月生成和调整</strong>，但通过这次学习，已经掌握了如何系统性地制定和优化生产计划的方法。
+              </p>
+              <div className="bg-teal-50 border border-teal-300 rounded-lg p-4">
+                <p className="font-semibold text-teal-900 mb-2">✨ 你已经掌握了：</p>
+                <ul className="space-y-1 text-teal-800">
+                  <li>• 从<strong>需求预测</strong>到<strong>投入量计算</strong>的全过程</li>
+                  <li>• 如何理解和运用生产计划的各个关键变量</li>
+                  <li>• 如何生成<strong>完整的生产计划表</strong></li>
+                  <li>• 如何从全局视角<strong>审视和优化</strong>生产计划</li>
+                </ul>
+              </div>
+              <p className="text-teal-800 bg-teal-50 border-l-4 border-teal-400 rounded p-3">
+                💡 通过这次完整的学习和操作，相信你已经掌握了从需求预测到投入量计算，再到完整生产计划表生成的全过程。
+              </p>
+            </div>
+          </div>
+
           {/* 关键洞察 */}
           <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4">
             <h4 className="font-semibold text-amber-900 mb-2">💡 从计划中获得的洞察</h4>
@@ -400,18 +491,14 @@ const NewStep6: React.FC = () => {
 
           {/* 完成提示 */}
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-lg p-5">
-            <h4 className="font-semibold text-green-900 mb-3">🎓 恭喜！您已完成MPS学习</h4>
-            <div className="text-sm text-green-800 space-y-2">
-              <p>通过这6步渐进式学习，您已经掌握了：</p>
-              <ul className="ml-4 space-y-1">
-                <li>✓ MPS的基本概念和流程</li>
-                <li>✓ 核心生产变量的定义和计算</li>
-                <li>✓ 服务水平的意义和评估</li>
-                <li>✓ 安全库存的作用和计算</li>
-                <li>✓ MPS核心公式的应用</li>
-                <li>✓ 完整多期生产计划的生成</li>
-              </ul>
-              <p className="mt-3 font-semibold">您可以在下方的表格中查看完整的MPS计划表。</p>
+            <h4 className="font-semibold text-green-900 mb-3">🎓 恭喜！您已完成生产计划学习</h4>
+            <div className="text-sm text-green-800 space-y-3">
+              <p>
+                接下来，请点击下方按钮，<strong>查看完整的生产计划表</strong>，并通过观察和分析这张表格，进一步巩固所学的知识。
+              </p>
+              <p className="font-semibold">
+                您可以在右侧的MPS表格中查看完整的生产计划数据，包括所有{summary.totalPeriods}期的详细信息。
+              </p>
             </div>
           </div>
 
