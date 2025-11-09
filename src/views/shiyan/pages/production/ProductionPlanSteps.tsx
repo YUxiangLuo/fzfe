@@ -84,15 +84,15 @@ const ProductionPlanContent: React.FC = () => {
 
       {/* 下方：概念学习 + MPS表格 */}
       <div className="flex gap-6 items-start flex-1 min-h-0">
-        {/* 左侧：概念学习区（固定高度，内部滚动） */}
-        <div className="flex-1 min-w-0 max-h-[calc(100vh-200px)] overflow-y-auto">
+        {/* 左侧：概念学习区 */}
+        <div className="flex-1 min-w-0">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <CurrentStepComponent />
           </div>
         </div>
 
-        {/* 右侧：MPS表格（固定在顶部） */}
-        <div className="flex-1 min-w-0 sticky top-4 self-start max-h-[calc(100vh-150px)] overflow-y-auto">
+        {/* 右侧：MPS表格 */}
+        <div className="flex-1 min-w-0 sticky top-8 self-start">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="mb-4">
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
