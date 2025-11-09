@@ -93,6 +93,9 @@ export interface ExperimentReport {
   pdf_file_path: string | null;
   grade: number | null;
   feedback: string | null;
+  experiment_grade?: {
+    model_quality?: number | null;
+  };
 }
 
 // New types for the refactored experiment progress endpoint

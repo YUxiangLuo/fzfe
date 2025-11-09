@@ -80,6 +80,7 @@ const ExperimentReports: React.FC = () => {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ExperimentReport | null>(null);
   const [tempScore, setTempScore] = useState("");
+  const [tempModelQualityScore, setTempModelQualityScore] = useState("");
   const [tempFeedback, setTempFeedback] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [isExportingReports, setIsExportingReports] = useState(false);
@@ -226,6 +227,11 @@ const ExperimentReports: React.FC = () => {
     if (!report.report_id) return;
     setSelectedReport(report);
     setTempScore(report.grade !== null && report.grade !== undefined ? String(report.grade) : "");
+    setTempModelQualityScore(
+      report.experiment_grade?.model_quality !== null && report.experiment_grade?.model_quality !== undefined
+        ? String(report.experiment_grade.model_quality)
+        : ""
+    );
     setTempFeedback(report.feedback ?? "");
     setShowReviewModal(true);
   }, []);
@@ -245,18 +251,26 @@ const ExperimentReports: React.FC = () => {
     return !Number.isNaN(value) && value >= 0 && value <= 100;
   }, [tempScore]);
 
+  const isModelQualityScoreValid = useMemo(() => {
+    if (!tempModelQualityScore.trim()) return true;
+    const value = Number(tempModelQualityScore);
+    return !Number.isNaN(value) && value >= 0 && value <= 100;
+  }, [tempModelQualityScore]);
+
   const canSubmitReview = useMemo(() => {
     if (!selectedReport) return false;
     const hasGrade = tempScore.trim().length > 0;
+    const hasModelQuality = tempModelQualityScore.trim().length > 0;
     const hasFeedback = tempFeedback.trim().length > 0;
-    if (!hasGrade && !hasFeedback) return false;
-    return isScoreValid && !isSubmittingReview;
-  }, [selectedReport, tempScore, tempFeedback, isScoreValid, isSubmittingReview]);
+    if (!hasGrade && !hasModelQuality && !hasFeedback) return false;
+    return isScoreValid && isModelQualityScoreValid && !isSubmittingReview;
+  }, [selectedReport, tempScore, tempModelQualityScore, tempFeedback, isScoreValid, isModelQualityScoreValid, isSubmittingReview]);
 
   const resetReviewState = useCallback(() => {
     setShowReviewModal(false);
     setSelectedReport(null);
     setTempScore("");
+    setTempModelQualityScore("");
     setTempFeedback("");
     setIsSubmittingReview(false);
   }, []);
@@ -264,21 +278,36 @@ const ExperimentReports: React.FC = () => {
   const handleSaveReview = async () => {
     if (!selectedReport || !selectedReport.report_id) return;
 
-    const payload: { grade?: number; feedback?: string } = {};
+    const payload: {
+      grade?: number;
+      feedback?: string;
+      experiment_grade?: { model_quality?: number };
+    } = {};
+
     if (tempScore.trim()) {
       const scoreValue = Number(tempScore);
       if (Number.isNaN(scoreValue) || scoreValue < 0 || scoreValue > 100) {
-        showToast("请填写 0-100 之间的分数", "error");
+        showToast("实验报告得分需在 0-100 之间", "error");
         return;
       }
       payload.grade = scoreValue;
     }
+
+    if (tempModelQualityScore.trim()) {
+      const modelQualityValue = Number(tempModelQualityScore);
+      if (Number.isNaN(modelQualityValue) || modelQualityValue < 0 || modelQualityValue > 100) {
+        showToast("模型选择得分需在 0-100 之间", "error");
+        return;
+      }
+      payload.experiment_grade = { model_quality: modelQualityValue };
+    }
+
     if (tempFeedback.trim()) {
       payload.feedback = tempFeedback.trim();
     }
 
-    if (payload.grade === undefined && payload.feedback === undefined) {
-      showToast("请至少填写分数或评语", "error");
+    if (payload.grade === undefined && payload.experiment_grade === undefined && payload.feedback === undefined) {
+      showToast("请至少填写一项成绩或评语", "error");
       return;
     }
 
@@ -636,7 +665,7 @@ const ExperimentReports: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">成绩（0-100）</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">实验报告得分（0-100）</label>
                 <input
                   type="number"
                   min={0}
@@ -644,9 +673,23 @@ const ExperimentReports: React.FC = () => {
                   value={tempScore}
                   onChange={(event) => setTempScore(event.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-                  placeholder="请输入分数"
+                  placeholder="请输入报告得分"
                 />
                 {!isScoreValid && <p className="mt-1 text-xs text-red-500">分数需在 0-100 之间</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">模型选择得分（0-100）</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={tempModelQualityScore}
+                  onChange={(event) => setTempModelQualityScore(event.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                  placeholder="请输入模型选择得分"
+                />
+                {!isModelQualityScoreValid && <p className="mt-1 text-xs text-red-500">分数需在 0-100 之间</p>}
               </div>
 
               <div>
