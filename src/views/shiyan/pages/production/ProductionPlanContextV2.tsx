@@ -45,8 +45,6 @@ export interface ProductionPlanState {
   targetServiceLevel: number;
   safetyStockZScore: number;
   selectedBestModel: string;
-  demoPrediction: number;
-  demoStdDev: number;
 
   // 产能参数
   capacityMode: CapacityMode;
@@ -107,7 +105,6 @@ interface ProductionPlanContextValue {
 
   // 保存预测结果（从预测接口获取的完整数据）
   savePredictions: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
-  updateDemoPrediction: (prediction: number, stdDev: number) => void;
 
   // 生成完整MPS表
   generateFullMPS: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
@@ -138,8 +135,6 @@ const getDefaultState = (
     targetServiceLevel: DEFAULT_PARAMETERS.targetServiceLevel,
     safetyStockZScore: DEFAULT_PARAMETERS.safetyStockZScore,
     selectedBestModel: initialModel || 'lstm',
-    demoPrediction: defaultAvgDemand,
-    demoStdDev: Math.round(defaultAvgDemand * MPS_CALCULATION.DEFAULT_STD_DEV_RATIO),
 
     // 产能参数（默认使用 normal 场景）
     capacityMode: 'scenario',
@@ -314,14 +309,6 @@ export const ProductionPlanProvider: React.FC<{
     }));
   };
 
-  const updateDemoPrediction = (prediction: number, stdDev: number) => {
-    setState((prev) => ({
-      ...prev,
-      demoPrediction: prediction,
-      demoStdDev: stdDev,
-    }));
-  };
-
   const generateFullMPS = (predictions: Array<{ prediction: number; std_dev: number }>) => {
     console.log('🏭 ===== 开始生成完整MPS表 =====');
     console.log(`📊 参数: 预测期数=${predictions.length}, 初始库存=${state.initialInventory}, 产能=${state.productionCapacity}, 服务水平目标=${state.targetServiceLevel}, Z值=${state.safetyStockZScore}`);
@@ -464,7 +451,6 @@ export const ProductionPlanProvider: React.FC<{
         fillPeriod2Field,
         updatePeriod2Data,
         savePredictions,
-        updateDemoPrediction,
         generateFullMPS,
         resetAll,
       }}
