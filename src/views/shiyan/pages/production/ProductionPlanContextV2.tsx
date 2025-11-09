@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { CapacityMode, CapacityScenario } from './utils/productionCapacityHelper';
 import { validateAndFixStdDev } from './utils/predictionValidator';
 import { MPS_CALCULATION, DEFAULT_PARAMETERS } from './config/mpsConstants';
-import { retryAsync } from '../../../utils/retryAsync';
+import { retryAsync } from '../../../../utils/retryAsync';
 import type { MPSTableRow as GlobalMPSTableRow } from '../../contexts/ExperimentContext';
 
 // MPS表格行接口
