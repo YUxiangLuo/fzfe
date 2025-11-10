@@ -4,6 +4,7 @@ import ModelStepLayout from '../components/ModelStepLayout';
 import Intro from './Intro';
 import Formula from './Formula';
 import Params, { type ParamsProps } from './Params';
+import Validation, { type ValidationProps } from './Validation';
 import Results, { type ResultsProps } from './Results';
 import { useExperiment } from '../../../contexts/ExperimentContext';
 import { apiClient } from '../../../../../utils/apiClient';
@@ -15,6 +16,7 @@ const STEPS = [
   { id: 'intro', name: '方法步骤', path: `${BASE_PATH}/intro`, component: Intro },
   { id: 'formula', name: '计算公式', path: `${BASE_PATH}/formula`, component: Formula },
   { id: 'params', name: '时间窗口选取', path: `${BASE_PATH}/params`, component: Params },
+  { id: 'validation', name: '验证', path: `${BASE_PATH}/validation`, component: Validation },
   { id: 'results', name: '计算结果', path: `${BASE_PATH}/results`, component: Results },
 ];
 
@@ -130,10 +132,26 @@ const MovingAverageStepper: React.FC = () => {
     setError(null);
 
     if (currentStep?.id === 'params') {
+      // Navigate to validation step without validation
+      const nextStep = STEPS[currentStepIndex + 1];
+      if (nextStep) {
+        navigate(nextStep.path);
+      }
+      return;
+    }
+
+    if (currentStep?.id === 'validation') {
+      // Check if windowSize is valid
       if (!windowSize || windowSize <= 0) {
-        setError('请输入一个有效的时间窗口大小。');
+        // Stay on validation page, error message will be shown
         return;
       }
+      // If valid, proceed to results
+      const nextStep = STEPS[currentStepIndex + 1];
+      if (nextStep) {
+        navigate(nextStep.path);
+      }
+      return;
     }
 
     const isLastStep = currentStepIndex === STEPS.length - 1;
@@ -163,8 +181,11 @@ const MovingAverageStepper: React.FC = () => {
 
   const CurrentComponent = currentStep.component as React.FC<any>;
 
-  const componentProps: { [key: string]: ParamsProps | ResultsProps | {} } = {
+  const isValidWindowSize = windowSize !== '' && windowSize > 0;
+
+  const componentProps: { [key: string]: ParamsProps | ValidationProps | ResultsProps | {} } = {
     params: { windowSize, setWindowSize, isLoading, error },
+    validation: { windowSize, isValid: isValidWindowSize },
     results: { data: results, isLoading, error },
   };
 
@@ -173,13 +194,13 @@ const MovingAverageStepper: React.FC = () => {
   return (
     <ModelStepLayout
       title={MODEL_NAME}
-      steps={STEPS}
-      currentStepId={currentStep.id}
+      steps={STEPS.filter(step => step.id !== 'validation')}
+      currentStepId={currentStep.id === 'validation' ? 'params' : currentStep.id}
       onNext={handleNext}
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
-      isNextDisabled={isLoading}
+      isNextDisabled={isLoading || (currentStep?.id === 'validation' && !isValidWindowSize)}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
