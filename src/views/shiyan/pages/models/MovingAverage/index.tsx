@@ -16,9 +16,11 @@ const STEPS = [
   { id: 'intro', name: '方法步骤', path: `${BASE_PATH}/intro`, component: Intro },
   { id: 'formula', name: '计算公式', path: `${BASE_PATH}/formula`, component: Formula },
   { id: 'params', name: '时间窗口选取', path: `${BASE_PATH}/params`, component: Params },
-  { id: 'validation', name: '验证', path: `${BASE_PATH}/validation`, component: Validation },
   { id: 'results', name: '计算结果', path: `${BASE_PATH}/results`, component: Results },
 ];
+
+// Validation is a special intermediate page, not part of the main steps
+const VALIDATION_PATH = `${BASE_PATH}/validation`;
 
 const MovingAverageStepper: React.FC = () => {
   const navigate = useNavigate();
@@ -31,13 +33,25 @@ const MovingAverageStepper: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
+  const isValidationPage = useMemo(() => location.pathname === VALIDATION_PATH, [location.pathname]);
+
   const currentStepIndex = useMemo(() => {
+    if (isValidationPage) {
+      // Validation is between params (index 2) and results (index 3)
+      // We treat it as if we're still on params for step navigation purposes
+      return 2;
+    }
     const currentPath = location.pathname;
     const index = STEPS.findIndex(step => step.path === currentPath);
     return index === -1 ? 0 : index;
-  }, [location.pathname]);
+  }, [location.pathname, isValidationPage]);
 
-  const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
+  const currentStep = useMemo(() => {
+    if (isValidationPage) {
+      return { id: 'validation', name: '验证', path: VALIDATION_PATH, component: Validation };
+    }
+    return STEPS[currentStepIndex];
+  }, [currentStepIndex, isValidationPage]);
 
   // Calculate training data length for validation
   const trainDataLength = useMemo(() => {
@@ -141,11 +155,8 @@ const MovingAverageStepper: React.FC = () => {
     setError(null);
 
     if (currentStep?.id === 'params') {
-      // Navigate to validation step without validation
-      const nextStep = STEPS[currentStepIndex + 1];
-      if (nextStep) {
-        navigate(nextStep.path);
-      }
+      // Navigate to validation page
+      navigate(VALIDATION_PATH);
       return;
     }
 
@@ -155,11 +166,8 @@ const MovingAverageStepper: React.FC = () => {
         // Stay on validation page, error message will be shown
         return;
       }
-      // If valid, proceed to results
-      const nextStep = STEPS[currentStepIndex + 1];
-      if (nextStep) {
-        navigate(nextStep.path);
-      }
+      // If valid, proceed to results (index 3 in STEPS)
+      navigate(STEPS[3].path);
       return;
     }
 
@@ -176,6 +184,12 @@ const MovingAverageStepper: React.FC = () => {
   };
 
   const handlePrevious = () => {
+    if (isValidationPage) {
+      // From validation, go back to params (index 2)
+      navigate(STEPS[2].path);
+      return;
+    }
+
     const prevStep = STEPS[currentStepIndex - 1];
     if (prevStep) {
       navigate(prevStep.path);
@@ -201,13 +215,13 @@ const MovingAverageStepper: React.FC = () => {
   return (
     <ModelStepLayout
       title={MODEL_NAME}
-      steps={STEPS.filter(step => step.id !== 'validation')}
-      currentStepId={currentStep.id === 'validation' ? 'params' : currentStep.id}
+      steps={STEPS}
+      currentStepId={isValidationPage ? 'params' : currentStep.id}
       onNext={handleNext}
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
-      isNextDisabled={isLoading || (currentStep?.id === 'validation' && !isValidWindowSize)}
+      isNextDisabled={isLoading || (isValidationPage && !isValidWindowSize)}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
