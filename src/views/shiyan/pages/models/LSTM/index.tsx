@@ -21,7 +21,7 @@ const STEPS = [
 const LSTMStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData, productFieldOptions, resetEnsembleStates } = useExperiment();
+  const { state, updateState, productSalesData, productFieldOptions } = useExperiment();
 
   const [normalization, setNormalization] = useState<'minmax' | 'zscore' | null>(state.lstm_normalization);
   const [features, setFeatures] = useState<string[]>(state.lstm_features ?? []);
@@ -29,29 +29,7 @@ const LSTMStepper: React.FC = () => {
   const [results, setResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isInitialMount = useRef(true);
-  const prevNormalizationRef = useRef(normalization);
-  const prevFeaturesRef = useRef(features);
-  const prevTargetRef = useRef(target);
 
-  useEffect(() => {
-    const normalizationChanged = prevNormalizationRef.current !== normalization;
-    const featuresChanged = JSON.stringify(prevFeaturesRef.current) !== JSON.stringify(features);
-    const targetChanged = prevTargetRef.current !== target;
-
-    if ((normalizationChanged || featuresChanged || targetChanged) && !isInitialMount.current) {
-      resetEnsembleStates();
-    }
-
-    prevNormalizationRef.current = normalization;
-    prevFeaturesRef.current = features;
-    prevTargetRef.current = target;
-
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [normalization, features, target]);
 
   const evaluateMonths = useMemo(() => {
     if (!productSalesData || state.data_window_evaluate_start_index === null || state.data_window_evaluate_end_index === null) {
@@ -177,8 +155,9 @@ const LSTMStepper: React.FC = () => {
   };
 
   const handlePrevious = () => {
-    if (currentStepIndex > 0) {
-      navigate(STEPS[currentStepIndex - 1].path);
+    const prevStep = STEPS[currentStepIndex - 1];
+    if (prevStep) {
+      navigate(prevStep.path);
     } else {
       navigate('/model/model-select');
     }

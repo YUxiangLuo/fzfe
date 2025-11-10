@@ -21,28 +21,13 @@ const STEPS = [
 const ExponentialSmoothingStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData, resetEnsembleStates } = useExperiment();
+  const { state, updateState, productSalesData } = useExperiment();
 
   const [alpha, setAlpha] = useState<number | ''>(state.exponential_smoothing_alpha ?? 0.5);
   const [results, setResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isInitialMount = useRef(true);
-  const prevAlphaRef = useRef(alpha);
 
-  useEffect(() => {
-    if (prevAlphaRef.current !== alpha) {
-      if (!isInitialMount.current) {
-        resetEnsembleStates();
-      }
-      prevAlphaRef.current = alpha;
-    }
-
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alpha]);
 
   const evaluateMonths = useMemo(() => {
     if (!productSalesData || state.data_window_evaluate_start_index === null || state.data_window_evaluate_end_index === null) {
@@ -149,8 +134,9 @@ const ExponentialSmoothingStepper: React.FC = () => {
   };
 
   const handlePrevious = () => {
-    if (currentStepIndex > 0) {
-      navigate(STEPS[currentStepIndex - 1].path);
+    const prevStep = STEPS[currentStepIndex - 1];
+    if (prevStep) {
+      navigate(prevStep.path);
     } else {
       navigate('/model/model-select');
     }

@@ -149,8 +149,9 @@ const BoostingEnsembleStepper: React.FC = () => {
   };
 
   const handlePrevious = () => {
-    if (currentStepIndex > 0) {
-      navigate(STEPS[currentStepIndex - 1].path);
+    const prevStep = STEPS[currentStepIndex - 1];
+    if (prevStep) {
+      navigate(prevStep.path);
     } else {
       navigate('/model/model-select');
     }

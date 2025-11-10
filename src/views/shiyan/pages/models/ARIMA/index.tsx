@@ -23,29 +23,13 @@ const STEPS = [
 const ARIMAStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData, resetEnsembleStates } = useExperiment();
+  const { state, updateState, productSalesData } = useExperiment();
 
   const [adfResults, setAdfResults] = useState<AdfStationarityRow[]>(state.arima_adf_stationarity ?? []);
   const [selectedD, setSelectedD] = useState<number | ''>(state.arima_d ?? '');
   const [results, setResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isInitialMount = useRef(true);
-  const prevSelectedDRef = useRef(selectedD);
-
-  useEffect(() => {
-    if (prevSelectedDRef.current !== selectedD) {
-      if (!isInitialMount.current) {
-        resetEnsembleStates();
-      }
-      prevSelectedDRef.current = selectedD;
-    }
-
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedD]);
 
   const evaluateMonths = useMemo(() => {
     if (!productSalesData || state.data_window_evaluate_start_index === null || state.data_window_evaluate_end_index === null) {

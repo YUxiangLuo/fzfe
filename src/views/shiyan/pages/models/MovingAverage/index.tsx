@@ -21,29 +21,13 @@ const STEPS = [
 const MovingAverageStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData, resetEnsembleStates } = useExperiment();
+  const { state, updateState, productSalesData } = useExperiment();
 
   const [windowSize, setWindowSize] = useState<number | ''>(state.moving_average_window ?? 3);
   const [results, setResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isInitialMount = useRef(true);
-  const prevWindowSizeRef = useRef(windowSize);
 
-  useEffect(() => {
-    // 只在 windowSize 真正改变时调用 resetEnsembleStates
-    if (prevWindowSizeRef.current !== windowSize) {
-      if (!isInitialMount.current) {
-        resetEnsembleStates();
-      }
-      prevWindowSizeRef.current = windowSize;
-    }
-
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [windowSize]);
 
   const evaluateMonths = useMemo(() => {
     if (!productSalesData || state.data_window_evaluate_start_index === null || state.data_window_evaluate_end_index === null) {

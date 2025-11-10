@@ -337,7 +337,6 @@ interface ExperimentContextType {
   state: ExperimentState;
   loading: boolean;
   updateState: (updates: Partial<ExperimentState>) => Promise<void>;
-  resetEnsembleStates: () => Promise<void>;
   recordStepEvent: (stepOrder: number, eventType: 'STARTED' | 'COMPLETED') => Promise<void>;
   isStepCompleted: (step: number) => boolean;
   isStepUnlocked: (step: number) => boolean;
@@ -605,26 +604,6 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const resetEnsembleStates = async () => {
-    await updateState({
-      ensemble_weighted_completed: false,
-      ensemble_weighted_base_models: [],
-      ensemble_weighted_metrics_rmse: null,
-      ensemble_weighted_metrics_mae: null,
-      ensemble_weighted_metrics_r2: null,
-      ensemble_boosting_completed: false,
-      ensemble_boosting_base_models: [],
-      ensemble_boosting_metrics_rmse: null,
-      ensemble_boosting_metrics_mae: null,
-      ensemble_boosting_metrics_r2: null,
-      ensemble_stacking_completed: false,
-      ensemble_stacking_base_models: [],
-      ensemble_stacking_metrics_rmse: null,
-      ensemble_stacking_metrics_mae: null,
-      ensemble_stacking_metrics_r2: null,
-    });
-  };
-
 
   const isStepCompleted = (step: number): boolean => state.highest_completed_step >= step;
   const isStepUnlocked = (step: number): boolean => step <= state.current_step;
@@ -670,7 +649,6 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
         state,
         loading,
         updateState,
-        resetEnsembleStates,
         recordStepEvent: recordStepEventWrapper,
         isStepCompleted,
         isStepUnlocked,
