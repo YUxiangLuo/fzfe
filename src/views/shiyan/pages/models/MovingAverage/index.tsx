@@ -187,14 +187,14 @@ const MovingAverageStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'results') {
-      // Navigate to comparison page
+      // Mark model as completed and navigate to comparison page
+      await updateState({ moving_average_completed: true });
       navigate(COMPARISON_PATH);
       return;
     }
 
     if (currentStep?.id === 'comparison') {
-      // Complete the model and go back to model select
-      await updateState({ moving_average_completed: true });
+      // Go back to model select (model already marked as completed)
       navigate('/model/model-select');
       return;
     }
