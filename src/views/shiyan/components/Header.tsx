@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { User, LogOut } from "lucide-react";
+import { User, LogOut, AlertTriangle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { apiClient } from "../../../utils/apiClient";
 import { getRoleByBackendValue } from "../../../config/roles";
@@ -13,6 +13,7 @@ interface UserSummary {
   role: string;
   phone_number?: string | null;
   created_at: string;
+  must_change_password?: boolean;
 }
 
 const Header: React.FC = () => {
@@ -91,6 +92,19 @@ const Header: React.FC = () => {
           >
             个人信息
           </Link>
+
+          {!loading && user?.must_change_password && (
+            <Link
+              to={ROUTES.PROFILE}
+              state={profileState}
+              className="flex items-center space-x-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
+              <span className="text-sm font-medium text-amber-800">
+                请尽快修改初始密码
+              </span>
+            </Link>
+          )}
 
           <div className="flex items-center space-x-3 border-l pl-4">
             <div className="flex items-center space-x-3">
