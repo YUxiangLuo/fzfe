@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ModelStepLayout from '../components/ModelStepLayout';
 import Intro from './Intro';
 import Preprocessing, { type PreprocessingProps } from './Preprocessing';
+import NormalizationInfo from './NormalizationInfo';
 import Build, { type BuildProps } from './Build';
 import Results, { type ResultsProps } from './Results';
 import { useExperiment } from '../../../contexts/ExperimentContext';
@@ -18,6 +19,12 @@ const STEPS = [
   { id: 'results', name: '计算结果', path: `${BASE_PATH}/results`, component: Results },
 ];
 
+// Hidden pages - not part of the main steps
+const NORMALIZATION_INFO_PATH = `${BASE_PATH}/normalization-info`;
+
+// Step indices for navigation
+const PREPROCESSING_STEP_INDEX = 1;
+
 const LSTMStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,6 +38,7 @@ const LSTMStepper: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
+  const isNormalizationInfoPage = useMemo(() => location.pathname === NORMALIZATION_INFO_PATH, [location.pathname]);
 
   const evaluateMonths = useMemo(() => {
     if (!productSalesData || state.data_window_evaluate_start_index === null || state.data_window_evaluate_end_index === null) {
@@ -48,12 +56,21 @@ const LSTMStepper: React.FC = () => {
   }, [target, features]);
 
   const currentStepIndex = useMemo(() => {
+    if (isNormalizationInfoPage) {
+      // Normalization info is part of preprocessing in the step navigation
+      return PREPROCESSING_STEP_INDEX;
+    }
     const currentPath = location.pathname;
     const index = STEPS.findIndex(step => step.path === currentPath);
     return index === -1 ? 0 : index;
-  }, [location.pathname]);
+  }, [location.pathname, isNormalizationInfoPage]);
 
-  const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
+  const currentStep = useMemo(() => {
+    if (isNormalizationInfoPage) {
+      return { id: 'normalization-info', name: '标准化介绍', path: NORMALIZATION_INFO_PATH, component: NormalizationInfo };
+    }
+    return STEPS[currentStepIndex];
+  }, [currentStepIndex, isNormalizationInfoPage]);
 
   const handleCalculate = useCallback(async () => {
     setIsLoading(true);
@@ -176,12 +193,22 @@ const LSTMStepper: React.FC = () => {
   };
 
   const handlePrevious = () => {
+    if (isNormalizationInfoPage) {
+      // From normalization info, go back to preprocessing
+      navigate(STEPS[PREPROCESSING_STEP_INDEX].path);
+      return;
+    }
+
     const prevStep = STEPS[currentStepIndex - 1];
     if (prevStep) {
       navigate(prevStep.path);
     } else {
       navigate('/model/model-select');
     }
+  };
+
+  const handleShowNormalizationInfo = () => {
+    navigate(NORMALIZATION_INFO_PATH);
   };
 
   if (!currentStep) {
@@ -191,13 +218,13 @@ const LSTMStepper: React.FC = () => {
   const CurrentComponent = currentStep.component as React.FC<any>;
 
   const componentProps: { [key: string]: PreprocessingProps | BuildProps | ResultsProps | {} } = {
-    preprocessing: { normalization, setNormalization, error },
-    build: { 
-      features, 
-      setFeatures, 
-      target, 
-      setTarget, 
-      error, 
+    preprocessing: { normalization, setNormalization, error, onShowNormalizationInfo: handleShowNormalizationInfo },
+    build: {
+      features,
+      setFeatures,
+      target,
+      setTarget,
+      error,
       isLoading,
       fieldOptions: productFieldOptions ?? []
     },
@@ -206,16 +233,21 @@ const LSTMStepper: React.FC = () => {
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
 
+  const getCurrentStepId = () => {
+    if (isNormalizationInfoPage) return 'preprocessing'; // Normalization info is part of preprocessing
+    return currentStep.id;
+  };
+
   return (
     <ModelStepLayout
       title={MODEL_NAME}
       steps={STEPS}
-      currentStepId={currentStep.id}
+      currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
-      isNextDisabled={isLoading}
+      isNextDisabled={isLoading || isNormalizationInfoPage}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
