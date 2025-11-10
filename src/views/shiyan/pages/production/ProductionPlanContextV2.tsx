@@ -123,7 +123,7 @@ interface ProductionPlanContextValue {
   hideStep6Teaching: () => void;
 
   // 保存MPS数据到全局状态（带重试机制）
-  saveMPSDataToGlobal: (updateStateFunc: Function) => Promise<void>;
+  saveMPSDataToGlobal: (updateStateFunc: Function, mpsTableOverride?: MPSTableRow[]) => Promise<void>;
 
   // 重置
   resetAll: () => void;

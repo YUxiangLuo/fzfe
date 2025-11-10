@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext';
 import {
@@ -12,14 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Lock,
+  CheckCircle2,
 } from 'lucide-react';
-import MovingAverageModel from './MovingAverageModel';
-import ExponentialSmoothingModel from './ExponentialSmoothingModel';
-import ARIMAModel from './ARIMAModel';
-import LSTMModel from './LSTMModel';
-import WeightedEnsembleModel from './WeightedEnsembleModel';
-import BoostingEnsembleModel from './BoostingEnsembleModel';
-import StackingEnsembleModel from './StackingEnsembleModel';
 
 const CURRENT_STEP = 5;
 const MIN_BASE_MODELS_FOR_ENSEMBLE = 2;
@@ -28,25 +22,59 @@ const MIN_ENSEMBLE_MODELS_FOR_EVALUATION = 1;
 interface ModelOption {
   id: string;
   name: string;
+  description: string;
   icon: React.ElementType;
   type: 'basic' | 'ensemble';
-  component: React.FC;
+  path: string;
 }
+
+const models: ModelOption[] = [
+  { id: 'moving_average', name: '移动平均法', description: '简单的时间序列预测方法。', icon: LineChart, type: 'basic', path: '/model/moving-average/intro' },
+  { id: 'exponential_smoothing', name: '指数平滑法', description: '加权平均，近期数据权重更大。', icon: ChartSpline, type: 'basic', path: '/model/exponential-smoothing/intro' },
+  { id: 'arima', name: 'ARIMA模型', description: '经典的统计预测模型。', icon: Sigma, type: 'basic', path: '/model/arima/intro' },
+  { id: 'lstm', name: 'LSTM神经网络', description: '先进的深度学习预测模型。', icon: BrainCircuit, type: 'basic', path: '/model/lstm/intro' },
+  { id: 'weighted_ensemble', name: '加权平均融合', description: '结合多个模型预测结果。', icon: Scale, type: 'ensemble', path: '/model/weighted-ensemble/intro' },
+  { id: 'boosting_ensemble', name: 'Boosting融合', description: '迭代式地提升模型性能。', icon: Sparkles, type: 'ensemble', path: '/model/boosting-ensemble/intro' },
+  { id: 'stacking_ensemble', name: 'Stacking融合', description: '多层次模型融合策略。', icon: Layers, type: 'ensemble', path: '/model/stacking-ensemble/intro' },
+];
+
+const ModelCard: React.FC<{ model: ModelOption; isCompleted: boolean; isDisabled: boolean; onClick: () => void }> = ({ model, isCompleted, isDisabled, onClick }) => {
+  return (
+    <div
+      onClick={isDisabled ? undefined : onClick}
+      className={`relative p-6 rounded-xl border-2 transition-all duration-300 ${
+        isDisabled
+          ? 'bg-gray-100 cursor-not-allowed'
+          : 'bg-white hover:border-blue-500 hover:shadow-lg cursor-pointer'
+      } ${isCompleted ? 'border-green-500' : 'border-gray-200'}`}
+    >
+      {isCompleted && (
+        <div className="absolute top-2 right-2 text-green-500">
+          <CheckCircle2 className="w-6 h-6" />
+        </div>
+      )}
+      {isDisabled && (
+        <div className="absolute top-2 right-2 text-gray-400">
+          <Lock className="w-5 h-5" />
+        </div>
+      )}
+      <div className="flex items-center gap-4">
+        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${isDisabled ? 'bg-gray-200' : 'bg-blue-50'}`}>
+          <model.icon className={`w-7 h-7 ${isDisabled ? 'text-gray-400' : 'text-blue-600'}`} />
+        </div>
+        <div>
+          <h3 className={`font-bold ${isDisabled ? 'text-gray-500' : 'text-gray-900'}`}>{model.name}</h3>
+          <p className="text-sm text-gray-500">{model.description}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const ModelSelection: React.FC = () => {
   const navigate = useNavigate();
   const { state, updateState } = useExperiment();
-  const [selectedModelId, setSelectedModelId] = useState<string>('');
-
-  const models: ModelOption[] = [
-    { id: 'moving_average', name: '移动平均法', icon: LineChart, type: 'basic', component: MovingAverageModel },
-    { id: 'exponential_smoothing', name: '指数平滑法', icon: ChartSpline, type: 'basic', component: ExponentialSmoothingModel },
-    { id: 'arima', name: 'ARIMA模型', icon: Sigma, type: 'basic', component: ARIMAModel },
-    { id: 'lstm', name: 'LSTM神经网络', icon: BrainCircuit, type: 'basic', component: LSTMModel },
-    { id: 'weighted_ensemble', name: '加权平均融合', icon: Scale, type: 'ensemble', component: WeightedEnsembleModel },
-    { id: 'boosting_ensemble', name: 'Boosting融合', icon: Sparkles, type: 'ensemble', component: BoostingEnsembleModel },
-    { id: 'stacking_ensemble', name: 'Stacking融合', icon: Layers, type: 'ensemble', component: StackingEnsembleModel },
-  ];
 
   const completionMap: Record<string, boolean> = {
     moving_average: state.moving_average_completed,
@@ -68,9 +96,6 @@ const ModelSelection: React.FC = () => {
   const canProceedToEvaluation = baseModelsCompletedCount >= MIN_BASE_MODELS_FOR_ENSEMBLE &&
                                  ensembleModelsCompletedCount >= MIN_ENSEMBLE_MODELS_FOR_EVALUATION;
 
-  const selectedModel = models.find(m => m.id === selectedModelId);
-  const SelectedModelComponent = selectedModel?.component;
-
   const handlePrevious = () => {
     navigate('/model/model-intro');
   };
@@ -85,105 +110,70 @@ const ModelSelection: React.FC = () => {
     }
   };
 
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedModelId(e.target.value);
-  };
-
   return (
-    <div className="h-full flex flex-col gap-4">
-      {/* 模型选择区域 - 紧凑布局 */}
+    <div className="h-full flex flex-col gap-6 py-4">
+      {/* Progress and Info Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-shrink-0">
-        <div className="flex items-center gap-4">
-          {/* 模型选择下拉框 */}
-          <div className="flex-1">
-            <div className="relative">
-              <select
-                id="model-select"
-                value={selectedModelId}
-                onChange={handleModelChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white text-gray-900 text-sm"
-              >
-                <option value="">-- 请选择一个模型 --</option>
-
-                <optgroup label="基础模型">
-                  {baseModels.map((model) => {
-                    const isCompleted = completionMap[model.id];
-                    return (
-                      <option key={model.id} value={model.id}>
-                        {model.name} {isCompleted ? '✓' : ''}
-                      </option>
-                    );
-                  })}
-                </optgroup>
-
-                <optgroup label="融合模型">
-                  {ensembleModels.map((model) => {
-                    const isCompleted = completionMap[model.id];
-                    return (
-                      <option
-                        key={model.id}
-                        value={model.id}
-                        disabled={!canAccessEnsemble}
-                      >
-                        {model.name} {isCompleted ? '✓' : ''} {!canAccessEnsemble ? '🔒' : ''}
-                      </option>
-                    );
-                  })}
-                </optgroup>
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+        <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-gray-800">请选择一个预测模型开始学习</h2>
+            <div className="flex items-center gap-4 text-sm flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600">基础模型:</span>
+                <span className="font-semibold text-blue-600">{baseModelsCompletedCount} / {baseModels.length}</span>
+              </div>
+              <div className="w-px h-4 bg-gray-300"></div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600">融合模型:</span>
+                <span className={`font-semibold ${canAccessEnsemble ? 'text-green-600' : 'text-gray-400'}`}>
+                  {ensembleModelsCompletedCount} / {ensembleModels.length}
+                </span>
+                {!canAccessEnsemble && <Lock className="w-3 h-3 text-gray-400" />}
               </div>
             </div>
-          </div>
-
-          {/* 进度信息 - 紧凑显示 */}
-          <div className="flex items-center gap-4 text-sm flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600">基础模型:</span>
-              <span className="font-semibold text-blue-600">{baseModelsCompletedCount}/4</span>
-            </div>
-            <div className="w-px h-4 bg-gray-300"></div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-600">融合模型:</span>
-              <span className={`font-semibold ${canAccessEnsemble ? 'text-green-600' : 'text-gray-400'}`}>
-                {ensembleModelsCompletedCount}/3
-              </span>
-              {!canAccessEnsemble && <Lock className="w-3 h-3 text-gray-400" />}
-            </div>
-          </div>
         </div>
-
-        {/* 解锁提示 */}
         {!canAccessEnsemble && (
           <div className="mt-2 flex items-center gap-2 text-xs text-amber-600">
             <Lock className="w-3 h-3" />
-            <span>完成至少 2 个基础模型后可选择融合模型</span>
+            <span>完成至少 {MIN_BASE_MODELS_FOR_ENSEMBLE} 个基础模型后可选择融合模型</span>
           </div>
         )}
       </div>
 
-      {/* 模型组件渲染区域 */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        {SelectedModelComponent ? (
-          <SelectedModelComponent />
-        ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center h-full flex flex-col items-center justify-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ChartSpline className="w-8 h-8 text-gray-400" />
+      {/* Model Cards Area */}
+      <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+        <div className="space-y-4">
+            <div>
+                <h3 className="text-base font-semibold text-gray-500 mb-3">基础模型</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {baseModels.map(model => (
+                        <ModelCard 
+                            key={model.id}
+                            model={model}
+                            isCompleted={!!completionMap[model.id]}
+                            isDisabled={false}
+                            onClick={() => navigate(model.path)}
+                        />
+                    ))}
+                </div>
             </div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">请选择一个预测模型</h3>
-            <p className="text-gray-500 text-sm max-w-md mx-auto">
-              从上方下拉框中选择一个预测模型，开始配置参数并训练模型。
-              建议先完成至少2个基础模型，再尝试融合模型。
-            </p>
-          </div>
-        )}
+            <div>
+                <h3 className="text-base font-semibold text-gray-500 mb-3">融合模型</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {ensembleModels.map(model => (
+                        <ModelCard 
+                            key={model.id}
+                            model={model}
+                            isCompleted={!!completionMap[model.id]}
+                            isDisabled={!canAccessEnsemble}
+                            onClick={() => navigate(model.path)}
+                        />
+                    ))}
+                </div>
+            </div>
+        </div>
       </div>
 
-      {/* 底部导航按钮 */}
+      {/* Bottom Navigation */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-shrink-0">
         <div className="flex justify-between items-center">
           <button
@@ -191,13 +181,13 @@ const ModelSelection: React.FC = () => {
             className="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium"
           >
             <ChevronLeft className="w-5 h-5" />
-            上一步
+            返回介绍
           </button>
 
           <div className="text-center">
             {!canProceedToEvaluation && (
               <p className="text-sm text-gray-600">
-                完成至少 <strong>2个基础模型</strong> 和 <strong>1个融合模型</strong> 后可进入下一步
+                完成至少 <strong>{MIN_BASE_MODELS_FOR_ENSEMBLE}个基础模型</strong> 和 <strong>{MIN_ENSEMBLE_MODELS_FOR_EVALUATION}个融合模型</strong> 后可进入下一步
               </p>
             )}
           </div>
@@ -205,7 +195,7 @@ const ModelSelection: React.FC = () => {
           <button
             onClick={handleNext}
             disabled={!canProceedToEvaluation}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             进入结果评估
             <ChevronRight className="w-5 h-5" />

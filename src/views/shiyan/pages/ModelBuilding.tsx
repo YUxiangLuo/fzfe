@@ -7,6 +7,13 @@ import RoleIntroduction from './models/RoleIntroduction';
 import DataWindowSelection from './models/DataWindowSelection';
 import ModelIntroduction from './models/ModelIntroduction';
 import ModelSelection from './models/ModelSelection';
+import MovingAverageModelRoutes from './models/MovingAverage';
+import ExponentialSmoothingModelRoutes from './models/ExponentialSmoothing';
+import ARIMAModelRoutes from './models/ARIMA';
+import LSTMModelRoutes from './models/LSTM';
+import WeightedEnsembleModelRoutes from './models/WeightedEnsemble';
+import BoostingEnsembleModelRoutes from './models/BoostingEnsemble';
+import StackingEnsembleModelRoutes from './models/StackingEnsemble';
 
 // 常量配置
 const CURRENT_STEP = 5;
@@ -109,6 +116,13 @@ const ModelBuilding: React.FC = () => {
           <Route path="window" element={<DataWindowSelection />} />
           <Route path="model-intro" element={<ModelIntroduction />} />
           <Route path="model-select" element={<ModelSelection />} />
+          <Route path="moving-average/*" element={<MovingAverageModelRoutes />} />
+          <Route path="exponential-smoothing/*" element={<ExponentialSmoothingModelRoutes />} />
+          <Route path="arima/*" element={<ARIMAModelRoutes />} />
+          <Route path="lstm/*" element={<LSTMModelRoutes />} />
+          <Route path="weighted-ensemble/*" element={<WeightedEnsembleModelRoutes />} />
+          <Route path="boosting-ensemble/*" element={<BoostingEnsembleModelRoutes />} />
+          <Route path="stacking-ensemble/*" element={<StackingEnsembleModelRoutes />} />
         </Routes>
       </div>
     </div>
