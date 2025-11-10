@@ -1,12 +1,28 @@
-import React from 'react';
-import { CheckCircle, XCircle } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 export interface ValidationProps {
   windowSize: number | '';
   isValid: boolean;
+  trainDataLength?: number;
 }
 
-const Validation: React.FC<ValidationProps> = ({ windowSize, isValid }) => {
+const Validation: React.FC<ValidationProps> = ({ windowSize, isValid, trainDataLength = 0 }) => {
+  const errorMessage = useMemo(() => {
+    if (isValid) return null;
+
+    if (windowSize === '' || windowSize <= 0) {
+      return '请输入一个有效的时间窗口大小';
+    }
+    if (windowSize < 2) {
+      return '时间窗口大小至少为 2';
+    }
+    if (trainDataLength > 0 && windowSize > trainDataLength) {
+      return `时间窗口大小不能超过训练数据长度（${trainDataLength}）`;
+    }
+    return '时间窗口值不合法';
+  }, [isValid, windowSize, trainDataLength]);
+
   return (
     <div className="flex items-center justify-center min-h-[400px]">
       <div className="max-w-md w-full">
@@ -34,11 +50,16 @@ const Validation: React.FC<ValidationProps> = ({ windowSize, isValid }) => {
                 <XCircle className="w-12 h-12 text-red-600" />
               </div>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <h3 className="text-2xl font-bold text-gray-800">未通过合法性检验</h3>
-              <p className="text-gray-600 text-base">
-                时间窗口值不合法，请确保输入的是大于0的正整数
-              </p>
+              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-gray-700 text-base text-left">
+                    {errorMessage}
+                  </p>
+                </div>
+              </div>
               <p className="text-sm text-gray-500">
                 点击"上一步"重新填写时间窗口
               </p>

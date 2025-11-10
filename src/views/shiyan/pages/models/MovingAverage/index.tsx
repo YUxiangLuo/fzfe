@@ -68,8 +68,12 @@ const MovingAverageStepper: React.FC = () => {
 
       if (response.status === "success") {
         const apiResults = response.results;
+        const months = productSalesData?.monthlySales
+          .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
+          .map(item => item.month) || [];
+
         setResults({
-          predictions: evaluateMonths.map((month: string, index: number) => ({
+          predictions: months.map((month: string, index: number) => ({
             date: month,
             actual: apiResults.eval_y_true[index],
             predicted: apiResults.eval_predictions[index],
@@ -100,7 +104,7 @@ const MovingAverageStepper: React.FC = () => {
     state.data_window_evaluate_start_index,
     state.data_window_evaluate_end_index,
     windowSize,
-    evaluateMonths,
+    productSalesData,
     updateState
   ]);
 
@@ -181,11 +185,24 @@ const MovingAverageStepper: React.FC = () => {
 
   const CurrentComponent = currentStep.component as React.FC<any>;
 
-  const isValidWindowSize = windowSize !== '' && windowSize > 0;
+  // Calculate training data length for validation
+  const trainDataLength = useMemo(() => {
+    if (state.data_window_train_start_index === null || state.data_window_train_end_index === null) {
+      return 0;
+    }
+    return state.data_window_train_end_index - state.data_window_train_start_index + 1;
+  }, [state.data_window_train_start_index, state.data_window_train_end_index]);
+
+  const isValidWindowSize = useMemo(() => {
+    if (windowSize === '' || windowSize <= 0) return false;
+    if (windowSize < 2) return false; // 窗口大小至少为2
+    if (trainDataLength > 0 && windowSize > trainDataLength) return false; // 不能超过训练数据长度
+    return true;
+  }, [windowSize, trainDataLength]);
 
   const componentProps: { [key: string]: ParamsProps | ValidationProps | ResultsProps | {} } = {
     params: { windowSize, setWindowSize, isLoading, error },
-    validation: { windowSize, isValid: isValidWindowSize },
+    validation: { windowSize, isValid: isValidWindowSize, trainDataLength },
     results: { data: results, isLoading, error },
   };
 
