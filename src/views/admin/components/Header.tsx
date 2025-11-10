@@ -3,7 +3,7 @@ import { LogOut, User } from "lucide-react";
 import { decodeToken, type DecodedToken } from "../../../utils/auth";
 import { getRoleByBackendValue } from "../../../config/roles";
 import { useConfirm } from '@/shared/hooks/useConfirm';
-import { ConfirmDialog } from './ConfirmDialog';
+import ConfirmDialog from './ConfirmDialog';
 
 const Header: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
