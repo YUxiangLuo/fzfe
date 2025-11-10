@@ -7,7 +7,7 @@ const Intro: React.FC = () => {
       <div>
         <h3 className="text-2xl font-bold text-gray-800 mb-3">移动平均法 - 方法步骤</h3>
         <p className="text-gray-600 text-base leading-relaxed">
-          这里是移动平均法一般步骤的介绍文本。
+          移动平均法的一般步骤为：
         </p>
       </div>
 
@@ -19,7 +19,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <TrendingUp className="w-5 h-5 text-blue-600" />
-              <p className="text-gray-800 font-medium">取长度为窗口数n的时间序列值的均值作为预测值...</p>
+              <p className="text-gray-800 font-medium">取长度为窗口数 n 的时间序列值的均值作为预测值，逐项推移，依次算出包含窗口数 n 的一次移动平均数</p>
             </div>
           </div>
         </div>
@@ -31,7 +31,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <Calendar className="w-5 h-5 text-indigo-600" />
-              <p className="text-gray-800 font-medium">在原始数据表的末尾添加移动平均预测值...</p>
+              <p className="text-gray-800 font-medium">在原始数据表的末尾添加移动平均预测值</p>
             </div>
           </div>
         </div>
