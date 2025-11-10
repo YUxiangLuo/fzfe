@@ -29,7 +29,7 @@ export const validateStudentUsername = (username: string): ValidationResult => {
 
 /**
  * 验证账号（教师/助教）
- * 规则：5位及以上，可以是纯数字或数字+字母组合
+ * 规则：5位及以上，可以是纯数字或数字+字母+下划线组合
  */
 export const validateTeacherUsername = (username: string): ValidationResult => {
   const trimmed = username.trim();
@@ -42,9 +42,9 @@ export const validateTeacherUsername = (username: string): ValidationResult => {
     return { isValid: false, error: "账号至少需要5位" };
   }
 
-  // 只能包含字母和数字
-  if (!/^[a-zA-Z0-9]+$/.test(trimmed)) {
-    return { isValid: false, error: "账号只能包含字母和数字" };
+  // 只能包含字母、数字和下划线
+  if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
+    return { isValid: false, error: "账号只能包含字母、数字和下划线" };
   }
 
   return { isValid: true, error: "" };
