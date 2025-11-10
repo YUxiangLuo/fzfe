@@ -16,12 +16,12 @@ type ColumnKey =
 
 // 定义每一步应该显示的列
 const STEP_COLUMNS: Record<number, ColumnKey[]> = {
-  1: ['period', 'demand_forecast', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 1: 基础数据 + 期初库存
-  2: ['period', 'demand_forecast', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 2: 需求量、产出量、库存量、缺货量
-  3: ['period', 'demand_forecast', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 3: 服务水平
-  4: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 4: 添加安全库存和预测量
-  5: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'planned_production', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 5: 添加投入量
-  6: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'planned_production', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 6: 完整表
+  1: ['period', 'demand_forecast', 'planned_production', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 1: Show planned_production from the start
+  2: ['period', 'demand_forecast', 'planned_production', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 2: Keep planned_production visible
+  3: ['period', 'demand_forecast', 'planned_production', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 3: Keep planned_production visible
+  4: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'planned_production', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 4: Add safety_stock and forecast_quantity
+  5: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'planned_production', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 5: All columns visible
+  6: ['period', 'demand_forecast', 'safety_stock', 'forecast_quantity', 'planned_production', 'beginning_inventory', 'production_output', 'ending_inventory', 'stockout', 'service_level'],  // Step 6: All columns visible
 };
 
 const DEFAULT_COLUMNS = STEP_COLUMNS[1]!;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { CheckCircle, Circle, Lock, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ProductionPlanProvider, useProductionPlan } from './ProductionPlanContextV2';
@@ -13,8 +13,15 @@ import NewStep6 from './steps_v2/NewStep6';
 
 const ProductionPlanContent: React.FC = () => {
   const navigate = useNavigate();
-  const { state, goToStep, resetAll, saveMPSDataToGlobal } = useProductionPlan();
+  const { state, resetAll, saveMPSDataToGlobal } = useProductionPlan();
   const { updateState } = useExperiment();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [state.currentStep]);
 
   const steps = [
     { id: 1, title: '规划总览', component: NewStep1 },
@@ -44,9 +51,9 @@ const ProductionPlanContent: React.FC = () => {
 
   const getStepStyles = (stepId: number) => {
     const status = getStepStatus(stepId);
-    if (status === 'completed') return 'bg-green-50 border-green-300 text-green-800 cursor-pointer hover:bg-green-100';
+    if (status === 'completed') return 'bg-green-50 border-green-300 text-green-800 cursor-default';
     if (status === 'current') return 'bg-blue-50 border-blue-400 text-blue-800 ring-2 ring-blue-300';
-    if (status === 'available') return 'bg-gray-50 border-gray-300 text-gray-700 cursor-pointer hover:bg-gray-100';
+    if (status === 'available') return 'bg-gray-50 border-gray-300 text-gray-700 cursor-default';
     return 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed';
   };
 
@@ -115,10 +122,7 @@ const ProductionPlanContent: React.FC = () => {
           {steps.map((step) => (
             <button
               key={step.id}
-              onClick={() => {
-                const status = getStepStatus(step.id);
-                if (status !== 'locked') goToStep(step.id);
-              }}
+              // onClick is removed to prevent navigation.
               disabled={getStepStatus(step.id) === 'locked'}
               className={`flex-shrink-0 flex flex-col items-center space-y-2 px-4 py-3 rounded-lg border transition-all min-w-[110px] ${getStepStyles(step.id)}`}
             >
@@ -165,7 +169,7 @@ const ProductionPlanContent: React.FC = () => {
         // 正常布局：左侧教学内容 + 右侧MPS表格
         <div className="flex gap-6 flex-1 min-h-0 overflow-hidden">
           {/* 左侧：概念学习区（可滚动） */}
-          <div className="flex-1 min-w-0 h-full overflow-y-auto">
+          <div ref={scrollContainerRef} className="flex-1 min-w-0 h-full overflow-y-auto">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <CurrentStepComponent />
             </div>

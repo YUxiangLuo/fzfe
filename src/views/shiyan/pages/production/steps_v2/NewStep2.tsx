@@ -490,7 +490,7 @@ const NewStep2: React.FC = () => {
       {hasCalculated && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <p className="text-sm text-green-800">
-            ✓ 已完成第2期的库存和缺货计算。请继续跟随步骤，点击<strong>下一步</strong>，查看表格中第二个月的相关数据变化。
+            ✓ 已完成第2期的库存和缺货计算，右侧表格已同步更新。请点击“下一步”，我们来学习如何评估“服务水平”。
           </p>
         </div>
       )}

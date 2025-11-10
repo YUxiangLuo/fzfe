@@ -392,7 +392,7 @@ const NewStep5: React.FC = () => {
       {/* 结尾引导 */}
       <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-indigo-500 rounded-lg p-5">
         <p className="text-sm text-gray-700 leading-relaxed">
-          请继续跟随步骤，点击<strong>下一步</strong>，查看表格中第二个月的投入量数据，并思考如何在实际操作中应用这一数据制定完整的生产计划。
+          ✓ 已完成第2期的投入量计算，右侧表格已同步更新。您已完成了第二个月的所有手动计算！请点击“下一步”，我们将为您生成并展示完整的生产计划表。
         </p>
       </div>
 

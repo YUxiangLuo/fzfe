@@ -465,7 +465,7 @@ const NewStep4: React.FC = () => {
       {hasCalculated && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
           <p className="text-sm text-green-800">
-            ✓ 已完成第2期的预测量计算。请继续跟随步骤，点击<strong>下一步</strong>，查看表格中第二个月的预测量数据，并思考如何在实际操作中应用预测量来制定生产计划。
+            ✓ 已完成第2期的预测量计算，右侧表格已同步更新。请点击“下一步”，我们来学习最后一个核心变量：“投入量”。
           </p>
         </div>
       )}
