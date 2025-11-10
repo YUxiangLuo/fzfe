@@ -139,6 +139,11 @@ const ExponentialSmoothingStepper: React.FC = () => {
     }
   }, [currentStep?.id, results, isLoading, handleCalculate]);
 
+  // Clear results when alpha changes to trigger recalculation
+  useEffect(() => {
+    setResults(null);
+  }, [alpha]);
+
   const handleReset = async () => {
     setIsResetting(true);
     try {

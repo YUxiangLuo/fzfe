@@ -148,6 +148,11 @@ const MovingAverageStepper: React.FC = () => {
     }
   }, [currentStep?.id, results, isLoading, handleCalculate]);
 
+  // Clear results when windowSize changes to trigger recalculation
+  useEffect(() => {
+    setResults(null);
+  }, [windowSize]);
+
   const handleReset = async () => {
     setIsResetting(true);
     try {
