@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useExperiment } from '../../../contexts/ExperimentContext';
 
 export interface ResultsProps {
   data: {
@@ -10,19 +11,55 @@ export interface ResultsProps {
   } | null;
   isLoading: boolean;
   error: string | null;
+  baseModelIds?: string[];
 }
 
-const Results: React.FC<ResultsProps> = ({ data, isLoading, error }) => {
+const Results: React.FC<ResultsProps> = ({ data, isLoading, error, baseModelIds }) => {
+  const { state } = useExperiment();
+
   const modelIdToName: Record<string, string> = {
     ma: '移动平均法',
     es: '指数平滑法',
-    arima: 'ARIMA',
-    lstm: 'LSTM',
+    arima: 'ARIMA模型',
+    lstm: 'LSTM神经网络',
   };
+
+  const baseModelsData = useMemo(() => {
+    if (!baseModelIds || baseModelIds.length === 0) return [];
+
+    const modelMapping: Record<string, { name: string; rmse: number | null; mae: number | null; r2: number | null }> = {
+      moving_average: {
+        name: '移动平均法',
+        rmse: state.moving_average_metrics_rmse,
+        mae: state.moving_average_metrics_mae,
+        r2: state.moving_average_metrics_r2,
+      },
+      exponential_smoothing: {
+        name: '指数平滑法',
+        rmse: state.exponential_smoothing_metrics_rmse,
+        mae: state.exponential_smoothing_metrics_mae,
+        r2: state.exponential_smoothing_metrics_r2,
+      },
+      arima: {
+        name: 'ARIMA模型',
+        rmse: state.arima_metrics_rmse,
+        mae: state.arima_metrics_mae,
+        r2: state.arima_metrics_r2,
+      },
+      lstm: {
+        name: 'LSTM神经网络',
+        rmse: state.lstm_metrics_rmse,
+        mae: state.lstm_metrics_mae,
+        r2: state.lstm_metrics_r2,
+      },
+    };
+
+    return baseModelIds.map(id => modelMapping[id]).filter(Boolean);
+  }, [baseModelIds, state]);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full p-8">
         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
         <p className="ml-4 text-gray-600">正在计算，请稍候...</p>
       </div>
@@ -38,55 +75,153 @@ const Results: React.FC<ResultsProps> = ({ data, isLoading, error }) => {
   }
 
   return (
-    <div>
-      <h3 className="text-lg font-semibold mb-4">加权平均融合 - 计算结果</h3>
-      
-      <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
-        <h4 className="font-semibold mb-2">各模型权重</h4>
-        <div className="space-y-1 text-sm">
-          {data.model_names?.map((id, index) => (
-            <div key={id} className="flex justify-between">
-              <span>{modelIdToName[id] ?? id}:</span>
-              <span className="font-mono font-semibold">{(data.weights?.[index] != null ? data.weights[index] * 100 : 0).toFixed(2)}%</span>
-            </div>
-          ))}
-        </div>
+    <div className="space-y-8">
+      <div>
+        <h3 className="text-2xl font-bold text-gray-800 mb-3">加权平均融合 - 计算结果</h3>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-6 text-center">
-        <div className="p-4 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-700">RMSE</p>
-          <p className="text-2xl font-bold text-blue-900">{data.metrics.rmse.toFixed(2)}</p>
-        </div>
-        <div className="p-4 bg-green-50 rounded-lg">
-          <p className="text-sm text-green-700">MAE</p>
-          <p className="text-2xl font-bold text-green-900">{data.metrics.mae.toFixed(2)}</p>
-        </div>
-        <div className="p-4 bg-indigo-50 rounded-lg">
-          <p className="text-sm text-indigo-700">R²</p>
-          <p className="text-2xl font-bold text-indigo-900">{data.metrics.r2.toFixed(2)}</p>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">日期</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">实际值</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500">预测值</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {data.predictions.map((row, index) => (
-              <tr key={index}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">{row.date}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">{row.actual}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{row.predicted?.toFixed(2) ?? 'N/A'}</td>
+      {/* 1. 权重分布表 */}
+      <div>
+        <h4 className="text-lg font-semibold text-gray-800 mb-3">1. 各模型权重分布</h4>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 bg-white rounded-lg shadow-sm border border-gray-200">
+            <thead className="bg-gradient-to-r from-purple-50 to-pink-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-purple-200">
+                  模型名称
+                </th>
+                <th className="px-6 py-4 text-center text-sm font-bold text-gray-700 border-b-2 border-purple-200">
+                  权重
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {data.model_names?.map((id, index) => (
+                <tr key={id} className="hover:bg-purple-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-gray-800 font-medium">
+                    {modelIdToName[id] ?? id}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-center text-purple-600 font-bold">
+                    {(data.weights?.[index] != null ? data.weights[index] * 100 : 0).toFixed(2)}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 2. 真实值预测值对比表 */}
+      <div>
+        <h4 className="text-lg font-semibold text-gray-800 mb-3">2. 真实值与预测值对比</h4>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 bg-white rounded-lg shadow-sm border border-gray-200">
+            <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
+                  日期
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
+                  真实值
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
+                  预测值
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {data.predictions.map((row, index) => (
+                <tr key={index} className="hover:bg-blue-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-gray-700">
+                    {row.date}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900 font-medium">
+                    {row.actual}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-blue-600 font-semibold">
+                    {row.predicted !== null ? row.predicted.toFixed(2) : 'N/A'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 3. 模型指标对比表 */}
+      <div>
+        <h4 className="text-lg font-semibold text-gray-800 mb-3">3. 模型指标对比</h4>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 bg-white rounded-lg shadow-sm border border-gray-200">
+            <thead className="bg-gradient-to-r from-green-50 to-emerald-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-green-200">
+                  模型名称
+                </th>
+                <th className="px-6 py-4 text-center text-sm font-bold text-gray-700 border-b-2 border-green-200">
+                  RMSE
+                </th>
+                <th className="px-6 py-4 text-center text-sm font-bold text-gray-700 border-b-2 border-green-200">
+                  MAE
+                </th>
+                <th className="px-6 py-4 text-center text-sm font-bold text-gray-700 border-b-2 border-green-200">
+                  R²
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {baseModelsData.map((model, index) => (
+                <tr key={index} className="hover:bg-green-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-gray-800 font-medium">
+                    {model.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-center text-blue-600 font-semibold">
+                    {model.rmse !== null ? model.rmse.toFixed(4) : 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-center text-green-600 font-semibold">
+                    {model.mae !== null ? model.mae.toFixed(4) : 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-center text-indigo-600 font-semibold">
+                    {model.r2 !== null ? model.r2.toFixed(4) : 'N/A'}
+                  </td>
+                </tr>
+              ))}
+              {/* 加权融合模型行 */}
+              <tr className="bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100 transition-colors">
+                <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900 font-bold">
+                  加权融合模型
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-base text-center text-blue-700 font-bold">
+                  {data.metrics.rmse.toFixed(4)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-base text-center text-green-700 font-bold">
+                  {data.metrics.mae.toFixed(4)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-base text-center text-indigo-700 font-bold">
+                  {data.metrics.r2.toFixed(4)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-4 p-5 bg-blue-50 rounded-lg border border-blue-200">
+          <h5 className="text-base font-semibold text-gray-800 mb-3">指标说明：</h5>
+          <div className="space-y-2 text-gray-700 text-sm">
+            <div className="flex items-start gap-3">
+              <span className="font-semibold text-blue-600 min-w-[4rem]">RMSE</span>
+              <span>均方根误差，值越小表示模型预测越准确</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="font-semibold text-green-600 min-w-[4rem]">MAE</span>
+              <span>平均绝对误差，值越小表示模型预测越准确</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="font-semibold text-indigo-600 min-w-[4rem]">R²</span>
+              <span>决定系数，值越接近1表示模型拟合效果越好</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
