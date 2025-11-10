@@ -307,8 +307,11 @@ const HistoricalData: React.FC = () => {
     const max = Math.max(...salesValues);
     const min = Math.min(...salesValues);
 
-    // 计算方差
-    const variance = salesValues.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / count;
+    // 计算样本方差（使用贝塞尔校正，除以 n-1）
+    // 当只有一个数据点时，方差为 0
+    const variance = count > 1
+      ? salesValues.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / (count - 1)
+      : 0;
     const stdDev = Math.sqrt(variance);
 
     return {
