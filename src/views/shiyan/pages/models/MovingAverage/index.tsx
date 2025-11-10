@@ -21,7 +21,7 @@ const STEPS = [
 const MovingAverageStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData } = useExperiment();
+  const { state, updateState, productSalesData, resetMovingAverageModel } = useExperiment();
 
   const [windowSize, setWindowSize] = useState<number | ''>(state.moving_average_window ?? 3);
   const [results, setResults] = useState<any>(null);
@@ -107,6 +107,19 @@ const MovingAverageStepper: React.FC = () => {
     }
   }, [currentStep?.id, results, isLoading, handleCalculate]);
 
+  const handleReset = async () => {
+    // Clear local state
+    setWindowSize(3);
+    setResults(null);
+    setError(null);
+
+    // Clear global state
+    await resetMovingAverageModel();
+
+    // Navigate to first step
+    navigate(`${BASE_PATH}/intro`);
+  };
+
   const handleNext = async () => {
     setError(null);
 
@@ -158,6 +171,7 @@ const MovingAverageStepper: React.FC = () => {
       currentStepId={currentStep.id}
       onNext={handleNext}
       onPrevious={handlePrevious}
+      onReset={handleReset}
       isNextDisabled={isLoading}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
     >

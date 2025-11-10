@@ -21,7 +21,7 @@ const STEPS = [
 const ExponentialSmoothingStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData } = useExperiment();
+  const { state, updateState, productSalesData, resetExponentialSmoothingModel } = useExperiment();
 
   const [alpha, setAlpha] = useState<number | ''>(state.exponential_smoothing_alpha ?? 0.5);
   const [results, setResults] = useState<any>(null);
@@ -107,6 +107,19 @@ const ExponentialSmoothingStepper: React.FC = () => {
     }
   }, [currentStep?.id, results, isLoading, handleCalculate]);
 
+  const handleReset = async () => {
+    // Clear local state
+    setAlpha(0.5);
+    setResults(null);
+    setError(null);
+
+    // Clear global state
+    await resetExponentialSmoothingModel();
+
+    // Navigate to first step
+    navigate(`${BASE_PATH}/intro`);
+  };
+
   const handleNext = async () => {
     setError(null);
     const nextStepIndex = currentStepIndex + 1;
@@ -162,6 +175,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
       currentStepId={currentStep.id}
       onNext={handleNext}
       onPrevious={handlePrevious}
+      onReset={handleReset}
       isNextDisabled={isLoading}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
     >

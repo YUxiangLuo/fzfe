@@ -23,7 +23,7 @@ const STEPS = [
 const ARIMAStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData } = useExperiment();
+  const { state, updateState, productSalesData, resetARIMAModel } = useExperiment();
 
   const [adfResults, setAdfResults] = useState<AdfStationarityRow[]>(state.arima_adf_stationarity ?? []);
   const [selectedD, setSelectedD] = useState<number | ''>(state.arima_d ?? '');
@@ -143,6 +143,20 @@ const ARIMAStepper: React.FC = () => {
     }
   }, [currentStep?.id, results, isLoading, handleCalculate]);
 
+  const handleReset = async () => {
+    // Clear local state
+    setAdfResults([]);
+    setSelectedD('');
+    setResults(null);
+    setError(null);
+
+    // Clear global state
+    await resetARIMAModel();
+
+    // Navigate to first step
+    navigate(`${BASE_PATH}/intro`);
+  };
+
   const handleNext = async () => {
     setError(null);
 
@@ -208,6 +222,7 @@ const ARIMAStepper: React.FC = () => {
       currentStepId={currentStep.id}
       onNext={handleNext}
       onPrevious={handlePrevious}
+      onReset={handleReset}
       isNextDisabled={isLoading}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
     >

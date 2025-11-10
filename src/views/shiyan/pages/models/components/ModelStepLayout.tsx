@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 
 interface Step {
   id: string;
@@ -16,6 +16,7 @@ interface ModelStepLayoutProps {
   isPreviousDisabled?: boolean;
   children: React.ReactNode;
   nextButtonText?: string;
+  onReset?: () => void;
 }
 
 const ModelStepLayout: React.FC<ModelStepLayoutProps> = ({
@@ -28,6 +29,7 @@ const ModelStepLayout: React.FC<ModelStepLayoutProps> = ({
   isPreviousDisabled = false,
   children,
   nextButtonText = '下一步',
+  onReset,
 }) => {
   const currentStepIndex = steps.findIndex(step => step.id === currentStepId);
 
@@ -35,7 +37,19 @@ const ModelStepLayout: React.FC<ModelStepLayoutProps> = ({
     <div className="h-full flex flex-col bg-white rounded-xl shadow-sm border border-gray-200">
       {/* Header with Title and Progress Bar */}
       <div className="p-6 border-b border-gray-200">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">{title}</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+          {onReset && (
+            <button
+              onClick={onReset}
+              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+              title="重置模型"
+            >
+              <RotateCcw className="w-4 h-4" />
+              重置
+            </button>
+          )}
+        </div>
         <div className="flex items-center justify-between">
           {steps.map((step, index) => {
             const isActive = index === currentStepIndex;

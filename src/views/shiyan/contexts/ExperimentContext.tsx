@@ -349,6 +349,13 @@ interface ExperimentContextType {
   productFieldsError: string | null;
   loadProductSalesData: (industry: string, company: string, product: string) => Promise<boolean>;
   loadProductFieldOptions: (industry: string, company: string, product: string) => Promise<boolean>;
+  resetMovingAverageModel: () => Promise<void>;
+  resetExponentialSmoothingModel: () => Promise<void>;
+  resetARIMAModel: () => Promise<void>;
+  resetLSTMModel: () => Promise<void>;
+  resetWeightedEnsembleModel: () => Promise<void>;
+  resetBoostingEnsembleModel: () => Promise<void>;
+  resetStackingEnsembleModel: () => Promise<void>;
 }
 
 const ExperimentContext = createContext<ExperimentContextType | undefined>(undefined);
@@ -644,6 +651,81 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const resetMovingAverageModel = useCallback(async () => {
+    await updateState({
+      moving_average_completed: false,
+      moving_average_window: null,
+      moving_average_metrics_rmse: null,
+      moving_average_metrics_mae: null,
+      moving_average_metrics_r2: null,
+    });
+  }, [updateState]);
+
+  const resetExponentialSmoothingModel = useCallback(async () => {
+    await updateState({
+      exponential_smoothing_completed: false,
+      exponential_smoothing_alpha: null,
+      exponential_smoothing_metrics_rmse: null,
+      exponential_smoothing_metrics_mae: null,
+      exponential_smoothing_metrics_r2: null,
+    });
+  }, [updateState]);
+
+  const resetARIMAModel = useCallback(async () => {
+    await updateState({
+      arima_completed: false,
+      arima_p: null,
+      arima_d: null,
+      arima_q: null,
+      arima_metrics_rmse: null,
+      arima_metrics_mae: null,
+      arima_metrics_r2: null,
+      arima_adf_stationarity: [],
+    });
+  }, [updateState]);
+
+  const resetLSTMModel = useCallback(async () => {
+    await updateState({
+      lstm_completed: false,
+      lstm_normalization: null,
+      lstm_features: [],
+      lstm_target_field: null,
+      lstm_metrics_rmse: null,
+      lstm_metrics_mae: null,
+      lstm_metrics_r2: null,
+    });
+  }, [updateState]);
+
+  const resetWeightedEnsembleModel = useCallback(async () => {
+    await updateState({
+      ensemble_weighted_completed: false,
+      ensemble_weighted_base_models: [],
+      ensemble_weighted_metrics_rmse: null,
+      ensemble_weighted_metrics_mae: null,
+      ensemble_weighted_metrics_r2: null,
+    });
+  }, [updateState]);
+
+  const resetBoostingEnsembleModel = useCallback(async () => {
+    await updateState({
+      ensemble_boosting_completed: false,
+      ensemble_boosting_base_models: [],
+      ensemble_boosting_metrics_rmse: null,
+      ensemble_boosting_metrics_mae: null,
+      ensemble_boosting_metrics_r2: null,
+    });
+  }, [updateState]);
+
+  const resetStackingEnsembleModel = useCallback(async () => {
+    await updateState({
+      ensemble_stacking_completed: false,
+      ensemble_stacking_base_models: [],
+      ensemble_stacking_metrics_rmse: null,
+      ensemble_stacking_metrics_mae: null,
+      ensemble_stacking_metrics_r2: null,
+    });
+  }, [updateState]);
+
   const contextValue = useMemo(
     () => ({
       state,
@@ -660,6 +742,13 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       productFieldsError,
       loadProductSalesData,
       loadProductFieldOptions,
+      resetMovingAverageModel,
+      resetExponentialSmoothingModel,
+      resetARIMAModel,
+      resetLSTMModel,
+      resetWeightedEnsembleModel,
+      resetBoostingEnsembleModel,
+      resetStackingEnsembleModel,
     }),
     [
       state,
@@ -675,6 +764,13 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       productFieldsError,
       loadProductSalesData,
       loadProductFieldOptions,
+      resetMovingAverageModel,
+      resetExponentialSmoothingModel,
+      resetARIMAModel,
+      resetLSTMModel,
+      resetWeightedEnsembleModel,
+      resetBoostingEnsembleModel,
+      resetStackingEnsembleModel,
     ]
   );
 

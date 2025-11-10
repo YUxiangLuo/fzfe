@@ -21,7 +21,7 @@ const STEPS = [
 const LSTMStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData, productFieldOptions } = useExperiment();
+  const { state, updateState, productSalesData, productFieldOptions, resetLSTMModel } = useExperiment();
 
   const [normalization, setNormalization] = useState<'minmax' | 'zscore' | null>(state.lstm_normalization);
   const [features, setFeatures] = useState<string[]>(state.lstm_features ?? []);
@@ -120,6 +120,21 @@ const LSTMStepper: React.FC = () => {
     }
   }, [currentStep?.id, results, isLoading, handleCalculate]);
 
+  const handleReset = async () => {
+    // Clear local state
+    setNormalization(null);
+    setFeatures([]);
+    setTarget(null);
+    setResults(null);
+    setError(null);
+
+    // Clear global state
+    await resetLSTMModel();
+
+    // Navigate to first step
+    navigate(`${BASE_PATH}/intro`);
+  };
+
   const handleNext = async () => {
     setError(null);
     const nextStepIndex = currentStepIndex + 1;
@@ -192,6 +207,7 @@ const LSTMStepper: React.FC = () => {
       currentStepId={currentStep.id}
       onNext={handleNext}
       onPrevious={handlePrevious}
+      onReset={handleReset}
       isNextDisabled={isLoading}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
     >

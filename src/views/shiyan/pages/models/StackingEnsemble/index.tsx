@@ -19,7 +19,7 @@ const STEPS = [
 const StackingEnsembleStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData } = useExperiment();
+  const { state, updateState, productSalesData, resetStackingEnsembleModel } = useExperiment();
 
   const [selectedModels, setSelectedModels] = useState<string[]>(state.ensemble_stacking_base_models ?? []);
   const [results, setResults] = useState<any>(null);
@@ -126,6 +126,19 @@ const StackingEnsembleStepper: React.FC = () => {
     }
   }, [currentStep?.id, results, isLoading, handleCalculate]);
 
+  const handleReset = async () => {
+    // Clear local state
+    setSelectedModels([]);
+    setResults(null);
+    setError(null);
+
+    // Clear global state
+    await resetStackingEnsembleModel();
+
+    // Navigate to first step
+    navigate(`${BASE_PATH}/intro`);
+  };
+
   const handleNext = async () => {
     setError(null);
     const nextStepIndex = currentStepIndex + 1;
@@ -179,6 +192,7 @@ const StackingEnsembleStepper: React.FC = () => {
       currentStepId={currentStep.id}
       onNext={handleNext}
       onPrevious={handlePrevious}
+      onReset={handleReset}
       isNextDisabled={isLoading}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
     >
