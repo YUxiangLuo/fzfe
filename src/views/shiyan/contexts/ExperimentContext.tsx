@@ -656,9 +656,15 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // 辅助函数：重置所有融合模型（因为它们依赖于基础模型）
-  const resetAllEnsembleModels = useCallback(async () => {
+  const resetMovingAverageModel = useCallback(async () => {
+    // 一次性重置基础模型和所有融合模型
     await updateState({
+      moving_average_completed: false,
+      moving_average_window: null,
+      moving_average_metrics_rmse: null,
+      moving_average_metrics_mae: null,
+      moving_average_metrics_r2: null,
+      // 同时重置所有融合模型
       ensemble_weighted_completed: false,
       ensemble_weighted_base_models: [],
       ensemble_weighted_metrics_rmse: null,
@@ -677,31 +683,35 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     });
   }, [updateState]);
 
-  const resetMovingAverageModel = useCallback(async () => {
-    await updateState({
-      moving_average_completed: false,
-      moving_average_window: null,
-      moving_average_metrics_rmse: null,
-      moving_average_metrics_mae: null,
-      moving_average_metrics_r2: null,
-    });
-    // 重置所有融合模型，因为它们可能依赖于这个基础模型
-    await resetAllEnsembleModels();
-  }, [updateState, resetAllEnsembleModels]);
-
   const resetExponentialSmoothingModel = useCallback(async () => {
+    // 一次性重置基础模型和所有融合模型
     await updateState({
       exponential_smoothing_completed: false,
       exponential_smoothing_alpha: null,
       exponential_smoothing_metrics_rmse: null,
       exponential_smoothing_metrics_mae: null,
       exponential_smoothing_metrics_r2: null,
+      // 同时重置所有融合模型
+      ensemble_weighted_completed: false,
+      ensemble_weighted_base_models: [],
+      ensemble_weighted_metrics_rmse: null,
+      ensemble_weighted_metrics_mae: null,
+      ensemble_weighted_metrics_r2: null,
+      ensemble_boosting_completed: false,
+      ensemble_boosting_base_models: [],
+      ensemble_boosting_metrics_rmse: null,
+      ensemble_boosting_metrics_mae: null,
+      ensemble_boosting_metrics_r2: null,
+      ensemble_stacking_completed: false,
+      ensemble_stacking_base_models: [],
+      ensemble_stacking_metrics_rmse: null,
+      ensemble_stacking_metrics_mae: null,
+      ensemble_stacking_metrics_r2: null,
     });
-    // 重置所有融合模型，因为它们可能依赖于这个基础模型
-    await resetAllEnsembleModels();
-  }, [updateState, resetAllEnsembleModels]);
+  }, [updateState]);
 
   const resetARIMAModel = useCallback(async () => {
+    // 一次性重置基础模型和所有融合模型
     await updateState({
       arima_completed: false,
       arima_p: null,
@@ -711,12 +721,27 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       arima_metrics_mae: null,
       arima_metrics_r2: null,
       arima_adf_stationarity: [],
+      // 同时重置所有融合模型
+      ensemble_weighted_completed: false,
+      ensemble_weighted_base_models: [],
+      ensemble_weighted_metrics_rmse: null,
+      ensemble_weighted_metrics_mae: null,
+      ensemble_weighted_metrics_r2: null,
+      ensemble_boosting_completed: false,
+      ensemble_boosting_base_models: [],
+      ensemble_boosting_metrics_rmse: null,
+      ensemble_boosting_metrics_mae: null,
+      ensemble_boosting_metrics_r2: null,
+      ensemble_stacking_completed: false,
+      ensemble_stacking_base_models: [],
+      ensemble_stacking_metrics_rmse: null,
+      ensemble_stacking_metrics_mae: null,
+      ensemble_stacking_metrics_r2: null,
     });
-    // 重置所有融合模型，因为它们可能依赖于这个基础模型
-    await resetAllEnsembleModels();
-  }, [updateState, resetAllEnsembleModels]);
+  }, [updateState]);
 
   const resetLSTMModel = useCallback(async () => {
+    // 一次性重置基础模型和所有融合模型
     await updateState({
       lstm_completed: false,
       lstm_normalization: null,
@@ -725,10 +750,24 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       lstm_metrics_rmse: null,
       lstm_metrics_mae: null,
       lstm_metrics_r2: null,
+      // 同时重置所有融合模型
+      ensemble_weighted_completed: false,
+      ensemble_weighted_base_models: [],
+      ensemble_weighted_metrics_rmse: null,
+      ensemble_weighted_metrics_mae: null,
+      ensemble_weighted_metrics_r2: null,
+      ensemble_boosting_completed: false,
+      ensemble_boosting_base_models: [],
+      ensemble_boosting_metrics_rmse: null,
+      ensemble_boosting_metrics_mae: null,
+      ensemble_boosting_metrics_r2: null,
+      ensemble_stacking_completed: false,
+      ensemble_stacking_base_models: [],
+      ensemble_stacking_metrics_rmse: null,
+      ensemble_stacking_metrics_mae: null,
+      ensemble_stacking_metrics_r2: null,
     });
-    // 重置所有融合模型，因为它们可能依赖于这个基础模型
-    await resetAllEnsembleModels();
-  }, [updateState, resetAllEnsembleModels]);
+  }, [updateState]);
 
   const resetWeightedEnsembleModel = useCallback(async () => {
     await updateState({
