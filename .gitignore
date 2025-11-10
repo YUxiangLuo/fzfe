@@ -1,3 +1,4 @@
+*.pdf
 COMMIT_EDITMSG
 # dependencies (bun install)
 node_modules
