@@ -5,6 +5,7 @@ import Intro from './Intro';
 import Preprocessing, { type PreprocessingProps } from './Preprocessing';
 import NormalizationInfo from './NormalizationInfo';
 import Build, { type BuildProps } from './Build';
+import LSTMMethodInfo from './LSTMMethodInfo';
 import Results, { type ResultsProps } from './Results';
 import { useExperiment } from '../../../contexts/ExperimentContext';
 import { apiClient } from '../../../../../utils/apiClient';
@@ -21,9 +22,11 @@ const STEPS = [
 
 // Hidden pages - not part of the main steps
 const NORMALIZATION_INFO_PATH = `${BASE_PATH}/normalization-info`;
+const LSTM_METHOD_INFO_PATH = `${BASE_PATH}/lstm-method-info`;
 
 // Step indices for navigation
 const PREPROCESSING_STEP_INDEX = 1;
+const BUILD_STEP_INDEX = 2;
 
 const LSTMStepper: React.FC = () => {
   const navigate = useNavigate();
@@ -39,6 +42,7 @@ const LSTMStepper: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
 
   const isNormalizationInfoPage = useMemo(() => location.pathname === NORMALIZATION_INFO_PATH, [location.pathname]);
+  const isLSTMMethodInfoPage = useMemo(() => location.pathname === LSTM_METHOD_INFO_PATH, [location.pathname]);
 
   const evaluateMonths = useMemo(() => {
     if (!productSalesData || state.data_window_evaluate_start_index === null || state.data_window_evaluate_end_index === null) {
@@ -55,22 +59,41 @@ const LSTMStepper: React.FC = () => {
     }
   }, [target, features]);
 
+  // Auto-set target to "销售数量" when entering build page
+  useEffect(() => {
+    if (currentStep?.id === 'build' && !target && productFieldOptions) {
+      const salesQuantityField = productFieldOptions.find(field =>
+        field === '销售数量' || field.includes('销售数量')
+      );
+      if (salesQuantityField) {
+        setTarget(salesQuantityField);
+      }
+    }
+  }, [currentStep?.id, target, productFieldOptions]);
+
   const currentStepIndex = useMemo(() => {
     if (isNormalizationInfoPage) {
       // Normalization info is part of preprocessing in the step navigation
       return PREPROCESSING_STEP_INDEX;
     }
+    if (isLSTMMethodInfoPage) {
+      // LSTM method info is part of build in the step navigation
+      return BUILD_STEP_INDEX;
+    }
     const currentPath = location.pathname;
     const index = STEPS.findIndex(step => step.path === currentPath);
     return index === -1 ? 0 : index;
-  }, [location.pathname, isNormalizationInfoPage]);
+  }, [location.pathname, isNormalizationInfoPage, isLSTMMethodInfoPage]);
 
   const currentStep = useMemo(() => {
     if (isNormalizationInfoPage) {
       return { id: 'normalization-info', name: '标准化介绍', path: NORMALIZATION_INFO_PATH, component: NormalizationInfo };
     }
+    if (isLSTMMethodInfoPage) {
+      return { id: 'lstm-method-info', name: '构建LSTM方法', path: LSTM_METHOD_INFO_PATH, component: LSTMMethodInfo };
+    }
     return STEPS[currentStepIndex];
-  }, [currentStepIndex, isNormalizationInfoPage]);
+  }, [currentStepIndex, isNormalizationInfoPage, isLSTMMethodInfoPage]);
 
   const handleCalculate = useCallback(async () => {
     setIsLoading(true);
@@ -199,6 +222,12 @@ const LSTMStepper: React.FC = () => {
       return;
     }
 
+    if (isLSTMMethodInfoPage) {
+      // From LSTM method info, go back to build
+      navigate(STEPS[BUILD_STEP_INDEX].path);
+      return;
+    }
+
     const prevStep = STEPS[currentStepIndex - 1];
     if (prevStep) {
       navigate(prevStep.path);
@@ -209,6 +238,10 @@ const LSTMStepper: React.FC = () => {
 
   const handleShowNormalizationInfo = () => {
     navigate(NORMALIZATION_INFO_PATH);
+  };
+
+  const handleShowLSTMMethodInfo = () => {
+    navigate(LSTM_METHOD_INFO_PATH);
   };
 
   if (!currentStep) {
@@ -223,10 +256,10 @@ const LSTMStepper: React.FC = () => {
       features,
       setFeatures,
       target,
-      setTarget,
       error,
       isLoading,
-      fieldOptions: productFieldOptions ?? []
+      fieldOptions: productFieldOptions ?? [],
+      onShowLSTMMethodInfo: handleShowLSTMMethodInfo
     },
     results: { data: results, isLoading, error },
   };
@@ -235,6 +268,7 @@ const LSTMStepper: React.FC = () => {
 
   const getCurrentStepId = () => {
     if (isNormalizationInfoPage) return 'preprocessing'; // Normalization info is part of preprocessing
+    if (isLSTMMethodInfoPage) return 'build'; // LSTM method info is part of build
     return currentStep.id;
   };
 
@@ -247,7 +281,7 @@ const LSTMStepper: React.FC = () => {
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
-      isNextDisabled={isLoading || isNormalizationInfoPage}
+      isNextDisabled={isLoading || isNormalizationInfoPage || isLSTMMethodInfoPage}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />

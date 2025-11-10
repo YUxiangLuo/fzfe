@@ -1,17 +1,17 @@
 import React from 'react';
-import { CheckCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 
 export interface BuildProps {
   features: string[];
   setFeatures: (features: string[]) => void;
   target: string | null;
-  setTarget: (target: string | null) => void;
   error: string | null;
   isLoading: boolean;
   fieldOptions: string[];
+  onShowLSTMMethodInfo: () => void;
 }
 
-const Build: React.FC<BuildProps> = ({ features, setFeatures, target, setTarget, error, isLoading, fieldOptions }) => {
+const Build: React.FC<BuildProps> = ({ features, setFeatures, target, error, isLoading, fieldOptions, onShowLSTMMethodInfo }) => {
   const handleFeatureToggle = (field: string) => {
     const newFeatures = features.includes(field)
       ? features.filter(f => f !== field)
@@ -36,68 +36,62 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, setTarget,
   const filteredFields = fieldOptions.filter(isNumericField);
 
   return (
-    <div>
-      <h3 className="text-lg font-semibold mb-4">LSTM - 构建模型</h3>
-      <p className="mb-4">
-        请选择需求预测时所使用的特征，并配置模型参数。
-      </p>
-      
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-2xl font-bold text-gray-800 mb-4">LSTM 法 - 构建LSTM模型</h3>
+      </div>
+
       {isLoading ? (
         <div className="flex items-center justify-center h-full p-8">
           <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
           <p className="ml-4 text-gray-600">正在训练模型，请稍候...</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div>
-            <h4 className="font-semibold text-gray-800">目标字段选择</h4>
-            <select
-              value={target ?? ''}
-              onChange={(e) => setTarget(e.target.value || null)}
-              className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm"
-            >
-              <option value="">-- 请选择预测目标 --</option>
-              {filteredFields.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-          </div>
-
-          <div>
-            <h4 className="font-semibold text-gray-800">特征选择</h4>
-            <div className="mt-2 space-y-1">
+        <div className="space-y-6">
+          <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm">
+            <label className="block text-lg font-semibold text-gray-800 mb-4">
+              请选择需求预测时所使用的特征:
+            </label>
+            <div className="space-y-3">
               {filteredFields.map(field => {
                 const isDisabled = field === target;
                 return (
-                  <div key={field} className="flex items-center">
-                    <input 
-                      type="checkbox" 
+                  <div key={field} className="flex items-center p-3 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-300 transition-colors">
+                    <input
+                      type="checkbox"
                       id={`feature-${field}`}
-                      className="h-4 w-4 rounded disabled:bg-gray-200" 
+                      className="h-5 w-5 rounded text-blue-600 focus:ring-blue-500 disabled:bg-gray-200 cursor-pointer"
                       checked={features.includes(field) && !isDisabled}
                       onChange={() => handleFeatureToggle(field)}
                       disabled={isDisabled}
                     />
-                    <label htmlFor={`feature-${field}`} className={`ml-2 ${isDisabled ? 'text-gray-400' : ''}`}>{field}</label>
+                    <label
+                      htmlFor={`feature-${field}`}
+                      className={`ml-4 text-base flex-1 cursor-pointer ${isDisabled ? 'text-gray-400' : 'text-gray-800'}`}
+                    >
+                      {field}
+                      {isDisabled && <span className="ml-2 text-xs text-gray-500">(目标字段)</span>}
+                    </label>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          <div>
-            <h4 className="font-semibold text-gray-800">模型参数配置</h4>
-            <p className="text-xs text-gray-500">（为简化操作，此处参数已预设为推荐值）</p>
-            <ul className="mt-2 text-sm text-gray-600 list-disc list-inside">
-              <li>LSTM 层数: 3</li>
-              <li>每层隐藏单元数: 288</li>
-              <li>最大训练轮数: 20</li>
-            </ul>
+          <div className="flex justify-center">
+            <button
+              onClick={onShowLSTMMethodInfo}
+              className="px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
+            >
+              构建LSTM方法
+            </button>
           </div>
         </div>
       )}
 
       {error && (
-        <div className="mt-4 flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-md">
-          <AlertTriangle className="w-5 h-5" />
+        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
