@@ -37,6 +37,7 @@ export interface ProductSalesData {
     month: string;
     sales: number;
   }[];
+  csvData?: string[][]; // 原始CSV数据，第一行为表头
 }
 
 export interface AdfStationarityRow {

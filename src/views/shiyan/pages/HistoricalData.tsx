@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
-import { BarChart3, Calendar, Info, ArrowRight, Loader2, AlertTriangle, Download, X } from 'lucide-react';
+import { BarChart3, Calendar, Info, ArrowRight, Loader2, AlertTriangle, Download, X, Table, Settings } from 'lucide-react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -85,6 +85,11 @@ const HistoricalData: React.FC = () => {
   const [hasBlankData, setHasBlankData] = useState(false);
   const [blankMonths, setBlankMonths] = useState<string[]>([]);
   const chartRef = useRef<HTMLDivElement>(null);
+
+  // CSV数据表格相关状态
+  const [visibleColumns, setVisibleColumns] = useState<Set<number>>(new Set());
+  const [showColumnSelector, setShowColumnSelector] = useState(false);
+  const columnSelectorRef = useRef<HTMLDivElement>(null);
 
   const { selected_industry, selected_company, selected_product } = state;
   const hasRecordedStartRef = useRef(false);
@@ -199,6 +204,32 @@ const HistoricalData: React.FC = () => {
       hasRecordedStartRef.current = true;
     }
   }, [state.highest_completed_step, recordStepEvent]);
+
+  // 初始化可见列（默认显示所有列）
+  useEffect(() => {
+    if (activeDataset?.csvData && activeDataset.csvData.length > 0) {
+      const headers = activeDataset.csvData[0];
+      if (headers && visibleColumns.size === 0) {
+        setVisibleColumns(new Set(headers.map((_, index) => index)));
+      }
+    }
+  }, [activeDataset?.csvData]);
+
+  // 点击外部关闭列选择器
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (columnSelectorRef.current && !columnSelectorRef.current.contains(event.target as Node)) {
+        setShowColumnSelector(false);
+      }
+    };
+
+    if (showColumnSelector) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showColumnSelector]);
 
   // 检测空白数据（使用处理后的数据）
   useEffect(() => {
@@ -341,6 +372,77 @@ const HistoricalData: React.FC = () => {
       current_step: NEXT_STEP,
     });
     navigate(PATHS.NEXT);
+  };
+
+  // 切换列的可见性
+  const toggleColumn = (columnIndex: number) => {
+    setVisibleColumns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(columnIndex)) {
+        newSet.delete(columnIndex);
+      } else {
+        newSet.add(columnIndex);
+      }
+      return newSet;
+    });
+  };
+
+  // 全选/取消全选
+  const toggleAllColumns = () => {
+    if (!activeDataset?.csvData || activeDataset.csvData.length === 0) return;
+    const headers = activeDataset.csvData[0];
+    if (!headers) return;
+
+    if (visibleColumns.size === headers.length) {
+      // 全部取消选择
+      setVisibleColumns(new Set());
+    } else {
+      // 全部选择
+      setVisibleColumns(new Set(headers.map((_, index) => index)));
+    }
+  };
+
+  // 下载CSV数据
+  const handleDownloadCSV = () => {
+    if (!activeDataset?.csvData || activeDataset.csvData.length === 0) {
+      toast.showToast('没有可下载的数据', 'error');
+      return;
+    }
+
+    try {
+      const headers = activeDataset.csvData[0];
+      if (!headers) return;
+
+      // 过滤可见列
+      const filteredData = activeDataset.csvData.map(row =>
+        row.filter((_, index) => visibleColumns.has(index))
+      );
+
+      // 转换为CSV格式
+      const csvContent = filteredData
+        .map(row => row.map(cell => `"${cell}"`).join(','))
+        .join('\n');
+
+      // 创建Blob并下载
+      const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+
+      const productName = activeDataset.meta.name || '产品';
+      const timestamp = new Date().toISOString().slice(0, 10);
+      link.download = `${productName}_原始数据_${timestamp}.csv`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.showToast('CSV文件已下载', 'success');
+    } catch (error) {
+      console.error('下载CSV失败:', error);
+      toast.showToast('下载失败，请重试', 'error');
+    }
   };
 
   // 保存图表为图片
@@ -604,6 +706,118 @@ const HistoricalData: React.FC = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* 原始CSV数据表格 */}
+        {activeDataset?.csvData && activeDataset.csvData.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                <Table className="w-6 h-6 mr-3 text-green-600" />
+                原始数据表格
+              </h2>
+              <div className="flex items-center gap-3">
+                {/* 列选择按钮 */}
+                <div className="relative" ref={columnSelectorRef}>
+                  <button
+                    onClick={() => setShowColumnSelector(!showColumnSelector)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span>选择列 ({visibleColumns.size}/{activeDataset.csvData[0]?.length || 0})</span>
+                  </button>
+
+                  {/* 列选择下拉面板 */}
+                  {showColumnSelector && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-96 overflow-y-auto">
+                      <div className="p-3 border-b border-gray-200 flex justify-between items-center">
+                        <span className="font-medium text-gray-900">选择要显示的列</span>
+                        <button
+                          onClick={toggleAllColumns}
+                          className="text-sm text-blue-600 hover:text-blue-700"
+                        >
+                          {visibleColumns.size === activeDataset.csvData[0]?.length ? '取消全选' : '全选'}
+                        </button>
+                      </div>
+                      <div className="p-2">
+                        {activeDataset.csvData[0]?.map((header, index) => (
+                          <label
+                            key={index}
+                            className="flex items-center px-3 py-2 hover:bg-gray-50 rounded cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={visibleColumns.has(index)}
+                              onChange={() => toggleColumn(index)}
+                              className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                            />
+                            <span className="ml-3 text-sm text-gray-700">{header}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 下载CSV按钮 */}
+                <button
+                  onClick={handleDownloadCSV}
+                  disabled={visibleColumns.size === 0}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    visibleColumns.size === 0
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
+                >
+                  <Download className="w-4 h-4" />
+                  <span>下载CSV</span>
+                </button>
+              </div>
+            </div>
+
+            {/* 数据表格 */}
+            {visibleColumns.size > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-green-50 to-blue-50">
+                      {activeDataset.csvData[0]?.map((header, index) =>
+                        visibleColumns.has(index) ? (
+                          <th
+                            key={index}
+                            className="border border-gray-300 px-3 py-2 text-left font-semibold text-gray-700 whitespace-nowrap"
+                          >
+                            {header}
+                          </th>
+                        ) : null
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeDataset.csvData.slice(1).map((row, rowIndex) => (
+                      <tr key={rowIndex} className="hover:bg-gray-50">
+                        {row.map((cell, cellIndex) =>
+                          visibleColumns.has(cellIndex) ? (
+                            <td
+                              key={cellIndex}
+                              className="border border-gray-300 px-3 py-2 text-gray-700"
+                            >
+                              {cell}
+                            </td>
+                          ) : null
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Info className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                <p>请至少选择一列以显示数据</p>
+              </div>
+            )}
           </div>
         )}
 
