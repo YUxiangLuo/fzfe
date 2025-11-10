@@ -27,6 +27,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
   const [results, setResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
 
 
   const evaluateMonths = useMemo(() => {
@@ -108,16 +109,21 @@ const ExponentialSmoothingStepper: React.FC = () => {
   }, [currentStep?.id, results, isLoading, handleCalculate]);
 
   const handleReset = async () => {
-    // Clear local state
-    setAlpha(0.5);
-    setResults(null);
-    setError(null);
+    setIsResetting(true);
+    try {
+      // Clear local state
+      setAlpha(0.5);
+      setResults(null);
+      setError(null);
 
-    // Clear global state
-    await resetExponentialSmoothingModel();
+      // Clear global state
+      await resetExponentialSmoothingModel();
 
-    // Navigate to first step
-    navigate(`${BASE_PATH}/intro`);
+      // Navigate to first step
+      navigate(`${BASE_PATH}/intro`);
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const handleNext = async () => {
@@ -176,6 +182,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
       onNext={handleNext}
       onPrevious={handlePrevious}
       onReset={handleReset}
+      isResetting={isResetting}
       isNextDisabled={isLoading}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
     >

@@ -29,6 +29,7 @@ const LSTMStepper: React.FC = () => {
   const [results, setResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isResetting, setIsResetting] = useState(false);
 
 
   const evaluateMonths = useMemo(() => {
@@ -121,18 +122,23 @@ const LSTMStepper: React.FC = () => {
   }, [currentStep?.id, results, isLoading, handleCalculate]);
 
   const handleReset = async () => {
-    // Clear local state
-    setNormalization(null);
-    setFeatures([]);
-    setTarget(null);
-    setResults(null);
-    setError(null);
+    setIsResetting(true);
+    try {
+      // Clear local state
+      setNormalization(null);
+      setFeatures([]);
+      setTarget(null);
+      setResults(null);
+      setError(null);
 
-    // Clear global state
-    await resetLSTMModel();
+      // Clear global state
+      await resetLSTMModel();
 
-    // Navigate to first step
-    navigate(`${BASE_PATH}/intro`);
+      // Navigate to first step
+      navigate(`${BASE_PATH}/intro`);
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   const handleNext = async () => {
@@ -208,6 +214,7 @@ const LSTMStepper: React.FC = () => {
       onNext={handleNext}
       onPrevious={handlePrevious}
       onReset={handleReset}
+      isResetting={isResetting}
       isNextDisabled={isLoading}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
     >

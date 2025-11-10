@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, Loader2 } from 'lucide-react';
 
 interface Step {
   id: string;
@@ -17,6 +17,7 @@ interface ModelStepLayoutProps {
   children: React.ReactNode;
   nextButtonText?: string;
   onReset?: () => void;
+  isResetting?: boolean;
 }
 
 const ModelStepLayout: React.FC<ModelStepLayoutProps> = ({
@@ -30,6 +31,7 @@ const ModelStepLayout: React.FC<ModelStepLayoutProps> = ({
   children,
   nextButtonText = '下一步',
   onReset,
+  isResetting = false,
 }) => {
   const currentStepIndex = steps.findIndex(step => step.id === currentStepId);
 
@@ -42,10 +44,15 @@ const ModelStepLayout: React.FC<ModelStepLayoutProps> = ({
           {onReset && (
             <button
               onClick={onReset}
-              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+              disabled={isResetting}
+              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               title="重置模型"
             >
-              <RotateCcw className="w-4 h-4" />
+              {isResetting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RotateCcw className="w-4 h-4" />
+              )}
               重置
             </button>
           )}
