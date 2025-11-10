@@ -22,12 +22,14 @@ const Params: React.FC<ParamsProps> = ({ windowSize, setWindowSize, isLoading, e
   };
 
   return (
-    <div>
-      <h3 className="text-lg font-semibold mb-4">移动平均法 - 时间窗口选取</h3>
-      <p>请根据您的数据特点和分析目标，选取合适的时间窗口大小n。</p>
-      <div className="mt-4 max-w-sm">
-        <label htmlFor="window-size" className="block text-sm font-medium text-gray-700">
-          时间窗口 n 的取值:
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-2xl font-bold text-gray-800 mb-4">移动平均法 - 时间窗口选取</h3>
+      </div>
+
+      <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm">
+        <label htmlFor="window-size" className="block text-base font-medium text-gray-700 mb-3">
+          请输入时间窗口 n 的取值:
         </label>
         <input
           type="number"
@@ -35,13 +37,20 @@ const Params: React.FC<ParamsProps> = ({ windowSize, setWindowSize, isLoading, e
           value={windowSize}
           onChange={handleChange}
           disabled={isLoading}
-          className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm disabled:bg-gray-100"
-          placeholder="例如: 3"
+          className="block w-full max-w-md px-4 py-3 bg-white border-2 border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+          placeholder="请输入窗口大小"
         />
       </div>
+
+      <div className="p-5 bg-amber-50 rounded-lg border border-amber-200">
+        <p className="text-gray-700 leading-relaxed text-base">
+          请根据您的数据特点和分析目标，选取合适的时间窗口大小 n。窗口大小 n 会影响到移动平均的平滑程度和对数据趋势的反应灵敏度。较小的窗口大小会使移动平均更接近原始数据，但可能保留较多的噪声；较大的窗口大小则会平滑掉更多的波动，但也可能导致对快速变化趋势的反应迟缓。
+        </p>
+      </div>
+
       {error && (
-        <div className="mt-4 flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-md">
-          <AlertTriangle className="w-5 h-5" />
+        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}

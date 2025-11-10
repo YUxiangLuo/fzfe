@@ -23,7 +23,7 @@ const MovingAverageStepper: React.FC = () => {
   const location = useLocation();
   const { state, updateState, productSalesData, resetMovingAverageModel } = useExperiment();
 
-  const [windowSize, setWindowSize] = useState<number | ''>(state.moving_average_window ?? 3);
+  const [windowSize, setWindowSize] = useState<number | ''>(state.moving_average_window ?? '');
   const [results, setResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +112,7 @@ const MovingAverageStepper: React.FC = () => {
     setIsResetting(true);
     try {
       // Clear local state
-      setWindowSize(3);
+      setWindowSize('');
       setResults(null);
       setError(null);
 
