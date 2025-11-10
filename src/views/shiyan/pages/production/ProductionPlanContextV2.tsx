@@ -390,77 +390,70 @@ export const ProductionPlanProvider: React.FC<{
     const generatedTable: MPSTableRow[] = [period1Row, period2Row];
 
     // 🆕 从期3开始生成，使用期2的结果作为初始状态
+    let previousPlannedProduction = state.period2Data.plannedProduction ?? 0;
     let previousEndingInventory = state.period2Data.endingInventory ?? 0;
     let previousStockout = state.period2Data.stockout ?? 0;
 
     console.log(`📌 期1和期2使用用户学习数据，从期3开始生成`);
-    console.log(`📌 期2结束状态: 期末库存=${previousEndingInventory}, 缺货=${previousStockout}`);
+    console.log(`📌 期2结束状态: 计划投入=${previousPlannedProduction}, 期末库存=${previousEndingInventory}, 缺货=${previousStockout}`);
 
     // 从期3开始循环（i=2对应期3）
     for (let i = 2; i < predictions.length; i++) {
       const prediction = predictions[i];
       if (!prediction) continue;
 
-      const demandForecast = Math.round(prediction.prediction);
+      // 1. 产出量 = min(上期投入量, 产能)
+      const productionOutput = Math.max(0, Math.min(previousPlannedProduction, state.productionCapacity));
+      const isCapacityConstrained = previousPlannedProduction > state.productionCapacity;
 
-      // 🛡️ 数据验证和修正：使用专用验证函数
-      const validationResult = validateAndFixStdDev(prediction.std_dev, demandForecast, i);
-
-      // 输出所有警告信息
-      validationResult.warnings.forEach(warning => {
-        console.warn(`⚠️ ${warning}`);
-      });
-
-      const stdDev = validationResult.value;
-      const safetyStock = Math.round(state.safetyStockZScore * stdDev);
-
+      // 2. 计算本期库存、缺货、服务水平
       const beginningInventory = previousEndingInventory;
-      const backlogToRecover = previousStockout;
-
-      // 计划生产量 = 预测需求 + 安全库存 + 上期缺货 - 期初库存
-      const requiredProduction = Math.max(
-        0,
-        demandForecast + safetyStock + backlogToRecover - beginningInventory
-      );
-
-      // 🆕 应用产能约束
-      const productionOutput = Math.max(0, Math.min(requiredProduction, state.productionCapacity));
-      const isCapacityConstrained = requiredProduction > state.productionCapacity;
-
-      // 可用库存 = 期初库存 + 实际产出
       const availableInventory = beginningInventory + productionOutput;
-      // 总需求 = 上期缺货（需要补） + 本期需求
-      const totalDemand = backlogToRecover + demandForecast;
+      const demandForecast = Math.round(prediction.prediction);
+      const totalDemand = previousStockout + demandForecast; // 补上期缺货 + 本期需求
 
-      // 期末库存 = 可用库存 - 总需求
       let endingInventory = availableInventory - totalDemand;
       let stockout = 0;
-
       if (endingInventory < 0) {
         stockout = Math.abs(endingInventory);
         endingInventory = 0;
       }
+      // Corrected Service Level: Based on current period's demand and what was available for it.
+      const unmetCurrentDemand = Math.max(0, demandForecast - (beginningInventory + productionOutput));
+      const serviceLevel = demandForecast > 0 ? 1 - (unmetCurrentDemand / demandForecast) : 1.0;
 
-      // 服务水平：基于本期需求（不包括补上期缺货）
-      const serviceLevel = demandForecast > 0 ? 1 - (stockout / demandForecast) : 1;
+
+      // 3. 计算本期投入量 (供下一期使用)
+      // 🛡️ 数据验证和修正：使用专用验证函数
+      const validationResult = validateAndFixStdDev(prediction.std_dev, demandForecast, i);
+      validationResult.warnings.forEach(warning => console.warn(`⚠️ ${warning}`));
+      const stdDev = validationResult.value;
+      const safetyStock = Math.round(state.safetyStockZScore * stdDev);
+
+      // 计划生产量 = 预测需求 + 安全库存 + 上期缺货 - 期初库存
+      const plannedProduction = Math.max(
+        0,
+        demandForecast + safetyStock + previousStockout - beginningInventory
+      );
 
       // 🐛 调试日志
       console.log(`\n📦 期 ${i + 1}:`);
       console.log(`  需求预测: ${demandForecast}, 标准差: ${stdDev.toFixed(2)}`);
       console.log(`  安全库存: ${safetyStock}`);
-      console.log(`  期初库存: ${beginningInventory}, 上期缺货: ${backlogToRecover}`);
-      console.log(`  计划生产: ${requiredProduction}, 产能上限: ${state.productionCapacity}`);
+      console.log(`  期初库存: ${beginningInventory}, 上期缺货: ${previousStockout}`);
+      console.log(`  上期投入: ${previousPlannedProduction}, 产能上限: ${state.productionCapacity}`);
       console.log(`  ${isCapacityConstrained ? '⚠️ 产能受限！' : '✅ 产能充足'} 实际产出: ${productionOutput}`);
       console.log(`  可用库存: ${availableInventory} (期初${beginningInventory} + 产出${productionOutput})`);
-      console.log(`  总需求: ${totalDemand} (补上期${backlogToRecover} + 本期${demandForecast})`);
+      console.log(`  总需求: ${totalDemand} (补上期${previousStockout} + 本期${demandForecast})`);
       console.log(`  期末库存: ${endingInventory}, 本期缺货: ${stockout}, 服务水平: ${(serviceLevel * 100).toFixed(1)}%`);
+      console.log(`  本期计划投入 (for 期 ${i + 2}): ${plannedProduction}`);
 
       const row: MPSTableRow = {
         period: i + 1,
         period_label: `期 ${i + 1}`,
         demand_forecast: demandForecast,
         safety_stock: safetyStock,
-        planned_production: requiredProduction,
+        planned_production: plannedProduction,
         beginning_inventory: beginningInventory,
         production_output: productionOutput,
         ending_inventory: endingInventory,
@@ -470,6 +463,8 @@ export const ProductionPlanProvider: React.FC<{
 
       generatedTable.push(row);
 
+      // 4. 更新循环变量
+      previousPlannedProduction = plannedProduction;
       previousEndingInventory = endingInventory;
       previousStockout = stockout;
     }
