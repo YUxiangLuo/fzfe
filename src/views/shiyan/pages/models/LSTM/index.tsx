@@ -59,18 +59,6 @@ const LSTMStepper: React.FC = () => {
     }
   }, [target, features]);
 
-  // Auto-set target to "销售数量" when entering build page
-  useEffect(() => {
-    if (currentStep?.id === 'build' && !target && productFieldOptions) {
-      const salesQuantityField = productFieldOptions.find(field =>
-        field === '销售数量' || field.includes('销售数量')
-      );
-      if (salesQuantityField) {
-        setTarget(salesQuantityField);
-      }
-    }
-  }, [currentStep?.id, target, productFieldOptions]);
-
   const currentStepIndex = useMemo(() => {
     if (isNormalizationInfoPage) {
       // Normalization info is part of preprocessing in the step navigation
@@ -94,6 +82,18 @@ const LSTMStepper: React.FC = () => {
     }
     return STEPS[currentStepIndex];
   }, [currentStepIndex, isNormalizationInfoPage, isLSTMMethodInfoPage]);
+
+  // Auto-set target to "销售数量" when entering build page
+  useEffect(() => {
+    if (currentStep?.id === 'build' && !target && productFieldOptions) {
+      const salesQuantityField = productFieldOptions.find(field =>
+        field === '销售数量' || field.includes('销售数量')
+      );
+      if (salesQuantityField) {
+        setTarget(salesQuantityField);
+      }
+    }
+  }, [currentStep?.id, target, productFieldOptions]);
 
   const handleCalculate = useCallback(async () => {
     setIsLoading(true);
