@@ -31,16 +31,6 @@ const MovingAverageStepper: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
-
-  const evaluateMonths = useMemo(() => {
-    if (!productSalesData || state.data_window_evaluate_start_index === null || state.data_window_evaluate_end_index === null) {
-      return [];
-    }
-    const start = state.data_window_evaluate_start_index;
-    const end = state.data_window_evaluate_end_index;
-    return productSalesData.monthlySales.slice(start, end + 1).map(item => item.month);
-  }, [productSalesData, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
-
   const currentStepIndex = useMemo(() => {
     const currentPath = location.pathname;
     const index = STEPS.findIndex(step => step.path === currentPath);
@@ -48,6 +38,21 @@ const MovingAverageStepper: React.FC = () => {
   }, [location.pathname]);
 
   const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
+
+  // Calculate training data length for validation
+  const trainDataLength = useMemo(() => {
+    if (state.data_window_train_start_index === null || state.data_window_train_end_index === null) {
+      return 0;
+    }
+    return state.data_window_train_end_index - state.data_window_train_start_index + 1;
+  }, [state.data_window_train_start_index, state.data_window_train_end_index]);
+
+  const isValidWindowSize = useMemo(() => {
+    if (windowSize === '' || windowSize <= 0) return false;
+    if (windowSize < 2) return false; // 窗口大小至少为2
+    if (trainDataLength > 0 && windowSize > trainDataLength) return false; // 不能超过训练数据长度
+    return true;
+  }, [windowSize, trainDataLength]);
 
   const handleCalculate = useCallback(async () => {
     setIsLoading(true);
@@ -145,8 +150,8 @@ const MovingAverageStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'validation') {
-      // Check if windowSize is valid
-      if (!windowSize || windowSize <= 0) {
+      // Check if windowSize is valid using the same validation logic
+      if (!isValidWindowSize) {
         // Stay on validation page, error message will be shown
         return;
       }
@@ -184,21 +189,6 @@ const MovingAverageStepper: React.FC = () => {
   }
 
   const CurrentComponent = currentStep.component as React.FC<any>;
-
-  // Calculate training data length for validation
-  const trainDataLength = useMemo(() => {
-    if (state.data_window_train_start_index === null || state.data_window_train_end_index === null) {
-      return 0;
-    }
-    return state.data_window_train_end_index - state.data_window_train_start_index + 1;
-  }, [state.data_window_train_start_index, state.data_window_train_end_index]);
-
-  const isValidWindowSize = useMemo(() => {
-    if (windowSize === '' || windowSize <= 0) return false;
-    if (windowSize < 2) return false; // 窗口大小至少为2
-    if (trainDataLength > 0 && windowSize > trainDataLength) return false; // 不能超过训练数据长度
-    return true;
-  }, [windowSize, trainDataLength]);
 
   const componentProps: { [key: string]: ParamsProps | ValidationProps | ResultsProps | {} } = {
     params: { windowSize, setWindowSize, isLoading, error },
