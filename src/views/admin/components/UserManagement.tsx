@@ -58,12 +58,10 @@ const INITIAL_PASSWORD_ERRORS: PasswordErrors = {
 
 type BatchErrors = {
   file: string;
-  password: string;
 };
 
 const INITIAL_BATCH_ERRORS: BatchErrors = {
   file: "",
-  password: "",
 };
 
 interface PaginationInfo {
@@ -101,7 +99,6 @@ const UserManagement: React.FC = () => {
     useState<TeacherErrors>(INITIAL_TEACHER_ERRORS);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [batchFile, setBatchFile] = useState<File | null>(null);
-  const [batchPassword, setBatchPassword] = useState("");
   const [batchErrors, setBatchErrors] = useState<BatchErrors>({
     ...INITIAL_BATCH_ERRORS,
   });
@@ -284,7 +281,6 @@ const UserManagement: React.FC = () => {
 
   const openBatchModal = () => {
     setBatchFile(null);
-    setBatchPassword("");
     setBatchErrors({ ...INITIAL_BATCH_ERRORS });
     setIsBatchModalOpen(true);
   };
@@ -293,7 +289,6 @@ const UserManagement: React.FC = () => {
     setIsBatchModalOpen(false);
     setIsBatchSubmitting(false);
     setBatchFile(null);
-    setBatchPassword("");
     setBatchErrors({ ...INITIAL_BATCH_ERRORS });
   };
 
@@ -309,26 +304,9 @@ const UserManagement: React.FC = () => {
     }));
   };
 
-  const getBatchPasswordError = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return "请输入统一密码";
-    const result = validatePassword(trimmed, { minLength: 6, requireMixed: false });
-    return result.valid ? "" : result.error ?? "密码至少需要6个字符";
-  };
-
-  const handleBatchPasswordChange = (value: string) => {
-    setBatchPassword(value);
-    setBatchErrors((prev) => ({
-      ...prev,
-      password: getBatchPasswordError(value),
-    }));
-  };
-
   const isBatchFormValid =
     batchFile !== null &&
-    batchErrors.file === "" &&
-    batchPassword.trim() !== "" &&
-    batchErrors.password === "";
+    batchErrors.file === "";
 
   useEffect(() => {
     try {
@@ -443,15 +421,8 @@ const UserManagement: React.FC = () => {
       return;
     }
 
-    const passwordError = getBatchPasswordError(batchPassword);
-    setBatchErrors((prev) => ({ ...prev, password: passwordError }));
-    if (passwordError) {
-      return;
-    }
-
     const formData = new FormData();
     formData.append("file", batchFile);
-    formData.append("password", batchPassword.trim());
 
     try {
       setIsBatchSubmitting(true);
@@ -816,21 +787,16 @@ const UserManagement: React.FC = () => {
             </ul>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              统一密码
-            </label>
-            <input
-              type="password"
-              value={batchPassword}
-              onChange={(e) => handleBatchPasswordChange(e.target.value)}
-              placeholder="为所有导入教师设置相同的初始密码（至少6位）"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              disabled={isBatchSubmitting}
-            />
-            {batchErrors.password && (
-              <p className="mt-2 text-xs text-red-500">{batchErrors.password}</p>
-            )}
+          <div className="flex items-start space-x-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-medium text-amber-900">
+                账号和密码规则
+              </p>
+              <p className="text-xs text-amber-700 mt-1">
+                批量创建的教师账号，其登录用户名为 <span className="font-semibold">prof_手机号</span>，初始密码为 <span className="font-semibold">手机号</span>。请提醒教师首次登录后及时修改密码。
+              </p>
+            </div>
           </div>
 
           <div>
