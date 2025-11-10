@@ -4,6 +4,7 @@ import ModelStepLayout from '../components/ModelStepLayout';
 import Intro from './Intro';
 import SelectModels, { type SelectModelsProps } from './SelectModels';
 import Results, { type ResultsProps } from './Results';
+import ModelMetricsComparison, { type ModelMetricsComparisonProps } from './ModelMetricsComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext';
 import { apiClient } from '../../../../../utils/apiClient';
 
@@ -15,6 +16,12 @@ const STEPS = [
   { id: 'select-models', name: '模型选择', path: `${BASE_PATH}/select-models`, component: SelectModels },
   { id: 'results', name: '计算结果', path: `${BASE_PATH}/results`, component: Results },
 ];
+
+// Hidden pages - not part of the main steps
+const MODEL_METRICS_COMPARISON_PATH = `${BASE_PATH}/model-metrics-comparison`;
+
+// Step indices for navigation
+const RESULTS_STEP_INDEX = 2;
 
 const BoostingEnsembleStepper: React.FC = () => {
   const navigate = useNavigate();
@@ -36,13 +43,24 @@ const BoostingEnsembleStepper: React.FC = () => {
     return productSalesData.monthlySales.slice(start, end + 1).map(item => item.month);
   }, [productSalesData, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
 
+  const isModelMetricsComparisonPage = useMemo(() => location.pathname === MODEL_METRICS_COMPARISON_PATH, [location.pathname]);
+
   const currentStepIndex = useMemo(() => {
+    if (isModelMetricsComparisonPage) {
+      // Hidden pages are part of results in the step navigation
+      return RESULTS_STEP_INDEX;
+    }
     const currentPath = location.pathname;
     const index = STEPS.findIndex(step => step.path === currentPath);
     return index === -1 ? 0 : index;
-  }, [location.pathname]);
+  }, [location.pathname, isModelMetricsComparisonPage]);
 
-  const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
+  const currentStep = useMemo(() => {
+    if (isModelMetricsComparisonPage) {
+      return { id: 'model-metrics-comparison', name: '模型指标对比', path: MODEL_METRICS_COMPARISON_PATH, component: ModelMetricsComparison };
+    }
+    return STEPS[currentStepIndex];
+  }, [currentStepIndex, isModelMetricsComparisonPage]);
 
   const handleCalculate = useCallback(async () => {
     setIsLoading(true);
@@ -156,7 +174,14 @@ const BoostingEnsembleStepper: React.FC = () => {
       return;
     }
 
-    if (currentStepIndex === STEPS.length - 1) {
+    if (currentStep?.id === 'results') {
+      // Navigate to model metrics comparison page
+      navigate(MODEL_METRICS_COMPARISON_PATH);
+      return;
+    }
+
+    if (currentStep?.id === 'model-metrics-comparison') {
+      // Mark as completed and return to model select
       await updateState({ ensemble_boosting_completed: true });
       navigate('/model/model-select');
       return;
@@ -168,6 +193,12 @@ const BoostingEnsembleStepper: React.FC = () => {
   };
 
   const handlePrevious = () => {
+    if (isModelMetricsComparisonPage) {
+      // From model metrics comparison, go back to results
+      navigate(STEPS[RESULTS_STEP_INDEX].path);
+      return;
+    }
+
     const prevStep = STEPS[currentStepIndex - 1];
     if (prevStep) {
       navigate(prevStep.path);
@@ -182,24 +213,35 @@ const BoostingEnsembleStepper: React.FC = () => {
 
   const CurrentComponent = currentStep.component as React.FC<any>;
 
-  const componentProps: { [key: string]: SelectModelsProps | ResultsProps | {} } = {
+  const componentProps: { [key: string]: SelectModelsProps | ResultsProps | ModelMetricsComparisonProps | {} } = {
     'select-models': { selectedModels, setSelectedModels, error },
     results: { data: results, isLoading, error },
+    'model-metrics-comparison': {
+      data: results ? { metrics: results.metrics } : null,
+      baseModelIds: selectedModels
+    },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
+
+  const getCurrentStepId = () => {
+    if (isModelMetricsComparisonPage) return 'results';
+    return currentStep.id;
+  };
 
   return (
     <ModelStepLayout
       title={MODEL_NAME}
       steps={STEPS}
-      currentStepId={currentStep.id}
+      currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
       isNextDisabled={isLoading}
-      nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
+      nextButtonText={
+        currentStep?.id === 'model-metrics-comparison' ? '完成' : '下一步'
+      }
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
     </ModelStepLayout>
