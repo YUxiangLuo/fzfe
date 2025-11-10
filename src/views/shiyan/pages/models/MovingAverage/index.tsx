@@ -22,6 +22,10 @@ const STEPS = [
 // Validation is a special intermediate page, not part of the main steps
 const VALIDATION_PATH = `${BASE_PATH}/validation`;
 
+// Step indices for validation navigation
+const PARAMS_STEP_INDEX = 2;
+const RESULTS_STEP_INDEX = 3;
+
 const MovingAverageStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -37,9 +41,9 @@ const MovingAverageStepper: React.FC = () => {
 
   const currentStepIndex = useMemo(() => {
     if (isValidationPage) {
-      // Validation is between params (index 2) and results (index 3)
+      // Validation is between params and results
       // We treat it as if we're still on params for step navigation purposes
-      return 2;
+      return PARAMS_STEP_INDEX;
     }
     const currentPath = location.pathname;
     const index = STEPS.findIndex(step => step.path === currentPath);
@@ -166,8 +170,8 @@ const MovingAverageStepper: React.FC = () => {
         // Stay on validation page, error message will be shown
         return;
       }
-      // If valid, proceed to results (index 3 in STEPS)
-      navigate(STEPS[3].path);
+      // If valid, proceed to results
+      navigate(STEPS[RESULTS_STEP_INDEX].path);
       return;
     }
 
@@ -185,8 +189,8 @@ const MovingAverageStepper: React.FC = () => {
 
   const handlePrevious = () => {
     if (isValidationPage) {
-      // From validation, go back to params (index 2)
-      navigate(STEPS[2].path);
+      // From validation, go back to params
+      navigate(STEPS[PARAMS_STEP_INDEX].path);
       return;
     }
 
