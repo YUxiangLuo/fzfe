@@ -4,7 +4,9 @@ import ModelStepLayout from '../components/ModelStepLayout';
 import Intro from './Intro';
 import Formula from './Formula';
 import Params, { type ParamsProps } from './Params';
+import Validation, { type ValidationProps } from './Validation';
 import Results, { type ResultsProps } from './Results';
+import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext';
 import { apiClient } from '../../../../../utils/apiClient';
 
@@ -18,34 +20,59 @@ const STEPS = [
   { id: 'results', name: '计算结果', path: `${BASE_PATH}/results`, component: Results },
 ];
 
+// Hidden pages - not part of the main steps
+const VALIDATION_PATH = `${BASE_PATH}/validation`;
+const COMPARISON_PATH = `${BASE_PATH}/comparison`;
+
+// Step indices for navigation
+const PARAMS_STEP_INDEX = 2;
+const RESULTS_STEP_INDEX = 3;
+
 const ExponentialSmoothingStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { state, updateState, productSalesData, resetExponentialSmoothingModel } = useExperiment();
 
-  const [alpha, setAlpha] = useState<number | ''>(state.exponential_smoothing_alpha ?? 0.5);
+  const [alpha, setAlpha] = useState<number | ''>(state.exponential_smoothing_alpha ?? '');
   const [results, setResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
-
-  const evaluateMonths = useMemo(() => {
-    if (!productSalesData || state.data_window_evaluate_start_index === null || state.data_window_evaluate_end_index === null) {
-      return [];
-    }
-    const start = state.data_window_evaluate_start_index;
-    const end = state.data_window_evaluate_end_index;
-    return productSalesData.monthlySales.slice(start, end + 1).map(item => item.month);
-  }, [productSalesData, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
+  const isValidationPage = useMemo(() => location.pathname === VALIDATION_PATH, [location.pathname]);
+  const isComparisonPage = useMemo(() => location.pathname === COMPARISON_PATH, [location.pathname]);
 
   const currentStepIndex = useMemo(() => {
+    if (isValidationPage) {
+      // Validation is between params and results
+      // We treat it as if we're still on params for step navigation purposes
+      return PARAMS_STEP_INDEX;
+    }
+    if (isComparisonPage) {
+      // Comparison is after results
+      // We treat it as if we're still on results for step navigation purposes
+      return RESULTS_STEP_INDEX;
+    }
     const currentPath = location.pathname;
     const index = STEPS.findIndex(step => step.path === currentPath);
     return index === -1 ? 0 : index;
-  }, [location.pathname]);
+  }, [location.pathname, isValidationPage, isComparisonPage]);
 
-  const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
+  const currentStep = useMemo(() => {
+    if (isValidationPage) {
+      return { id: 'validation', name: '验证', path: VALIDATION_PATH, component: Validation };
+    }
+    if (isComparisonPage) {
+      return { id: 'comparison', name: '模型对比', path: COMPARISON_PATH, component: ModelComparison };
+    }
+    return STEPS[currentStepIndex];
+  }, [currentStepIndex, isValidationPage, isComparisonPage]);
+
+  const isValidAlpha = useMemo(() => {
+    if (alpha === '' || alpha <= 0) return false;
+    if (alpha > 1) return false;
+    return true;
+  }, [alpha]);
 
   const handleCalculate = useCallback(async () => {
     setIsLoading(true);
@@ -66,8 +93,12 @@ const ExponentialSmoothingStepper: React.FC = () => {
 
       if (response.status === "success") {
         const apiResults = response.results;
+        const months = productSalesData?.monthlySales
+          .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
+          .map(item => item.month) || [];
+
         setResults({
-          predictions: evaluateMonths.map((month: string, index: number) => ({
+          predictions: months.map((month: string, index: number) => ({
             date: month,
             actual: apiResults.eval_y_true[index],
             predicted: apiResults.eval_predictions[index],
@@ -98,7 +129,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
     state.data_window_evaluate_start_index,
     state.data_window_evaluate_end_index,
     alpha,
-    evaluateMonths,
+    productSalesData,
     updateState
   ]);
 
@@ -112,7 +143,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
     setIsResetting(true);
     try {
       // Clear local state
-      setAlpha(0.5);
+      setAlpha('');
       setResults(null);
       setError(null);
 
@@ -128,31 +159,56 @@ const ExponentialSmoothingStepper: React.FC = () => {
 
   const handleNext = async () => {
     setError(null);
-    const nextStepIndex = currentStepIndex + 1;
 
     if (currentStep?.id === 'params') {
-      if (alpha === '' || alpha <= 0 || alpha > 1) {
-        setError('请输入一个有效的平滑系数 (0 < α ≤ 1)。');
-        return;
-      }
-      if (STEPS[nextStepIndex]) {
-        navigate(STEPS[nextStepIndex].path);
-      }
+      // Navigate to validation page
+      navigate(VALIDATION_PATH);
       return;
     }
 
-    if (currentStepIndex === STEPS.length - 1) {
+    if (currentStep?.id === 'validation') {
+      // Check if alpha is valid using the same validation logic
+      if (!isValidAlpha) {
+        // Stay on validation page, error message will be shown
+        return;
+      }
+      // If valid, proceed to results
+      navigate(STEPS[RESULTS_STEP_INDEX].path);
+      return;
+    }
+
+    if (currentStep?.id === 'results') {
+      // Mark model as completed and navigate to comparison page
       await updateState({ exponential_smoothing_completed: true });
+      navigate(COMPARISON_PATH);
+      return;
+    }
+
+    if (currentStep?.id === 'comparison') {
+      // Go back to model select (model already marked as completed)
       navigate('/model/model-select');
       return;
     }
 
-    if (nextStepIndex < STEPS.length && STEPS[nextStepIndex]) {
-      navigate(STEPS[nextStepIndex].path);
+    const nextStep = STEPS[currentStepIndex + 1];
+    if (nextStep) {
+      navigate(nextStep.path);
     }
   };
 
   const handlePrevious = () => {
+    if (isValidationPage) {
+      // From validation, go back to params
+      navigate(STEPS[PARAMS_STEP_INDEX].path);
+      return;
+    }
+
+    if (isComparisonPage) {
+      // From comparison, go back to results
+      navigate(STEPS[RESULTS_STEP_INDEX].path);
+      return;
+    }
+
     const prevStep = STEPS[currentStepIndex - 1];
     if (prevStep) {
       navigate(prevStep.path);
@@ -167,24 +223,37 @@ const ExponentialSmoothingStepper: React.FC = () => {
 
   const CurrentComponent = currentStep.component as React.FC<any>;
 
-  const componentProps: { [key: string]: ParamsProps | ResultsProps | {} } = {
+  const componentProps: { [key: string]: ParamsProps | ValidationProps | ResultsProps | {} } = {
     params: { alpha, setAlpha, isLoading, error },
+    validation: { alpha, isValid: isValidAlpha },
     results: { data: results, isLoading, error },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
 
+  const getNextButtonText = () => {
+    if (isComparisonPage) return '完成';
+    if (currentStepIndex === STEPS.length - 1) return '下一步'; // Results page now goes to comparison
+    return '下一步';
+  };
+
+  const getCurrentStepId = () => {
+    if (isValidationPage) return 'params'; // Validation is part of params in the step navigation
+    if (isComparisonPage) return 'results'; // Comparison is part of results in the step navigation
+    return currentStep.id;
+  };
+
   return (
     <ModelStepLayout
       title={MODEL_NAME}
       steps={STEPS}
-      currentStepId={currentStep.id}
+      currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
-      isNextDisabled={isLoading}
-      nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
+      isNextDisabled={isLoading || (isValidationPage && !isValidAlpha)}
+      nextButtonText={getNextButtonText()}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
     </ModelStepLayout>

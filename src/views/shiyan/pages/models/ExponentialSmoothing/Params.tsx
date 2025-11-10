@@ -1,66 +1,66 @@
 import React from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 export interface ParamsProps {
   alpha: number | '';
-  setAlpha: (alpha: number | '') => void;
+  setAlpha: (value: number | '') => void;
   isLoading: boolean;
   error: string | null;
 }
 
 const Params: React.FC<ParamsProps> = ({ alpha, setAlpha, isLoading, error }) => {
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAlpha(parseFloat(e.target.value));
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value === '') {
       setAlpha('');
     } else {
       const numValue = parseFloat(value);
-      if (!isNaN(numValue) && numValue >= 0 && numValue <= 1) {
+      if (!isNaN(numValue)) {
         setAlpha(numValue);
       }
     }
   };
 
   return (
-    <div>
-      <h3 className="text-lg font-semibold mb-4">指数平滑法 - 参数设置</h3>
-      <div className="space-y-4">
-        <div>
-          <label htmlFor="alpha-slider" className="block text-sm font-medium text-gray-700">
-            平滑系数 (α): {alpha}
-          </label>
-          <input
-            id="alpha-slider"
-            type="range"
-            min="0.01"
-            max="1"
-            step="0.01"
-            value={alpha === '' ? 0 : alpha}
-            onChange={handleSliderChange}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-          />
-        </div>
-        <div>
-          <label htmlFor="alpha-input" className="block text-sm font-medium text-gray-700">
-            精确输入 α 值
-          </label>
-          <input
-            id="alpha-input"
-            type="number"
-            step="0.01"
-            min="0.01"
-            max="1"
-            value={alpha}
-            onChange={handleInputChange}
-            className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            placeholder="例如: 0.5"
-          />
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-2xl font-bold text-gray-800 mb-4">指数平滑法 - 平滑系数选择</h3>
+      </div>
+
+      <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm">
+        <label htmlFor="alpha-input" className="block text-base font-medium text-gray-700 mb-3">
+          请输入平滑系数α的取值:
+        </label>
+        <input
+          type="number"
+          id="alpha-input"
+          value={alpha}
+          onChange={handleChange}
+          disabled={isLoading}
+          step="0.01"
+          min="0"
+          max="1"
+          className="block w-full max-w-md px-4 py-3 bg-white border-2 border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+          placeholder="请输入平滑系数（0 < α ≤ 1）"
+        />
+      </div>
+
+      <div className="p-5 bg-amber-50 rounded-lg border border-amber-200">
+        <h4 className="text-base font-semibold text-gray-800 mb-3">平滑系数α的一般取值原则：</h4>
+        <div className="space-y-2 text-gray-700 text-base leading-relaxed">
+          <p>(1) 在初始值准确性小或者历史数据很少的情况下，α取值要大一些，进行短期预测。</p>
+          <p>(2) 时间序列长期呈现比较平稳的发展趋势，α取值要小一些，预测长期演变趋势。</p>
+          <p>(3) 时间序列波动的频率和振幅较大，α取值宜大，强调近期实际变化状态。</p>
+          <p>(4) 时间序列波动的频率和振幅较小，α取值宜小，强调历史数据发展趋势。</p>
         </div>
       </div>
-      {error && <p className="text-red-500 mt-4">{error}</p>}
+
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
     </div>
   );
 };

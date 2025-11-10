@@ -28,32 +28,24 @@ const Results: React.FC<ResultsProps> = ({ data, isLoading, error }) => {
     return <p>没有可用的结果。</p>;
   }
 
+  const calculateAccuracy = (actual: number, predicted: number | null): string => {
+    if (predicted === null || actual === 0) return 'N/A';
+    const accuracy = (1 - Math.abs(actual - predicted) / Math.abs(actual)) * 100;
+    return `${accuracy.toFixed(2)}%`;
+  };
+
   return (
     <div>
       <h3 className="text-lg font-semibold mb-4">指数平滑法 - 计算结果</h3>
-      
-      <div className="grid grid-cols-3 gap-4 mb-6 text-center">
-        <div className="p-4 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-700">RMSE</p>
-          <p className="text-2xl font-bold text-blue-900">{data.metrics.rmse.toFixed(2)}</p>
-        </div>
-        <div className="p-4 bg-green-50 rounded-lg">
-          <p className="text-sm text-green-700">MAE</p>
-          <p className="text-2xl font-bold text-green-900">{data.metrics.mae.toFixed(2)}</p>
-        </div>
-        <div className="p-4 bg-indigo-50 rounded-lg">
-          <p className="text-sm text-indigo-700">R²</p>
-          <p className="text-2xl font-bold text-indigo-900">{data.metrics.r2.toFixed(2)}</p>
-        </div>
-      </div>
 
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">实际值</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">真实值</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">预测值</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">预测准确率</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -61,7 +53,8 @@ const Results: React.FC<ResultsProps> = ({ data, isLoading, error }) => {
               <tr key={index}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{row.date}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{row.actual}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{row.predicted?.toFixed(2) ?? 'N/A'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">{row.predicted !== null ? row.predicted.toFixed(2) : 'N/A'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">{calculateAccuracy(row.actual, row.predicted)}</td>
               </tr>
             ))}
           </tbody>
