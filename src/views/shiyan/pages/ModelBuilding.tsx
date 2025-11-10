@@ -64,6 +64,24 @@ const ModelBuilding: React.FC = () => {
   // 获取当前激活的子步骤索引
   const getCurrentSubStepIndex = (): number => {
     const currentPath = location.pathname;
+
+    // 检查是否在模型详情页面（任何模型的子路径）
+    const modelPaths = [
+      '/model/moving-average',
+      '/model/exponential-smoothing',
+      '/model/arima',
+      '/model/lstm',
+      '/model/weighted-ensemble',
+      '/model/boosting-ensemble',
+      '/model/stacking-ensemble'
+    ];
+
+    const isInModelDetails = modelPaths.some(path => currentPath.startsWith(path));
+    if (isInModelDetails) {
+      // 返回最后一步的索引（模型选择和应用）
+      return SUB_STEPS.length - 1;
+    }
+
     const index = SUB_STEPS.findIndex(step => currentPath.startsWith(step.path));
     return index >= 0 ? index : 0;
   };
