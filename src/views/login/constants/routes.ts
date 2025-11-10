@@ -1,6 +1,6 @@
 // 登录后的重定向路径配置
 export const ROLE_REDIRECT_PATHS = {
-  student: "/shiyan",
+  student: "/exp",
   teacher: "/teacher",
   assistant: "/teacher",
   admin: "/admin",

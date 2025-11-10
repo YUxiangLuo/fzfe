@@ -62,7 +62,7 @@ const MainLayout = () => {
 function App() {
   return (
     <ExperimentProvider>
-      <Router basename="/shiyan">
+      <Router basename="/exp">
         <Routes>
           <Route path="/" element={<Navigate to="/introduction" replace />} />
           <Route path="/introduction" element={<Introduction />} />

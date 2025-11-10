@@ -19,8 +19,8 @@ function spaFallbackPlugin(): Plugin {
         }
 
         // 根据路径前缀返回对应的 HTML 文件
-        if (url.startsWith('/shiyan')) {
-          req.url = '/shiyan.html';
+        if (url.startsWith('/exp')) {
+          req.url = '/exp.html';
         } else if (url.startsWith('/teacher')) {
           req.url = '/teacher.html';
         } else if (url.startsWith('/admin')) {
@@ -53,7 +53,7 @@ export default defineConfig({
         login: resolve(__dirname, 'login.html'),
         admin: resolve(__dirname, 'admin.html'),
         teacher: resolve(__dirname, 'teacher.html'),
-        shiyan: resolve(__dirname, 'shiyan.html'),
+        exp: resolve(__dirname, 'exp.html'),
       },
     },
   },

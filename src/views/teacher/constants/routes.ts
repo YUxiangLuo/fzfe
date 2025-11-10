@@ -4,7 +4,7 @@
 
 export const ROUTES = {
   LOGIN: '/login',
-  EXPERIMENT: '/shiyan',
+  EXPERIMENT: '/exp',
   TEACHER: '/teacher',
   ASSISTANT: '/teacher',  // 助教使用相同的 teacher 端
   ADMIN: '/admin',
