@@ -6,6 +6,7 @@ import Stationarity, { type StationarityProps } from './Stationarity';
 import AutoregressionInfo from './AutoregressionInfo';
 import StationarityTable, { type StationarityTableProps } from './StationarityTable';
 import Differencing, { type DifferencingProps } from './Differencing';
+import DifferencingValidation, { type DifferencingValidationProps } from './DifferencingValidation';
 import AutoParams from './AutoParams';
 import Results, { type ResultsProps } from './Results';
 import { useExperiment, type AdfStationarityRow } from '../../../contexts/ExperimentContext';
@@ -25,10 +26,12 @@ const STEPS = [
 // Hidden pages - not part of the main steps
 const AUTOREGRESSION_INFO_PATH = `${BASE_PATH}/autoregression-info`;
 const STATIONARITY_TABLE_PATH = `${BASE_PATH}/stationarity-table`;
+const DIFFERENCING_VALIDATION_PATH = `${BASE_PATH}/differencing-validation`;
 
 // Step indices for navigation
 const STATIONARITY_STEP_INDEX = 1;
 const DIFFERENCING_STEP_INDEX = 2;
+const AUTOPARAMS_STEP_INDEX = 3;
 
 const ARIMAStepper: React.FC = () => {
   const navigate = useNavigate();
@@ -44,11 +47,13 @@ const ARIMAStepper: React.FC = () => {
 
   const isAutoregressionInfoPage = useMemo(() => location.pathname === AUTOREGRESSION_INFO_PATH, [location.pathname]);
   const isStationarityTablePage = useMemo(() => location.pathname === STATIONARITY_TABLE_PATH, [location.pathname]);
+  const isDifferencingValidationPage = useMemo(() => location.pathname === DIFFERENCING_VALIDATION_PATH, [location.pathname]);
 
-  const recommendedD = useMemo(() => {
-    const firstStationary = adfResults.find((row) => row.stationary);
-    return firstStationary?.diff_order ?? 0;
-  }, [adfResults]);
+  const isValidDifferencing = useMemo(() => {
+    if (selectedD === '' || selectedD < 0 || selectedD > 2) return false;
+    const adfRow = adfResults.find(r => r.diff_order === selectedD);
+    return adfRow?.stationary ?? false;
+  }, [selectedD, adfResults]);
 
   const currentStepIndex = useMemo(() => {
     if (isAutoregressionInfoPage) {
@@ -59,10 +64,14 @@ const ARIMAStepper: React.FC = () => {
       // Stationarity table is between stationarity and differencing
       return STATIONARITY_STEP_INDEX;
     }
+    if (isDifferencingValidationPage) {
+      // Differencing validation is between differencing and autoparams
+      return DIFFERENCING_STEP_INDEX;
+    }
     const currentPath = location.pathname;
     const index = STEPS.findIndex(step => step.path === currentPath);
     return index === -1 ? 0 : index;
-  }, [location.pathname, isAutoregressionInfoPage, isStationarityTablePage]);
+  }, [location.pathname, isAutoregressionInfoPage, isStationarityTablePage, isDifferencingValidationPage]);
 
   const currentStep = useMemo(() => {
     if (isAutoregressionInfoPage) {
@@ -71,8 +80,11 @@ const ARIMAStepper: React.FC = () => {
     if (isStationarityTablePage) {
       return { id: 'stationarity-table', name: '平稳性检验表', path: STATIONARITY_TABLE_PATH, component: StationarityTable };
     }
+    if (isDifferencingValidationPage) {
+      return { id: 'differencing-validation', name: '差分阶数检验', path: DIFFERENCING_VALIDATION_PATH, component: DifferencingValidation };
+    }
     return STEPS[currentStepIndex];
-  }, [currentStepIndex, isAutoregressionInfoPage, isStationarityTablePage]);
+  }, [currentStepIndex, isAutoregressionInfoPage, isStationarityTablePage, isDifferencingValidationPage]);
 
   const handleRunAdf = async () => {
     setError(null);
@@ -224,12 +236,21 @@ const ARIMAStepper: React.FC = () => {
         setError("请选择一个差分阶数 d。");
         return;
       }
-      const isStationary = adfResults.find(r => r.diff_order === selectedD)?.stationary;
-      if (!isStationary) {
-        setError(`差分阶数 d=${selectedD} 未能使序列平稳，请重新选择。`);
+      // Navigate to differencing validation page
+      navigate(DIFFERENCING_VALIDATION_PATH);
+      return;
+    }
+
+    if (currentStep?.id === 'differencing-validation') {
+      // Check if the differencing is valid
+      if (!isValidDifferencing) {
+        setError("差分阶数检验未通过，请返回重新选择。");
         return;
       }
+      // Save the selectedD and navigate to autoparams
       await updateState({ arima_d: selectedD });
+      navigate(STEPS[AUTOPARAMS_STEP_INDEX].path);
+      return;
     }
 
     const isLastStep = currentStepIndex === STEPS.length - 1;
@@ -257,6 +278,12 @@ const ARIMAStepper: React.FC = () => {
       return;
     }
 
+    if (isDifferencingValidationPage) {
+      // From differencing validation, go back to differencing
+      navigate(STEPS[DIFFERENCING_STEP_INDEX].path);
+      return;
+    }
+
     const prevStep = STEPS[currentStepIndex - 1];
     if (prevStep) {
       navigate(prevStep.path);
@@ -275,10 +302,11 @@ const ARIMAStepper: React.FC = () => {
 
   const CurrentComponent = currentStep.component as React.FC<any>;
 
-  const componentProps: { [key: string]: StationarityProps | StationarityTableProps | DifferencingProps | ResultsProps | {} } = {
+  const componentProps: { [key: string]: StationarityProps | StationarityTableProps | DifferencingProps | DifferencingValidationProps | ResultsProps | {} } = {
     stationarity: { onShowAutoregression: handleShowAutoregression },
     'stationarity-table': { adfResults, isLoading, error },
-    differencing: { adfResults, selectedD, setSelectedD, recommendedD, error },
+    differencing: { selectedD, setSelectedD, error },
+    'differencing-validation': { selectedD, adfResults },
     autoparams: { isLoading, error },
     results: { data: results, isLoading, error },
   };
@@ -288,6 +316,7 @@ const ARIMAStepper: React.FC = () => {
   const getCurrentStepId = () => {
     if (isAutoregressionInfoPage) return 'stationarity'; // Autoregression info is part of stationarity
     if (isStationarityTablePage) return 'stationarity'; // Stationarity table is part of stationarity
+    if (isDifferencingValidationPage) return 'differencing'; // Differencing validation is part of differencing
     return currentStep.id;
   };
 
@@ -300,7 +329,7 @@ const ARIMAStepper: React.FC = () => {
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
-      isNextDisabled={isLoading || isAutoregressionInfoPage}
+      isNextDisabled={isLoading || isAutoregressionInfoPage || (isDifferencingValidationPage && !isValidDifferencing)}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
