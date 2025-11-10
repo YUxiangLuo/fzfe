@@ -207,13 +207,13 @@ const HistoricalData: React.FC = () => {
 
   // 初始化可见列（默认显示所有列）
   useEffect(() => {
-    if (activeDataset?.csvData && activeDataset.csvData.length > 0) {
-      const headers = activeDataset.csvData[0];
+    if (processedSalesData?.csvData && processedSalesData.csvData.length > 0) {
+      const headers = processedSalesData.csvData[0];
       if (headers && visibleColumns.size === 0) {
         setVisibleColumns(new Set(headers.map((_, index) => index)));
       }
     }
-  }, [activeDataset?.csvData]);
+  }, [processedSalesData?.csvData]);
 
   // 点击外部关闭列选择器
   useEffect(() => {
