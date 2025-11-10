@@ -579,6 +579,11 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       (field) => nextState[field] === true && previousState[field] === false
     );
 
+    // Check if any model was reset (completion status changed from true to false)
+    const modelReset = modelCompletionFields.some(
+      (field) => nextState[field] === false && previousState[field] === true
+    );
+
     // Check if experiment status changed to 'Completed'
     const experimentCompleted =
       Object.prototype.hasOwnProperty.call(updates, 'status') &&
@@ -586,7 +591,7 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       previousState.status !== 'Completed';
 
 
-    const shouldSyncToBackend = stepCompleted || criticalStateChanged || modelCompleted || experimentCompleted || bestModelChanged;
+    const shouldSyncToBackend = stepCompleted || criticalStateChanged || modelCompleted || modelReset || experimentCompleted || bestModelChanged;
 
     if (shouldSyncToBackend) {
       try {
