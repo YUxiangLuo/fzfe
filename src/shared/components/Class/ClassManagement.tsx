@@ -528,6 +528,17 @@ const ClassManagement: React.FC = () => {
               <p className="text-xs text-gray-500">
                 上传 CSV 文件将自动创建学生账号并加入班级。CSV 文件需包含学号和姓名字段。
               </p>
+              <div className="flex items-start space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <AlertTriangle size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-blue-900">
+                    批量创建提示
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    批量创建的学生账号，其登录用户名和初始密码均为学号。请提醒学生首次登录后及时修改密码。
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
