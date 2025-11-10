@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --hot src/index.tsx",
-    "start": "NODE_ENV=production bun src/index.tsx"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "vite preview"
   },
   "dependencies": {
     "@types/react-router-dom": "^5.3.3",
@@ -21,10 +23,14 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "bun-plugin-tailwind": "^0.0.15",
+    "vite": "^6.0.7",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@tailwindcss/postcss": "^4.1.11",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/bun": "latest",
-    "@types/lodash.debounce": "^4.0.9"
+    "@types/lodash.debounce": "^4.0.9",
+    "@types/node": "^22.10.2"
   }
 }
