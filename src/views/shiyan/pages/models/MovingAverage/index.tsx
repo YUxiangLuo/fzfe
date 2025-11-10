@@ -6,6 +6,7 @@ import Formula from './Formula';
 import Params, { type ParamsProps } from './Params';
 import Validation, { type ValidationProps } from './Validation';
 import Results, { type ResultsProps } from './Results';
+import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext';
 import { apiClient } from '../../../../../utils/apiClient';
 
@@ -19,10 +20,11 @@ const STEPS = [
   { id: 'results', name: '计算结果', path: `${BASE_PATH}/results`, component: Results },
 ];
 
-// Validation is a special intermediate page, not part of the main steps
+// Hidden pages - not part of the main steps
 const VALIDATION_PATH = `${BASE_PATH}/validation`;
+const COMPARISON_PATH = `${BASE_PATH}/comparison`;
 
-// Step indices for validation navigation
+// Step indices for navigation
 const PARAMS_STEP_INDEX = 2;
 const RESULTS_STEP_INDEX = 3;
 
@@ -38,6 +40,7 @@ const MovingAverageStepper: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
 
   const isValidationPage = useMemo(() => location.pathname === VALIDATION_PATH, [location.pathname]);
+  const isComparisonPage = useMemo(() => location.pathname === COMPARISON_PATH, [location.pathname]);
 
   const currentStepIndex = useMemo(() => {
     if (isValidationPage) {
@@ -45,17 +48,25 @@ const MovingAverageStepper: React.FC = () => {
       // We treat it as if we're still on params for step navigation purposes
       return PARAMS_STEP_INDEX;
     }
+    if (isComparisonPage) {
+      // Comparison is after results
+      // We treat it as if we're still on results for step navigation purposes
+      return RESULTS_STEP_INDEX;
+    }
     const currentPath = location.pathname;
     const index = STEPS.findIndex(step => step.path === currentPath);
     return index === -1 ? 0 : index;
-  }, [location.pathname, isValidationPage]);
+  }, [location.pathname, isValidationPage, isComparisonPage]);
 
   const currentStep = useMemo(() => {
     if (isValidationPage) {
       return { id: 'validation', name: '验证', path: VALIDATION_PATH, component: Validation };
     }
+    if (isComparisonPage) {
+      return { id: 'comparison', name: '模型对比', path: COMPARISON_PATH, component: ModelComparison };
+    }
     return STEPS[currentStepIndex];
-  }, [currentStepIndex, isValidationPage]);
+  }, [currentStepIndex, isValidationPage, isComparisonPage]);
 
   // Calculate training data length for validation
   const trainDataLength = useMemo(() => {
@@ -175,15 +186,22 @@ const MovingAverageStepper: React.FC = () => {
       return;
     }
 
-    const isLastStep = currentStepIndex === STEPS.length - 1;
-    if (isLastStep) {
+    if (currentStep?.id === 'results') {
+      // Navigate to comparison page
+      navigate(COMPARISON_PATH);
+      return;
+    }
+
+    if (currentStep?.id === 'comparison') {
+      // Complete the model and go back to model select
       await updateState({ moving_average_completed: true });
       navigate('/model/model-select');
-    } else {
-      const nextStep = STEPS[currentStepIndex + 1];
-      if (nextStep) {
-        navigate(nextStep.path);
-      }
+      return;
+    }
+
+    const nextStep = STEPS[currentStepIndex + 1];
+    if (nextStep) {
+      navigate(nextStep.path);
     }
   };
 
@@ -191,6 +209,12 @@ const MovingAverageStepper: React.FC = () => {
     if (isValidationPage) {
       // From validation, go back to params
       navigate(STEPS[PARAMS_STEP_INDEX].path);
+      return;
+    }
+
+    if (isComparisonPage) {
+      // From comparison, go back to results
+      navigate(STEPS[RESULTS_STEP_INDEX].path);
       return;
     }
 
@@ -216,17 +240,29 @@ const MovingAverageStepper: React.FC = () => {
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
 
+  const getNextButtonText = () => {
+    if (isComparisonPage) return '完成';
+    if (currentStepIndex === STEPS.length - 1) return '下一步'; // Results page now goes to comparison
+    return '下一步';
+  };
+
+  const getCurrentStepId = () => {
+    if (isValidationPage) return 'params'; // Validation is part of params in the step navigation
+    if (isComparisonPage) return 'results'; // Comparison is part of results in the step navigation
+    return currentStep.id;
+  };
+
   return (
     <ModelStepLayout
       title={MODEL_NAME}
       steps={STEPS}
-      currentStepId={isValidationPage ? 'params' : currentStep.id}
+      currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
       isNextDisabled={isLoading || (isValidationPage && !isValidWindowSize)}
-      nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
+      nextButtonText={getNextButtonText()}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
     </ModelStepLayout>
