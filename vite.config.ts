@@ -16,10 +16,11 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        login: resolve(__dirname, 'src/views/login/login.html'),
-        admin: resolve(__dirname, 'src/views/admin/admin.html'),
-        teacher: resolve(__dirname, 'src/views/teacher/teacher.html'),
-        shiyan: resolve(__dirname, 'src/views/shiyan/shiyan.html'),
+        main: resolve(__dirname, 'index.html'),
+        login: resolve(__dirname, 'login.html'),
+        admin: resolve(__dirname, 'admin.html'),
+        teacher: resolve(__dirname, 'teacher.html'),
+        shiyan: resolve(__dirname, 'shiyan.html'),
       },
     },
   },
