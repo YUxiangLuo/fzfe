@@ -300,10 +300,8 @@ const ARIMAStepper: React.FC = () => {
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
-      isNextDisabled={isLoading}
+      isNextDisabled={isLoading || isAutoregressionInfoPage}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
-      // Hide next button on autoregression info page since it only has "previous"
-      hideNextButton={isAutoregressionInfoPage}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
     </ModelStepLayout>
