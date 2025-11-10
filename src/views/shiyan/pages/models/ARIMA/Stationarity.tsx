@@ -1,78 +1,32 @@
 import React from 'react';
-import { Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
-import type { AdfStationarityRow } from '../../../contexts/ExperimentContext';
 
 export interface StationarityProps {
-  adfResults: AdfStationarityRow[];
-  isLoading: boolean;
-  error: string | null;
-  onRunAdf: () => void;
+  onShowAutoregression: () => void;
 }
 
-const formatNumber = (value: number | null | undefined, fractionDigits = 3) =>
-  typeof value === "number" ? value.toFixed(fractionDigits) : "—";
-
-const Stationarity: React.FC<StationarityProps> = ({ adfResults, isLoading, error, onRunAdf }) => {
+const Stationarity: React.FC<StationarityProps> = ({ onShowAutoregression }) => {
   return (
-    <div>
-      <h3 className="text-lg font-semibold mb-4">ARIMA 法 - 平稳性检验</h3>
-      <p className="mb-4">
-        ADF（Augmented Dickey-Fuller）检验用于检测序列是否存在单位根。p 值越小，越倾向于接受"序列平稳"的结论。
-      </p>
-      
-      <button
-        onClick={onRunAdf}
-        disabled={isLoading}
-        className="inline-flex items-center gap-2 px-4 py-2 mb-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400"
-      >
-        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-        {isLoading ? '正在检验...' : adfResults.length > 0 ? '重新执行 ADF 检验' : '执行 ADF 检验'}
-      </button>
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-2xl font-bold text-gray-800 mb-4">ARIMA 法 - 平稳性检验</h3>
+      </div>
 
-      {error && (
-        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-3 rounded-md mb-4">
-          <AlertTriangle className="w-5 h-5" />
-          <span>{error}</span>
-        </div>
-      )}
+      <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm">
+        <p className="text-gray-800 leading-relaxed text-base mb-4">
+          平稳性检验使用 ADF 单位根检验，单位根检验是指检验序列是否存在单位根，如果存在单位根即为非平稳时间序列；检验零假设为：存在单位根；如果 P 值大于显著性水平(5%)，则不可拒绝原假设，即检验序列存在单位根。
+        </p>
+        <p className="text-gray-800 leading-relaxed text-base">
+          当一个自回归过程中，如果滞后项系数 b 为 1，就称为单位根。当单位根存在时，自变量和因变量之间的关系具有欺骗性，是非平稳时间序列。
+        </p>
+      </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-2 text-left font-medium text-gray-500">差分阶数 d</th>
-              <th className="px-4 py-2 text-left font-medium text-gray-500">ADF 统计量</th>
-              <th className="px-4 py-2 text-left font-medium text-gray-500">p 值</th>
-              <th className="px-4 py-2 text-left font-medium text-gray-500">是否平稳</th>
-              <th className="px-4 py-2 text-left font-medium text-gray-500">临界值 (1%/5%/10%)</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {isLoading && adfResults.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-4">正在加载...</td></tr>
-            ) : adfResults.length > 0 ? (
-              adfResults.map((row) => (
-                <tr key={row.diff_order} className={row.stationary ? "bg-green-50" : ""}>
-                  <td className="px-4 py-3 font-semibold">d = {row.diff_order}</td>
-                  <td className="px-4 py-3">{formatNumber(row.statistic)}</td>
-                  <td className="px-4 py-3">{formatNumber(row.p_value)}</td>
-                  <td className="px-4 py-3">
-                    {row.stationary ? (
-                      <span className="inline-flex items-center gap-1 text-green-700">
-                        <CheckCircle className="w-4 h-4" /> 平稳
-                      </span>
-                    ) : '不平稳'}
-                  </td>
-                  <td className="px-4 py-3 text-xs">
-                    {`${formatNumber(row.critical_values["1%"])} / ${formatNumber(row.critical_values["5%"])} / ${formatNumber(row.critical_values["10%"])}`}
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr><td colSpan={5} className="text-center py-4 text-gray-500">请执行ADF检验以查看结果。</td></tr>
-            )}
-          </tbody>
-        </table>
+      <div className="flex justify-center">
+        <button
+          onClick={onShowAutoregression}
+          className="px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+        >
+          自回归方程
+        </button>
       </div>
     </div>
   );

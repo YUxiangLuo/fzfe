@@ -3,6 +3,8 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ModelStepLayout from '../components/ModelStepLayout';
 import Intro from './Intro';
 import Stationarity, { type StationarityProps } from './Stationarity';
+import AutoregressionInfo from './AutoregressionInfo';
+import StationarityTable, { type StationarityTableProps } from './StationarityTable';
 import Differencing, { type DifferencingProps } from './Differencing';
 import AutoParams from './AutoParams';
 import Results, { type ResultsProps } from './Results';
@@ -20,6 +22,14 @@ const STEPS = [
   { id: 'results', name: '计算结果', path: `${BASE_PATH}/results`, component: Results },
 ];
 
+// Hidden pages - not part of the main steps
+const AUTOREGRESSION_INFO_PATH = `${BASE_PATH}/autoregression-info`;
+const STATIONARITY_TABLE_PATH = `${BASE_PATH}/stationarity-table`;
+
+// Step indices for navigation
+const STATIONARITY_STEP_INDEX = 1;
+const DIFFERENCING_STEP_INDEX = 2;
+
 const ARIMAStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,14 +42,8 @@ const ARIMAStepper: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
-  const evaluateMonths = useMemo(() => {
-    if (!productSalesData || state.data_window_evaluate_start_index === null || state.data_window_evaluate_end_index === null) {
-      return [];
-    }
-    const start = state.data_window_evaluate_start_index;
-    const end = state.data_window_evaluate_end_index;
-    return productSalesData.monthlySales.slice(start, end + 1).map(item => item.month);
-  }, [productSalesData, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
+  const isAutoregressionInfoPage = useMemo(() => location.pathname === AUTOREGRESSION_INFO_PATH, [location.pathname]);
+  const isStationarityTablePage = useMemo(() => location.pathname === STATIONARITY_TABLE_PATH, [location.pathname]);
 
   const recommendedD = useMemo(() => {
     const firstStationary = adfResults.find((row) => row.stationary);
@@ -47,12 +51,28 @@ const ARIMAStepper: React.FC = () => {
   }, [adfResults]);
 
   const currentStepIndex = useMemo(() => {
+    if (isAutoregressionInfoPage) {
+      // Autoregression info is part of stationarity in the step navigation
+      return STATIONARITY_STEP_INDEX;
+    }
+    if (isStationarityTablePage) {
+      // Stationarity table is between stationarity and differencing
+      return STATIONARITY_STEP_INDEX;
+    }
     const currentPath = location.pathname;
     const index = STEPS.findIndex(step => step.path === currentPath);
     return index === -1 ? 0 : index;
-  }, [location.pathname]);
+  }, [location.pathname, isAutoregressionInfoPage, isStationarityTablePage]);
 
-  const currentStep = useMemo(() => STEPS[currentStepIndex], [currentStepIndex]);
+  const currentStep = useMemo(() => {
+    if (isAutoregressionInfoPage) {
+      return { id: 'autoregression-info', name: '自回归方程', path: AUTOREGRESSION_INFO_PATH, component: AutoregressionInfo };
+    }
+    if (isStationarityTablePage) {
+      return { id: 'stationarity-table', name: '平稳性检验表', path: STATIONARITY_TABLE_PATH, component: StationarityTable };
+    }
+    return STEPS[currentStepIndex];
+  }, [currentStepIndex, isAutoregressionInfoPage, isStationarityTablePage]);
 
   const handleRunAdf = async () => {
     setError(null);
@@ -101,8 +121,12 @@ const ARIMAStepper: React.FC = () => {
       const response = await apiClient.post<any>("/models/arima/training", requestBody);
       if (response.status === "success") {
         const apiResults = response.results;
+        const months = productSalesData?.monthlySales
+          .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
+          .map(item => item.month) || [];
+
         setResults({
-          predictions: evaluateMonths.map((month: string, index: number) => ({
+          predictions: months.map((month: string, index: number) => ({
             date: month,
             actual: apiResults.eval_y_true[index],
             predicted: apiResults.eval_predictions[index],
@@ -134,7 +158,7 @@ const ARIMAStepper: React.FC = () => {
     state.data_window_evaluate_start_index,
     state.data_window_evaluate_end_index,
     selectedD,
-    evaluateMonths,
+    productSalesData,
     updateState
   ]);
 
@@ -143,6 +167,18 @@ const ARIMAStepper: React.FC = () => {
       handleCalculate();
     }
   }, [currentStep?.id, results, isLoading, handleCalculate]);
+
+  // Auto-run ADF test when entering stationarity-table page
+  useEffect(() => {
+    if (currentStep?.id === 'stationarity-table' && adfResults.length === 0 && !isLoading) {
+      handleRunAdf();
+    }
+  }, [currentStep?.id, adfResults.length, isLoading]);
+
+  // Clear results when selectedD changes to trigger recalculation
+  useEffect(() => {
+    setResults(null);
+  }, [selectedD]);
 
   const handleReset = async () => {
     setIsResetting(true);
@@ -166,13 +202,24 @@ const ARIMAStepper: React.FC = () => {
   const handleNext = async () => {
     setError(null);
 
-    // Step-specific validations
     if (currentStep?.id === 'stationarity') {
+      // Navigate to stationarity table page
+      navigate(STATIONARITY_TABLE_PATH);
+      return;
+    }
+
+    if (currentStep?.id === 'stationarity-table') {
+      // Check if ADF test has results
       if (adfResults.length === 0) {
-        setError("请先执行ADF检验。");
+        setError("平稳性检验未完成，请稍候。");
         return;
       }
-    } else if (currentStep?.id === 'differencing') {
+      // Navigate to differencing step
+      navigate(STEPS[DIFFERENCING_STEP_INDEX].path);
+      return;
+    }
+
+    if (currentStep?.id === 'differencing') {
       if (selectedD === '') {
         setError("请选择一个差分阶数 d。");
         return;
@@ -198,6 +245,18 @@ const ARIMAStepper: React.FC = () => {
   };
 
   const handlePrevious = () => {
+    if (isAutoregressionInfoPage) {
+      // From autoregression info, go back to stationarity
+      navigate(STEPS[STATIONARITY_STEP_INDEX].path);
+      return;
+    }
+
+    if (isStationarityTablePage) {
+      // From stationarity table, go back to stationarity
+      navigate(STEPS[STATIONARITY_STEP_INDEX].path);
+      return;
+    }
+
     const prevStep = STEPS[currentStepIndex - 1];
     if (prevStep) {
       navigate(prevStep.path);
@@ -206,14 +265,19 @@ const ARIMAStepper: React.FC = () => {
     }
   };
 
+  const handleShowAutoregression = () => {
+    navigate(AUTOREGRESSION_INFO_PATH);
+  };
+
   if (!currentStep) {
     return null;
   }
 
   const CurrentComponent = currentStep.component as React.FC<any>;
 
-  const componentProps: { [key: string]: StationarityProps | DifferencingProps | ResultsProps | {} } = {
-    stationarity: { adfResults, isLoading, error, onRunAdf: handleRunAdf },
+  const componentProps: { [key: string]: StationarityProps | StationarityTableProps | DifferencingProps | ResultsProps | {} } = {
+    stationarity: { onShowAutoregression: handleShowAutoregression },
+    'stationarity-table': { adfResults, isLoading, error },
     differencing: { adfResults, selectedD, setSelectedD, recommendedD, error },
     autoparams: { isLoading, error },
     results: { data: results, isLoading, error },
@@ -221,17 +285,25 @@ const ARIMAStepper: React.FC = () => {
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
 
+  const getCurrentStepId = () => {
+    if (isAutoregressionInfoPage) return 'stationarity'; // Autoregression info is part of stationarity
+    if (isStationarityTablePage) return 'stationarity'; // Stationarity table is part of stationarity
+    return currentStep.id;
+  };
+
   return (
     <ModelStepLayout
       title={MODEL_NAME}
       steps={STEPS}
-      currentStepId={currentStep.id}
+      currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
       isNextDisabled={isLoading}
       nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
+      // Hide next button on autoregression info page since it only has "previous"
+      hideNextButton={isAutoregressionInfoPage}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
     </ModelStepLayout>
