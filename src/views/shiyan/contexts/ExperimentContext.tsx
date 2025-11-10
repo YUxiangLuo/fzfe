@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import {
   getExperimentState,
@@ -432,7 +432,7 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     state.selected_product,
   ]);
 
-  const recordStepEventWrapper = async (stepOrder: number, eventType: 'STARTED' | 'COMPLETED') => {
+  const recordStepEventWrapper = useCallback(async (stepOrder: number, eventType: 'STARTED' | 'COMPLETED') => {
     if (!state.experiment_id) {
       console.warn('Cannot record step event: experiment_id is null');
       return;
@@ -442,7 +442,7 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error(`Failed to record ${eventType} event for step ${stepOrder}:`, error);
     }
-  };
+  }, [state.experiment_id]);
 
   const updateState = async (updates: Partial<ExperimentState>) => {
     const previousState = state;
@@ -605,10 +605,10 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
   };
 
 
-  const isStepCompleted = (step: number): boolean => state.highest_completed_step >= step;
-  const isStepUnlocked = (step: number): boolean => step <= state.current_step;
+  const isStepCompleted = useCallback((step: number): boolean => state.highest_completed_step >= step, [state.highest_completed_step]);
+  const isStepUnlocked = useCallback((step: number): boolean => step <= state.current_step, [state.current_step]);
 
-  const loadProductSalesData = async (industry: string, company: string, product: string): Promise<boolean> => {
+  const loadProductSalesData = useCallback(async (industry: string, company: string, product: string): Promise<boolean> => {
     setIsLoadingSales(true);
     setSalesDataError(null);
     try {
@@ -623,9 +623,9 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoadingSales(false);
     }
-  };
+  }, []);
 
-  const loadProductFieldOptions = async (industry: string, company: string, product: string): Promise<boolean> => {
+  const loadProductFieldOptions = useCallback(async (industry: string, company: string, product: string): Promise<boolean> => {
     setIsLoadingFields(true);
     setProductFieldsError(null);
     try {
@@ -641,27 +641,44 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoadingFields(false);
     }
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({
+      state,
+      loading,
+      updateState,
+      recordStepEvent: recordStepEventWrapper,
+      isStepCompleted,
+      isStepUnlocked,
+      productSalesData,
+      isLoadingSales,
+      salesDataError,
+      productFieldOptions,
+      isLoadingFields,
+      productFieldsError,
+      loadProductSalesData,
+      loadProductFieldOptions,
+    }),
+    [
+      state,
+      loading,
+      recordStepEventWrapper,
+      isStepCompleted,
+      isStepUnlocked,
+      productSalesData,
+      isLoadingSales,
+      salesDataError,
+      productFieldOptions,
+      isLoadingFields,
+      productFieldsError,
+      loadProductSalesData,
+      loadProductFieldOptions,
+    ]
+  );
 
   return (
-    <ExperimentContext.Provider
-      value={{
-        state,
-        loading,
-        updateState,
-        recordStepEvent: recordStepEventWrapper,
-        isStepCompleted,
-        isStepUnlocked,
-        productSalesData,
-        isLoadingSales,
-        salesDataError,
-        productFieldOptions,
-        isLoadingFields,
-        productFieldsError,
-        loadProductSalesData,
-        loadProductFieldOptions,
-      }}
-    >
+    <ExperimentContext.Provider value={contextValue}>
       {children}
     </ExperimentContext.Provider>
   );
