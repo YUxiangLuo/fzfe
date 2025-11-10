@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, LogOut, AlertTriangle } from 'lucide-react';
+import { LogOut, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { decodeToken, type DecodedToken } from '@/utils/auth';
 import { getRoleByBackendValue } from '@/config/roles';
@@ -85,6 +85,23 @@ const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
     ? getRoleByBackendValue(currentUser.role)?.displayName ?? currentUser.role
     : null;
 
+  // 获取显示名称（优先使用API返回的数据）
+  const displayName = user?.full_name || currentUser?.full_name || currentUser?.username || "未知用户";
+
+  // 获取头像首字符
+  const getAvatarInitial = () => {
+    if (user?.full_name) {
+      return user.full_name.charAt(0);
+    }
+    if (currentUser?.full_name) {
+      return currentUser.full_name.charAt(0);
+    }
+    if (currentUser?.username) {
+      return currentUser.username.charAt(0).toUpperCase();
+    }
+    return "?";
+  };
+
   return (
     <>
       <header className="w-full bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50">
@@ -110,12 +127,14 @@ const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
 
             <div className="flex items-center space-x-3 pl-4">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-blue-600" />
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-semibold">
+                    {getAvatarInitial()}
+                  </span>
                 </div>
                 <div className="text-sm">
                   <p className="font-medium text-gray-900">
-                    {currentUser?.full_name || currentUser?.username || "未知用户"}
+                    {displayName}
                   </p>
                   <p className="text-gray-500">
                     {roleDisplay || ""}
