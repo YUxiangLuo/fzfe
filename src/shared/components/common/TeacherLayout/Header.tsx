@@ -1,9 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, AlertTriangle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { decodeToken, type DecodedToken } from '@/utils/auth';
 import { getRoleByBackendValue } from '@/config/roles';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { ConfirmDialog } from '../ConfirmDialog';
+import { apiClient } from '@/utils/apiClient';
+
+interface UserSummary {
+  user_id: number;
+  username: string;
+  full_name: string;
+  email: string;
+  role: string;
+  phone_number?: string | null;
+  created_at: string;
+  must_change_password?: boolean;
+}
 
 interface HeaderProps {
   getLogoutRedirectPath: () => string;
@@ -11,9 +24,12 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
   const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
+  const [user, setUser] = useState<UserSummary | null>(null);
+  const [loading, setLoading] = useState(true);
   const confirm = useConfirm();
 
   useEffect(() => {
+    // First, decode token for immediate user info
     try {
       const token = localStorage.getItem("token");
       if (token) {
@@ -22,9 +38,31 @@ const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
       }
     } catch (error) {
       console.error('Failed to decode token:', error);
-      // Token invalid, clear it
       localStorage.removeItem("token");
     }
+
+    // Then fetch full user profile from API
+    let active = true;
+    const fetchProfile = async () => {
+      try {
+        const profile = await apiClient.get<UserSummary>("/users/me");
+        if (!active) return;
+        setUser(profile);
+      } catch (err) {
+        if (!active) return;
+        console.error("Failed to load user profile", err);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void fetchProfile();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleLogout = async () => {
@@ -58,6 +96,18 @@ const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
           </div>
 
           <div className="flex items-center space-x-4">
+            {!loading && user?.must_change_password && (
+              <Link
+                to="/account-personal"
+                className="flex items-center space-x-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+              >
+                <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
+                <span className="text-sm font-medium text-amber-800">
+                  请尽快修改初始密码
+                </span>
+              </Link>
+            )}
+
             <div className="flex items-center space-x-3 pl-4">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
