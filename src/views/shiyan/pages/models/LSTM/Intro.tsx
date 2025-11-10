@@ -1,21 +1,53 @@
 import React from 'react';
+import { Database, Cpu, TrendingUp } from 'lucide-react';
 
 const Intro: React.FC = () => {
   return (
-    <div>
-      <h3 className="text-lg font-semibold mb-4">LSTM 神经网络 - 方法步骤</h3>
-      <p>LSTM 神经网络法的一般步骤为:</p>
-      <ol className="list-decimal list-inside space-y-2 text-gray-700">
-        <li>
-          <strong>数据预处理:</strong> 对时序数据进行标准化或归一化处理，以适应神经网络模型。
-        </li>
-        <li>
-          <strong>构建和训练 LSTM 模型:</strong> 使用训练集数据对模型进行训练，通过优化算法调整模型参数，使其能够有效捕捉数据中的时间依赖关系。
-        </li>
-        <li>
-          <strong>模型预测:</strong> 使用训练好的模型进行预测。
-        </li>
-      </ol>
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-2xl font-bold text-gray-800 mb-3">LSTM 法 - 方法步骤</h3>
+        <p className="text-gray-600 text-base leading-relaxed">
+          LSTM 法的一般步骤为:
+        </p>
+      </div>
+
+      <div className="space-y-4 mt-8">
+        <div className="flex gap-4 p-5 bg-gradient-to-r from-blue-50 to-blue-100/50 rounded-lg border border-blue-200 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex-shrink-0 w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-lg">
+            1
+          </div>
+          <div className="flex-1 pt-1">
+            <div className="flex items-center gap-2 mb-1">
+              <Database className="w-5 h-5 text-blue-600" />
+              <p className="text-gray-800 font-medium">对时序数据进行标准化或归一化处理。</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-4 p-5 bg-gradient-to-r from-purple-50 to-purple-100/50 rounded-lg border border-purple-200 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex-shrink-0 w-10 h-10 bg-purple-500 text-white rounded-full flex items-center justify-center font-bold text-lg">
+            2
+          </div>
+          <div className="flex-1 pt-1">
+            <div className="flex items-center gap-2 mb-1">
+              <Cpu className="w-5 h-5 text-purple-600" />
+              <p className="text-gray-800 font-medium">构建和训练 LSTM 模型；使用训练集数据对模型进行训练通过优化算法调整模型参数，使其能够有效捕捉数据中的时间依赖关系。</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-4 p-5 bg-gradient-to-r from-green-50 to-green-100/50 rounded-lg border border-green-200 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex-shrink-0 w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center font-bold text-lg">
+            3
+          </div>
+          <div className="flex-1 pt-1">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="w-5 h-5 text-green-600" />
+              <p className="text-gray-800 font-medium">模型预测。</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
