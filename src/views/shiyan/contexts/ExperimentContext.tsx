@@ -651,6 +651,27 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  // 辅助函数：重置所有融合模型（因为它们依赖于基础模型）
+  const resetAllEnsembleModels = useCallback(async () => {
+    await updateState({
+      ensemble_weighted_completed: false,
+      ensemble_weighted_base_models: [],
+      ensemble_weighted_metrics_rmse: null,
+      ensemble_weighted_metrics_mae: null,
+      ensemble_weighted_metrics_r2: null,
+      ensemble_boosting_completed: false,
+      ensemble_boosting_base_models: [],
+      ensemble_boosting_metrics_rmse: null,
+      ensemble_boosting_metrics_mae: null,
+      ensemble_boosting_metrics_r2: null,
+      ensemble_stacking_completed: false,
+      ensemble_stacking_base_models: [],
+      ensemble_stacking_metrics_rmse: null,
+      ensemble_stacking_metrics_mae: null,
+      ensemble_stacking_metrics_r2: null,
+    });
+  }, [updateState]);
+
   const resetMovingAverageModel = useCallback(async () => {
     await updateState({
       moving_average_completed: false,
@@ -659,7 +680,9 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       moving_average_metrics_mae: null,
       moving_average_metrics_r2: null,
     });
-  }, [updateState]);
+    // 重置所有融合模型，因为它们可能依赖于这个基础模型
+    await resetAllEnsembleModels();
+  }, [updateState, resetAllEnsembleModels]);
 
   const resetExponentialSmoothingModel = useCallback(async () => {
     await updateState({
@@ -669,7 +692,9 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       exponential_smoothing_metrics_mae: null,
       exponential_smoothing_metrics_r2: null,
     });
-  }, [updateState]);
+    // 重置所有融合模型，因为它们可能依赖于这个基础模型
+    await resetAllEnsembleModels();
+  }, [updateState, resetAllEnsembleModels]);
 
   const resetARIMAModel = useCallback(async () => {
     await updateState({
@@ -682,7 +707,9 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       arima_metrics_r2: null,
       arima_adf_stationarity: [],
     });
-  }, [updateState]);
+    // 重置所有融合模型，因为它们可能依赖于这个基础模型
+    await resetAllEnsembleModels();
+  }, [updateState, resetAllEnsembleModels]);
 
   const resetLSTMModel = useCallback(async () => {
     await updateState({
@@ -694,7 +721,9 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       lstm_metrics_mae: null,
       lstm_metrics_r2: null,
     });
-  }, [updateState]);
+    // 重置所有融合模型，因为它们可能依赖于这个基础模型
+    await resetAllEnsembleModels();
+  }, [updateState, resetAllEnsembleModels]);
 
   const resetWeightedEnsembleModel = useCallback(async () => {
     await updateState({
