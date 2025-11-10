@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { User, LogOut, AlertTriangle } from "lucide-react";
+import { LogOut, AlertTriangle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { apiClient } from "../../../utils/apiClient";
 import { getRoleByBackendValue } from "../../../config/roles";
@@ -67,6 +67,20 @@ const Header: React.FC = () => {
     ? getRoleByBackendValue(user.role)?.displayName ?? user.role
     : null;
 
+  // 获取显示名称
+  const displayName = user?.full_name || user?.username || "未知用户";
+
+  // 获取头像首字符
+  const getAvatarInitial = () => {
+    if (user?.full_name) {
+      return user.full_name.charAt(0);
+    }
+    if (user?.username) {
+      return user.username.charAt(0);
+    }
+    return "?";
+  };
+
   return (
     <header className="w-full bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50">
       <div className="flex items-center justify-between px-6 py-4">
@@ -108,12 +122,14 @@ const Header: React.FC = () => {
 
           <div className="flex items-center space-x-3 border-l pl-4">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-blue-600" />
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm font-semibold">
+                  {loading ? "?" : getAvatarInitial()}
+                </span>
               </div>
               <div className="text-sm">
                 <p className="font-medium text-gray-900">
-                  {loading ? "正在加载..." : user?.full_name || user?.username || "未知用户"}
+                  {loading ? "正在加载..." : displayName}
                 </p>
                 <p className="text-gray-500">
                   {loading ? "" : roleDisplay || ""}
