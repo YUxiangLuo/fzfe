@@ -5,9 +5,10 @@ export interface DifferencingProps {
   selectedD: number | '';
   setSelectedD: (value: number | '') => void;
   error: string | null;
+  onShowDifferencingInfo: () => void;
 }
 
-const Differencing: React.FC<DifferencingProps> = ({ selectedD, setSelectedD, error }) => {
+const Differencing: React.FC<DifferencingProps> = ({ selectedD, setSelectedD, error, onShowDifferencingInfo }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value === '') {
@@ -49,6 +50,15 @@ const Differencing: React.FC<DifferencingProps> = ({ selectedD, setSelectedD, er
         <p className="text-gray-700 leading-relaxed text-base">
           差分阶数仅可填写 0，1，2
         </p>
+      </div>
+
+      <div className="flex justify-center">
+        <button
+          onClick={onShowDifferencingInfo}
+          className="px-6 py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
+        >
+          差分阶数选择的意义
+        </button>
       </div>
 
       {error && (
