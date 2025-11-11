@@ -250,12 +250,13 @@ const LSTMStepper: React.FC = () => {
 
     if (currentStep?.id === 'results') {
       // Mark as completed and navigate to comparison
-      await updateState({ lstm_completed: true });
+      
       navigate(COMPARISON_PATH);
       return;
     }
 
     if (currentStep?.id === 'comparison') {
+      await updateState({ lstm_completed: true });
       // From comparison page, return to model select
       navigate('/model/model-select');
       return;
