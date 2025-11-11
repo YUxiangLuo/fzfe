@@ -54,19 +54,19 @@ const ModelMetricsTable: React.FC<ModelMetricsTableProps> = ({
             <tbody className="bg-white divide-y divide-gray-200">
               {models.map((model) => (
                 <tr
-                  key={model.name}
+                  key={model.model}
                   className={`transition-colors ${
-                    model.name === highlightRow
+                    model.model === highlightRow
                       ? 'bg-gradient-to-r from-amber-50 to-orange-50 hover:from-amber-100 hover:to-orange-100'
                       : 'hover:bg-gray-50'
                   }`}
                 >
                   <td
                     className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
-                      model.name === highlightRow ? 'text-gray-900 font-bold' : 'text-gray-800'
+                      model.model === highlightRow ? 'text-gray-900 font-bold' : 'text-gray-800'
                     }`}
                   >
-                    {model.name}
+                    {model.model}
                   </td>
                   <td
                     className={`px-6 py-4 whitespace-nowrap text-sm text-center font-semibold ${

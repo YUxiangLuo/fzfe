@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Users,
   Award,
@@ -25,6 +25,7 @@ import { apiClient, API_BASE_URL } from '@/utils/apiClient';
 import { decodeToken } from '@/utils/auth';
 import { DOWNLOAD_SERVER_BASE_URL } from '@/config/appConfig';
 import GradeCharts, { type GradeChartDatum } from '@/shared/components/Assessment/GradeCharts';
+import GradeRow from './GradeRow';
 import Button from '@/shared/components/common/Button';
 
 const SCORE_SEGMENT_CONFIG = {
@@ -493,112 +494,20 @@ const GradesOverview: React.FC = () => {
     }
   };
 
-  const toggleRow = (studentId: number) => {
+  const toggleRow = useCallback((studentId: number) => {
     setExpandedRows((prev) =>
       prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId],
     );
-  };
+  }, []);
 
-  const renderFinalBreakdown = (grade: StudentGradeOverview) => {
-    const breakdown = grade.final_score_breakdown;
-    const entries = Object.entries(FINAL_BREAKDOWN_LABELS).map(([key, label]) => {
-      const data = breakdown?.[key as keyof typeof breakdown];
-      return { key, label, data };
-    });
-
-    const expFlowDetails = grade.exp_flow_breakdown ?? [];
-
-    const renderValue = (value: number | null | undefined) => {
-      if (value === null || value === undefined) return '—';
-      return Number.isFinite(value) ? value.toFixed(2) : '—';
-    };
-
-    const renderWeight = (value: number | null | undefined) => {
-      if (value === null || value === undefined) return '—';
-      return `${value}%`;
-    };
-
-    const hasTopLevelData = entries.some((entry) => entry.data);
-    const hasExpFlowDetails = expFlowDetails.length > 0;
-
-    if (!hasTopLevelData && !hasExpFlowDetails) {
-      return <p className="text-sm text-gray-500">暂无成绩构成数据。</p>;
-    }
-
-    return (
-      <div className="space-y-4">
-        {hasTopLevelData && (
-          <div>
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">最终得分构成</h4>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-100 text-gray-600 uppercase tracking-wider text-xs">
-                  <tr>
-                    <th className="px-4 py-2 text-left">考核项</th>
-                    <th className="px-4 py-2 text-right">原始分</th>
-                    <th className="px-4 py-2 text-right">权重</th>
-                    <th className="px-4 py-2 text-right">加权得分</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {entries.map(({ key, label, data }) => (
-                    <tr key={key}>
-                      <td className="px-4 py-2 text-gray-800">{label}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{renderValue(data?.score)}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{renderWeight(data?.weight)}</td>
-                      <td className="px-4 py-2 text-right text-gray-900 font-medium">
-                        {renderValue(data?.weighted_score)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {hasExpFlowDetails && (
-          <div>
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">实验流程细分</h4>
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-100 text-gray-600 uppercase tracking-wider text-xs">
-                  <tr>
-                    <th className="px-4 py-2 text-left">步骤</th>
-                    <th className="px-4 py-2 text-right">原始分</th>
-                    <th className="px-4 py-2 text-right">权重</th>
-                    <th className="px-4 py-2 text-right">加权得分</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {expFlowDetails.map((item) => (
-                    <tr key={item.field}>
-                      <td className="px-4 py-2 text-gray-800">{EXP_FLOW_FIELD_LABELS[item.field] ?? item.field}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{renderValue(item.score)}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{renderWeight(item.weight)}</td>
-                      <td className="px-4 py-2 text-right text-gray-900 font-medium">
-                        {renderValue(item.weighted_score)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+  
 
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 space-y-3 md:space-y-0">
-          <div>
+          <div className="flex items-center space-x-4">
             <h1 className="text-2xl font-bold text-gray-900">成绩概览</h1>
-            <p className="text-sm text-gray-500">查看班级整体成绩表现与分布</p>
-          </div>
-          <div className="flex items-center space-x-3">
             <select
               value={selectedClassId}
               onChange={(event) => setSelectedClassId(event.target.value)}
@@ -614,6 +523,7 @@ const GradesOverview: React.FC = () => {
               )}
             </select>
           </div>
+          <p className="text-sm text-gray-500">查看班级整体成绩表现与分布</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -837,52 +747,15 @@ const GradesOverview: React.FC = () => {
               ) : sortedGrades.length === 0 ? (
                 <tr><td colSpan={10} className="text-center py-10 text-gray-500">无数据显示。</td></tr>
               ) : (
-                sortedGrades.map((grade, index) => {
-                  const badge = getEvaluationBadge(grade);
-                  return (
-                    <React.Fragment key={grade.student_id}>
-                      <tr className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900 font-medium">{grade.full_name}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{grade.username}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.exp_flow_score)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.knowledge_test)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.model_quality)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.report_quality)}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">{formatScore(grade.final_score)}</td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>{badge.text}</span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => toggleRow(grade.student_id)}
-                            className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"
-                          >
-                            {expandedRows.includes(grade.student_id) ? (
-                              <>
-                                <ChevronDown className="w-4 h-4 mr-1" />
-                                收起
-                              </>
-                            ) : (
-                              <>
-                                <ChevronRight className="w-4 h-4 mr-1" />
-                                查看
-                              </>
-                            )}
-                          </button>
-                        </td>
-                      </tr>
-                      {expandedRows.includes(grade.student_id) && (
-                        <tr className="bg-gray-50">
-                          <td colSpan={10} className="px-6 py-4">
-                            {renderFinalBreakdown(grade)}
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })
+                sortedGrades.map((grade, index) => (
+                  <GradeRow
+                    key={grade.student_id}
+                    grade={grade}
+                    index={index}
+                    isExpanded={expandedRows.includes(grade.student_id)}
+                    onToggle={toggleRow}
+                  />
+                ))
               )}
             </tbody>
           </table>

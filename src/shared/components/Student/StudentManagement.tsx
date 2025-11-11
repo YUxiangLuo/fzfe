@@ -376,7 +376,7 @@ const StudentManagement: React.FC = () => {
     if (!selectedClassId) {
       return (
         <tr>
-          <td colSpan={6} className="py-12 text-center text-gray-500">
+          <td colSpan={5} className="py-12 text-center text-gray-500">
             请先选择一个班级查看学生列表。
           </td>
         </tr>
@@ -433,13 +433,7 @@ const StudentManagement: React.FC = () => {
             <span>{student.phone_number ?? '—'}</span>
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-          {student.created_at ? (
-            <span className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-600">
-              {formatDate(student.created_at)}
-            </span>
-          ) : '—'}
-        </td>
+        
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <div className="flex items-center space-x-2">
             <Button
@@ -551,7 +545,7 @@ const StudentManagement: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学生姓名</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">邮箱</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">手机号码</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">加入时间</th>
+                
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>

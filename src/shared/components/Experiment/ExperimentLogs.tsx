@@ -529,7 +529,7 @@ const ExperimentLogs: React.FC = () => {
                               {summary.experiments.length === 0 ? (
                                 <div className="text-sm text-gray-500">该学生暂无实验记录。</div>
                               ) : (
-                                summary.experiments.map((experiment) => {
+                                summary.experiments.slice().reverse().map((experiment) => {
                                   const statusMeta = mapStatusToDisplay(experiment.status);
                                   return (
                                     <div key={`${summary.studentId}-${experiment.experimentId}`} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">

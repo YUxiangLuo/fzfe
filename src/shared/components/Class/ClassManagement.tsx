@@ -1,21 +1,20 @@
 import React, { useState, useCallback } from 'react';
-import { Plus, Users, Loader, AlertTriangle, Edit2, Trash2, User as UserIcon, Upload, FileText, CheckCircle, XCircle } from 'lucide-react';
-import type { Class, Assistant, Student } from '@/shared/types';
-import Modal from '@/shared/components/common/Modal';
+import { Plus } from 'lucide-react';
+import type { Class, Student } from '@/shared/types';
 import Button from '@/shared/components/common/Button';
 import { apiClient } from '@/utils/apiClient';
-import { validateClassName, validateClassCode } from '@/shared/utils/validation';
 import { useToast } from '@/shared/hooks/useToast';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { Toast } from '@/shared/components/common/Toast';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
-import { useClasses, type EnrichedClass } from '@/shared/hooks/useClasses';
+import { useClasses } from '@/shared/hooks/useClasses';
 import { useRole } from '@/shared/contexts/RoleContext';
 
-interface CreateClassForm {
-  class_name: string;
-  class_code: string;
-}
+import { ClassesTable } from './ClassesTable';
+import { CreateClassModal } from './CreateClassModal';
+import { EditClassModal } from './EditClassModal';
+import { ViewStudentsModal } from './ViewStudentsModal';
+import { CreateResultModal } from './CreateResultModal';
 
 interface CreateClassResponse {
   class: Class;
@@ -25,129 +24,31 @@ interface CreateClassResponse {
   errors: string[];
 }
 
-const MAX_CSV_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-
 const ClassManagement: React.FC = () => {
-  const formatDate = (value: string | null | undefined) => {
-    if (!value) return '—';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '—';
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
   const { toast, showToast, hideToast } = useToast();
   const confirm = useConfirm();
   const { role } = useRole();
   const { classes, isLoading, error, addClass, updateClass, deleteClass } = useClasses();
 
-  // State for modals and forms, which is true UI state and belongs in the component.
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [formData, setFormData] = useState<CreateClassForm>({ class_name: '', class_code: '' });
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showStudentsModal, setShowStudentsModal] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
+  
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
   const [isStudentsLoading, setIsStudentsLoading] = useState(false);
   const [studentsError, setStudentsError] = useState<string | null>(null);
-  const [csvFile, setCsvFile] = useState<File | null>(null);
+  
   const [createResult, setCreateResult] = useState<CreateClassResponse | null>(null);
-  const [showResultModal, setShowResultModal] = useState(false);
 
-  const handleCloseStudentsModal = useCallback(() => {
-    setShowStudentsModal(false);
-    setSelectedClass(null);
-    setStudents([]);
-    setStudentsError(null);
-  }, []);
-
-  const handleCloseCreateModal = useCallback(() => {
-    setShowCreateModal(false);
-    setFormData({ class_name: '', class_code: '' });
-    setCsvFile(null);
-    setIsSubmitting(false);
-  }, []);
-
-  const handleCloseEditModal = useCallback(() => {
-    setShowEditModal(false);
-    setSelectedClass(null);
-    setFormData({ class_name: '', class_code: '' });
-    setIsSubmitting(false);
-  }, []);
-
-  const handleCloseResultModal = useCallback(() => {
-    setShowResultModal(false);
-    setCreateResult(null);
-  }, []);
-
-  const handleOpenCreate = () => {
-    setFormData({ class_name: '', class_code: '' });
-    setCsvFile(null);
-    setShowCreateModal(true);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.name.endsWith('.csv')) {
-        showToast('请上传 CSV 格式的文件', 'error');
-        e.target.value = '';
-        return;
-      }
-      if (file.type && !['text/csv', 'application/vnd.ms-excel', 'text/plain'].includes(file.type)) {
-        showToast('文件类型不正确，请上传有效的 CSV 文件', 'error');
-        e.target.value = '';
-        return;
-      }
-      if (file.size > MAX_CSV_FILE_SIZE) {
-        showToast('文件大小不能超过 5MB', 'error');
-        e.target.value = '';
-        return;
-      }
-      setCsvFile(file);
-    }
-  };
-
-  const handleRemoveFile = () => {
-    setCsvFile(null);
-    const fileInput = document.getElementById('csv-file-input') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = '';
-    }
-  };
-
-  const handleCreate = async () => {
-    const nameValidation = validateClassName(formData.class_name);
-    if (!nameValidation.valid) {
-      showToast(nameValidation.error || '班级名称格式不正确', 'error');
-      return;
-    }
-    const codeValidation = validateClassCode(formData.class_code);
-    if (!codeValidation.valid) {
-      showToast(codeValidation.error || '班级代码格式不正确', 'error');
-      return;
-    }
-
-    setIsSubmitting(true);
+  const handleCreateSubmit = async (formDataToSend: FormData) => {
     try {
-      const formDataToSend = new FormData();
-      formDataToSend.append('class_name', formData.class_name.trim());
-      formDataToSend.append('class_code', formData.class_code.trim());
-      if (csvFile) {
-        formDataToSend.append('student_list', csvFile);
-      }
-
       const result = await apiClient.postFormData<CreateClassResponse>('/classes', formDataToSend);
       addClass({ ...result.class, assistants: [] });
-
       setCreateResult(result);
       setShowCreateModal(false);
       setShowResultModal(true);
-      setFormData({ class_name: '', class_code: '' });
-      setCsvFile(null);
       showToast('班级创建成功', 'success');
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -155,46 +56,17 @@ const ClassManagement: React.FC = () => {
       } else {
         showToast('操作失败，请稍后重试', 'error');
       }
-    } finally {
-      setIsSubmitting(false);
+      // Re-throw to allow the modal to handle its submitting state
+      throw err;
     }
   };
 
-  const handleOpenEdit = (classItem: Class) => {
-    setSelectedClass(classItem);
-    setFormData({
-      class_name: classItem.class_name,
-      class_code: classItem.class_code || '',
-    });
-    setShowEditModal(true);
-  };
-
-  const handleUpdate = async () => {
-    if (!selectedClass) return;
-
-    const nameValidation = validateClassName(formData.class_name);
-    if (!nameValidation.valid) {
-      showToast(nameValidation.error || '班级名称格式不正确', 'error');
-      return;
-    }
-    const codeValidation = validateClassCode(formData.class_code);
-    if (!codeValidation.valid) {
-      showToast(codeValidation.error || '班级代码格式不正确', 'error');
-      return;
-    }
-
-    setIsSubmitting(true);
+  const handleUpdateSubmit = async (classId: number, payload: { class_name: string; class_code: string }) => {
     try {
-      const payload = {
-        class_name: formData.class_name.trim(),
-        class_code: formData.class_code.trim(),
-      };
-      const updatedClassData = await apiClient.put<Class>(`/classes/${selectedClass.class_id}`, payload);
-      updateClass({ ...selectedClass, ...updatedClassData });
-
+      const updatedClassData = await apiClient.put<Class>(`/classes/${classId}`, payload);
+      updateClass({ ...selectedClass!, ...updatedClassData });
       setShowEditModal(false);
       setSelectedClass(null);
-      setFormData({ class_name: '', class_code: '' });
       showToast('班级信息更新成功', 'success');
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -202,8 +74,8 @@ const ClassManagement: React.FC = () => {
       } else {
         showToast('操作失败，请稍后重试', 'error');
       }
-    } finally {
-      setIsSubmitting(false);
+      // Re-throw to allow the modal to handle its submitting state
+      throw err;
     }
   };
 
@@ -219,11 +91,9 @@ const ClassManagement: React.FC = () => {
     try {
       await apiClient.delete(`/classes/${classItem.class_id}`);
       deleteClass(classItem.class_id);
-
       if (selectedClass && selectedClass.class_id === classItem.class_id) {
         setShowEditModal(false);
         setSelectedClass(null);
-        setFormData({ class_name: '', class_code: '' });
       }
       showToast('班级删除成功', 'success');
     } catch (err: unknown) {
@@ -252,113 +122,23 @@ const ClassManagement: React.FC = () => {
     }
   };
 
-  const renderTableBody = () => {
-    if (isLoading) {
-      return (
-        <tr>
-          <td colSpan={role?.id === 'teacher' ? 6 : 5} className="py-10 text-center text-gray-500">
-            <div className="flex items-center justify-center space-x-2">
-              <Loader className="animate-spin" size={18} />
-              <span>正在加载班级...</span>
-            </div>
-          </td>
-        </tr>
-      );
-    }
-
-    if (error) {
-      return (
-        <tr>
-          <td colSpan={role?.id === 'teacher' ? 6 : 5} className="py-10 text-center text-red-500">
-            <div className="flex flex-col items-center space-y-2">
-              <AlertTriangle size={20} />
-              <span>{error}</span>
-            </div>
-          </td>
-        </tr>
-      );
-    }
-
-    if (classes.length === 0) {
-      return (
-        <tr>
-          <td colSpan={role?.id === 'teacher' ? 6 : 5} className="py-10 text-center text-gray-500">
-            尚未创建任何班级。
-          </td>
-        </tr>
-      );
-    }
-
-    return classes.map((classItem) => {
-      const assistantNames = (classItem.assistants || []).map(assistant => assistant.full_name).join('，');
-
-      return (
-        <tr key={classItem.class_id} className="hover:bg-gray-50">
-          <td className="px-6 py-4 whitespace-nowrap">
-            <div className="flex items-center">
-              <Users className="w-5 h-5 text-gray-400 mr-3" />
-              <div className="text-sm font-medium text-gray-900">
-                {classItem.class_name}
-              </div>
-            </div>
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-            {classItem.class_code || '未设置'}
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-            {assistantNames || ''}
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-            {classItem.created_at ? (
-              <span className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-600">
-                {formatDate(classItem.created_at)}
-              </span>
-            ) : '—'}
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
-            <button
-              onClick={() => handleViewStudents(classItem)}
-              className="underline underline-offset-2 hover:text-blue-800 cursor-pointer"
-            >
-              查看所有学生
-            </button>
-          </td>
-          {/* "Edit" and "Delete" buttons are only visible to teachers */}
-          {role?.id === 'teacher' && (
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-              <div className="flex items-center space-x-2">
-                <Button
-                  onClick={() => handleOpenEdit(classItem)}
-                  variant="outline"
-                  size="sm"
-                  title="修改班级"
-                >
-                  修改
-                </Button>
-                <Button
-                  onClick={() => handleDelete(classItem)}
-                  size="sm"
-                  className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
-                  title="删除班级"
-                >
-                  删除
-                </Button>
-              </div>
-            </td>
-          )}
-        </tr>
-      );
-    });
+  const handleOpenEdit = (classItem: Class) => {
+    setSelectedClass(classItem);
+    setShowEditModal(true);
   };
+  
+  const handleCloseResultModal = useCallback(() => {
+    setShowResultModal(false);
+    setCreateResult(null);
+  }, []);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">班级管理</h1>
-        {/* "Add Class" button is only visible to teachers */}
         {role?.id === 'teacher' && (
           <div className="flex space-x-3">
-            <Button onClick={handleOpenCreate} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={() => setShowCreateModal(true)} className="bg-blue-600 hover:bg-blue-700">
               <Plus size={16} className="mr-2" />
               新增班级
             </Button>
@@ -366,331 +146,42 @@ const ClassManagement: React.FC = () => {
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">班级列表</h2>
-        </div>
+      <ClassesTable
+        classes={classes}
+        isLoading={isLoading}
+        error={error}
+        onViewStudents={handleViewStudents}
+        onEdit={handleOpenEdit}
+        onDelete={handleDelete}
+      />
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">班级名称</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">班级代码</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">助教</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学生</th>
-                {/* "Actions" column is only visible to teachers */}
-                {role?.id === 'teacher' && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {renderTableBody()}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Modals and other UI elements... */}
-      <Modal
-        isOpen={showStudentsModal}
-        onClose={handleCloseStudentsModal}
-        title={selectedClass ? `${selectedClass.class_name} 的学生列表` : '学生列表'}
-      >
-        <div className="space-y-4">
-          {selectedClass && (
-            <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900">{selectedClass.class_name}</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                班级代码: <span className="font-medium">{selectedClass.class_code || '未设置'}</span>
-              </p>
-              <p className="text-sm text-gray-600 mt-1">学生总数：<span className="font-semibold text-gray-900">{students.length}</span></p>
-            </div>
-          )}
-
-          <div className="max-h-72 overflow-y-auto border border-gray-200 rounded-lg">
-            {isStudentsLoading ? (
-              <div className="flex items-center justify-center py-10 text-gray-500">
-                <Loader className="animate-spin mr-2" />正在加载学生...
-              </div>
-            ) : studentsError ? (
-              <div className="flex flex-col items-center justify-center py-10 text-red-500">
-                <AlertTriangle />
-                <p className="mt-2">{studentsError}</p>
-              </div>
-            ) : students.length === 0 ? (
-              <p className="py-6 text-center text-gray-500">该班级暂无学生。</p>
-            ) : (
-              <ul className="divide-y divide-gray-200">
-                {students.map(student => (
-                  <li key={student.user_id} className="flex items-center p-3 hover:bg-gray-50">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center mr-4">
-                      <UserIcon size={16} className="text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">{student.full_name}</p>
-                      <p className="text-sm text-gray-500">{student.username}</p>
-                    </div>
-                    <p className="text-sm text-gray-500">{student.email}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="flex justify-end pt-4 border-t border-gray-100">
-            <Button variant="outline" onClick={handleCloseStudentsModal}>
-              关闭
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
+      <CreateClassModal
         isOpen={showCreateModal}
-        onClose={handleCloseCreateModal}
-        title="新增班级"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              班级名称 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.class_name}
-              onChange={(e) => setFormData(prev => ({ ...prev, class_name: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="例如：2024级计算机1班"
-              maxLength={50}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              2-50个字符，可包含中文、英文、数字、短横线和下划线
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              班级代码 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.class_code}
-              onChange={(e) => setFormData(prev => ({ ...prev, class_code: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="例如：CS101-2025"
-              maxLength={20}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              2-20个字符，只能包含英文、数字、短横线和下划线
-            </p>
-          </div>
+        onClose={() => setShowCreateModal(false)}
+        onSubmit={handleCreateSubmit}
+      />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">学生名单（可选）</label>
-            <div className="space-y-2">
-              {!csvFile ? (
-                <div className="relative">
-                  <input
-                    id="csv-file-input"
-                    type="file"
-                    accept=".csv"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <label
-                    htmlFor="csv-file-input"
-                    className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all duration-200"
-                  >
-                    <Upload size={20} className="text-gray-400 mr-2" />
-                    <span className="text-sm text-gray-600">点击上传 CSV 文件</span>
-                  </label>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <FileText size={20} className="text-blue-600" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{csvFile.name}</p>
-                      <p className="text-xs text-gray-500">{(csvFile.size / 1024).toFixed(2)} KB</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleRemoveFile}
-                    className="text-red-600 hover:text-red-800 transition-colors"
-                    title="移除文件"
-                  >
-                    <XCircle size={20} />
-                  </button>
-                </div>
-              )}
-              <p className="text-xs text-gray-500">
-                上传 CSV 文件将自动创建学生账号并加入班级。CSV 文件需包含学号和姓名字段。
-              </p>
-              <div className="flex items-start space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <AlertTriangle size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-xs font-medium text-blue-900">
-                    批量创建提示
-                  </p>
-                  <p className="text-xs text-blue-700 mt-1">
-                    批量创建的学生账号，其登录用户名和初始密码均为学号。请提醒学生首次登录后及时修改密码。
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <Button
-              variant="outline"
-              onClick={handleCloseCreateModal}
-            >
-              取消
-            </Button>
-            <Button onClick={handleCreate} disabled={isSubmitting}>
-              {isSubmitting ? '创建中...' : '创建'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal
+      <EditClassModal
         isOpen={showEditModal}
-        onClose={handleCloseEditModal}
-        title="修改班级信息"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              班级名称 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.class_name}
-              onChange={(e) => setFormData(prev => ({ ...prev, class_name: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="例如：2024级计算机1班"
-              maxLength={50}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              2-50个字符，可包含中文、英文、数字、短横线和下划线
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              班级代码 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.class_code}
-              onChange={(e) => setFormData(prev => ({ ...prev, class_code: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="例如：CS101-2025"
-              maxLength={20}
-            />
-            <p className="mt-1 text-xs text-gray-500">
-              2-20个字符，只能包含英文、数字、短横线和下划线
-            </p>
-          </div>
-          <div className="flex justify-end space-x-3 pt-4">
-            <Button
-              variant="outline"
-              onClick={handleCloseEditModal}
-            >
-              取消
-            </Button>
-            <Button onClick={handleUpdate} disabled={isSubmitting}>
-              {isSubmitting ? '保存中...' : '保存'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        onClose={() => setShowEditModal(false)}
+        classData={selectedClass}
+        onSubmit={handleUpdateSubmit}
+      />
 
-      <Modal
+      <ViewStudentsModal
+        isOpen={showStudentsModal}
+        onClose={() => setShowStudentsModal(false)}
+        selectedClass={selectedClass}
+        students={students}
+        isLoading={isStudentsLoading}
+        error={studentsError}
+      />
+      
+      <CreateResultModal
         isOpen={showResultModal}
         onClose={handleCloseResultModal}
-        title="班级创建成功"
-      >
-        {createResult && (
-          <div className="space-y-4">
-            {/* 成功提示 */}
-            <div className="flex items-center space-x-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <CheckCircle size={24} className="text-green-600 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-green-900">班级创建成功！</p>
-                <p className="text-xs text-green-700 mt-1">
-                  班级 "{createResult.class.class_name}" 已成功创建
-                  {createResult.class.class_code && ` (班级代码: ${createResult.class.class_code})`}
-                </p>
-              </div>
-            </div>
-
-            {/* 统计信息 */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <p className="text-2xl font-bold text-blue-600">{createResult.students_created}</p>
-                <p className="text-sm text-gray-600 mt-1">新创建学生</p>
-              </div>
-              <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
-                <p className="text-2xl font-bold text-indigo-600">{createResult.students_enrolled}</p>
-                <p className="text-sm text-gray-600 mt-1">加入班级学生</p>
-              </div>
-            </div>
-
-            {/* 错误信息 */}
-            {createResult.errors && createResult.errors.length > 0 && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex items-start space-x-2">
-                  <AlertTriangle size={18} className="text-yellow-600 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-yellow-900">部分学生创建失败</p>
-                    <ul className="mt-2 space-y-1 text-xs text-yellow-800">
-                      {createResult.errors.map((error, index) => (
-                        <li key={index} className="list-disc list-inside">{error}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 学生列表 */}
-            {createResult.students && createResult.students.length > 0 && (
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">学生列表</h3>
-                <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
-                  <ul className="divide-y divide-gray-200">
-                    {createResult.students.map((student) => (
-                      <li key={student.user_id} className="flex items-center p-3 hover:bg-gray-50">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center mr-3">
-                          <UserIcon size={16} className="text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">{student.full_name}</p>
-                          <p className="text-xs text-gray-500">{student.username}</p>
-                        </div>
-                        <p className="text-xs text-gray-500">{student.email}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {/* 关闭按钮 */}
-            <div className="flex justify-end pt-4 border-t border-gray-100">
-              <Button onClick={() => {
-                setShowResultModal(false);
-                setCreateResult(null);
-              }}>
-                完成
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
+        result={createResult}
+      />
 
       {toast && (
         <Toast

@@ -137,13 +137,13 @@ const ExponentialSmoothingStepper: React.FC = () => {
 
     if (currentStep?.id === 'results') {
       // Mark model as completed and navigate to comparison page
-      
+      await markAsCompleted();
       navigate(COMPARISON_PATH);
       return;
     }
 
     if (currentStep?.id === 'comparison') {
-      await markAsCompleted();
+      
       // Go back to model select (model already marked as completed)
       navigate('/model/model-select');
       return;

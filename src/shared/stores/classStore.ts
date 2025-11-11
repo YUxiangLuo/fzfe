@@ -11,6 +11,7 @@ interface ClassState {
   classes: EnrichedClass[];
   isLoading: boolean;
   error: string | null;
+  hasFetched: boolean;
   fetchClasses: () => Promise<void>;
   addClass: (newClass: EnrichedClass) => void;
   updateClass: (updatedClass: EnrichedClass) => void;
@@ -28,6 +29,7 @@ export const useClassStore = create<ClassState>((set, get) => ({
   classes: [],
   isLoading: false,
   error: null,
+  hasFetched: false,
   fetchClasses: async () => {
     const teacherId = getTeacherId();
     if (!teacherId) {
@@ -53,9 +55,9 @@ export const useClassStore = create<ClassState>((set, get) => ({
           }
         })
       );
-      set({ classes: enrichedClasses, isLoading: false });
+      set({ classes: enrichedClasses, isLoading: false, error: null, hasFetched: true });
     } catch (err: any) {
-      set({ error: err.message || '获取班级列表失败', isLoading: false });
+      set({ classes: [], error: err.message || '获取班级列表失败', isLoading: false, hasFetched: true });
     }
   },
   addClass: (newClass) => {

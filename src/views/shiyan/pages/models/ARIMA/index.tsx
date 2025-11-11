@@ -351,14 +351,14 @@ const ARIMAStepper: React.FC = () => {
         return;
       } else {
         // From results view, mark as completed and navigate to comparison
-        
+        await updateState({ arima_completed: true });
         navigate(MODEL_COMPARISON_PATH);
         return;
       }
     }
 
     if (currentStep?.id === 'model-comparison') {
-      await updateState({ arima_completed: true });
+      
       // From comparison page, return to model select
       navigate('/model/model-select');
       return;

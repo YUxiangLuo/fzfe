@@ -113,13 +113,14 @@ const StackingEnsembleStepper: React.FC = () => {
 
     if (currentStep?.id === 'results') {
       // Navigate to model metrics comparison page
+      await markAsCompleted();
       navigate(MODEL_METRICS_COMPARISON_PATH);
       return;
     }
 
     if (currentStep?.id === 'model-metrics-comparison') {
       // Mark as completed and return to ensemble model select
-      await markAsCompleted();
+      
       navigate('/model/ensemble-select');
       return;
     }

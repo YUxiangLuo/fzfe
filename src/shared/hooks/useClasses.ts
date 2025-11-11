@@ -9,6 +9,7 @@ export const useClasses = () => {
     classes,
     isLoading,
     error,
+    hasFetched,
     fetchClasses,
     addClass,
     updateClass,
@@ -16,12 +17,11 @@ export const useClasses = () => {
   } = useClassStore();
 
   useEffect(() => {
-    // The store holds the state, so we only need to fetch if the store is empty.
-    // This prevents re-fetching on every component mount.
-    if (classes.length === 0 && !isLoading && !error) {
+    // Only fetch if it hasn't been attempted yet and is not currently loading.
+    if (!hasFetched && !isLoading) {
       fetchClasses();
     }
-  }, [classes.length, isLoading, error, fetchClasses]);
+  }, [hasFetched, isLoading, fetchClasses]);
 
   return { classes, isLoading, error, fetchClasses, addClass, updateClass, deleteClass };
 };

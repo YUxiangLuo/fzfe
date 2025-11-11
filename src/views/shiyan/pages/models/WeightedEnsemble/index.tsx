@@ -124,13 +124,14 @@ const WeightedEnsembleStepper: React.FC = () => {
 
     if (currentStep?.id === 'prediction-comparison') {
       // Navigate to model metrics comparison page
+      await markAsCompleted();
       navigate(MODEL_METRICS_COMPARISON_PATH);
       return;
     }
 
     if (currentStep?.id === 'model-metrics-comparison') {
       // Mark as completed and return to ensemble model select
-      await markAsCompleted();
+      
       navigate('/model/ensemble-select');
       return;
     }

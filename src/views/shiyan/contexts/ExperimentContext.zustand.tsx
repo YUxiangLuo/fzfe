@@ -18,7 +18,7 @@ import {
   updateExperimentState as apiUpdateExperimentState,
   createExperimentState,
   recordStepEvent,
-} from "../../../utils/apiClient";
+} from '../api';
 import { apiClient } from "../../../utils/apiClient";
 
 // Debug flag - can be controlled at runtime via window.__EXPERIMENT_DEBUG__
@@ -548,9 +548,6 @@ export const useExperimentStore = create<ExperimentStore>()(
       "ensemble_stacking_completed",
     ] as const;
 
-    const modelCompleted = modelCompletionFields.some(
-      (field) => nextState[field] === true && previousState[field] === false,
-    );
 
     const modelReset = modelCompletionFields.some(
       (field) => nextState[field] === false && previousState[field] === true,
@@ -562,7 +559,7 @@ export const useExperimentStore = create<ExperimentStore>()(
       previousState.status !== "Completed";
 
     const shouldSyncToBackend =
-      !skipSync && (forceSync || stepCompleted || modelCompleted || modelReset || experimentCompleted);
+      !skipSync && (forceSync || stepCompleted || modelReset || experimentCompleted);
 
     if (shouldSyncToBackend) {
       try {

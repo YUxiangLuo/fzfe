@@ -164,6 +164,7 @@ const QuestionBank: React.FC = () => {
       const response = await apiClient.get('/question-bank/questions');
       if (Array.isArray(response)) {
         setQuestions(response as Question[]);
+        showToast('题库刷新成功', 'success');
       } else {
         setQuestions([]);
       }
