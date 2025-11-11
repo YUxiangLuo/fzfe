@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ModelStepLayout from '../components/ModelStepLayout';
 import Intro from './Intro';
@@ -8,7 +8,8 @@ import Validation, { type ValidationProps } from './Validation';
 import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext';
-import { apiClient } from '../../../../../utils/apiClient';
+import { useSimpleModel } from '../hooks/useSimpleModel';
+import { EXPONENTIAL_SMOOTHING_CONSTANTS } from '../constants';
 
 const MODEL_NAME = '指数平滑法';
 const BASE_PATH = '/model/exponential-smoothing';
@@ -31,16 +32,41 @@ const RESULTS_STEP_INDEX = 3;
 const ExponentialSmoothingStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData, resetExponentialSmoothingModel } = useExperiment();
+  const { resetExponentialSmoothingModel } = useExperiment();
 
-  const [alpha, setAlpha] = useState<number | ''>(state.exponential_smoothing_alpha ?? '');
-  const [results, setResults] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
-  const isValidationPage = useMemo(() => location.pathname === VALIDATION_PATH, [location.pathname]);
-  const isComparisonPage = useMemo(() => location.pathname === COMPARISON_PATH, [location.pathname]);
+  // Use shared simple model hook
+  const {
+    param: alpha,
+    setParam: setAlpha,
+    results,
+    isLoading,
+    error,
+    setError,
+    isValidParam: isValidAlpha,
+    handleCalculate,
+    markAsCompleted,
+  } = useSimpleModel<number | ''>({
+    type: 'exponential_smoothing',
+    apiEndpoint: '/models/es/training',
+    stateKeys: {
+      param: 'exponential_smoothing_alpha',
+      completed: 'exponential_smoothing_completed',
+      metricsRmse: 'exponential_smoothing_metrics_rmse',
+      metricsMae: 'exponential_smoothing_metrics_mae',
+      metricsR2: 'exponential_smoothing_metrics_r2',
+    },
+    paramKey: 'exponential_smoothing_alpha',
+    validateParam: (alpha) => {
+      if (alpha === '' || alpha <= EXPONENTIAL_SMOOTHING_CONSTANTS.MIN_ALPHA) return false;
+      if (alpha > EXPONENTIAL_SMOOTHING_CONSTANTS.MAX_ALPHA) return false;
+      return true;
+    },
+  });
+
+  const isValidationPage = location.pathname === VALIDATION_PATH;
+  const isComparisonPage = location.pathname === COMPARISON_PATH;
 
   const currentStepIndex = useMemo(() => {
     if (isValidationPage) {
@@ -68,94 +94,20 @@ const ExponentialSmoothingStepper: React.FC = () => {
     return STEPS[currentStepIndex];
   }, [currentStepIndex, isValidationPage, isComparisonPage]);
 
-  const isValidAlpha = useMemo(() => {
-    if (alpha === '' || alpha <= 0) return false;
-    if (alpha > 1) return false;
-    return true;
-  }, [alpha]);
-
-  const handleCalculate = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const requestBody = {
-        selected_industry: state.selected_industry,
-        selected_company: state.selected_company,
-        selected_product: state.selected_product,
-        data_window_train_start_index: state.data_window_train_start_index,
-        data_window_train_end_index: state.data_window_train_end_index,
-        data_window_evaluate_start_index: state.data_window_evaluate_start_index,
-        data_window_evaluate_end_index: state.data_window_evaluate_end_index,
-        exponential_smoothing_alpha: alpha,
-      };
-
-      const response = await apiClient.post<any>("/models/es/training", requestBody);
-
-      if (response.status === "success") {
-        const apiResults = response.results;
-        const months = productSalesData?.monthlySales
-          .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
-          .map(item => item.month) || [];
-
-        setResults({
-          predictions: months.map((month: string, index: number) => ({
-            date: month,
-            actual: apiResults.eval_y_true[index],
-            predicted: apiResults.eval_predictions[index],
-          })),
-          metrics: apiResults.metrics,
-        });
-
-        await updateState({
-          exponential_smoothing_alpha: alpha === '' ? null : alpha,
-          exponential_smoothing_metrics_rmse: apiResults.metrics.rmse,
-          exponential_smoothing_metrics_mae: apiResults.metrics.mae,
-          exponential_smoothing_metrics_r2: apiResults.metrics.r2,
-        });
-      } else {
-        throw new Error(response.message || "模型计算返回失败状态");
-      }
-    } catch (e: any) {
-      setError(e.message || '计算失败，请稍后重试。');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    state.selected_industry,
-    state.selected_company,
-    state.selected_product,
-    state.data_window_train_start_index,
-    state.data_window_train_end_index,
-    state.data_window_evaluate_start_index,
-    state.data_window_evaluate_end_index,
-    alpha,
-    productSalesData,
-    updateState
-  ]);
-
+  // Auto-calculate when entering results page
   useEffect(() => {
     if (currentStep?.id === 'results' && !results && !isLoading) {
       handleCalculate();
     }
-  }, [currentStep?.id, results, isLoading, handleCalculate]);
-
-  // Clear results when alpha changes to trigger recalculation
-  useEffect(() => {
-    setResults(null);
-  }, [alpha]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep?.id, results, isLoading]);
 
   const handleReset = async () => {
     setIsResetting(true);
     try {
-      // Clear local state
       setAlpha('');
-      setResults(null);
       setError(null);
-
-      // Clear global state
       await resetExponentialSmoothingModel();
-
-      // Navigate to first step
       navigate(`${BASE_PATH}/intro`);
     } finally {
       setIsResetting(false);
@@ -184,7 +136,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
 
     if (currentStep?.id === 'results') {
       // Mark model as completed and navigate to comparison page
-      await updateState({ exponential_smoothing_completed: true });
+      await markAsCompleted();
       navigate(COMPARISON_PATH);
       return;
     }

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import type { AdfStationarityRow } from '../../../contexts/ExperimentContext';
+import { ARIMA_CONSTANTS } from '../constants';
 
 export interface DifferencingValidationProps {
   selectedD: number | '';
@@ -13,8 +14,8 @@ const DifferencingValidation: React.FC<DifferencingValidationProps> = ({ selecte
       return { isValid: false, message: '请先选择差分阶数' };
     }
 
-    if (selectedD < 0 || selectedD > 2) {
-      return { isValid: false, message: '差分阶数必须在 0-2 之间' };
+    if (selectedD < ARIMA_CONSTANTS.MIN_DIFFERENCING_ORDER || selectedD > ARIMA_CONSTANTS.MAX_DIFFERENCING_ORDER) {
+      return { isValid: false, message: `差分阶数必须在 ${ARIMA_CONSTANTS.MIN_DIFFERENCING_ORDER}-${ARIMA_CONSTANTS.MAX_DIFFERENCING_ORDER} 之间` };
     }
 
     const adfRow = adfResults.find(r => r.diff_order === selectedD);

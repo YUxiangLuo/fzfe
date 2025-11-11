@@ -41,6 +41,9 @@ const LSTMStepper: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
+  // AbortController ref for cancelling requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   const isNormalizationInfoPage = useMemo(() => location.pathname === NORMALIZATION_INFO_PATH, [location.pathname]);
   const isLSTMMethodInfoPage = useMemo(() => location.pathname === LSTM_METHOD_INFO_PATH, [location.pathname]);
 
@@ -96,6 +99,15 @@ const LSTMStepper: React.FC = () => {
   }, [currentStep?.id, target, productFieldOptions]);
 
   const handleCalculate = useCallback(async () => {
+    // Cancel any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
     setIsLoading(true);
     setError(null);
     try {
@@ -112,7 +124,11 @@ const LSTMStepper: React.FC = () => {
         lstm_features: features,
       };
 
-      const response = await apiClient.post<any>("/models/lstm/training", requestBody);
+      const response = await apiClient.post<any>(
+        "/models/lstm/training",
+        requestBody,
+        { signal: abortController.signal }
+      );
 
       if (response.status === "success") {
         const apiResults = response.results;
@@ -136,9 +152,15 @@ const LSTMStepper: React.FC = () => {
         throw new Error(response.message || "模型训练失败。");
       }
     } catch (e: any) {
+      // Ignore abort errors
+      if (e.name === 'AbortError') {
+        return;
+      }
       setError(e.message || "模型训练时发生错误。");
     } finally {
-      setIsLoading(false);
+      if (abortControllerRef.current === abortController) {
+        setIsLoading(false);
+      }
     }
   }, [
     state.selected_industry,
@@ -159,7 +181,17 @@ const LSTMStepper: React.FC = () => {
     if (currentStep?.id === 'results' && !results && !isLoading) {
       handleCalculate();
     }
-  }, [currentStep?.id, results, isLoading, handleCalculate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep?.id, results, isLoading]);
+
+  // Cleanup: cancel all pending requests on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const handleReset = async () => {
     setIsResetting(true);

@@ -12,6 +12,7 @@ import AutoParams from './AutoParams';
 import ModelComparison from './ModelComparison';
 import { useExperiment, type AdfStationarityRow } from '../../../contexts/ExperimentContext';
 import { apiClient } from '../../../../../utils/apiClient';
+import { ARIMA_CONSTANTS } from '../constants';
 
 const MODEL_NAME = 'ARIMA 模型';
 const BASE_PATH = '/model/arima';
@@ -48,6 +49,10 @@ const ARIMAStepper: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
+  // AbortController refs for cancelling requests
+  const adfAbortControllerRef = useRef<AbortController | null>(null);
+  const calculateAbortControllerRef = useRef<AbortController | null>(null);
+
   const isAutoregressionInfoPage = useMemo(() => location.pathname === AUTOREGRESSION_INFO_PATH, [location.pathname]);
   const isStationarityTablePage = useMemo(() => location.pathname === STATIONARITY_TABLE_PATH, [location.pathname]);
   const isDifferencingInfoPage = useMemo(() => location.pathname === DIFFERENCING_INFO_PATH, [location.pathname]);
@@ -55,7 +60,7 @@ const ARIMAStepper: React.FC = () => {
   const isModelComparisonPage = useMemo(() => location.pathname === MODEL_COMPARISON_PATH, [location.pathname]);
 
   const isValidDifferencing = useMemo(() => {
-    if (selectedD === '' || selectedD < 0 || selectedD > 2) return false;
+    if (selectedD === '' || selectedD < ARIMA_CONSTANTS.MIN_DIFFERENCING_ORDER || selectedD > ARIMA_CONSTANTS.MAX_DIFFERENCING_ORDER) return false;
     const adfRow = adfResults.find(r => r.diff_order === selectedD);
     return adfRow?.stationary ?? false;
   }, [selectedD, adfResults]);
@@ -106,6 +111,15 @@ const ARIMAStepper: React.FC = () => {
   }, [currentStepIndex, isAutoregressionInfoPage, isStationarityTablePage, isDifferencingInfoPage, isDifferencingValidationPage, isModelComparisonPage]);
 
   const handleRunAdf = async () => {
+    // Cancel any pending ADF request
+    if (adfAbortControllerRef.current) {
+      adfAbortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    adfAbortControllerRef.current = abortController;
+
     setError(null);
     setIsLoading(true);
     try {
@@ -119,9 +133,13 @@ const ARIMAStepper: React.FC = () => {
       }
 
       const trainingSeries = productSalesData.monthlySales.slice(startIndex, endIndex + 1);
-      const response = await apiClient.post<{ result: AdfStationarityRow[] }>("/tools/adf", {
-        series: trainingSeries.map(r => ({ month: r.month, sales: r.sales })),
-      });
+      const response = await apiClient.post<{ result: AdfStationarityRow[] }>(
+        "/tools/adf",
+        {
+          series: trainingSeries.map(r => ({ month: r.month, sales: r.sales })),
+        },
+        { signal: abortController.signal }
+      );
 
       if (!response.result || response.result.length === 0) {
         throw new Error("ADF检验未返回有效结果。");
@@ -129,13 +147,28 @@ const ARIMAStepper: React.FC = () => {
       setAdfResults(response.result);
       await updateState({ arima_adf_stationarity: response.result });
     } catch (e: any) {
+      // Ignore abort errors
+      if (e.name === 'AbortError') {
+        return;
+      }
       setError(e.message || "ADF检验失败。");
     } finally {
-      setIsLoading(false);
+      if (adfAbortControllerRef.current === abortController) {
+        setIsLoading(false);
+      }
     }
   };
 
   const handleCalculate = useCallback(async () => {
+    // Cancel any pending calculation request
+    if (calculateAbortControllerRef.current) {
+      calculateAbortControllerRef.current.abort();
+    }
+
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    calculateAbortControllerRef.current = abortController;
+
     setIsLoading(true);
     setError(null);
     try {
@@ -149,7 +182,11 @@ const ARIMAStepper: React.FC = () => {
         data_window_evaluate_end_index: state.data_window_evaluate_end_index,
         arima_d: selectedD,
       };
-      const response = await apiClient.post<any>("/models/arima/training", requestBody);
+      const response = await apiClient.post<any>(
+        "/models/arima/training",
+        requestBody,
+        { signal: abortController.signal }
+      );
       if (response.status === "success") {
         const apiResults = response.results;
         const months = productSalesData?.monthlySales
@@ -176,9 +213,15 @@ const ARIMAStepper: React.FC = () => {
         throw new Error(response.message || "模型训练失败。");
       }
     } catch (e: any) {
+      // Ignore abort errors
+      if (e.name === 'AbortError') {
+        return;
+      }
       setError(e.message || "模型训练时发生错误。");
     } finally {
-      setIsLoading(false);
+      if (calculateAbortControllerRef.current === abortController) {
+        setIsLoading(false);
+      }
     }
   }, [
     state.selected_industry,
@@ -198,7 +241,8 @@ const ARIMAStepper: React.FC = () => {
     if (currentStep?.id === 'autoparams' && !results && !isLoading) {
       handleCalculate();
     }
-  }, [currentStep?.id, results, isLoading, handleCalculate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep?.id, results, isLoading]);
 
   // Reset autoParamsView when entering autoparams page
   useEffect(() => {
@@ -212,12 +256,25 @@ const ARIMAStepper: React.FC = () => {
     if (currentStep?.id === 'stationarity-table' && adfResults.length === 0 && !isLoading) {
       handleRunAdf();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep?.id, adfResults.length, isLoading]);
 
   // Clear results when selectedD changes to trigger recalculation
   useEffect(() => {
     setResults(null);
   }, [selectedD]);
+
+  // Cleanup: cancel all pending requests on unmount
+  useEffect(() => {
+    return () => {
+      if (adfAbortControllerRef.current) {
+        adfAbortControllerRef.current.abort();
+      }
+      if (calculateAbortControllerRef.current) {
+        calculateAbortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const handleReset = async () => {
     setIsResetting(true);

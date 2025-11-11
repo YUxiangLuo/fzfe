@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ModelStepLayout from '../components/ModelStepLayout';
 import Intro from './Intro';
@@ -7,7 +7,7 @@ import Results, { type ResultsProps } from './Results';
 import PredictionComparison, { type PredictionComparisonProps } from './PredictionComparison';
 import ModelMetricsComparison, { type ModelMetricsComparisonProps } from './ModelMetricsComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext';
-import { apiClient } from '../../../../../utils/apiClient';
+import { useEnsembleModel } from '../hooks/useEnsembleModel';
 
 const MODEL_NAME = '加权平均融合';
 const BASE_PATH = '/model/weighted-ensemble';
@@ -28,25 +28,35 @@ const RESULTS_STEP_INDEX = 2;
 const WeightedEnsembleStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData, resetWeightedEnsembleModel } = useExperiment();
+  const { resetWeightedEnsembleModel } = useExperiment();
 
-  const [selectedModels, setSelectedModels] = useState<string[]>(state.ensemble_weighted_base_models ?? []);
-  const [results, setResults] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
 
-  const evaluateMonths = useMemo(() => {
-    if (!productSalesData || state.data_window_evaluate_start_index === null || state.data_window_evaluate_end_index === null) {
-      return [];
-    }
-    const start = state.data_window_evaluate_start_index;
-    const end = state.data_window_evaluate_end_index;
-    return productSalesData.monthlySales.slice(start, end + 1).map(item => item.month);
-  }, [productSalesData, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
+  // Use shared ensemble model hook
+  const {
+    selectedModels,
+    setSelectedModels,
+    results,
+    isLoading,
+    error,
+    setError,
+    isValidSelection,
+    handleCalculate,
+    markAsCompleted,
+  } = useEnsembleModel({
+    type: 'weighted',
+    apiEndpoint: '/models/weighted-average/training',
+    stateKey: {
+      baseModels: 'ensemble_weighted_base_models',
+      completed: 'ensemble_weighted_completed',
+      metricsRmse: 'ensemble_weighted_metrics_rmse',
+      metricsMae: 'ensemble_weighted_metrics_mae',
+      metricsR2: 'ensemble_weighted_metrics_r2',
+    },
+  });
 
-  const isPredictionComparisonPage = useMemo(() => location.pathname === PREDICTION_COMPARISON_PATH, [location.pathname]);
-  const isModelMetricsComparisonPage = useMemo(() => location.pathname === MODEL_METRICS_COMPARISON_PATH, [location.pathname]);
+  const isPredictionComparisonPage = location.pathname === PREDICTION_COMPARISON_PATH;
+  const isModelMetricsComparisonPage = location.pathname === MODEL_METRICS_COMPARISON_PATH;
 
   const currentStepIndex = useMemo(() => {
     if (isPredictionComparisonPage || isModelMetricsComparisonPage) {
@@ -68,89 +78,13 @@ const WeightedEnsembleStepper: React.FC = () => {
     return STEPS[currentStepIndex];
   }, [currentStepIndex, isPredictionComparisonPage, isModelMetricsComparisonPage]);
 
-  const handleCalculate = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const modelIdMap: Record<string, string> = {
-        'moving_average': 'ma', 'exponential_smoothing': 'es', 'arima': 'arima', 'lstm': 'lstm'
-      };
-      const backendModels = selectedModels.map(id => modelIdMap[id] || id);
-
-      const requestBody: Record<string, any> = {
-        selected_industry: state.selected_industry,
-        selected_company: state.selected_company,
-        selected_product: state.selected_product,
-        data_window_train_start_index: state.data_window_train_start_index,
-        data_window_train_end_index: state.data_window_train_end_index,
-        data_window_evaluate_start_index: state.data_window_evaluate_start_index,
-        data_window_evaluate_end_index: state.data_window_evaluate_end_index,
-        ensemble_weighted_base_models: backendModels,
-      };
-
-      // Add base model parameters
-      if (backendModels.includes('arima')) requestBody.arima_d = state.arima_d;
-      if (backendModels.includes('es')) requestBody.exponential_smoothing_alpha = state.exponential_smoothing_alpha;
-      if (backendModels.includes('ma')) requestBody.moving_average_window = state.moving_average_window;
-      if (backendModels.includes('lstm')) {
-        requestBody.lstm_features = state.lstm_features;
-        requestBody.lstm_target_field = state.lstm_target_field;
-        requestBody.lstm_normalization = state.lstm_normalization;
-      }
-
-      const response = await apiClient.post<any>("/models/weighted-average/training", requestBody);
-
-      if (response.status === "success") {
-        const apiResults = response.results;
-        setResults({
-          predictions: evaluateMonths.map((month: string, index: number) => ({
-            date: month,
-            actual: apiResults.eval_y_true[index],
-            predicted: apiResults.eval_predictions[index],
-          })),
-          metrics: apiResults.metrics,
-          weights: apiResults.weights,
-          model_names: apiResults.model_names,
-        });
-
-        await updateState({
-          ensemble_weighted_base_models: selectedModels,
-          ensemble_weighted_metrics_rmse: apiResults.metrics.rmse,
-          ensemble_weighted_metrics_mae: apiResults.metrics.mae,
-          ensemble_weighted_metrics_r2: apiResults.metrics.r2,
-        });
-      } else {
-        throw new Error(response.message || "模型训练失败。");
-      }
-    } catch (e: any) {
-      setError(e.message || "模型训练时发生错误。");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    state.selected_industry,
-    state.selected_company,
-    state.selected_product,
-    state.data_window_train_start_index,
-    state.data_window_train_end_index,
-    state.data_window_evaluate_start_index,
-    state.data_window_evaluate_end_index,
-    state.arima_d,
-    state.exponential_smoothing_alpha,
-    state.moving_average_window,
-    state.lstm_features,
-    state.lstm_target_field,
-    state.lstm_normalization,
-    selectedModels,
-    evaluateMonths,
-    updateState
-  ]);
-
+  // Auto-calculate when entering results page
   useEffect(() => {
     if (currentStep?.id === 'results' && !results && !isLoading) {
       handleCalculate();
     }
-  }, [currentStep?.id, results, isLoading, handleCalculate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep?.id, results, isLoading]);
 
   const handleReset = async () => {
     setIsResetting(true);
@@ -175,7 +109,7 @@ const WeightedEnsembleStepper: React.FC = () => {
     const nextStepIndex = currentStepIndex + 1;
 
     if (currentStep?.id === 'select-models') {
-      if (selectedModels.length < 2) {
+      if (!isValidSelection) {
         setError("请至少选择两个基础模型进行融合。");
         return;
       }
@@ -197,7 +131,7 @@ const WeightedEnsembleStepper: React.FC = () => {
 
     if (currentStep?.id === 'model-metrics-comparison') {
       // Mark as completed and return to model select
-      await updateState({ ensemble_weighted_completed: true });
+      await markAsCompleted();
       navigate('/model/model-select');
       return;
     }
