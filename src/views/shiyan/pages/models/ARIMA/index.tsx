@@ -236,13 +236,13 @@ const ARIMAStepper: React.FC = () => {
     updateState
   ]);
 
-  // Auto-calculate when entering autoparams page
+  // Auto-calculate when entering autoparams page, ONLY if parameters are valid
   useEffect(() => {
-    if (currentStep?.id === 'autoparams' && !results && !isLoading) {
+    if (currentStep?.id === 'autoparams' && !results && !isLoading && selectedD !== '') {
       handleCalculate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep?.id, results, isLoading]);
+  }, [currentStep?.id, results, isLoading, selectedD, handleCalculate]);
 
   // Reset autoParamsView when entering autoparams page
   useEffect(() => {

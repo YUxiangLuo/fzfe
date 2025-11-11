@@ -94,13 +94,13 @@ const ExponentialSmoothingStepper: React.FC = () => {
     return STEPS[currentStepIndex];
   }, [currentStepIndex, isValidationPage, isComparisonPage]);
 
-  // Auto-calculate when entering results page
+  // Auto-calculate when entering results page, ONLY if parameters are valid
   useEffect(() => {
-    if (currentStep?.id === 'results' && !results && !isLoading) {
+    if (currentStep?.id === 'results' && !results && !isLoading && isValidAlpha) {
       handleCalculate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep?.id, results, isLoading]);
+  }, [currentStep?.id, results, isLoading, isValidAlpha, handleCalculate]);
 
   const handleReset = async () => {
     setIsResetting(true);

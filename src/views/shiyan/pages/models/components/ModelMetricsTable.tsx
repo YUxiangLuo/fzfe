@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface ModelMetric {
-  name: string;
+  model: string;
   rmse: number | null;
   mae: number | null;
   r2: number | null;
@@ -70,21 +70,21 @@ const ModelMetricsTable: React.FC<ModelMetricsTableProps> = ({
                   </td>
                   <td
                     className={`px-6 py-4 whitespace-nowrap text-sm text-center font-semibold ${
-                      model.name === highlightRow ? 'text-blue-700 font-bold' : 'text-blue-600'
+                      model.model === highlightRow ? 'text-blue-700 font-bold' : 'text-blue-600'
                     }`}
                   >
                     {model.rmse !== null ? model.rmse.toFixed(4) : 'N/A'}
                   </td>
                   <td
                     className={`px-6 py-4 whitespace-nowrap text-sm text-center font-semibold ${
-                      model.name === highlightRow ? 'text-green-700 font-bold' : 'text-green-600'
+                      model.model === highlightRow ? 'text-green-700 font-bold' : 'text-green-600'
                     }`}
                   >
                     {model.mae !== null ? model.mae.toFixed(4) : 'N/A'}
                   </td>
                   <td
                     className={`px-6 py-4 whitespace-nowrap text-sm text-center font-semibold ${
-                      model.name === highlightRow ? 'text-indigo-700 font-bold' : 'text-indigo-600'
+                      model.model === highlightRow ? 'text-indigo-700 font-bold' : 'text-indigo-600'
                     }`}
                   >
                     {model.r2 !== null ? model.r2.toFixed(4) : 'N/A'}

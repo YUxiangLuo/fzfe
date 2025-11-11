@@ -188,12 +188,16 @@ const LSTMStepper: React.FC = () => {
     updateState
   ]);
 
+  const areParamsValid = useMemo(() => {
+    return !!normalization && !!target && features.length > 0;
+  }, [normalization, target, features]);
+
   useEffect(() => {
-    if (currentStep?.id === 'results' && !results && !isLoading) {
+    if (currentStep?.id === 'results' && !results && !isLoading && areParamsValid) {
       handleCalculate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep?.id, results, isLoading]);
+  }, [currentStep?.id, results, isLoading, areParamsValid, handleCalculate]);
 
   // Cleanup: cancel all pending requests on unmount
   useEffect(() => {
