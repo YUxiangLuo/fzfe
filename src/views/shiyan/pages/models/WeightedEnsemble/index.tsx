@@ -91,7 +91,6 @@ const WeightedEnsembleStepper: React.FC = () => {
     try {
       // Clear local state
       setSelectedModels([]);
-      setResults(null);
       setError(null);
 
       // Clear global state
@@ -144,7 +143,8 @@ const WeightedEnsembleStepper: React.FC = () => {
   const handlePrevious = () => {
     if (isPredictionComparisonPage) {
       // From prediction comparison, go back to results
-      navigate(STEPS[RESULTS_STEP_INDEX].path);
+      const prevStep = STEPS[RESULTS_STEP_INDEX];
+      if (prevStep) navigate(prevStep.path);
       return;
     }
 

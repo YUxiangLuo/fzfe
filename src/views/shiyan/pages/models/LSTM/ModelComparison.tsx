@@ -2,67 +2,70 @@ import React, { useMemo } from 'react';
 import { useExperiment } from '../../../contexts/ExperimentContext';
 import ModelMetricsTable from '../components/ModelMetricsTable';
 
-export interface ModelMetricsComparisonProps {
-  data: {
-    metrics: { rmse: number; mae: number; r2: number };
-  } | null;
-  baseModelIds: string[];
-}
-
-const MODEL_NAME = '加权融合模型';
-
-const ModelMetricsComparison: React.FC<ModelMetricsComparisonProps> = ({ data, baseModelIds }) => {
+const ModelComparison: React.FC = () => {
   const { state } = useExperiment();
 
   const modelData = useMemo(() => {
-    if (!baseModelIds || baseModelIds.length === 0) return [];
-
-    const modelMapping: Record<string, { name: string; rmse: number | null; mae: number | null; r2: number | null }> = {
-      moving_average: {
+    const models = [
+      {
         name: '移动平均法',
         rmse: state.moving_average_metrics_rmse,
         mae: state.moving_average_metrics_mae,
         r2: state.moving_average_metrics_r2,
+        completed: state.moving_average_completed,
       },
-      exponential_smoothing: {
+      {
         name: '指数平滑法',
         rmse: state.exponential_smoothing_metrics_rmse,
         mae: state.exponential_smoothing_metrics_mae,
         r2: state.exponential_smoothing_metrics_r2,
+        completed: state.exponential_smoothing_completed,
       },
-      arima: {
+      {
         name: 'ARIMA模型',
         rmse: state.arima_metrics_rmse,
         mae: state.arima_metrics_mae,
         r2: state.arima_metrics_r2,
+        completed: state.arima_completed,
       },
-      lstm: {
-        name: 'LSTM神经网络',
+      {
+        name: 'LSTM模型',
         rmse: state.lstm_metrics_rmse,
         mae: state.lstm_metrics_mae,
         r2: state.lstm_metrics_r2,
+        completed: state.lstm_completed,
       },
-    };
+      {
+        name: '加权融合模型',
+        rmse: state.ensemble_weighted_metrics_rmse,
+        mae: state.ensemble_weighted_metrics_mae,
+        r2: state.ensemble_weighted_metrics_r2,
+        completed: state.ensemble_weighted_completed,
+      },
+      {
+        name: 'Boosting融合模型',
+        rmse: state.ensemble_boosting_metrics_rmse,
+        mae: state.ensemble_boosting_metrics_mae,
+        r2: state.ensemble_boosting_metrics_r2,
+        completed: state.ensemble_boosting_completed,
+      },
+      {
+        name: 'Stacking融合模型',
+        rmse: state.ensemble_stacking_metrics_rmse,
+        mae: state.ensemble_stacking_metrics_mae,
+        r2: state.ensemble_stacking_metrics_r2,
+        completed: state.ensemble_stacking_completed,
+      },
+    ];
 
-    const baseModels = baseModelIds
-      .map(id => modelMapping[id])
-      .filter((model): model is { name: string; rmse: number | null; mae: number | null; r2: number | null; } => !!model);
-
-    if (!data) return baseModels;
-
-    const weightedModel = {
-      name: MODEL_NAME,
-      rmse: data.metrics.rmse,
-      mae: data.metrics.mae,
-      r2: data.metrics.r2,
-    };
-
-    return [...baseModels, weightedModel];
-  }, [baseModelIds, state, data]);
+    return models.filter(
+      model => model.completed && model.rmse !== null && model.mae !== null && model.r2 !== null
+    );
+  }, [state]);
 
   const footer = (
     <>
-      <h5 className="text-base font-semibold text-gray-800 mb-3">指标说明：</h5>
+      <h4 className="text-base font-semibold text-gray-800 mb-3">指标说明：</h4>
       <div className="space-y-2 text-gray-700 text-sm">
         <div className="flex items-start gap-3">
           <span className="font-semibold text-blue-600 min-w-[4rem]">RMSE</span>
@@ -84,10 +87,10 @@ const ModelMetricsComparison: React.FC<ModelMetricsComparisonProps> = ({ data, b
     <ModelMetricsTable
       title="模型指标对比"
       models={modelData}
-      highlightRow={MODEL_NAME}
+      highlightRow="LSTM模型"
       footerNote={footer}
     />
   );
 };
 
-export default ModelMetricsComparison;
+export default ModelComparison;

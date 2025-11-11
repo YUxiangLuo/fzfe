@@ -124,13 +124,14 @@ const ExponentialSmoothingStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'validation') {
-      // Check if alpha is valid using the same validation logic
+      // Check if params are valid
       if (!isValidAlpha) {
         // Stay on validation page, error message will be shown
         return;
       }
       // If valid, proceed to results
-      navigate(STEPS[RESULTS_STEP_INDEX].path);
+      const nextStep = STEPS[RESULTS_STEP_INDEX];
+      if (nextStep) navigate(nextStep.path);
       return;
     }
 
@@ -156,13 +157,15 @@ const ExponentialSmoothingStepper: React.FC = () => {
   const handlePrevious = () => {
     if (isValidationPage) {
       // From validation, go back to params
-      navigate(STEPS[PARAMS_STEP_INDEX].path);
+      const prevStep = STEPS[PARAMS_STEP_INDEX];
+      if (prevStep) navigate(prevStep.path);
       return;
     }
 
     if (isComparisonPage) {
       // From comparison, go back to results
-      navigate(STEPS[RESULTS_STEP_INDEX].path);
+      const prevStep = STEPS[RESULTS_STEP_INDEX];
+      if (prevStep) navigate(prevStep.path);
       return;
     }
 

@@ -312,7 +312,10 @@ const ARIMAStepper: React.FC = () => {
         return;
       }
       // Navigate to differencing step
-      navigate(STEPS[DIFFERENCING_STEP_INDEX].path);
+      const nextStep = STEPS[DIFFERENCING_STEP_INDEX];
+      if (nextStep) {
+        navigate(nextStep.path);
+      }
       return;
     }
 
@@ -333,8 +336,11 @@ const ARIMAStepper: React.FC = () => {
         return;
       }
       // Save the selectedD and navigate to autoparams
-      await updateState({ arima_d: selectedD });
-      navigate(STEPS[AUTOPARAMS_STEP_INDEX].path);
+      await updateState({ arima_d: selectedD === '' ? null : selectedD });
+      const nextStep = STEPS[AUTOPARAMS_STEP_INDEX];
+      if (nextStep) {
+        navigate(nextStep.path);
+      }
       return;
     }
 
@@ -372,32 +378,47 @@ const ARIMAStepper: React.FC = () => {
   const handlePrevious = () => {
     if (isAutoregressionInfoPage) {
       // From autoregression info, go back to stationarity
-      navigate(STEPS[STATIONARITY_STEP_INDEX].path);
+      const prevStep = STEPS[STATIONARITY_STEP_INDEX];
+      if (prevStep) {
+        navigate(prevStep.path);
+      }
       return;
     }
 
     if (isStationarityTablePage) {
       // From stationarity table, go back to stationarity
-      navigate(STEPS[STATIONARITY_STEP_INDEX].path);
+      const prevStep = STEPS[STATIONARITY_STEP_INDEX];
+      if (prevStep) {
+        navigate(prevStep.path);
+      }
       return;
     }
 
     if (isDifferencingInfoPage) {
       // From differencing info, go back to differencing
-      navigate(STEPS[DIFFERENCING_STEP_INDEX].path);
+      const prevStep = STEPS[DIFFERENCING_STEP_INDEX];
+      if (prevStep) {
+        navigate(prevStep.path);
+      }
       return;
     }
 
     if (isDifferencingValidationPage) {
       // From differencing validation, go back to differencing
-      navigate(STEPS[DIFFERENCING_STEP_INDEX].path);
+      const prevStep = STEPS[DIFFERENCING_STEP_INDEX];
+      if (prevStep) {
+        navigate(prevStep.path);
+      }
       return;
     }
 
     if (isModelComparisonPage) {
       // From model comparison, go back to autoparams (results view)
       setAutoParamsView('results');
-      navigate(STEPS[AUTOPARAMS_STEP_INDEX].path);
+      const prevStep = STEPS[AUTOPARAMS_STEP_INDEX];
+      if (prevStep) {
+        navigate(prevStep.path);
+      }
       return;
     }
 

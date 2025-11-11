@@ -11,6 +11,12 @@ export interface StationarityTableProps {
 const formatNumber = (value: number | null | undefined, fractionDigits = 3) =>
   typeof value === "number" ? value.toFixed(fractionDigits) : "—";
 
+const formatPValue = (value: number | null | undefined) => {
+  if (typeof value !== "number") return "—";
+  if (value < 0.001) return "< 0.001";
+  return value.toFixed(3);
+};
+
 const StationarityTable: React.FC<StationarityTableProps> = ({ adfResults, isLoading, error }) => {
   if (isLoading) {
     return (
@@ -74,7 +80,7 @@ const StationarityTable: React.FC<StationarityTableProps> = ({ adfResults, isLoa
                     {formatNumber(row.statistic)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-700">
-                    {formatNumber(row.p_value)}
+                    {formatPValue(row.p_value)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                     {row.stationary ? (

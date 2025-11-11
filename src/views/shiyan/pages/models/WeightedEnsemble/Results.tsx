@@ -22,7 +22,7 @@ const Results: React.FC<ResultsProps> = ({ data, isLoading, error }) => {
     return (
       <div className="flex items-center justify-center h-full p-8">
         <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-        <p className="ml-4 text-gray-600">正在计算，请稍候...</p>
+        <p className="ml-4 text-gray-600">正在计算...</p>
       </div>
     );
   }

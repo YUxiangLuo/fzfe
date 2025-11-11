@@ -1,6 +1,6 @@
-import { defineConfig, Plugin } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
-import { resolve } from 'path';
+import path, { resolve } from 'path';
 
 // 自定义插件：处理 SPA 路由的 history fallback
 function spaFallbackPlugin(): Plugin {

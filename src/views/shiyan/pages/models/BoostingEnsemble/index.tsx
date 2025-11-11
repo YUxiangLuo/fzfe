@@ -85,7 +85,6 @@ const BoostingEnsembleStepper: React.FC = () => {
     try {
       // Clear local state
       setSelectedModels([]);
-      setResults(null);
       setError(null);
 
       // Clear global state
@@ -107,7 +106,8 @@ const BoostingEnsembleStepper: React.FC = () => {
         setError("请至少选择两个基础模型进行融合。");
         return;
       }
-      if (STEPS[nextStepIndex]) navigate(STEPS[nextStepIndex].path);
+      const nextStep = STEPS[nextStepIndex];
+      if (nextStep) navigate(nextStep.path);
       return;
     }
 
@@ -124,15 +124,17 @@ const BoostingEnsembleStepper: React.FC = () => {
       return;
     }
 
-    if (nextStepIndex < STEPS.length && STEPS[nextStepIndex]) {
-      navigate(STEPS[nextStepIndex].path);
+    if (nextStepIndex < STEPS.length) {
+      const nextStep = STEPS[nextStepIndex];
+      if (nextStep) navigate(nextStep.path);
     }
   };
 
   const handlePrevious = () => {
     if (isModelMetricsComparisonPage) {
       // From model metrics comparison, go back to results
-      navigate(STEPS[RESULTS_STEP_INDEX].path);
+      const prevStep = STEPS[RESULTS_STEP_INDEX];
+      if (prevStep) navigate(prevStep.path);
       return;
     }
 

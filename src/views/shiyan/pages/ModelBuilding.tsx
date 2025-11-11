@@ -33,6 +33,17 @@ const SUB_STEPS: SubStep[] = [
   { id: 'model-select', name: '需求预测模型选择和应用', path: '/model/model-select' },
 ];
 
+// 模型路由配置
+const modelRoutes = [
+  { path: 'moving-average/*', element: <MovingAverageModelRoutes /> },
+  { path: 'exponential-smoothing/*', element: <ExponentialSmoothingModelRoutes /> },
+  { path: 'arima/*', element: <ARIMAModelRoutes /> },
+  { path: 'lstm/*', element: <LSTMModelRoutes /> },
+  { path: 'weighted-ensemble/*', element: <WeightedEnsembleModelRoutes /> },
+  { path: 'boosting-ensemble/*', element: <BoostingEnsembleModelRoutes /> },
+  { path: 'stacking-ensemble/*', element: <StackingEnsembleModelRoutes /> },
+];
+
 const ModelBuilding: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -66,17 +77,10 @@ const ModelBuilding: React.FC = () => {
     const currentPath = location.pathname;
 
     // 检查是否在模型详情页面（任何模型的子路径）
-    const modelPaths = [
-      '/model/moving-average',
-      '/model/exponential-smoothing',
-      '/model/arima',
-      '/model/lstm',
-      '/model/weighted-ensemble',
-      '/model/boosting-ensemble',
-      '/model/stacking-ensemble'
-    ];
+    const isInModelDetails = modelRoutes.some(route =>
+      currentPath.startsWith(`/model/${route.path.replace('/*', '')}`)
+    );
 
-    const isInModelDetails = modelPaths.some(path => currentPath.startsWith(path));
     if (isInModelDetails) {
       // 返回最后一步的索引（模型选择和应用）
       return SUB_STEPS.length - 1;
@@ -134,13 +138,9 @@ const ModelBuilding: React.FC = () => {
           <Route path="window" element={<DataWindowSelection />} />
           <Route path="model-intro" element={<ModelIntroduction />} />
           <Route path="model-select" element={<ModelSelection />} />
-          <Route path="moving-average/*" element={<MovingAverageModelRoutes />} />
-          <Route path="exponential-smoothing/*" element={<ExponentialSmoothingModelRoutes />} />
-          <Route path="arima/*" element={<ARIMAModelRoutes />} />
-          <Route path="lstm/*" element={<LSTMModelRoutes />} />
-          <Route path="weighted-ensemble/*" element={<WeightedEnsembleModelRoutes />} />
-          <Route path="boosting-ensemble/*" element={<BoostingEnsembleModelRoutes />} />
-          <Route path="stacking-ensemble/*" element={<StackingEnsembleModelRoutes />} />
+          {modelRoutes.map(route => (
+            <Route key={route.path} path={route.path} element={route.element} />
+          ))}
         </Routes>
       </div>
     </div>

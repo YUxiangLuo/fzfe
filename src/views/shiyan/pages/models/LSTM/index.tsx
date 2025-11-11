@@ -7,6 +7,7 @@ import NormalizationInfo from './NormalizationInfo';
 import Build, { type BuildProps } from './Build';
 import LSTMMethodInfo from './LSTMMethodInfo';
 import Results, { type ResultsProps } from './Results';
+import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext';
 import { apiClient } from '../../../../../utils/apiClient';
 
@@ -23,10 +24,12 @@ const STEPS = [
 // Hidden pages - not part of the main steps
 const NORMALIZATION_INFO_PATH = `${BASE_PATH}/normalization-info`;
 const LSTM_METHOD_INFO_PATH = `${BASE_PATH}/lstm-method-info`;
+const COMPARISON_PATH = `${BASE_PATH}/comparison`;
 
 // Step indices for navigation
 const PREPROCESSING_STEP_INDEX = 1;
 const BUILD_STEP_INDEX = 2;
+const RESULTS_STEP_INDEX = 3;
 
 const LSTMStepper: React.FC = () => {
   const navigate = useNavigate();
@@ -46,6 +49,7 @@ const LSTMStepper: React.FC = () => {
 
   const isNormalizationInfoPage = useMemo(() => location.pathname === NORMALIZATION_INFO_PATH, [location.pathname]);
   const isLSTMMethodInfoPage = useMemo(() => location.pathname === LSTM_METHOD_INFO_PATH, [location.pathname]);
+  const isComparisonPage = useMemo(() => location.pathname === COMPARISON_PATH, [location.pathname]);
 
   const evaluateMonths = useMemo(() => {
     if (!productSalesData || state.data_window_evaluate_start_index === null || state.data_window_evaluate_end_index === null) {
@@ -71,10 +75,14 @@ const LSTMStepper: React.FC = () => {
       // LSTM method info is part of build in the step navigation
       return BUILD_STEP_INDEX;
     }
+    if (isComparisonPage) {
+      // Comparison is after results
+      return RESULTS_STEP_INDEX;
+    }
     const currentPath = location.pathname;
     const index = STEPS.findIndex(step => step.path === currentPath);
     return index === -1 ? 0 : index;
-  }, [location.pathname, isNormalizationInfoPage, isLSTMMethodInfoPage]);
+  }, [location.pathname, isNormalizationInfoPage, isLSTMMethodInfoPage, isComparisonPage]);
 
   const currentStep = useMemo(() => {
     if (isNormalizationInfoPage) {
@@ -83,8 +91,11 @@ const LSTMStepper: React.FC = () => {
     if (isLSTMMethodInfoPage) {
       return { id: 'lstm-method-info', name: '构建LSTM方法', path: LSTM_METHOD_INFO_PATH, component: LSTMMethodInfo };
     }
+    if (isComparisonPage) {
+      return { id: 'comparison', name: '模型对比', path: COMPARISON_PATH, component: ModelComparison };
+    }
     return STEPS[currentStepIndex];
-  }, [currentStepIndex, isNormalizationInfoPage, isLSTMMethodInfoPage]);
+  }, [currentStepIndex, isNormalizationInfoPage, isLSTMMethodInfoPage, isComparisonPage]);
 
   // Auto-set target to "销售数量" when entering build page
   useEffect(() => {
@@ -215,7 +226,6 @@ const LSTMStepper: React.FC = () => {
 
   const handleNext = async () => {
     setError(null);
-    const nextStepIndex = currentStepIndex + 1;
 
     if (currentStep?.id === 'preprocessing') {
       if (!normalization) {
@@ -223,7 +233,8 @@ const LSTMStepper: React.FC = () => {
         return;
       }
       await updateState({ lstm_normalization: normalization });
-      if (STEPS[nextStepIndex]) navigate(STEPS[nextStepIndex].path);
+      const nextStep = STEPS[BUILD_STEP_INDEX];
+      if (nextStep) navigate(nextStep.path);
       return;
     }
 
@@ -232,31 +243,49 @@ const LSTMStepper: React.FC = () => {
         setError("请选择目标字段和至少一个特征字段。");
         return;
       }
-      if (STEPS[nextStepIndex]) navigate(STEPS[nextStepIndex].path);
+      const nextStep = STEPS[RESULTS_STEP_INDEX];
+      if (nextStep) navigate(nextStep.path);
       return;
     }
 
-    if (currentStepIndex === STEPS.length - 1) {
+    if (currentStep?.id === 'results') {
+      // Mark as completed and navigate to comparison
       await updateState({ lstm_completed: true });
+      navigate(COMPARISON_PATH);
+      return;
+    }
+
+    if (currentStep?.id === 'comparison') {
+      // From comparison page, return to model select
       navigate('/model/model-select');
       return;
     }
 
-    if (nextStepIndex < STEPS.length && STEPS[nextStepIndex]) {
-      navigate(STEPS[nextStepIndex].path);
+    const nextStep = STEPS[currentStepIndex + 1];
+    if (nextStep) {
+      navigate(nextStep.path);
     }
   };
 
   const handlePrevious = () => {
     if (isNormalizationInfoPage) {
       // From normalization info, go back to preprocessing
-      navigate(STEPS[PREPROCESSING_STEP_INDEX].path);
+      const prevStep = STEPS[PREPROCESSING_STEP_INDEX];
+      if (prevStep) navigate(prevStep.path);
       return;
     }
 
     if (isLSTMMethodInfoPage) {
       // From LSTM method info, go back to build
-      navigate(STEPS[BUILD_STEP_INDEX].path);
+      const prevStep = STEPS[BUILD_STEP_INDEX];
+      if (prevStep) navigate(prevStep.path);
+      return;
+    }
+
+    if (isComparisonPage) {
+      // From comparison, go back to results
+      const prevStep = STEPS[RESULTS_STEP_INDEX];
+      if (prevStep) navigate(prevStep.path);
       return;
     }
 
@@ -301,6 +330,7 @@ const LSTMStepper: React.FC = () => {
   const getCurrentStepId = () => {
     if (isNormalizationInfoPage) return 'preprocessing'; // Normalization info is part of preprocessing
     if (isLSTMMethodInfoPage) return 'build'; // LSTM method info is part of build
+    if (isComparisonPage) return 'results'; // Comparison is part of results
     return currentStep.id;
   };
 
@@ -314,7 +344,7 @@ const LSTMStepper: React.FC = () => {
       onReset={handleReset}
       isResetting={isResetting}
       isNextDisabled={isLoading || isNormalizationInfoPage || isLSTMMethodInfoPage}
-      nextButtonText={currentStepIndex === STEPS.length - 1 ? '完成' : '下一步'}
+      nextButtonText={isComparisonPage ? '完成' : '下一步'}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
     </ModelStepLayout>
