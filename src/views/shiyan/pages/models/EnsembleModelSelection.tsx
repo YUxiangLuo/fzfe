@@ -2,29 +2,27 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext';
 import {
-  LineChart,
-  ChartSpline,
-  Sigma,
-  BrainCircuit,
+  Scale,
+  Sparkles,
+  Layers,
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
   PartyPopper,
 } from 'lucide-react';
 
-// Full model list to get details from
-const allModels = [
-  { id: 'moving_average', name: '移动平均法', description: '简单的时间序列预测方法。', icon: LineChart, path: '/model/moving-average/intro' },
-  { id: 'exponential_smoothing', name: '指数平滑法', description: '加权平均，近期数据权重更大。', icon: ChartSpline, path: '/model/exponential-smoothing/intro' },
-  { id: 'arima', name: 'ARIMA模型', description: '经典的统计预测模型。', icon: Sigma, path: '/model/arima/intro' },
-  { id: 'lstm', name: 'LSTM神经网络', description: '先进的深度学习预测模型。', icon: BrainCircuit, path: '/model/lstm/intro' },
+// Full ensemble model list to get details from
+const allEnsembleModels = [
+  { id: 'weighted_ensemble', name: '加权平均融合', description: '结合多个模型预测结果。', icon: Scale, path: '/model/weighted-ensemble/intro' },
+  { id: 'boosting_ensemble', name: 'Boosting融合', description: '迭代式地提升模型性能。', icon: Sparkles, path: '/model/boosting-ensemble/intro' },
+  { id: 'stacking_ensemble', name: 'Stacking融合', description: '多层次模型融合策略。', icon: Layers, path: '/model/stacking-ensemble/intro' },
 ];
 
 const ModelCard: React.FC<{ model: any; isCompleted: boolean; onClick: () => void }> = ({ model, isCompleted, onClick }) => {
   return (
     <div
       onClick={onClick}
-      className={`relative p-6 rounded-xl border-2 transition-all duration-300 bg-white hover:border-blue-500 hover:shadow-lg cursor-pointer ${
+      className={`relative p-6 rounded-xl border-2 transition-all duration-300 bg-white hover:border-purple-500 hover:shadow-lg cursor-pointer ${
         isCompleted ? 'border-green-500' : 'border-gray-200'
       }`}
     >
@@ -34,8 +32,8 @@ const ModelCard: React.FC<{ model: any; isCompleted: boolean; onClick: () => voi
         </div>
       )}
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-blue-50">
-          <model.icon className="w-7 h-7 text-blue-600" />
+        <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-purple-50">
+          <model.icon className="w-7 h-7 text-purple-600" />
         </div>
         <div>
           <h3 className="font-bold text-gray-900">{model.name}</h3>
@@ -46,37 +44,40 @@ const ModelCard: React.FC<{ model: any; isCompleted: boolean; onClick: () => voi
   );
 };
 
-const ModelSelection: React.FC = () => {
+const EnsembleModelSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state } = useExperiment();
+  const { state, updateState } = useExperiment();
 
   // Filter the models to be displayed based on user's selection
-  const selectedModelDetails = allModels.filter(model => state.selected_base_models.includes(model.id));
+  const selectedModelDetails = allEnsembleModels.filter(model => state.selected_ensemble_models.includes(model.id));
 
   // Check completion status of selected models
   const completionMap: Record<string, boolean> = {
-    moving_average: state.moving_average_completed,
-    exponential_smoothing: state.exponential_smoothing_completed,
-    arima: state.arima_completed,
-    lstm: state.lstm_completed,
+    weighted_ensemble: state.ensemble_weighted_completed,
+    boosting_ensemble: state.ensemble_boosting_completed,
+    stacking_ensemble: state.ensemble_stacking_completed,
   };
 
   const allSelectedCompleted = selectedModelDetails.length > 0 && selectedModelDetails.every(model => completionMap[model.id]);
 
   const handlePrevious = () => {
-    navigate('/model/model-intro');
+    navigate('/model/ensemble-intro');
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (allSelectedCompleted) {
-      navigate('/model/ensemble-intro');
+      await updateState({
+        highest_completed_step: 5, // Mark step 5 as fully completed
+        current_step: 6,
+      });
+      navigate('/evaluation');
     }
   };
 
   const renderModelExecutionView = () => (
     <>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-shrink-0">
-        <h2 className="text-lg font-semibold text-gray-800">请完成您选择的基础模型</h2>
+        <h2 className="text-lg font-semibold text-gray-800">请完成您选择的融合模型</h2>
         <p className="text-sm text-gray-500 mt-1">点击下方的卡片进入每个模型的详细步骤。</p>
       </div>
 
@@ -115,9 +116,9 @@ const ModelSelection: React.FC = () => {
     <>
       <div className="flex-1 flex flex-col items-center justify-center text-center bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <PartyPopper className="w-16 h-16 text-green-500 mb-4" />
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">基础模型已全部完成！</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">恭喜！模型构建阶段已全部完成！</h2>
         <p className="text-gray-600 max-w-md">
-          您已成功完成所有已选基础模型的学习和训练。现在，您可以进入下一步，了解并使用融合模型来进一步提升预测的准确性和稳定性。
+          您已成功完成所有基础模型和融合模型的训练。现在，您可以进入实验的下一步，对所有模型的预测结果进行综合评估。
         </p>
       </div>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-shrink-0 mt-6">
@@ -133,7 +134,7 @@ const ModelSelection: React.FC = () => {
             onClick={handleNext}
             className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
           >
-            下一步：学习融合模型
+            进入结果评估
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
@@ -148,4 +149,4 @@ const ModelSelection: React.FC = () => {
   );
 };
 
-export default ModelSelection;
+export default EnsembleModelSelection;

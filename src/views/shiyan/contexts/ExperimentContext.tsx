@@ -71,6 +71,10 @@ export interface ExperimentState {
   selected_company: string | null;
   selected_product: string | null;
 
+  // New fields for the refactored flow
+  selected_base_models: string[];
+  selected_ensemble_models: string[];
+
   data_window_train_start_index: number | null;
   data_window_train_end_index: number | null;
   data_window_evaluate_start_index: number | null;
@@ -156,6 +160,9 @@ const buildInitialState = (): ExperimentState => ({
   selected_industry: null,
   selected_company: null,
   selected_product: null,
+
+  selected_base_models: [],
+  selected_ensemble_models: [],
 
   data_window_train_start_index: null,
   data_window_train_end_index: null,
@@ -248,6 +255,10 @@ const resetModelingFields = (
     target.data_window_evaluate_start_index = null;
     target.data_window_evaluate_end_index = null;
   }
+
+  // Reset selections
+  target.selected_base_models = [];
+  target.selected_ensemble_models = [];
 
   target.moving_average_completed = false;
   target.moving_average_window = null;
@@ -476,12 +487,10 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       'data_window_evaluate_start_index',
       'data_window_evaluate_end_index',
     ];
-    const dataWindowChanged = dataWindowFields.some((field) => {
-      if (!Object.prototype.hasOwnProperty.call(updates, field)) {
-        return false;
-      }
-      return updates[field] !== previousState[field];
-    });
+    const dataWindowChanged = dataWindowFields.some((field) =>
+      Object.prototype.hasOwnProperty.call(updates, field)
+    );
+    
     const bestModelChanged =
       Object.prototype.hasOwnProperty.call(updates, 'selected_best_model') &&
       updates.selected_best_model !== previousState.selected_best_model;
@@ -597,12 +606,18 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       try {
         const serverState = await apiUpdateExperimentState(nextState);
         if (serverState && typeof serverState === 'object') {
-          setState(serverState);
+          // Merge server state with local state to preserve new fields
+          const mergedState = {
+            ...serverState,
+            selected_base_models: nextState.selected_base_models,
+            selected_ensemble_models: nextState.selected_ensemble_models,
+          };
+          setState(mergedState as ExperimentState);
 
           const productChangedRemote =
-            serverState.selected_industry !== previousState.selected_industry ||
-            serverState.selected_company !== previousState.selected_company ||
-            serverState.selected_product !== previousState.selected_product;
+            (mergedState.selected_industry !== previousState.selected_industry) ||
+            (mergedState.selected_company !== previousState.selected_company) ||
+            (mergedState.selected_product !== previousState.selected_product);
 
           if (productChangedRemote) {
             setProductSalesData(null);
