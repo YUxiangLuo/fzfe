@@ -1,7 +1,7 @@
 import React from 'react';
 import { Database } from 'lucide-react';
 import { ReportCard } from './ReportCard';
-import type { ExperimentState } from '../../contexts/ExperimentContext';
+import type { ExperimentState } from '../../contexts/ExperimentContext.zustand';
 
 interface MonthlySale {
   month: string;

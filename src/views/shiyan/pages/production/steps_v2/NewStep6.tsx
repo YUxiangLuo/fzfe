@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Loader2, AlertCircle, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
-import { useExperiment } from '../../../contexts/ExperimentContext';
+import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../../../../utils/apiClient';
 

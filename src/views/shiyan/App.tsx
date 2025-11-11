@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ExperimentProvider, useExperiment } from './contexts/ExperimentContext';
+import { useExperiment } from './contexts/ExperimentContext.zustand';
+import { ExperimentStoreProvider } from './contexts/ExperimentStoreProvider';
 import { ConfirmProvider } from '../../shared/contexts/ConfirmContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -66,7 +67,7 @@ function App() {
   return (
     <ConfirmProvider>
       <ToastProvider>
-        <ExperimentProvider>
+        <ExperimentStoreProvider>
           <Router basename="/exp">
             <Routes>
               <Route path="/" element={<Navigate to="/introduction" replace />} />
@@ -79,7 +80,7 @@ function App() {
               <Route path="/*" element={<MainLayout />} />
             </Routes>
           </Router>
-        </ExperimentProvider>
+        </ExperimentStoreProvider>
       </ToastProvider>
     </ConfirmProvider>
   );

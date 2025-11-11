@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext';
+import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext.zustand';
 import { FileText, Save, Loader2, CheckCircle, X } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
 import { validateAnalyses } from '../utils/reportValidation';

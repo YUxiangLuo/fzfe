@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useExperiment } from '../../../contexts/ExperimentContext';
+import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 import { useAbortableRequest } from './useAbortableRequest';
 

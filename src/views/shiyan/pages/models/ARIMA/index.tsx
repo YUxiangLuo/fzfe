@@ -10,7 +10,7 @@ import DifferencingInfo from './DifferencingInfo';
 import DifferencingValidation, { type DifferencingValidationProps } from './DifferencingValidation';
 import AutoParams from './AutoParams';
 import ModelComparison from './ModelComparison';
-import { useExperiment, type AdfStationarityRow } from '../../../contexts/ExperimentContext';
+import { useExperiment, type AdfStationarityRow } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 import { ARIMA_CONSTANTS } from '../constants';
 

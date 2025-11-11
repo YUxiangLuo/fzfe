@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useExperiment } from '../contexts/ExperimentContext';
+import { useExperiment } from '../contexts/ExperimentContext.zustand';
 import { BarChart3, Calendar, Info, ArrowRight, Loader2, AlertTriangle, Download, X, Table, Settings } from 'lucide-react';
 import {
   ResponsiveContainer,

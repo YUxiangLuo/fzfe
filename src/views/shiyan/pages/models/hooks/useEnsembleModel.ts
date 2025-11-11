@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useExperiment } from '../../../contexts/ExperimentContext';
+import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 import { MODEL_ID_MAP, ENSEMBLE_CONSTANTS } from '../constants';
 import { useAbortableRequest } from './useAbortableRequest';

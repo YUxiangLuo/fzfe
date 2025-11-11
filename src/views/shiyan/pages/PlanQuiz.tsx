@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useExperiment } from '../contexts/ExperimentContext';
+import { useExperiment } from '../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../utils/apiClient';
 import { BookOpenCheck, ChevronRight, Loader2, AlertTriangle } from 'lucide-react';
 

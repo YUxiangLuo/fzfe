@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import type { AdfStationarityRow } from '../../../contexts/ExperimentContext';
+import type { AdfStationarityRow } from '../../../contexts/ExperimentContext.zustand';
 import { ARIMA_CONSTANTS } from '../constants';
 
 export interface DifferencingValidationProps {

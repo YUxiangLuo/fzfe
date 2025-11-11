@@ -5,7 +5,7 @@ import Intro from './Intro';
 import SelectModels, { type SelectModelsProps } from './SelectModels';
 import Results, { type ResultsProps } from './Results';
 import ModelMetricsComparison, { type ModelMetricsComparisonProps } from './ModelMetricsComparison';
-import { useExperiment } from '../../../contexts/ExperimentContext';
+import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useEnsembleModel } from '../hooks/useEnsembleModel';
 
 const MODEL_NAME = 'Stacking 融合';

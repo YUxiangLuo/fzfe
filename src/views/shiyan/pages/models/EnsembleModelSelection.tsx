@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useExperiment } from '../../contexts/ExperimentContext';
+import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import {
   Scale,
   Sparkles,

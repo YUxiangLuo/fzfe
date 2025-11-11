@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useExperiment } from "../contexts/ExperimentContext";
+import { useExperiment } from "../contexts/ExperimentContext.zustand";
 import { apiClient } from "../../../utils/apiClient";
 import {
   User,

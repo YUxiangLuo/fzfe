@@ -1,23 +1,82 @@
-import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
-import type { ReactNode } from 'react';
+/**
+ * ExperimentContext - Zustand Implementation
+ *
+ * 🐛 调试模式:
+ * - 在浏览器控制台运行: window.__EXPERIMENT_DEBUG__ = true (启用)
+ * - 在浏览器控制台运行: window.__EXPERIMENT_DEBUG__ = false (禁用)
+ * - 或直接修改下面的 DEBUG_MODE 变量
+ *
+ * 📊 Redux DevTools:
+ * - 安装 Redux DevTools 浏览器插件即可自动查看状态变化
+ * - 插件地址: https://github.com/reduxjs/redux-devtools
+ */
+
+import { create } from "zustand";
+import { devtools } from "zustand/middleware";
 import {
   getExperimentState,
   updateExperimentState as apiUpdateExperimentState,
+  createExperimentState,
   recordStepEvent,
-} from '../../../utils/apiClient';
-import { apiClient } from '../../../utils/apiClient';
-import { useToast } from '../../../shared/contexts/ToastContext';
+} from "../../../utils/apiClient";
+import { apiClient } from "../../../utils/apiClient";
 
-type ExperimentStatus = 'Not Started' | 'In Progress' | 'Completed';
+// Debug flag - can be controlled at runtime via window.__EXPERIMENT_DEBUG__
+declare global {
+  interface Window {
+    __EXPERIMENT_DEBUG__?: boolean;
+  }
+}
+
+const DEBUG_MODE = true; // Default debug mode
+
+// Helper to check debug mode (supports runtime override)
+const isDebugEnabled = () => {
+  return typeof window !== 'undefined' && window.__EXPERIMENT_DEBUG__ !== undefined
+    ? window.__EXPERIMENT_DEBUG__
+    : DEBUG_MODE;
+};
+
+// Logger helper
+const logger = {
+  action: (actionName: string, ...args: any[]) => {
+    if (isDebugEnabled()) {
+      console.group(`🔵 [Zustand Action] ${actionName}`);
+      console.log("Arguments:", args);
+      console.log("Timestamp:", new Date().toLocaleTimeString());
+      console.groupEnd();
+    }
+  },
+  stateChange: (actionName: string, before: any, after: any) => {
+    if (isDebugEnabled()) {
+      console.group(`🟢 [State Change] ${actionName}`);
+      console.log("Before:", before);
+      console.log("After:", after);
+      console.log("Diff:", {
+        added: Object.keys(after).filter(k => !(k in before)),
+        changed: Object.keys(after).filter(k => after[k] !== before[k]),
+      });
+      console.groupEnd();
+    }
+  },
+  error: (actionName: string, error: any) => {
+    console.group(`🔴 [Error] ${actionName}`);
+    console.error("Error:", error);
+    console.log("Timestamp:", new Date().toLocaleTimeString());
+    console.groupEnd();
+  },
+};
+
+type ExperimentStatus = "Not Started" | "In Progress" | "Completed";
 
 export type SelectedBestModel =
-  | 'ma'
-  | 'exp'
-  | 'arima'
-  | 'lstm'
-  | 'ensemble_weighted'
-  | 'ensemble_boosting'
-  | 'ensemble_stacking';
+  | "ma"
+  | "exp"
+  | "arima"
+  | "lstm"
+  | "ensemble_weighted"
+  | "ensemble_boosting"
+  | "ensemble_stacking";
 
 export interface ModelMetrics {
   rmse: number | null;
@@ -103,7 +162,7 @@ export interface ExperimentState {
   arima_adf_stationarity: AdfStationarityRow[];
 
   lstm_completed: boolean;
-  lstm_normalization: 'minmax' | 'zscore' | null;
+  lstm_normalization: "minmax" | "zscore" | null;
   lstm_features: string[];
   lstm_metrics_rmse: number | null;
   lstm_metrics_mae: number | null;
@@ -139,11 +198,13 @@ export interface ExperimentState {
   production_initial_inventory: number | null;
   production_target_service_level: number | null;
   production_safety_stock_z_score: number | null;
-  production_forecast_results: Array<{ prediction: number; std_dev: number }> | null;
+  production_forecast_results: Array<{
+    prediction: number;
+    std_dev: number;
+  }> | null;
   production_mps_table: MPSTableRow[];
-  // 🆕 产能约束参数（重构后新增）
-  production_capacity_mode: 'scenario' | 'auto' | 'custom' | null;
-  production_capacity_scenario: 'tight' | 'normal' | 'abundant' | null;
+  production_capacity_mode: "scenario" | "auto" | "custom" | null;
+  production_capacity_scenario: "tight" | "normal" | "abundant" | null;
   production_capacity: number | null;
   production_custom_capacity: number | null;
 
@@ -155,7 +216,7 @@ export interface ExperimentState {
 const buildInitialState = (): ExperimentState => ({
   experiment_id: null,
   student_id: null,
-  status: 'Not Started',
+  status: "Not Started",
   highest_completed_step: 0,
   current_step: 1,
   selected_industry: null,
@@ -222,7 +283,6 @@ const buildInitialState = (): ExperimentState => ({
   quiz_about_model_completed: false,
   quiz_about_plan_completed: false,
 
-  // Production planning initial values
   production_plan_completed: false,
   production_forecast_periods: null,
   production_initial_inventory: null,
@@ -230,7 +290,6 @@ const buildInitialState = (): ExperimentState => ({
   production_safety_stock_z_score: null,
   production_forecast_results: null,
   production_mps_table: [],
-  // 🆕 产能约束初始值
   production_capacity_mode: null,
   production_capacity_scenario: null,
   production_capacity: null,
@@ -257,7 +316,6 @@ const resetModelingFields = (
     target.data_window_evaluate_end_index = null;
   }
 
-  // Reset selections
   target.selected_base_models = [];
   target.selected_ensemble_models = [];
 
@@ -310,7 +368,6 @@ const resetModelingFields = (
 
   target.selected_best_model = null;
 
-  // Reset production planning fields
   target.production_plan_completed = false;
   target.production_forecast_periods = null;
   target.production_initial_inventory = null;
@@ -318,7 +375,6 @@ const resetModelingFields = (
   target.production_safety_stock_z_score = null;
   target.production_forecast_results = null;
   target.production_mps_table = [];
-  // 🆕 重置产能约束参数
   target.production_capacity_mode = null;
   target.production_capacity_scenario = null;
   target.production_capacity = null;
@@ -338,7 +394,6 @@ const resetProductionPlanFields = (target: ExperimentState) => {
   target.production_safety_stock_z_score = null;
   target.production_forecast_results = null;
   target.production_mps_table = [];
-  // 🆕 重置产能约束参数
   target.production_capacity_mode = null;
   target.production_capacity_scenario = null;
   target.production_capacity = null;
@@ -346,24 +401,45 @@ const resetProductionPlanFields = (target: ExperimentState) => {
   target.quiz_about_plan_completed = false;
 };
 
-interface ExperimentContextType {
+// Toast function placeholder - will be injected
+let addToastFn: ((message: string, type: "success" | "error" | "info") => void) | null = null;
+
+export const setToastFunction = (fn: (message: string, type: "success" | "error" | "info") => void) => {
+  addToastFn = fn;
+};
+
+const addToast = (message: string, type: "success" | "error" | "info") => {
+  if (addToastFn) {
+    addToastFn(message, type);
+  }
+};
+
+interface ExperimentStore {
+  // State
   state: ExperimentState;
   loading: boolean;
-  updateState: (updates: Partial<ExperimentState>, forceSync?: boolean) => Promise<void>;
-  handleIndustryChange: (selected_industry: string) => Promise<void>;
-  handleCompanyChange: (selected_company: string) => Promise<void>;
-  handleProductChange: (selected_product: string) => Promise<void>;
-  handleDataWindowChange: (updates: Partial<ExperimentState>) => Promise<void>;
-  handleBestModelChange: (selected_best_model: SelectedBestModel | null) => Promise<void>;
-  recordStepEvent: (stepOrder: number, eventType: 'STARTED' | 'COMPLETED') => Promise<void>;
-  isStepCompleted: (step: number) => boolean;
-  isStepUnlocked: (step: number) => boolean;
   productSalesData: ProductSalesData | null;
   isLoadingSales: boolean;
   salesDataError: string | null;
   productFieldOptions: string[] | null;
   isLoadingFields: boolean;
   productFieldsError: string | null;
+
+  // Actions
+  initialize: () => Promise<void>;
+  updateState: (
+    updates: Partial<ExperimentState>,
+    forceSync?: boolean,
+    skipSync?: boolean,
+  ) => Promise<void>;
+  handleIndustryChange: (selected_industry: string) => Promise<void>;
+  handleCompanyChange: (selected_company: string) => Promise<void>;
+  handleProductChange: (selected_product: string) => Promise<void>;
+  handleDataWindowChange: (updates: Partial<ExperimentState>) => Promise<void>;
+  handleBestModelChange: (selected_best_model: SelectedBestModel | null) => Promise<void>;
+  recordStepEvent: (stepOrder: number, eventType: "STARTED" | "COMPLETED") => Promise<void>;
+  isStepCompleted: (step: number) => boolean;
+  isStepUnlocked: (step: number) => boolean;
   loadProductSalesData: (industry: string, company: string, product: string) => Promise<boolean>;
   loadProductFieldOptions: (industry: string, company: string, product: string) => Promise<boolean>;
   resetMovingAverageModel: () => Promise<void>;
@@ -373,293 +449,307 @@ interface ExperimentContextType {
   resetWeightedEnsembleModel: () => Promise<void>;
   resetBoostingEnsembleModel: () => Promise<void>;
   resetStackingEnsembleModel: () => Promise<void>;
+  createNewExperiment: () => Promise<void>;
 }
 
-const ExperimentContext = createContext<ExperimentContextType | undefined>(undefined);
+export const useExperimentStore = create<ExperimentStore>()(
+  devtools(
+    (set, get) => ({
+  // Initial state
+  state: buildInitialState(),
+  loading: true,
+  productSalesData: null,
+  isLoadingSales: false,
+  salesDataError: null,
+  productFieldOptions: null,
+  isLoadingFields: false,
+  productFieldsError: null,
 
-export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
-  const [state, setState] = useState<ExperimentState>(buildInitialState());
-  const [loading, setLoading] = useState(true);
-  const { addToast } = useToast();
-
-  const [productSalesData, setProductSalesData] = useState<ProductSalesData | null>(null);
-  const [isLoadingSales, setIsLoadingSales] = useState(false);
-  const [salesDataError, setSalesDataError] = useState<string | null>(null);
-  const [productFieldOptions, setProductFieldOptions] = useState<string[] | null>(null);
-  const [isLoadingFields, setIsLoadingFields] = useState(false);
-  const [productFieldsError, setProductFieldsError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchState = async () => {
-      setLoading(true);
+  // Initialize - fetch experiment state
+  initialize: async () => {
+    logger.action("initialize");
+    const fetchState = async (retryCount = 0): Promise<void> => {
+      const maxRetries = 2;
+      set({ loading: true });
       try {
         const fetchedState = await getExperimentState();
-        setState(fetchedState);
+        logger.stateChange("initialize", buildInitialState(), fetchedState);
+        set({ state: fetchedState, loading: false });
       } catch (error) {
-        console.error("No experiment record.", error);
-        setState(buildInitialState());
-      } finally {
-        setLoading(false);
+        logger.error("initialize", error);
+        console.warn(`Experiment state fetch attempt ${retryCount + 1} failed:`, error);
+
+        if (
+          retryCount < maxRetries &&
+          !(error instanceof Error && error.message?.includes("network"))
+        ) {
+          console.log(`Retrying experiment state fetch in ${1000 * (retryCount + 1)}ms...`);
+          setTimeout(() => fetchState(retryCount + 1), 1000 * (retryCount + 1));
+          return;
+        }
+
+        const currentState = get().state;
+        if (currentState.experiment_id) {
+          console.log("Keeping existing experiment state despite fetch error");
+          addToast("实验状态同步失败，但将继续使用当前状态", "info");
+        } else {
+          console.log("No existing experiment found, initializing to default state");
+          set({ state: buildInitialState() });
+        }
+        set({ loading: false });
       }
     };
-    void fetchState();
-  }, []);
+    await fetchState();
+  },
 
-  const shouldLoadSales = useMemo(() => {
-    if (!state.selected_industry || !state.selected_company || !state.selected_product) {
-      return false;
-    }
-    return state.highest_completed_step >= 3;
-  }, [state.selected_industry, state.selected_company, state.selected_product, state.highest_completed_step]);
+  // Update state
+  updateState: async (updates, forceSync = false, skipSync = false) => {
+    logger.action("updateState", { updates, forceSync, skipSync });
+    const previousState = get().state;
+    let nextState: ExperimentState = { ...previousState, ...updates };
 
-  useEffect(() => {
-    if (
-      !shouldLoadSales ||
-      productSalesData ||
-      isLoadingSales ||
-      salesDataError ||
-      !state.selected_industry ||
-      !state.selected_company ||
-      !state.selected_product
-    ) {
-      return;
-    }
-    void loadProductSalesData(state.selected_industry, state.selected_company, state.selected_product);
-  }, [
-    shouldLoadSales,
-    productSalesData,
-    isLoadingSales,
-    salesDataError,
-    state.selected_industry,
-    state.selected_company,
-    state.selected_product,
-  ]);
-
-  useEffect(() => {
-    if (
-      !shouldLoadSales ||
-      productFieldOptions ||
-      isLoadingFields ||
-      productFieldsError ||
-      !state.selected_industry ||
-      !state.selected_company ||
-      !state.selected_product
-    ) {
-      return;
-    }
-    void loadProductFieldOptions(state.selected_industry, state.selected_company, state.selected_product);
-  }, [
-    shouldLoadSales,
-    productFieldOptions,
-    isLoadingFields,
-    productFieldsError,
-    state.selected_industry,
-    state.selected_company,
-    state.selected_product,
-  ]);
-
-  const recordStepEventWrapper = useCallback(async (stepOrder: number, eventType: 'STARTED' | 'COMPLETED') => {
-    if (!state.experiment_id) {
-      console.warn('Cannot record step event: experiment_id is null');
-      return;
-    }
-    try {
-      await recordStepEvent(state.experiment_id, stepOrder, eventType);
-    } catch (error) {
-      console.error(`Failed to record ${eventType} event for step ${stepOrder}:`, error);
-    }
-  }, [state.experiment_id]);
-
-  const updateState = useCallback(async (updates: Partial<ExperimentState>, forceSync = false) => {
-    const previousState = state;
-    const nextState: ExperimentState = { ...state, ...updates };
-
-    if (nextState.status === 'Not Started' && Object.keys(updates).length > 0) {
-      nextState.status = 'In Progress';
+    if (nextState.status === "Not Started" && Object.keys(updates).length > 0) {
+      nextState.status = "In Progress";
       nextState.start_time = nextState.start_time ?? new Date().toISOString();
     }
 
     nextState.last_activity_at = new Date().toISOString();
 
-    setState(nextState);
+    logger.stateChange("updateState", previousState, nextState);
+    set({ state: nextState });
 
     // Record COMPLETED event if highest_completed_step increased
-    if (nextState.highest_completed_step > previousState.highest_completed_step && nextState.experiment_id) {
-      // Record COMPLETED event for each step that was completed
-      for (let step = previousState.highest_completed_step + 1; step <= nextState.highest_completed_step; step++) {
-        recordStepEvent(nextState.experiment_id, step, 'COMPLETED').catch(err => {
+    if (
+      nextState.highest_completed_step > previousState.highest_completed_step &&
+      nextState.experiment_id
+    ) {
+      for (
+        let step = previousState.highest_completed_step + 1;
+        step <= nextState.highest_completed_step;
+        step++
+      ) {
+        recordStepEvent(nextState.experiment_id, step, "COMPLETED").catch((err) => {
           console.error(`Failed to record COMPLETED event for step ${step}:`, err);
         });
       }
     }
 
-    // Determine if we should sync to backend (lazy sync strategy)
-    const stepCompleted = nextState.highest_completed_step > previousState.highest_completed_step;
+    // Determine if we should sync to backend
+    const stepCompleted =
+      nextState.highest_completed_step > previousState.highest_completed_step;
 
-    // Check if any model completion status changed from false to true
     const modelCompletionFields = [
-      'moving_average_completed',
-      'exponential_smoothing_completed',
-      'arima_completed',
-      'lstm_completed',
-      'ensemble_weighted_completed',
-      'ensemble_boosting_completed',
-      'ensemble_stacking_completed',
+      "moving_average_completed",
+      "exponential_smoothing_completed",
+      "arima_completed",
+      "lstm_completed",
+      "ensemble_weighted_completed",
+      "ensemble_boosting_completed",
+      "ensemble_stacking_completed",
     ] as const;
 
     const modelCompleted = modelCompletionFields.some(
-      (field) => nextState[field] === true && previousState[field] === false
+      (field) => nextState[field] === true && previousState[field] === false,
     );
 
-    // Check if any model was reset (completion status changed from true to false)
     const modelReset = modelCompletionFields.some(
-      (field) => nextState[field] === false && previousState[field] === true
+      (field) => nextState[field] === false && previousState[field] === true,
     );
 
-    // Check if experiment status changed to 'Completed'
     const experimentCompleted =
-      Object.prototype.hasOwnProperty.call(updates, 'status') &&
-      nextState.status === 'Completed' &&
-      previousState.status !== 'Completed';
+      Object.prototype.hasOwnProperty.call(updates, "status") &&
+      nextState.status === "Completed" &&
+      previousState.status !== "Completed";
 
-
-    const shouldSyncToBackend = forceSync || stepCompleted || modelCompleted || modelReset || experimentCompleted;
+    const shouldSyncToBackend =
+      !skipSync && (forceSync || stepCompleted || modelCompleted || modelReset || experimentCompleted);
 
     if (shouldSyncToBackend) {
       try {
         const serverState = await apiUpdateExperimentState(nextState);
-        addToast('实验进度已同步至云端', 'success');
-        if (serverState && typeof serverState === 'object') {
-          // Merge server state with local state to preserve new fields
+
+        addToast("实验进度已同步至云端", "success");
+        if (serverState && typeof serverState === "object") {
           const mergedState = {
             ...serverState,
             selected_base_models: nextState.selected_base_models,
             selected_ensemble_models: nextState.selected_ensemble_models,
           };
-          setState(mergedState as ExperimentState);
+          set({ state: mergedState as ExperimentState });
 
           const productChangedRemote =
-            (mergedState.selected_industry !== previousState.selected_industry) ||
-            (mergedState.selected_company !== previousState.selected_company) ||
-            (mergedState.selected_product !== previousState.selected_product);
+            mergedState.selected_industry !== previousState.selected_industry ||
+            mergedState.selected_company !== previousState.selected_company ||
+            mergedState.selected_product !== previousState.selected_product;
 
           if (productChangedRemote) {
-            setProductSalesData(null);
-            setSalesDataError(null);
-            setProductFieldOptions(null);
-            setProductFieldsError(null);
+            set({
+              productSalesData: null,
+              salesDataError: null,
+              productFieldOptions: null,
+              productFieldsError: null,
+            });
           }
         }
       } catch (error) {
-        addToast('同步失败，请检查网络连接或联系管理员', 'error');
+        addToast("同步失败，请检查网络连接或联系管理员", "error");
         console.error("Failed to persist experiment state.", error);
       }
     }
-  }, [state, recordStepEvent, addToast]);
+  },
 
-  const handleIndustryChange = useCallback(async (selected_industry: string) => {
-    const newState: ExperimentState = { ...state, selected_industry };
+  // Handle industry change
+  handleIndustryChange: async (selected_industry) => {
+    logger.action("handleIndustryChange", { selected_industry });
+    const currentState = get().state;
+    const newState: ExperimentState = { ...currentState, selected_industry };
     newState.selected_company = null;
     newState.selected_product = null;
     newState.highest_completed_step = 1;
     newState.current_step = 2;
     resetModelingFields(newState, { resetQuizzes: true });
-    setProductSalesData(null);
-    setSalesDataError(null);
-    setProductFieldOptions(null);
-    setProductFieldsError(null);
-    await updateState(newState, true);
-  }, [state, updateState]);
 
-  const handleCompanyChange = useCallback(async (selected_company: string) => {
-    const newState: ExperimentState = { ...state, selected_company };
+    set({
+      productSalesData: null,
+      salesDataError: null,
+      productFieldOptions: null,
+      productFieldsError: null,
+    });
+
+    await get().updateState(newState, true);
+  },
+
+  // Handle company change
+  handleCompanyChange: async (selected_company) => {
+    logger.action("handleCompanyChange", { selected_company });
+    const currentState = get().state;
+    const newState: ExperimentState = { ...currentState, selected_company };
     newState.selected_product = null;
     newState.highest_completed_step = 2;
     newState.current_step = 3;
     resetModelingFields(newState, { resetQuizzes: true });
-    setProductSalesData(null);
-    setSalesDataError(null);
-    setProductFieldOptions(null);
-    setProductFieldsError(null);
-    await updateState(newState, true);
-  }, [state, updateState]);
 
-  const handleProductChange = useCallback(async (selected_product: string) => {
-    const newState: ExperimentState = { ...state, selected_product };
+    set({
+      productSalesData: null,
+      salesDataError: null,
+      productFieldOptions: null,
+      productFieldsError: null,
+    });
+
+    await get().updateState(newState, true);
+  },
+
+  // Handle product change
+  handleProductChange: async (selected_product) => {
+    logger.action("handleProductChange", { selected_product });
+    const currentState = get().state;
+    const newState: ExperimentState = { ...currentState, selected_product };
     newState.highest_completed_step = 3;
     newState.current_step = 4;
     resetModelingFields(newState, { resetQuizzes: true });
-    setProductSalesData(null);
-    setSalesDataError(null);
-    setProductFieldOptions(null);
-    setProductFieldsError(null);
-    await updateState(newState, true);
-  }, [state, updateState]);
 
-  const handleDataWindowChange = useCallback(async (updates: Partial<ExperimentState>) => {
-    const newState: ExperimentState = { ...state, ...updates };
-    resetModelingFields(newState, { resetQuizzes: true, preserveDataWindow: true });
+    set({
+      productSalesData: null,
+      salesDataError: null,
+      productFieldOptions: null,
+      productFieldsError: null,
+    });
+
+    await get().updateState(newState, true);
+  },
+
+  // Handle data window change
+  handleDataWindowChange: async (updates) => {
+    const currentState = get().state;
+    const newState: ExperimentState = { ...currentState, ...updates };
+    resetModelingFields(newState, {
+      resetQuizzes: true,
+      preserveDataWindow: true,
+    });
     newState.highest_completed_step = 4;
     newState.current_step = 5;
-    await updateState(newState, true);
-  }, [state, updateState]);
+    await get().updateState(newState, true);
+  },
 
-  const handleBestModelChange = useCallback(async (selected_best_model: SelectedBestModel | null) => {
-    const newState: ExperimentState = { ...state, selected_best_model };
+  // Handle best model change
+  handleBestModelChange: async (selected_best_model) => {
+    const currentState = get().state;
+    const newState: ExperimentState = { ...currentState, selected_best_model };
     resetProductionPlanFields(newState);
     newState.highest_completed_step = 6;
     newState.current_step = 7;
-    await updateState(newState, true);
-  }, [state, updateState]);
+    await get().updateState(newState, true);
+  },
 
+  // Record step event
+  recordStepEvent: async (stepOrder, eventType) => {
+    const { experiment_id } = get().state;
+    if (!experiment_id) {
+      console.warn("Cannot record step event: experiment_id is null");
+      return;
+    }
+    try {
+      await recordStepEvent(experiment_id, stepOrder, eventType);
+    } catch (error) {
+      console.error(`Failed to record ${eventType} event for step ${stepOrder}:`, error);
+    }
+  },
 
-  const isStepCompleted = useCallback((step: number): boolean => state.highest_completed_step >= step, [state.highest_completed_step]);
-  const isStepUnlocked = useCallback((step: number): boolean => step <= state.current_step, [state.current_step]);
+  // Check if step is completed
+  isStepCompleted: (step) => {
+    return get().state.highest_completed_step >= step;
+  },
 
-  const loadProductSalesData = useCallback(async (industry: string, company: string, product: string): Promise<boolean> => {
-    setIsLoadingSales(true);
-    setSalesDataError(null);
+  // Check if step is unlocked
+  isStepUnlocked: (step) => {
+    return step <= get().state.current_step;
+  },
+
+  // Load product sales data
+  loadProductSalesData: async (industry, company, product) => {
+    set({ isLoadingSales: true, salesDataError: null });
     try {
       const endpoint = `/datasets/industries/${industry}/companies/${company}/products/${product}/sales`;
       const data = await apiClient.get<ProductSalesData>(endpoint);
-      setProductSalesData(data);
+      set({ productSalesData: data, isLoadingSales: false });
       return true;
     } catch (err: any) {
-      setSalesDataError(err.message || '获取产品销量数据失败');
-      setProductSalesData(null);
+      set({
+        salesDataError: err.message || "获取产品销量数据失败",
+        productSalesData: null,
+        isLoadingSales: false,
+      });
       return false;
-    } finally {
-      setIsLoadingSales(false);
     }
-  }, []);
+  },
 
-  const loadProductFieldOptions = useCallback(async (industry: string, company: string, product: string): Promise<boolean> => {
-    setIsLoadingFields(true);
-    setProductFieldsError(null);
+  // Load product field options
+  loadProductFieldOptions: async (industry, company, product) => {
+    set({ isLoadingFields: true, productFieldsError: null });
     try {
       const endpoint = `/datasets/industries/${industry}/companies/${company}/products/${product}/fields`;
       const response = await apiClient.get<{ fields: string[] }>(endpoint);
       const fields = Array.isArray(response?.fields) ? response.fields : [];
-      setProductFieldOptions(fields);
+      set({ productFieldOptions: fields, isLoadingFields: false });
       return true;
     } catch (err: any) {
-      setProductFieldsError(err.message || '获取产品字段信息失败');
-      setProductFieldOptions(null);
+      set({
+        productFieldsError: err.message || "获取产品字段信息失败",
+        productFieldOptions: null,
+        isLoadingFields: false,
+      });
       return false;
-    } finally {
-      setIsLoadingFields(false);
     }
-  }, []);
+  },
 
-  const resetMovingAverageModel = useCallback(async () => {
-    // 一次性重置基础模型和所有融合模型
-    await updateState({
+  // Reset moving average model
+  resetMovingAverageModel: async () => {
+    await get().updateState({
       moving_average_completed: false,
       moving_average_window: null,
       moving_average_metrics_rmse: null,
       moving_average_metrics_mae: null,
       moving_average_metrics_r2: null,
-      // 同时重置所有融合模型
       ensemble_weighted_completed: false,
       ensemble_weighted_base_models: [],
       ensemble_weighted_metrics_rmse: null,
@@ -676,17 +766,16 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       ensemble_stacking_metrics_mae: null,
       ensemble_stacking_metrics_r2: null,
     });
-  }, [updateState]);
+  },
 
-  const resetExponentialSmoothingModel = useCallback(async () => {
-    // 一次性重置基础模型和所有融合模型
-    await updateState({
+  // Reset exponential smoothing model
+  resetExponentialSmoothingModel: async () => {
+    await get().updateState({
       exponential_smoothing_completed: false,
       exponential_smoothing_alpha: null,
       exponential_smoothing_metrics_rmse: null,
       exponential_smoothing_metrics_mae: null,
       exponential_smoothing_metrics_r2: null,
-      // 同时重置所有融合模型
       ensemble_weighted_completed: false,
       ensemble_weighted_base_models: [],
       ensemble_weighted_metrics_rmse: null,
@@ -703,11 +792,11 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       ensemble_stacking_metrics_mae: null,
       ensemble_stacking_metrics_r2: null,
     });
-  }, [updateState]);
+  },
 
-  const resetARIMAModel = useCallback(async () => {
-    // 一次性重置基础模型和所有融合模型
-    await updateState({
+  // Reset ARIMA model
+  resetARIMAModel: async () => {
+    await get().updateState({
       arima_completed: false,
       arima_p: null,
       arima_d: null,
@@ -716,7 +805,6 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       arima_metrics_mae: null,
       arima_metrics_r2: null,
       arima_adf_stationarity: [],
-      // 同时重置所有融合模型
       ensemble_weighted_completed: false,
       ensemble_weighted_base_models: [],
       ensemble_weighted_metrics_rmse: null,
@@ -733,11 +821,11 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       ensemble_stacking_metrics_mae: null,
       ensemble_stacking_metrics_r2: null,
     });
-  }, [updateState]);
+  },
 
-  const resetLSTMModel = useCallback(async () => {
-    // 一次性重置基础模型和所有融合模型
-    await updateState({
+  // Reset LSTM model
+  resetLSTMModel: async () => {
+    await get().updateState({
       lstm_completed: false,
       lstm_normalization: null,
       lstm_features: [],
@@ -745,7 +833,6 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       lstm_metrics_rmse: null,
       lstm_metrics_mae: null,
       lstm_metrics_r2: null,
-      // 同时重置所有融合模型
       ensemble_weighted_completed: false,
       ensemble_weighted_base_models: [],
       ensemble_weighted_metrics_rmse: null,
@@ -762,108 +849,64 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       ensemble_stacking_metrics_mae: null,
       ensemble_stacking_metrics_r2: null,
     });
-  }, [updateState]);
+  },
 
-  const resetWeightedEnsembleModel = useCallback(async () => {
-    await updateState({
+  // Reset weighted ensemble model
+  resetWeightedEnsembleModel: async () => {
+    await get().updateState({
       ensemble_weighted_completed: false,
       ensemble_weighted_base_models: [],
       ensemble_weighted_metrics_rmse: null,
       ensemble_weighted_metrics_mae: null,
       ensemble_weighted_metrics_r2: null,
     });
-  }, [updateState]);
+  },
 
-  const resetBoostingEnsembleModel = useCallback(async () => {
-    await updateState({
+  // Reset boosting ensemble model
+  resetBoostingEnsembleModel: async () => {
+    await get().updateState({
       ensemble_boosting_completed: false,
       ensemble_boosting_base_models: [],
       ensemble_boosting_metrics_rmse: null,
       ensemble_boosting_metrics_mae: null,
       ensemble_boosting_metrics_r2: null,
     });
-  }, [updateState]);
+  },
 
-  const resetStackingEnsembleModel = useCallback(async () => {
-    await updateState({
+  // Reset stacking ensemble model
+  resetStackingEnsembleModel: async () => {
+    await get().updateState({
       ensemble_stacking_completed: false,
       ensemble_stacking_base_models: [],
       ensemble_stacking_metrics_rmse: null,
       ensemble_stacking_metrics_mae: null,
       ensemble_stacking_metrics_r2: null,
     });
-  }, [updateState]);
+  },
 
-  const contextValue = useMemo(
-    () => ({
-      state,
-      loading,
-      updateState,
-      handleIndustryChange,
-      handleCompanyChange,
-      handleProductChange,
-      handleDataWindowChange,
-      handleBestModelChange,
-      recordStepEvent: recordStepEventWrapper,
-      isStepCompleted,
-      isStepUnlocked,
-      productSalesData,
-      isLoadingSales,
-      salesDataError,
-      productFieldOptions,
-      isLoadingFields,
-      productFieldsError,
-      loadProductSalesData,
-      loadProductFieldOptions,
-      resetMovingAverageModel,
-      resetExponentialSmoothingModel,
-      resetARIMAModel,
-      resetLSTMModel,
-      resetWeightedEnsembleModel,
-      resetBoostingEnsembleModel,
-      resetStackingEnsembleModel,
+  // Create new experiment
+  createNewExperiment: async () => {
+    logger.action("createNewExperiment");
+    try {
+      const newState = await createExperimentState();
+      await get().updateState(newState, false, true);
+      logger.stateChange("createNewExperiment", {}, newState);
+    } catch (error) {
+      logger.error("createNewExperiment", error);
+      console.error("Failed to create experiment:", error);
+      throw error;
+    }
+  },
     }),
-    [
-      state,
-      loading,
-      updateState,
-      handleIndustryChange,
-      handleCompanyChange,
-      handleProductChange,
-      handleDataWindowChange,
-      handleBestModelChange,
-      recordStepEventWrapper,
-      isStepCompleted,
-      isStepUnlocked,
-      productSalesData,
-      isLoadingSales,
-      salesDataError,
-      productFieldOptions,
-      isLoadingFields,
-      productFieldsError,
-      loadProductSalesData,
-      loadProductFieldOptions,
-      resetMovingAverageModel,
-      resetExponentialSmoothingModel,
-      resetARIMAModel,
-      resetLSTMModel,
-      resetWeightedEnsembleModel,
-      resetBoostingEnsembleModel,
-      resetStackingEnsembleModel,
-    ]
-  );
+    {
+      name: "ExperimentStore",
+      enabled: true,
+    }
+  )
+);
 
-  return (
-    <ExperimentContext.Provider value={contextValue}>
-      {children}
-    </ExperimentContext.Provider>
-  );
-};
-
+// Compatibility hook that mimics the old useExperiment API
 export const useExperiment = () => {
-  const context = useContext(ExperimentContext);
-  if (!context) {
-    throw new Error('useExperiment must be used within an ExperimentProvider');
-  }
-  return context;
+  const store = useExperimentStore();
+  return store;
 };

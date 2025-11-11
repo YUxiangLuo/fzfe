@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useExperiment } from "../contexts/ExperimentContext";
-import { apiClient, createExperimentState } from "../../../utils/apiClient";
+import { useExperiment } from "../contexts/ExperimentContext.zustand";
+import { apiClient } from "../../../utils/apiClient";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig";
 import {
   BookOpen,
@@ -61,7 +61,7 @@ const EXPERIMENT_STEPS = [
 const Introduction: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { state: experimentState, updateState } = useExperiment();
+  const { state: experimentState, createNewExperiment } = useExperiment();
   const [currentStep, setCurrentStep] = useState(0);
   const [manual, setManual] = useState<Manual | null>(null);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
@@ -95,8 +95,7 @@ const Introduction: React.FC = () => {
   // 开始新实验
   const startNewExperiment = async () => {
     try {
-      const newState = await createExperimentState();
-      updateState(newState);
+      await createNewExperiment();
       navigate("/industry");
     } catch (error) {
       console.error("Failed to create experiment:", error);
@@ -105,7 +104,8 @@ const Introduction: React.FC = () => {
 
   // 继续实验
   const continueExperiment = () => {
-    const targetRoute = STEP_ROUTES[experimentState.current_step] || "/industry";
+    const targetRoute =
+      STEP_ROUTES[experimentState.current_step] || "/industry";
     navigate(targetRoute);
   };
 
@@ -263,8 +263,16 @@ const Introduction: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className={`flex-1 ${currentStep === 2 ? '' : 'flex items-center justify-center p-8'}`}>
-          {currentStep === 2 ? renderStepContent() : <div className="max-w-6xl mx-auto w-full">{renderStepContent()}</div>}
+        <div
+          className={`flex-1 ${currentStep === 2 ? "" : "flex items-center justify-center p-8"}`}
+        >
+          {currentStep === 2 ? (
+            renderStepContent()
+          ) : (
+            <div className="max-w-6xl mx-auto w-full">
+              {renderStepContent()}
+            </div>
+          )}
         </div>
         <div className="bg-white border-t border-gray-200 px-8 py-6">
           <div className="max-w-6xl mx-auto flex justify-between items-center">
@@ -299,7 +307,9 @@ const Introduction: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
             <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-5">
-              <h3 className="text-2xl font-bold text-white">检测到未完成的实验</h3>
+              <h3 className="text-2xl font-bold text-white">
+                检测到未完成的实验
+              </h3>
             </div>
             <div className="p-6">
               <p className="text-gray-600 mb-4">
@@ -312,13 +322,16 @@ const Introduction: React.FC = () => {
                   <span className="text-gray-500">开始时间：</span>
                   <span className="font-medium text-gray-900">
                     {experimentState.start_time
-                      ? new Date(experimentState.start_time).toLocaleString("zh-CN", {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
+                      ? new Date(experimentState.start_time).toLocaleString(
+                          "zh-CN",
+                          {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )
                       : "—"}
                   </span>
                 </div>
@@ -326,7 +339,9 @@ const Introduction: React.FC = () => {
                   <span className="text-gray-500">最近活跃：</span>
                   <span className="font-medium text-gray-900">
                     {experimentState.last_activity_at
-                      ? new Date(experimentState.last_activity_at).toLocaleString("zh-CN", {
+                      ? new Date(
+                          experimentState.last_activity_at,
+                        ).toLocaleString("zh-CN", {
                           year: "numeric",
                           month: "2-digit",
                           day: "2-digit",
@@ -339,7 +354,8 @@ const Introduction: React.FC = () => {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">当前进度：</span>
                   <span className="font-medium text-gray-900">
-                    步骤 {experimentState.current_step} / {TOTAL_EXPERIMENT_STEPS}
+                    步骤 {experimentState.current_step} /{" "}
+                    {TOTAL_EXPERIMENT_STEPS}
                   </span>
                 </div>
               </div>

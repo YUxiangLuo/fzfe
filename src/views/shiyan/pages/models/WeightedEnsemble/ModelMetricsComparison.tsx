@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useExperiment } from '../../../contexts/ExperimentContext';
+import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import ModelMetricsTable from '../components/ModelMetricsTable';
 
 export interface ModelMetricsComparisonProps {

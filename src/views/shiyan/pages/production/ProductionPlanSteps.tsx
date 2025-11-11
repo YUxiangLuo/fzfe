@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { CheckCircle, Circle, Lock, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ProductionPlanProvider, useProductionPlan } from './ProductionPlanContextV2';
-import { useExperiment } from '../../contexts/ExperimentContext';
+import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import MPSTableViewV2 from './components/MPSTableViewV2';
 import NewStep1 from './steps_v2/NewStep1';
 import NewStep2 from './steps_v2/NewStep2';

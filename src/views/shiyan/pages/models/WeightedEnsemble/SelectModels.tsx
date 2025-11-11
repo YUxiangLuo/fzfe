@@ -1,5 +1,5 @@
 import React from 'react';
-import { useExperiment } from '../../../contexts/ExperimentContext';
+import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { AlertTriangle } from 'lucide-react';
 
 export interface SelectModelsProps {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrendingUp } from 'lucide-react';
 import { ReportCard } from './ReportCard';
-import type { ExperimentState, ModelMetrics, SelectedBestModel } from '../../contexts/ExperimentContext';
+import type { ExperimentState, ModelMetrics, SelectedBestModel } from '../../contexts/ExperimentContext.zustand';
 
 interface BestModelSelectionProps {
   state: ExperimentState;

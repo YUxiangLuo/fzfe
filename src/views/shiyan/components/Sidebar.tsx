@@ -11,7 +11,7 @@ import {
   Check,
   Lock
 } from 'lucide-react';
-import { useExperiment } from '../contexts/ExperimentContext';
+import { useExperiment } from '../contexts/ExperimentContext.zustand';
 
 const steps = [
   { id: 1, title: '选择行业', path: '/industry', icon: Building },

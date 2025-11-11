@@ -7,7 +7,7 @@ import Params, { type ParamsProps } from './Params';
 import Validation, { type ValidationProps } from './Validation';
 import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
-import { useExperiment } from '../../../contexts/ExperimentContext';
+import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useSimpleModel } from '../hooks/useSimpleModel';
 import { EXPONENTIAL_SMOOTHING_CONSTANTS } from '../constants';
 

@@ -6,7 +6,7 @@ import SelectModels, { type SelectModelsProps } from './SelectModels';
 import Results, { type ResultsProps } from './Results';
 import PredictionComparison, { type PredictionComparisonProps } from './PredictionComparison';
 import ModelMetricsComparison, { type ModelMetricsComparisonProps } from './ModelMetricsComparison';
-import { useExperiment } from '../../../contexts/ExperimentContext';
+import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useEnsembleModel } from '../hooks/useEnsembleModel';
 
 const MODEL_NAME = '加权平均融合';

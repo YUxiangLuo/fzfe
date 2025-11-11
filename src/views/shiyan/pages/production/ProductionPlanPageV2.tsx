@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { useExperiment } from '../../contexts/ExperimentContext';
+import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import ProductionScenarioIntroduction from './ProductionScenarioIntroduction';
 import ProductionRoleIntroduction from './ProductionRoleIntroduction';
 import ProductionPlanSteps from './ProductionPlanSteps';

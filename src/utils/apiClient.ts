@@ -227,8 +227,8 @@ export const apiClient = {
     request<T>(endpoint, { ...options, method: "DELETE" }),
 };
 
-import { initialState } from "../views/shiyan/contexts/ExperimentContext";
-import type { ExperimentState } from "../views/shiyan/contexts/ExperimentContext";
+import { initialState } from "../views/shiyan/contexts/ExperimentContext.zustand";
+import type { ExperimentState } from "../views/shiyan/contexts/ExperimentContext.zustand";
 
 const cloneInitialState = (): ExperimentState =>
   JSON.parse(JSON.stringify(initialState)) as ExperimentState;

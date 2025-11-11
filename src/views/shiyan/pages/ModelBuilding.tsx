@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { useExperiment } from '../contexts/ExperimentContext';
+import { useExperiment } from '../contexts/ExperimentContext.zustand';
 import { Check } from 'lucide-react';
 import ScenarioIntroduction from './models/ScenarioIntroduction';
 import RoleIntroduction from './models/RoleIntroduction';

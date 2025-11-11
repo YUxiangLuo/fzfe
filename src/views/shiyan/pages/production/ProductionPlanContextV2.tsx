@@ -4,7 +4,7 @@ import type { CapacityMode, CapacityScenario } from './utils/productionCapacityH
 import { validateAndFixStdDev } from './utils/predictionValidator';
 import { MPS_CALCULATION, DEFAULT_PARAMETERS } from './config/mpsConstants';
 import { retryAsync } from '../../../../utils/retryAsync';
-import type { MPSTableRow as GlobalMPSTableRow } from '../../contexts/ExperimentContext';
+import type { MPSTableRow as GlobalMPSTableRow } from '../../contexts/ExperimentContext.zustand';
 
 // MPS表格行接口
 export interface MPSTableRow {

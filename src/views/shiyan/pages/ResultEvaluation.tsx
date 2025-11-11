@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext';
+import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext.zustand';
 
 const ResultEvaluation: React.FC = () => {
   const navigate = useNavigate();

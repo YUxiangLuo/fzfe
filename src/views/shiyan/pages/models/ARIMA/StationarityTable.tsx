@@ -1,6 +1,6 @@
 import React from 'react';
 import { Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
-import type { AdfStationarityRow } from '../../../contexts/ExperimentContext';
+import type { AdfStationarityRow } from '../../../contexts/ExperimentContext.zustand';
 
 export interface StationarityTableProps {
   adfResults: AdfStationarityRow[];

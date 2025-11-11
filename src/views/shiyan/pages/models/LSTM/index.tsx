@@ -8,7 +8,7 @@ import Build, { type BuildProps } from './Build';
 import LSTMMethodInfo from './LSTMMethodInfo';
 import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
-import { useExperiment } from '../../../contexts/ExperimentContext';
+import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 
 const MODEL_NAME = 'LSTM 神经网络';
