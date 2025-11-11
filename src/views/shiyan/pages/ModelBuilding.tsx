@@ -64,6 +64,8 @@ const ModelBuilding: React.FC = () => {
   }, [state.highest_completed_step, recordStepEvent]);
 
   useEffect(() => {
+    // This effect should only redirect if the user lands on the base path,
+    // not on any of the sub-routes.
     if (location.pathname === '/model' || location.pathname === '/model/') {
       navigate('/model/scenario', { replace: true });
     }

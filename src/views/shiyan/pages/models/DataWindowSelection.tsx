@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext';
 import { AlertTriangle, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { MonthlySalesRecord } from '../../data/historicalDatasets';
+import { useConfirm } from '../../../../shared/contexts/ConfirmContext';
 
 // 常量配置
 const MIN_TRAINING_POINTS = 2; // 训练集至少需要2个数据点
@@ -119,56 +120,43 @@ const DataWindowSelection: React.FC = () => {
   const navigate = useNavigate();
   const {
     state,
-    updateState,
+    handleDataWindowChange,
     productSalesData,
     isLoadingSales,
     salesDataError,
   } = useExperiment();
+  const { confirm } = useConfirm();
 
   const [processedSalesData, setProcessedSalesData] = useState<typeof productSalesData>(null);
-  // 填充索引到原始索引的映射数组
   const [filledToOriginalIndexMap, setFilledToOriginalIndexMap] = useState<(number | null)[]>([]);
-  // 原始索引到填充索引的映射
   const [originalToFilledIndexMap, setOriginalToFilledIndexMap] = useState<Map<number, number>>(new Map());
 
-  // 填充缺失月份并创建索引映射
+  const [localTrainingRange, setLocalTrainingRange] = useState<RangeSelection>({ startIndex: null, endIndex: null });
+  const [localEvaluateRange, setLocalEvaluateRange] = useState<RangeSelection>({ startIndex: null, endIndex: null });
+
   useEffect(() => {
     if (productSalesData) {
       const originalMonthlySales = productSalesData.monthlySales || [];
       const filledData = fillMissingMonths([...originalMonthlySales]);
 
-      // 创建填充索引 -> 原始索引的映射
-      // 思路：遍历填充后的数据，对于每个非null的sales，记录它在原始数据中的索引
       const indexMap: (number | null)[] = [];
       const reverseMap = new Map<number, number>();
       let originalIndex = 0;
 
       for (let filledIndex = 0; filledIndex < filledData.length; filledIndex++) {
         const record = filledData[filledIndex];
-
-        // 如果sales不为null，说明这是原始数据，记录映射关系
         if (record && record.sales !== null && !isNaN(record.sales)) {
-          // 验证月份是否匹配（双重检查）
-          if (originalIndex < originalMonthlySales.length &&
-              originalMonthlySales[originalIndex]?.month === record.month) {
-            indexMap.push(originalIndex);
-            reverseMap.set(originalIndex, filledIndex);
-            originalIndex++;
+          const foundIndex = originalMonthlySales.findIndex(
+            (item, idx) => idx >= originalIndex && item.month === record.month
+          );
+          if (foundIndex !== -1) {
+            indexMap.push(foundIndex);
+            reverseMap.set(foundIndex, filledIndex);
+            originalIndex = foundIndex + 1;
           } else {
-            // 如果不匹配，需要在原始数据中查找对应的月份
-            const foundIndex = originalMonthlySales.findIndex(
-              (item, idx) => idx >= originalIndex && item.month === record.month
-            );
-            if (foundIndex !== -1) {
-              indexMap.push(foundIndex);
-              reverseMap.set(foundIndex, filledIndex);
-              originalIndex = foundIndex + 1;
-            } else {
-              indexMap.push(null); // 找不到对应的原始数据
-            }
+            indexMap.push(null);
           }
         } else {
-          // sales为null，说明这是填充的数据，没有对应的原始索引
           indexMap.push(null);
         }
       }
@@ -179,70 +167,55 @@ const DataWindowSelection: React.FC = () => {
         ...productSalesData,
         monthlySales: filledData,
       });
+
+      setLocalTrainingRange({
+        startIndex: state.data_window_train_start_index !== null ? (reverseMap.get(state.data_window_train_start_index) ?? null) : null,
+        endIndex: state.data_window_train_end_index !== null ? (reverseMap.get(state.data_window_train_end_index) ?? null) : null,
+      });
+      setLocalEvaluateRange({
+        startIndex: state.data_window_evaluate_start_index !== null ? (reverseMap.get(state.data_window_evaluate_start_index) ?? null) : null,
+        endIndex: state.data_window_evaluate_end_index !== null ? (reverseMap.get(state.data_window_evaluate_end_index) ?? null) : null,
+      });
+
     } else {
       setProcessedSalesData(null);
       setFilledToOriginalIndexMap([]);
       setOriginalToFilledIndexMap(new Map());
     }
-  }, [productSalesData]);
+  }, [productSalesData, state.data_window_train_start_index, state.data_window_train_end_index, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
 
   const points = processedSalesData?.monthlySales ?? [];
   const meta = processedSalesData?.meta;
 
-  // 从全局状态读取的是原始索引，需要转换为填充索引用于UI显示
-  const trainingRange: RangeSelection = {
-    startIndex: state.data_window_train_start_index !== null
-      ? (originalToFilledIndexMap.get(state.data_window_train_start_index) ?? null)
-      : null,
-    endIndex: state.data_window_train_end_index !== null
-      ? (originalToFilledIndexMap.get(state.data_window_train_end_index) ?? null)
-      : null,
-  };
-
-  const evaluateRange: RangeSelection = {
-    startIndex: state.data_window_evaluate_start_index !== null
-      ? (originalToFilledIndexMap.get(state.data_window_evaluate_start_index) ?? null)
-      : null,
-    endIndex: state.data_window_evaluate_end_index !== null
-      ? (originalToFilledIndexMap.get(state.data_window_evaluate_end_index) ?? null)
-      : null,
-  };
-
-  // 验证选择的区间
   const validationErrors = useMemo((): ValidationError[] => {
     const errors: ValidationError[] = [];
 
-    // 检查是否选择了完整的区间
     if (
-      trainingRange.startIndex === null ||
-      trainingRange.endIndex === null ||
-      evaluateRange.startIndex === null ||
-      evaluateRange.endIndex === null
+      localTrainingRange.startIndex === null ||
+      localTrainingRange.endIndex === null ||
+      localEvaluateRange.startIndex === null ||
+      localEvaluateRange.endIndex === null
     ) {
-      return errors; // 未完成选择，不显示错误
+      return errors;
     }
 
-    // 验证训练区间（必须严格大于）
-    if (!isValidRange(trainingRange, true)) {
+    if (!isValidRange(localTrainingRange, true)) {
       errors.push({
         type: 'training',
         message: '训练区间的结束月份必须大于开始月份（至少跨越2个月）',
       });
     } else {
-      // 检查训练区间大小
-      const trainingSize = trainingRange.endIndex - trainingRange.startIndex + 1;
+      const trainingSize = localTrainingRange.endIndex - localTrainingRange.startIndex + 1;
       if (trainingSize < MIN_TRAINING_POINTS) {
         errors.push({
           type: 'size',
           message: `训练区间至少需要 ${MIN_TRAINING_POINTS} 个数据点（当前只有 ${trainingSize} 个）`,
         });
       }
-
-      // 检查训练区间是否包含空白值
       const trainingBlankCheck = hasBlankInRange(
         points,
-        trainingRange.startIndex,
-        trainingRange.endIndex
+        localTrainingRange.startIndex,
+        localTrainingRange.endIndex
       );
       if (trainingBlankCheck.hasBlank) {
         errors.push({
@@ -252,27 +225,23 @@ const DataWindowSelection: React.FC = () => {
       }
     }
 
-    // 验证评估区间
-    if (!isValidRange(evaluateRange)) {
+    if (!isValidRange(localEvaluateRange)) {
       errors.push({
         type: 'evaluation',
         message: '评估区间的结束月份必须晚于或等于开始月份',
       });
     } else {
-      // 检查评估区间大小
-      const evaluationSize = evaluateRange.endIndex - evaluateRange.startIndex + 1;
+      const evaluationSize = localEvaluateRange.endIndex - localEvaluateRange.startIndex + 1;
       if (evaluationSize < MIN_EVALUATION_POINTS) {
         errors.push({
           type: 'size',
           message: `评估区间至少需要 ${MIN_EVALUATION_POINTS} 个数据点（当前只有 ${evaluationSize} 个）`,
         });
       }
-
-      // 检查评估区间是否包含空白值
       const evaluateBlankCheck = hasBlankInRange(
         points,
-        evaluateRange.startIndex,
-        evaluateRange.endIndex
+        localEvaluateRange.startIndex,
+        localEvaluateRange.endIndex
       );
       if (evaluateBlankCheck.hasBlank) {
         errors.push({
@@ -282,11 +251,10 @@ const DataWindowSelection: React.FC = () => {
       }
     }
 
-    // 验证区间分离
     if (
-      isValidRange(trainingRange) &&
-      isValidRange(evaluateRange) &&
-      trainingRange.endIndex! >= evaluateRange.startIndex!
+      isValidRange(localTrainingRange) &&
+      isValidRange(localEvaluateRange) &&
+      localTrainingRange.endIndex! >= localEvaluateRange.startIndex!
     ) {
       errors.push({
         type: 'separation',
@@ -295,13 +263,13 @@ const DataWindowSelection: React.FC = () => {
     }
 
     return errors;
-  }, [trainingRange, evaluateRange, points]);
+  }, [localTrainingRange, localEvaluateRange, points]);
 
   const canProceed = validationErrors.length === 0 &&
-    trainingRange.startIndex !== null &&
-    trainingRange.endIndex !== null &&
-    evaluateRange.startIndex !== null &&
-    evaluateRange.endIndex !== null;
+    localTrainingRange.startIndex !== null &&
+    localTrainingRange.endIndex !== null &&
+    localEvaluateRange.startIndex !== null &&
+    localEvaluateRange.endIndex !== null;
 
   if (isLoadingSales) {
     return (
@@ -351,41 +319,68 @@ const DataWindowSelection: React.FC = () => {
 
   const evaluateOptions = trainingOptions;
 
-  const updateRangeField = async (
-    field:
-      | 'data_window_train_start_index'
-      | 'data_window_train_end_index'
-      | 'data_window_evaluate_start_index'
-      | 'data_window_evaluate_end_index',
+  const updateRangeField = (
+    rangeType: 'training' | 'evaluation',
+    bound: 'startIndex' | 'endIndex',
     rawValue: string,
   ) => {
-    if (rawValue === '') {
-      await updateState({ [field]: null } as Partial<typeof state>);
-      return;
-    }
-
-    const filledIndex = Number(rawValue);
-
-    // 将填充后的索引转换为原始数据的索引
-    const originalIndex = filledToOriginalIndexMap[filledIndex];
-
-    if (originalIndex === null || originalIndex === undefined) {
-      // 用户选择了一个空白数据（填充的月份），这应该被验证逻辑捕获
-      // 但为了安全起见，我们不更新状态
-      console.warn(`Selected index ${filledIndex} corresponds to a filled (blank) month, not updating state`);
-      return;
-    }
-
-    // 存储原始数据的索引到全局状态
-    await updateState({ [field]: originalIndex } as Partial<typeof state>);
+    const value = rawValue === '' ? null : Number(rawValue);
+    const setter = rangeType === 'training' ? setLocalTrainingRange : setLocalEvaluateRange;
+    setter(prev => ({ ...prev, [bound]: value }));
   };
 
   const handlePrevious = () => {
     navigate(PATHS.ROLE_INTRO);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!canProceed) return;
+
+    const originalTrainStart = filledToOriginalIndexMap[localTrainingRange.startIndex!];
+    const originalTrainEnd = filledToOriginalIndexMap[localTrainingRange.endIndex!];
+    const originalEvaluateStart = filledToOriginalIndexMap[localEvaluateRange.startIndex!];
+    const originalEvaluateEnd = filledToOriginalIndexMap[localEvaluateRange.endIndex!];
+
+    if (
+      originalTrainStart === null || originalTrainStart === undefined ||
+      originalTrainEnd === null || originalTrainEnd === undefined ||
+      originalEvaluateStart === null || originalEvaluateStart === undefined ||
+      originalEvaluateEnd === null || originalEvaluateEnd === undefined
+    ) {
+      console.error("Cannot proceed: selected range includes invalid (blank) data points.");
+      return;
+    }
+
+    const hasExistingSelection = state.data_window_train_start_index !== null;
+    const hasChanged = state.data_window_train_start_index !== originalTrainStart ||
+                       state.data_window_train_end_index !== originalTrainEnd ||
+                       state.data_window_evaluate_start_index !== originalEvaluateStart ||
+                       state.data_window_evaluate_end_index !== originalEvaluateEnd;
+
+    if (hasExistingSelection && hasChanged) {
+        const isConfirmed = await confirm({
+            title: '确认更改数据窗口',
+            message: '更改数据窗口将重置您所有已训练的模型和相关进度。您确定要继续吗？',
+            confirmText: '确认更改',
+            cancelText: '取消',
+        });
+        if (!isConfirmed) {
+            return;
+        }
+    }
+
+    const dataWindowPayload = {
+      data_window_train_start_index: originalTrainStart,
+      data_window_train_end_index: originalTrainEnd,
+      data_window_evaluate_start_index: originalEvaluateStart,
+      data_window_evaluate_end_index: originalEvaluateEnd,
+    };
+
+    // Only call the global state update if something has actually changed.
+    if (hasChanged) {
+        await handleDataWindowChange(dataWindowPayload);
+    }
+    
     navigate(PATHS.MODEL_INTRO);
   };
 
@@ -423,9 +418,9 @@ const DataWindowSelection: React.FC = () => {
               <span className="text-sm text-gray-600">开始月份</span>
               <select
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2"
-                value={trainingRange.startIndex ?? ''}
+                value={localTrainingRange.startIndex ?? ''}
                 onChange={(event) =>
-                  void updateRangeField('data_window_train_start_index', event.target.value)
+                  updateRangeField('training', 'startIndex', event.target.value)
                 }
               >
                 <option value="">请选择开始月份</option>
@@ -444,9 +439,9 @@ const DataWindowSelection: React.FC = () => {
               <span className="text-sm text-gray-600">结束月份</span>
               <select
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2"
-                value={trainingRange.endIndex ?? ''}
+                value={localTrainingRange.endIndex ?? ''}
                 onChange={(event) =>
-                  void updateRangeField('data_window_train_end_index', event.target.value)
+                  updateRangeField('training', 'endIndex', event.target.value)
                 }
               >
                 <option value="">请选择结束月份</option>
@@ -474,9 +469,9 @@ const DataWindowSelection: React.FC = () => {
               <span className="text-sm text-gray-600">开始月份</span>
               <select
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2"
-                value={evaluateRange.startIndex ?? ''}
+                value={localEvaluateRange.startIndex ?? ''}
                 onChange={(event) =>
-                  void updateRangeField('data_window_evaluate_start_index', event.target.value)
+                  updateRangeField('evaluation', 'startIndex', event.target.value)
                 }
               >
                 <option value="">请选择开始月份</option>
@@ -495,9 +490,9 @@ const DataWindowSelection: React.FC = () => {
               <span className="text-sm text-gray-600">结束月份</span>
               <select
                 className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2"
-                value={evaluateRange.endIndex ?? ''}
+                value={localEvaluateRange.endIndex ?? ''}
                 onChange={(event) =>
-                  void updateRangeField('data_window_evaluate_end_index', event.target.value)
+                  updateRangeField('evaluation', 'endIndex', event.target.value)
                 }
               >
                 <option value="">请选择结束月份</option>
@@ -515,7 +510,6 @@ const DataWindowSelection: React.FC = () => {
           </div>
         </div>
 
-        {/* 显示所有验证错误 */}
         {validationErrors.length > 0 && (
           <div className="space-y-2">
             {validationErrors.map((error, index) => (
@@ -531,20 +525,18 @@ const DataWindowSelection: React.FC = () => {
         )}
       </section>
 
-      {/* 验证状态提示 */}
       {canProceed && (
         <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700 flex items-start space-x-2">
           <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
           <span>
             已选择训练区间{' '}
-            {`${trainingOptions[trainingRange.startIndex!]?.label} 至 ${trainingOptions[trainingRange.endIndex!]?.label}`}
+            {`${trainingOptions[localTrainingRange.startIndex!]?.label} 至 ${trainingOptions[localTrainingRange.endIndex!]?.label}`}
             ，评估区间{' '}
-            {`${evaluateOptions[evaluateRange.startIndex!]?.label} 至 ${evaluateOptions[evaluateRange.endIndex!]?.label}`}。
+            {`${evaluateOptions[localEvaluateRange.startIndex!]?.label} 至 ${evaluateOptions[localEvaluateRange.endIndex!]?.label}`}。
           </span>
         </div>
       )}
 
-      {/* 底部导航按钮 */}
       <footer className="flex justify-between items-center pt-6 border-t border-gray-200">
         <button
           onClick={handlePrevious}

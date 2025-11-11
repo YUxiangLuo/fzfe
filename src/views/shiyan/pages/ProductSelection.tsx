@@ -3,13 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
 import { Package, ArrowRight } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
+import { useConfirm } from '../../../shared/contexts/ConfirmContext';
 
 const ProductSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState, salesDataError, recordStepEvent } = useExperiment();
+  const { state, handleProductChange, salesDataError, recordStepEvent } = useExperiment();
   const [products, setProducts] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [localProduct, setLocalProduct] = useState<string | null>(state.selected_product);
+  const { confirm } = useConfirm();
   const hasRecordedStartRef = useRef(false);
   const prevHighestStepRef = useRef(state.highest_completed_step);
 
@@ -55,8 +58,6 @@ const ProductSelection: React.FC = () => {
     };
   }, [state.selected_industry, state.selected_company]);
 
-  // Record STARTED event only when entering a new step (step > highest_completed_step)
-  // Reset ref when state is rolled back (highest_completed_step decreases)
   useEffect(() => {
     if (state.highest_completed_step < prevHighestStepRef.current) {
       hasRecordedStartRef.current = false;
@@ -70,18 +71,30 @@ const ProductSelection: React.FC = () => {
   }, [state.highest_completed_step, recordStepEvent]);
 
   const handleSelectProduct = (productId: string) => {
-    updateState({ selected_product: productId });
+    setLocalProduct(productId);
   };
 
   const handleNext = async () => {
-    if (!state.selected_product) {
-      return;
+    if (!localProduct) return;
+
+    const hasExistingSelection = state.selected_product !== null;
+    const hasChanged = localProduct !== state.selected_product;
+
+    if (hasExistingSelection && hasChanged) {
+      const isConfirmed = await confirm({
+        title: '确认更改产品',
+        message: '更改产品将重置您在后续步骤中所有的选择和进度。您确定要继续吗？',
+        confirmText: '确认更改',
+        cancelText: '取消',
+      });
+      if (!isConfirmed) {
+        return;
+      }
     }
 
-    await updateState({
-      highest_completed_step: Math.max(state.highest_completed_step, 3),
-      current_step: 4,
-    });
+    if (hasChanged) {
+      await handleProductChange(localProduct);
+    }
     navigate('/data');
   };
 
@@ -124,7 +137,7 @@ const ProductSelection: React.FC = () => {
             )}
 
             {!isLoading && !error && products.map((productName) => {
-              const isSelected = state.selected_product === productName;
+              const isSelected = localProduct === productName;
               return (
                 <div
                   key={productName}
@@ -168,7 +181,7 @@ const ProductSelection: React.FC = () => {
           </button>
           <button
             onClick={handleNext}
-            disabled={!state.selected_product || isLoading || !!error}
+            disabled={!localProduct || isLoading || !!error}
             className="flex items-center justify-center space-x-2 w-48 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             <span>下一步</span>

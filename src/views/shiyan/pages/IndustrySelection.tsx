@@ -15,6 +15,7 @@ import {
     Factory,
 } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
+import { useConfirm } from '../../../shared/contexts/ConfirmContext';
 
 // Create a mapping from industry names to specific icons
 const INDUSTRY_ICON_MAP: { [key: string]: React.ElementType } = {
@@ -49,10 +50,12 @@ const getIndustryIcon = (industryName: string): React.ElementType => {
 
 const IndustrySelection: React.FC = () => {
     const navigate = useNavigate();
-    const { state, updateState, recordStepEvent } = useExperiment();
+    const { state, handleIndustryChange, recordStepEvent } = useExperiment();
     const [industries, setIndustries] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [localIndustry, setLocalIndustry] = useState<string | null>(state.selected_industry);
+    const { confirm } = useConfirm();
     const hasRecordedStartRef = useRef(false);
     const prevHighestStepRef = useRef(state.highest_completed_step);
 
@@ -104,19 +107,37 @@ const IndustrySelection: React.FC = () => {
     }, [state.highest_completed_step, recordStepEvent]);
 
     const handleSelectIndustry = (industryId: string) => {
-        // The reset logic is now handled automatically by the updateState function in the context
-        updateState({ selected_industry: industryId });
+        // Only update the local state on selection.
+        // The confirmation and global state update will happen in handleNext.
+        setLocalIndustry(industryId);
     };
 
-    const handleNext = () => {
-        if (state.selected_industry) {
-            // Set highest completed step to 1 and current step to 2
-            updateState({ 
-                highest_completed_step: 1,
-                current_step: 2,
+    const handleNext = async () => {
+        if (!localIndustry) return;
+
+        const hasExistingSelection = state.selected_industry !== null;
+        const hasChanged = localIndustry !== state.selected_industry;
+
+        if (hasExistingSelection && hasChanged) {
+            const isConfirmed = await confirm({
+                title: '确认更改行业',
+                message: '更改行业将重置您在后续步骤中所有的选择和进度。您确定要继续吗？',
+                confirmText: '确认更改',
+                cancelText: '取消',
             });
-            navigate('/company');
+            if (!isConfirmed) {
+                return; // User cancelled, so we stop here.
+            }
         }
+
+        // Proceed with the update and navigation if:
+        // 1. It's the first selection.
+        // 2. The user confirmed the change.
+        // 3. The selection hasn't changed (user just clicked next).
+        if (hasChanged) {
+            await handleIndustryChange(localIndustry);
+        }
+        navigate('/company');
     };
 
     return (
@@ -149,7 +170,7 @@ const IndustrySelection: React.FC = () => {
                     )}
 
                     {!isLoading && !error && industries.map((industryName) => {
-                        const isSelected = state.selected_industry === industryName;
+                        const isSelected = localIndustry === industryName;
                         const Icon = getIndustryIcon(industryName);
                         return (
                             <div
@@ -177,13 +198,13 @@ const IndustrySelection: React.FC = () => {
 
                 <div className="mt-12 flex justify-between items-center">
                     <span className="text-sm text-gray-500">
-                        {state.selected_industry
-                            ? `已选择: ${state.selected_industry}`
+                        {localIndustry
+                            ? `已选择: ${localIndustry}`
                             : '请选择一个行业'}
                     </span>
                     <button
                         onClick={handleNext}
-                        disabled={!state.selected_industry || isLoading || !!error}
+                        disabled={!localIndustry || isLoading || !!error}
                         className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all disabled:bg-gray-300 disabled:cursor-not-allowed disabled:shadow-none"
                     >
                         <span>下一步</span>

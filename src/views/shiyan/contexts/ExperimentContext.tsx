@@ -348,7 +348,12 @@ const resetProductionPlanFields = (target: ExperimentState) => {
 interface ExperimentContextType {
   state: ExperimentState;
   loading: boolean;
-  updateState: (updates: Partial<ExperimentState>) => Promise<void>;
+  updateState: (updates: Partial<ExperimentState>, forceSync?: boolean) => Promise<void>;
+  handleIndustryChange: (selected_industry: string) => Promise<void>;
+  handleCompanyChange: (selected_company: string) => Promise<void>;
+  handleProductChange: (selected_product: string) => Promise<void>;
+  handleDataWindowChange: (updates: Partial<ExperimentState>) => Promise<void>;
+  handleBestModelChange: (selected_best_model: SelectedBestModel | null) => Promise<void>;
   recordStepEvent: (stepOrder: number, eventType: 'STARTED' | 'COMPLETED') => Promise<void>;
   isStepCompleted: (step: number) => boolean;
   isStepUnlocked: (step: number) => boolean;
@@ -463,86 +468,9 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [state.experiment_id]);
 
-  const updateState = async (updates: Partial<ExperimentState>) => {
+  const updateState = useCallback(async (updates: Partial<ExperimentState>, forceSync = false) => {
     const previousState = state;
     const nextState: ExperimentState = { ...state, ...updates };
-
-    const industryChanged =
-      Object.prototype.hasOwnProperty.call(updates, 'selected_industry') &&
-      updates.selected_industry !== previousState.selected_industry;
-    const companyChanged =
-      Object.prototype.hasOwnProperty.call(updates, 'selected_company') &&
-      updates.selected_company !== previousState.selected_company;
-    const productChanged =
-      Object.prototype.hasOwnProperty.call(updates, 'selected_product') &&
-      updates.selected_product !== previousState.selected_product;
-    const dataWindowFields: Array<
-      | 'data_window_train_start_index'
-      | 'data_window_train_end_index'
-      | 'data_window_evaluate_start_index'
-      | 'data_window_evaluate_end_index'
-    > = [
-      'data_window_train_start_index',
-      'data_window_train_end_index',
-      'data_window_evaluate_start_index',
-      'data_window_evaluate_end_index',
-    ];
-    const dataWindowChanged = dataWindowFields.some((field) =>
-      Object.prototype.hasOwnProperty.call(updates, field)
-    );
-    
-    const bestModelChanged =
-      Object.prototype.hasOwnProperty.call(updates, 'selected_best_model') &&
-      updates.selected_best_model !== previousState.selected_best_model;
-
-    if (industryChanged) {
-      nextState.selected_company = null;
-      nextState.selected_product = null;
-      nextState.highest_completed_step = 0;
-      nextState.current_step = 1;
-      resetModelingFields(nextState, { resetQuizzes: true });
-      setProductSalesData(null);
-      setSalesDataError(null);
-      setProductFieldOptions(null);
-      setProductFieldsError(null);
-    } else if (companyChanged) {
-      nextState.selected_product = null;
-      nextState.highest_completed_step = 1;
-      nextState.current_step = 2;
-      resetModelingFields(nextState, { resetQuizzes: true });
-      setProductSalesData(null);
-      setSalesDataError(null);
-      setProductFieldOptions(null);
-      setProductFieldsError(null);
-    } else if (productChanged) {
-      nextState.highest_completed_step = 2;
-      nextState.current_step = 3;
-      resetModelingFields(nextState, { resetQuizzes: true });
-      setProductSalesData(null);
-      setSalesDataError(null);
-      setProductFieldOptions(null);
-      setProductFieldsError(null);
-    }
-
-    if (dataWindowChanged) {
-      const wasComplete = dataWindowFields.every(
-        (field) => previousState[field] !== null && previousState[field] !== undefined,
-      );
-      const isCompleteNow = dataWindowFields.every(
-        (field) => nextState[field] !== null && nextState[field] !== undefined,
-      );
-      if (wasComplete && isCompleteNow) {
-        resetModelingFields(nextState, { resetQuizzes: true, preserveDataWindow: true });
-        nextState.highest_completed_step = Math.min(nextState.highest_completed_step, 4);
-        nextState.current_step = Math.min(nextState.current_step, 5);
-      }
-    }
-
-    if (bestModelChanged) {
-      resetProductionPlanFields(nextState);
-      nextState.highest_completed_step = Math.min(nextState.highest_completed_step, 6);
-      nextState.current_step = Math.min(nextState.current_step, 7);
-    }
 
     if (nextState.status === 'Not Started' && Object.keys(updates).length > 0) {
       nextState.status = 'In Progress';
@@ -564,14 +492,7 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Determine if we should sync to backend (lazy sync strategy)
-    // Rationale: Reduce API calls during frequent parameter adjustments in modeling phase
-    // Only sync when:
-    // 1. Step completion: User advances to next major step (syncs all accumulated changes)
-    // 2. Critical state changes: Industry/company/product selection or data window setup
-    // 3. Model completion: User finishes training a model (important checkpoint)
-    // 4. Experiment completion: Status changes to 'Completed'
     const stepCompleted = nextState.highest_completed_step > previousState.highest_completed_step;
-    const criticalStateChanged = industryChanged || companyChanged || productChanged || dataWindowChanged;
 
     // Check if any model completion status changed from false to true
     const modelCompletionFields = [
@@ -600,7 +521,7 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       previousState.status !== 'Completed';
 
 
-    const shouldSyncToBackend = stepCompleted || criticalStateChanged || modelCompleted || modelReset || experimentCompleted || bestModelChanged;
+    const shouldSyncToBackend = forceSync || stepCompleted || modelCompleted || modelReset || experimentCompleted;
 
     if (shouldSyncToBackend) {
       try {
@@ -630,7 +551,62 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
         console.error("Failed to persist experiment state.", error);
       }
     }
-  };
+  }, [state, recordStepEvent]);
+
+  const handleIndustryChange = useCallback(async (selected_industry: string) => {
+    const newState: ExperimentState = { ...state, selected_industry };
+    newState.selected_company = null;
+    newState.selected_product = null;
+    newState.highest_completed_step = 1;
+    newState.current_step = 2;
+    resetModelingFields(newState, { resetQuizzes: true });
+    setProductSalesData(null);
+    setSalesDataError(null);
+    setProductFieldOptions(null);
+    setProductFieldsError(null);
+    await updateState(newState, true);
+  }, [state, updateState]);
+
+  const handleCompanyChange = useCallback(async (selected_company: string) => {
+    const newState: ExperimentState = { ...state, selected_company };
+    newState.selected_product = null;
+    newState.highest_completed_step = 2;
+    newState.current_step = 3;
+    resetModelingFields(newState, { resetQuizzes: true });
+    setProductSalesData(null);
+    setSalesDataError(null);
+    setProductFieldOptions(null);
+    setProductFieldsError(null);
+    await updateState(newState, true);
+  }, [state, updateState]);
+
+  const handleProductChange = useCallback(async (selected_product: string) => {
+    const newState: ExperimentState = { ...state, selected_product };
+    newState.highest_completed_step = 3;
+    newState.current_step = 4;
+    resetModelingFields(newState, { resetQuizzes: true });
+    setProductSalesData(null);
+    setSalesDataError(null);
+    setProductFieldOptions(null);
+    setProductFieldsError(null);
+    await updateState(newState, true);
+  }, [state, updateState]);
+
+  const handleDataWindowChange = useCallback(async (updates: Partial<ExperimentState>) => {
+    const newState: ExperimentState = { ...state, ...updates };
+    resetModelingFields(newState, { resetQuizzes: true, preserveDataWindow: true });
+    newState.highest_completed_step = 4;
+    newState.current_step = 5;
+    await updateState(newState, true);
+  }, [state, updateState]);
+
+  const handleBestModelChange = useCallback(async (selected_best_model: SelectedBestModel | null) => {
+    const newState: ExperimentState = { ...state, selected_best_model };
+    resetProductionPlanFields(newState);
+    newState.highest_completed_step = 6;
+    newState.current_step = 7;
+    await updateState(newState, true);
+  }, [state, updateState]);
 
 
   const isStepCompleted = useCallback((step: number): boolean => state.highest_completed_step >= step, [state.highest_completed_step]);
@@ -819,6 +795,11 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
       state,
       loading,
       updateState,
+      handleIndustryChange,
+      handleCompanyChange,
+      handleProductChange,
+      handleDataWindowChange,
+      handleBestModelChange,
       recordStepEvent: recordStepEventWrapper,
       isStepCompleted,
       isStepUnlocked,
@@ -841,6 +822,12 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     [
       state,
       loading,
+      updateState,
+      handleIndustryChange,
+      handleCompanyChange,
+      handleProductChange,
+      handleDataWindowChange,
+      handleBestModelChange,
       recordStepEventWrapper,
       isStepCompleted,
       isStepUnlocked,

@@ -3,13 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext';
 import { Building, ArrowRight } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
+import { useConfirm } from '../../../shared/contexts/ConfirmContext';
 
 const CompanySelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState, recordStepEvent } = useExperiment();
+  const { state, handleCompanyChange, recordStepEvent } = useExperiment();
   const [companies, setCompanies] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [localCompany, setLocalCompany] = useState<string | null>(state.selected_company);
+  const { confirm } = useConfirm();
   const hasRecordedStartRef = useRef(false);
   const prevHighestStepRef = useRef(state.highest_completed_step);
 
@@ -55,8 +58,6 @@ const CompanySelection: React.FC = () => {
     };
   }, [state.selected_industry]);
 
-  // Record STARTED event only when entering a new step (step > highest_completed_step)
-  // Reset ref when state is rolled back (highest_completed_step decreases)
   useEffect(() => {
     if (state.highest_completed_step < prevHighestStepRef.current) {
       hasRecordedStartRef.current = false;
@@ -70,17 +71,31 @@ const CompanySelection: React.FC = () => {
   }, [state.highest_completed_step, recordStepEvent]);
 
   const handleSelectCompany = (companyId: string) => {
-    updateState({ selected_company: companyId });
+    setLocalCompany(companyId);
   };
 
-  const handleNext = () => {
-    if (state.selected_company) {
-      updateState({ 
-          highest_completed_step: 2,
-          current_step: 3,
+  const handleNext = async () => {
+    if (!localCompany) return;
+
+    const hasExistingSelection = state.selected_company !== null;
+    const hasChanged = localCompany !== state.selected_company;
+
+    if (hasExistingSelection && hasChanged) {
+      const isConfirmed = await confirm({
+        title: '确认更改企业',
+        message: '更改企业将重置您在后续步骤中所有的选择和进度。您确定要继续吗？',
+        confirmText: '确认更改',
+        cancelText: '取消',
       });
-      navigate('/product');
+      if (!isConfirmed) {
+        return;
+      }
     }
+
+    if (hasChanged) {
+      await handleCompanyChange(localCompany);
+    }
+    navigate('/product');
   };
 
   return (
@@ -120,7 +135,7 @@ const CompanySelection: React.FC = () => {
             )}
 
             {!isLoading && !error && companies.map((companyName) => {
-              const isSelected = state.selected_company === companyName;
+              const isSelected = localCompany === companyName;
               return (
                 <div
                   key={companyName}
@@ -155,7 +170,7 @@ const CompanySelection: React.FC = () => {
             </button>
             <button
                 onClick={handleNext}
-                disabled={!state.selected_company || isLoading || !!error}
+                disabled={!localCompany || isLoading || !!error}
                 className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
                 <span>下一步</span>
