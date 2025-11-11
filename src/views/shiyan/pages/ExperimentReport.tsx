@@ -243,12 +243,11 @@ ${modelSelectionAnalysis}
 ## 四、生产计划参数计算结果
 (以期1和期2为例)
 
-### 4.1 核心输入参数
+### 4.1 默认参数
 | 参数 | 值 |
 |------|-----|
 | 目标服务水平 | ${state.production_target_service_level ? `${state.production_target_service_level * 100}%` : 'N/A'} |
 | 安全库存Z值 | ${state.production_safety_stock_z_score || 'N/A'} |
-| 产能场景 | ${state.production_capacity_scenario || 'N/A'} |
 | 产能上限/期 | ${state.production_capacity ? `${state.production_capacity.toLocaleString()} 件` : 'N/A'} |
 
 ### 4.2 数据对比

@@ -37,11 +37,11 @@ export const PlanParameters: React.FC<PlanParametersProps> = ({
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-base font-semibold text-gray-800 mb-3">核心输入参数</h3>
+          <h3 className="text-base font-semibold text-gray-800 mb-3">默认参数</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <ValueCard label="目标服务水平" value={`${(state.production_target_service_level || 0) * 100}%`} />
             <ValueCard label="安全库存Z值" value={state.production_safety_stock_z_score || 0} />
-            <ValueCard label="产能场景" value={state.production_capacity_scenario || 'N/A'} />
+            {/* <ValueCard label="产能场景" value={state.production_capacity_scenario || 'N/A'} /> */}
             <ValueCard label="产能上限/期" value={(state.production_capacity || 0).toLocaleString()} unit="件" />
           </div>
         </div>

@@ -150,18 +150,21 @@ const ProductionPlanContent: React.FC = () => {
                     完整的生产计划表，包含所有{state.forecastPeriods}期的详细数据
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleComplete}
-                  className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors shadow-lg"
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  <span>完成生产计划，进入测验</span>
-                </button>
+                {/* Button moved to bottom right */}
               </div>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">
               <MPSTableViewV2 />
+            </div>
+            <div className="mt-4 flex justify-end flex-shrink-0">
+              <button
+                type="button"
+                onClick={handleComplete}
+                className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors shadow-lg"
+              >
+                <CheckCircle className="w-5 h-5" />
+                <span>完成生产计划，进入测验</span>
+              </button>
             </div>
           </div>
         </div>

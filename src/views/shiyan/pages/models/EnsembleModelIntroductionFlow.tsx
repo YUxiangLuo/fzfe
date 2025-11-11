@@ -9,28 +9,41 @@ import {
   ChevronRight,
   CheckCircle2,
   Info,
+  TrendingUp,
+  ThumbsUp,
+  ThumbsDown,
+  Target,
 } from 'lucide-react';
 
-// Ensemble models data
+// Expanded ensemble models data
 const ensembleModels = [
-    {
-      id: 'weighted_ensemble',
-      name: '加权平均融合',
-      icon: Scale,
-      principle: '通过对多个基础模型的预测结果按权重加权平均，综合各模型优势，提高预测稳定性。',
-    },
-    {
-      id: 'boosting_ensemble',
-      name: 'Boosting融合',
-      icon: Sparkles,
-      principle: '通过迭代训练多个模型，每个新模型重点关注前一模型预测错误的部分，逐步提升整体预测能力。',
-    },
-    {
-      id: 'stacking_ensemble',
-      name: 'Stacking融合',
-      icon: Layers,
-      principle: '使用元模型学习如何最优组合多个基础模型的预测，通过两层学习结构提升预测性能。',
-    },
+  {
+    id: 'weighted_ensemble',
+    name: '加权平均融合',
+    icon: Scale,
+    principle: '根据基础模型过去的表现（如RMSE、R²等指标）为它们分配不同权重，表现越好的模型权重越高，最终将所有模型的预测结果加权平均。',
+    use_case: '当基础模型性能差异较大时，此方法能有效放大表现好的模型的影响力，同时抑制表现差的模型，从而获得更稳健的预测结果。',
+    pros: ['实现简单，计算开销小', '直观且易于解释，权重直接反映模型重要性', '能有效提升预测的稳定性和准确性'],
+    cons: ['权重的确定依赖于历史数据，可能存在过拟合', '无法捕捉模型间的复杂非线性关系', '当所有基础模型性能相近时，效果提升有限'],
+  },
+  {
+    id: 'boosting_ensemble',
+    name: 'Boosting融合',
+    icon: Sparkles,
+    principle: '串行训练一系列模型，每个新模型都专注于修正前一个模型的预测误差。通过迭代地“增强”弱学习器，最终组合成一个强大的预测模型。',
+    use_case: '适用于追求极致预测精度的场景。通过不断减少残差，Boosting能够挖掘出数据中更深层次的规律，常用于各种数据科学竞赛。',
+    pros: ['通常能达到非常高的预测精度', '能够处理复杂的非线性关系', '模型具有很强的泛化能力'],
+    cons: ['对噪声数据比较敏感，容易过拟合', '模型训练是串行的，速度较慢', '模型的可解释性相对较差'],
+  },
+  {
+    id: 'stacking_ensemble',
+    name: 'Stacking融合',
+    icon: Layers,
+    principle: '构建一个两层学习结构。第一层是多个基础模型，它们对数据进行预测。第二层是一个“元模型”，它将第一层模型的预测结果作为新的特征，来学习如何最优地组合它们。',
+    use_case: '当不同类型的基础模型能从不同角度捕捉数据特征时，Stacking能有效地学习这些模型间的差异和互补性，实现“博采众长”。',
+    pros: ['能学习并利用模型间的复杂关系', '通常是所有融合方法中性能上限最高的', '结构灵活，可以堆叠多种不同类型的模型'],
+    cons: ['实现复杂，计算成本非常高', '容易过拟合，特别是当数据量较少时', '元模型的选择对最终结果影响很大'],
+  },
 ];
 
 type View = 'introduction' | 'selection';
@@ -85,17 +98,64 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
 
   const renderIntroductionView = () => (
     <>
-      <div className="space-y-8 flex-1">
+      <div className="space-y-6 flex-1">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-purple-100">
-            <Icon className="w-8 h-8 text-purple-600" />
+          <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-purple-100 to-fuchsia-100">
+            <Icon className="w-9 h-9 text-purple-600" />
           </div>
           <div>
             <h3 className="text-3xl font-bold text-gray-900">{activeModel.name}</h3>
           </div>
         </div>
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
-          <p className="text-purple-900 text-lg leading-relaxed">{activeModel.principle}</p>
+
+        {/* Principle Card */}
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-5 shadow-sm">
+          <div className="flex items-center gap-3 mb-2">
+            <Target className="w-5 h-5 text-purple-600" />
+            <h4 className="text-lg font-semibold text-purple-800">核心思想</h4>
+          </div>
+          <p className="text-purple-900 text-base leading-relaxed">{activeModel.principle}</p>
+        </div>
+
+        {/* Use Case Card */}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-5 shadow-sm">
+          <div className="flex items-center gap-3 mb-2">
+            <TrendingUp className="w-5 h-5 text-green-600" />
+            <h4 className="text-lg font-semibold text-green-800">应用场景</h4>
+          </div>
+          <p className="text-green-900 text-base leading-relaxed">{activeModel.use_case}</p>
+        </div>
+
+        {/* Pros and Cons */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 shadow-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <ThumbsUp className="w-5 h-5 text-gray-600" />
+              <h4 className="text-lg font-semibold text-gray-800">优点</h4>
+            </div>
+            <ul className="space-y-2">
+              {activeModel.pros.map((pro, index) => (
+                <li key={index} className="flex items-start gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">{pro}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 shadow-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <ThumbsDown className="w-5 h-5 text-gray-600" />
+              <h4 className="text-lg font-semibold text-gray-800">缺点</h4>
+            </div>
+            <ul className="space-y-2">
+              {activeModel.cons.map((con, index) => (
+                <li key={index} className="flex items-start gap-2">
+                  <Info className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-700">{con}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
       <div className="mt-8 pt-6 border-t border-gray-200 flex justify-between items-center">

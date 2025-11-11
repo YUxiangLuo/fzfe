@@ -374,68 +374,6 @@ const NewStep6: React.FC = () => {
             </div>
           </div>
 
-          {/* 计划汇总统计 */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg p-5">
-            <h4 className="font-semibold text-blue-900 mb-4 flex items-center space-x-2">
-              <TrendingUp className="w-5 h-5" />
-              <span>生产计划汇总统计</span>
-            </h4>
-
-            <div className="grid md:grid-cols-3 gap-4">
-              {/* 服务水平 */}
-              <div className="bg-white rounded-lg p-4 border border-blue-200">
-                <div className="text-xs text-gray-600 mb-1">平均服务水平</div>
-                <div className="text-3xl font-bold" style={{
-                  color: summary.avgServiceLevel >= 0.99 ? '#16a34a' : summary.avgServiceLevel >= 0.95 ? '#eab308' : '#dc2626'
-                }}>
-                  {(summary.avgServiceLevel * 100).toFixed(1)}%
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {summary.avgServiceLevel >= 0.99 ? '✅ 达到目标' : summary.avgServiceLevel >= 0.95 ? '⚠️ 接近目标' : '❌ 需改进'}
-                </div>
-              </div>
-
-              {/* 总缺货 */}
-              <div className="bg-white rounded-lg p-4 border border-blue-200">
-                <div className="text-xs text-gray-600 mb-1">总缺货量</div>
-                <div className="text-3xl font-bold text-red-600">{summary.totalStockout}</div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {summary.periodsWithStockout} / {summary.totalPeriods} 期发生缺货
-                </div>
-              </div>
-
-              {/* 平均库存 */}
-              <div className="bg-white rounded-lg p-4 border border-blue-200">
-                <div className="text-xs text-gray-600 mb-1">平均期末库存</div>
-                <div className="text-3xl font-bold text-purple-600">{Math.round(summary.avgInventory)}</div>
-                <div className="text-xs text-gray-500 mt-1">库存持有成本相关</div>
-              </div>
-
-              {/* 总需求 */}
-              <div className="bg-white rounded-lg p-4 border border-blue-200">
-                <div className="text-xs text-gray-600 mb-1">总需求量</div>
-                <div className="text-2xl font-bold text-blue-600">{summary.totalDemand}</div>
-                <div className="text-xs text-gray-500 mt-1">{summary.totalPeriods}期累计</div>
-              </div>
-
-              {/* 总产出 */}
-              <div className="bg-white rounded-lg p-4 border border-blue-200">
-                <div className="text-xs text-gray-600 mb-1">总产出量</div>
-                <div className="text-2xl font-bold text-green-600">{summary.totalProduction}</div>
-                <div className="text-xs text-gray-500 mt-1">{summary.totalPeriods}期累计</div>
-              </div>
-
-              {/* 供需匹配率 */}
-              <div className="bg-white rounded-lg p-4 border border-blue-200">
-                <div className="text-xs text-gray-600 mb-1">供需匹配率</div>
-                <div className="text-2xl font-bold text-indigo-600">
-                  {((summary.totalProduction / summary.totalDemand) * 100).toFixed(1)}%
-                </div>
-                <div className="text-xs text-gray-500 mt-1">产出 / 需求</div>
-              </div>
-            </div>
-          </div>
-
           {/* (5) 总结 */}
           <div className="bg-white border-2 border-teal-200 rounded-lg p-5">
             <h4 className="font-semibold text-gray-800 mb-3">(5) 总结</h4>
@@ -503,7 +441,7 @@ const NewStep6: React.FC = () => {
               className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-lg"
             >
               <CheckCircle className="w-5 h-5" />
-              <span>下一步：全屏查看MPS表</span>
+              <span>下一步：查看最终MPS表</span>
             </button>
           </div>
         </div>
