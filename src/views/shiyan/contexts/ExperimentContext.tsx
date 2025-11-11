@@ -6,6 +6,7 @@ import {
   recordStepEvent,
 } from '../../../utils/apiClient';
 import { apiClient } from '../../../utils/apiClient';
+import { useToast } from '../../../shared/contexts/ToastContext';
 
 type ExperimentStatus = 'Not Started' | 'In Progress' | 'Completed';
 
@@ -379,6 +380,7 @@ const ExperimentContext = createContext<ExperimentContextType | undefined>(undef
 export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<ExperimentState>(buildInitialState());
   const [loading, setLoading] = useState(true);
+  const { addToast } = useToast();
 
   const [productSalesData, setProductSalesData] = useState<ProductSalesData | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(false);
@@ -526,6 +528,7 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
     if (shouldSyncToBackend) {
       try {
         const serverState = await apiUpdateExperimentState(nextState);
+        addToast('实验进度已同步至云端', 'success');
         if (serverState && typeof serverState === 'object') {
           // Merge server state with local state to preserve new fields
           const mergedState = {
@@ -548,10 +551,11 @@ export const ExperimentProvider = ({ children }: { children: ReactNode }) => {
           }
         }
       } catch (error) {
+        addToast('同步失败，请检查网络连接或联系管理员', 'error');
         console.error("Failed to persist experiment state.", error);
       }
     }
-  }, [state, recordStepEvent]);
+  }, [state, recordStepEvent, addToast]);
 
   const handleIndustryChange = useCallback(async (selected_industry: string) => {
     const newState: ExperimentState = { ...state, selected_industry };
