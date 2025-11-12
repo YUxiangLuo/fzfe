@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
+import Button from "@/shared/components/common/Button";
 import {
   Scale,
   Sparkles,
@@ -46,7 +47,7 @@ const ModelCard: React.FC<{ model: any; isCompleted: boolean; onClick: () => voi
 
 const EnsembleModelSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState } = useExperiment();
+  const { state, updateState, isSubmitting } = useExperiment();
 
   // Filter the models to be displayed based on user's selection
   const selectedModelDetails = allEnsembleModels.filter(model => state.selected_ensemble_models.includes(model.id));
@@ -130,13 +131,15 @@ const EnsembleModelSelection: React.FC = () => {
             <ChevronLeft className="w-5 h-5" />
             返回
           </button>
-          <button
-            onClick={handleNext}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+          <Button
+              onClick={handleNext}
+              disabled={isSubmitting}
+              isLoading={isSubmitting}
+              size="lg"
           >
-            进入结果评估
-            <ChevronRight className="w-5 h-5" />
-          </button>
+              <span>进入结果评估</span>
+              <ChevronRight className="w-5 h-5" />
+          </Button>
         </div>
       </div>
     </>
