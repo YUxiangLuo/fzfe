@@ -144,8 +144,12 @@ const ARIMAStepper: React.FC = () => {
       if (!response.result || response.result.length === 0) {
         throw new Error("ADF检验未返回有效结果。");
       }
-      setAdfResults(response.result);
-      await updateState({ arima_adf_stationarity: response.result });
+
+      // Filter out results with errors (where stationary is null) to prevent crashes
+      const validResults = response.result.filter(r => r.stationary !== null);
+
+      setAdfResults(validResults);
+      await updateState({ arima_adf_stationarity: validResults });
     } catch (e: any) {
       // Ignore abort errors
       if (e.name === 'AbortError') {
@@ -311,6 +315,14 @@ const ARIMAStepper: React.FC = () => {
         setError("平稳性检验未完成，请稍候。");
         return;
       }
+
+      // Check if at least one differencing order results in a stationary series
+      const isAnyStationary = adfResults.some(r => r.stationary);
+      if (!isAnyStationary) {
+        setError("所有差分阶数的检验结果均为非平稳，无法继续进行ARIMA建模。请尝试调整数据窗口或选择其他模型。");
+        return;
+      }
+
       // Navigate to differencing step
       const nextStep = STEPS[DIFFERENCING_STEP_INDEX];
       if (nextStep) {
