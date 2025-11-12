@@ -86,7 +86,7 @@ const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
     : null;
 
   // 获取显示名称（优先使用API返回的数据）
-  const displayName = user?.full_name || currentUser?.full_name || currentUser?.username || "未知用户";
+  const displayName = user?.username || currentUser?.username || "未知用户";
 
   // 获取头像首字符
   const getAvatarInitial = () => {

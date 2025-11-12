@@ -68,7 +68,7 @@ const Header: React.FC = () => {
     : null;
 
   // 获取显示名称
-  const displayName = user?.full_name || user?.username || "未知用户";
+  const displayName = user?.username || "未知用户";
 
   // 获取头像首字符
   const getAvatarInitial = () => {

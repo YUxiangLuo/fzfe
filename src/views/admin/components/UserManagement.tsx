@@ -20,7 +20,7 @@ import {
 const PAGE_LIMIT = 10;
 const SEARCH_DEBOUNCE_MS = 400;
 
-type TeacherForm = {
+type UserForm = {
   username: string;
   full_name: string;
   email: string;
@@ -28,14 +28,14 @@ type TeacherForm = {
   password: string;
 };
 
-type TeacherErrors = Record<keyof TeacherForm, string>;
+type UserFormErrors = Record<keyof UserForm, string>;
 
 type PasswordErrors = {
   newPassword: string;
   confirmPassword: string;
 };
 
-const INITIAL_TEACHER_FORM: TeacherForm = {
+const INITIAL_USER_FORM: UserForm = {
   username: "",
   full_name: "",
   email: "",
@@ -43,7 +43,7 @@ const INITIAL_TEACHER_FORM: TeacherForm = {
   password: "",
 };
 
-const INITIAL_TEACHER_ERRORS: TeacherErrors = {
+const INITIAL_USER_FORM_ERRORS: UserFormErrors = {
   username: "",
   full_name: "",
   email: "",
@@ -91,18 +91,33 @@ const UserManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
+  // Teacher states
   const [isAddTeacherModalOpen, setIsAddTeacherModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTeacherSubmitting, setIsTeacherSubmitting] = useState(false);
   const [newTeacherData, setNewTeacherData] =
-    useState<TeacherForm>(INITIAL_TEACHER_FORM);
+    useState<UserForm>(INITIAL_USER_FORM);
   const [teacherErrors, setTeacherErrors] =
-    useState<TeacherErrors>(INITIAL_TEACHER_ERRORS);
-  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
-  const [batchFile, setBatchFile] = useState<File | null>(null);
-  const [batchErrors, setBatchErrors] = useState<BatchErrors>({
+    useState<UserFormErrors>(INITIAL_USER_FORM_ERRORS);
+  const [isBatchTeacherModalOpen, setIsBatchTeacherModalOpen] = useState(false);
+  const [batchTeacherFile, setBatchTeacherFile] = useState<File | null>(null);
+  const [batchTeacherErrors, setBatchTeacherErrors] = useState<BatchErrors>({
     ...INITIAL_BATCH_ERRORS,
   });
-  const [isBatchSubmitting, setIsBatchSubmitting] = useState(false);
+  const [isBatchTeacherSubmitting, setIsBatchTeacherSubmitting] = useState(false);
+
+  // Assistant states
+  const [isAddAssistantModalOpen, setIsAddAssistantModalOpen] = useState(false);
+  const [isAssistantSubmitting, setIsAssistantSubmitting] = useState(false);
+  const [newAssistantData, setNewAssistantData] =
+    useState<UserForm>(INITIAL_USER_FORM);
+  const [assistantErrors, setAssistantErrors] =
+    useState<UserFormErrors>(INITIAL_USER_FORM_ERRORS);
+  const [isBatchAssistantModalOpen, setIsBatchAssistantModalOpen] = useState(false);
+  const [batchAssistantFile, setBatchAssistantFile] = useState<File | null>(null);
+  const [batchAssistantErrors, setBatchAssistantErrors] = useState<BatchErrors>({
+    ...INITIAL_BATCH_ERRORS,
+  });
+  const [isBatchAssistantSubmitting, setIsBatchAssistantSubmitting] = useState(false);
 
   // Toast and Confirm hooks
   const { toast, showToast, hideToast } = useToast();
@@ -135,8 +150,8 @@ const UserManagement: React.FC = () => {
     [],
   );
 
-  const getTeacherFieldError = (
-    field: keyof typeof INITIAL_TEACHER_FORM,
+  const getUserFieldError = (
+    field: keyof typeof INITIAL_USER_FORM,
     value: string,
   ) => {
     const trimmed = value.trim();
@@ -184,13 +199,24 @@ const UserManagement: React.FC = () => {
   };
 
   const handleTeacherFieldChange = (
-    field: keyof typeof INITIAL_TEACHER_FORM,
+    field: keyof typeof INITIAL_USER_FORM,
     value: string,
   ) => {
     setNewTeacherData((prev) => ({ ...prev, [field]: value }));
     setTeacherErrors((prev) => ({
       ...prev,
-      [field]: getTeacherFieldError(field, value),
+      [field]: getUserFieldError(field, value),
+    }));
+  };
+
+  const handleAssistantFieldChange = (
+    field: keyof typeof INITIAL_USER_FORM,
+    value: string,
+  ) => {
+    setNewAssistantData((prev) => ({ ...prev, [field]: value }));
+    setAssistantErrors((prev) => ({
+      ...prev,
+      [field]: getUserFieldError(field, value),
     }));
   };
 
@@ -242,17 +268,32 @@ const UserManagement: React.FC = () => {
     setIsPasswordModalOpen(false);
   };
 
+  // Teacher modal handlers
   const openAddTeacherModal = () => {
-    setNewTeacherData({ ...INITIAL_TEACHER_FORM });
-    setTeacherErrors({ ...INITIAL_TEACHER_ERRORS });
+    setNewTeacherData({ ...INITIAL_USER_FORM });
+    setTeacherErrors({ ...INITIAL_USER_FORM_ERRORS });
     setIsAddTeacherModalOpen(true);
   };
 
   const closeAddTeacherModal = () => {
     setIsAddTeacherModalOpen(false);
-    setIsSubmitting(false);
-    setNewTeacherData({ ...INITIAL_TEACHER_FORM });
-    setTeacherErrors({ ...INITIAL_TEACHER_ERRORS });
+    setIsTeacherSubmitting(false);
+    setNewTeacherData({ ...INITIAL_USER_FORM });
+    setTeacherErrors({ ...INITIAL_USER_FORM_ERRORS });
+  };
+
+  // Assistant modal handlers
+  const openAddAssistantModal = () => {
+    setNewAssistantData({ ...INITIAL_USER_FORM });
+    setAssistantErrors({ ...INITIAL_USER_FORM_ERRORS });
+    setIsAddAssistantModalOpen(true);
+  };
+
+  const closeAddAssistantModal = () => {
+    setIsAddAssistantModalOpen(false);
+    setIsAssistantSubmitting(false);
+    setNewAssistantData({ ...INITIAL_USER_FORM });
+    setAssistantErrors({ ...INITIAL_USER_FORM_ERRORS });
   };
 
   const isTeacherFormValid =
@@ -262,6 +303,14 @@ const UserManagement: React.FC = () => {
     newTeacherData.phone.trim() !== "" &&
     newTeacherData.password.trim() !== "" &&
     Object.values(teacherErrors).every((error) => error === "");
+
+  const isAssistantFormValid =
+    newAssistantData.username.trim() !== "" &&
+    newAssistantData.full_name.trim() !== "" &&
+    newAssistantData.email.trim() !== "" &&
+    newAssistantData.phone.trim() !== "" &&
+    newAssistantData.password.trim() !== "" &&
+    Object.values(assistantErrors).every((error) => error === "");
 
   const isPasswordFormValid =
     newPassword.trim() !== "" &&
@@ -279,22 +328,23 @@ const UserManagement: React.FC = () => {
     return () => window.clearTimeout(handler);
   }, [searchTerm]);
 
-  const openBatchModal = () => {
-    setBatchFile(null);
-    setBatchErrors({ ...INITIAL_BATCH_ERRORS });
-    setIsBatchModalOpen(true);
+  // Batch teacher modal handlers
+  const openBatchTeacherModal = () => {
+    setBatchTeacherFile(null);
+    setBatchTeacherErrors({ ...INITIAL_BATCH_ERRORS });
+    setIsBatchTeacherModalOpen(true);
   };
 
-  const closeBatchModal = () => {
-    setIsBatchModalOpen(false);
-    setIsBatchSubmitting(false);
-    setBatchFile(null);
-    setBatchErrors({ ...INITIAL_BATCH_ERRORS });
+  const closeBatchTeacherModal = () => {
+    setIsBatchTeacherModalOpen(false);
+    setIsBatchTeacherSubmitting(false);
+    setBatchTeacherFile(null);
+    setBatchTeacherErrors({ ...INITIAL_BATCH_ERRORS });
   };
 
-  const handleBatchFileChange = (file: File | null) => {
-    setBatchFile(file);
-    setBatchErrors((prev) => ({
+  const handleBatchTeacherFileChange = (file: File | null) => {
+    setBatchTeacherFile(file);
+    setBatchTeacherErrors((prev) => ({
       ...prev,
       file: !file
         ? "请上传CSV文件"
@@ -304,9 +354,39 @@ const UserManagement: React.FC = () => {
     }));
   };
 
-  const isBatchFormValid =
-    batchFile !== null &&
-    batchErrors.file === "";
+  const isBatchTeacherFormValid =
+    batchTeacherFile !== null &&
+    batchTeacherErrors.file === "";
+
+  // Batch assistant modal handlers
+  const openBatchAssistantModal = () => {
+    setBatchAssistantFile(null);
+    setBatchAssistantErrors({ ...INITIAL_BATCH_ERRORS });
+    setIsBatchAssistantModalOpen(true);
+  };
+
+  const closeBatchAssistantModal = () => {
+    setIsBatchAssistantModalOpen(false);
+    setIsBatchAssistantSubmitting(false);
+    setBatchAssistantFile(null);
+    setBatchAssistantErrors({ ...INITIAL_BATCH_ERRORS });
+  };
+
+  const handleBatchAssistantFileChange = (file: File | null) => {
+    setBatchAssistantFile(file);
+    setBatchAssistantErrors((prev) => ({
+      ...prev,
+      file: !file
+        ? "请上传CSV文件"
+        : file.name.toLowerCase().endsWith(".csv")
+        ? ""
+        : "仅支持上传CSV格式文件",
+    }));
+  };
+
+  const isBatchAssistantFormValid =
+    batchAssistantFile !== null &&
+    batchAssistantErrors.file === "";
 
   useEffect(() => {
     try {
@@ -372,11 +452,11 @@ const UserManagement: React.FC = () => {
   };
 
   const handleCreateTeacher = async () => {
-    const usernameError = getTeacherFieldError("username", newTeacherData.username);
-    const fullNameError = getTeacherFieldError("full_name", newTeacherData.full_name);
-    const emailError = getTeacherFieldError("email", newTeacherData.email);
-    const phoneError = getTeacherFieldError("phone", newTeacherData.phone);
-    const passwordError = getTeacherFieldError("password", newTeacherData.password);
+    const usernameError = getUserFieldError("username", newTeacherData.username);
+    const fullNameError = getUserFieldError("full_name", newTeacherData.full_name);
+    const emailError = getUserFieldError("email", newTeacherData.email);
+    const phoneError = getUserFieldError("phone", newTeacherData.phone);
+    const passwordError = getUserFieldError("password", newTeacherData.password);
 
     setTeacherErrors({
       username: usernameError,
@@ -390,7 +470,7 @@ const UserManagement: React.FC = () => {
       return;
     }
 
-    setIsSubmitting(true);
+    setIsTeacherSubmitting(true);
     try {
       await apiClient.post<User>("/users/teachers", {
         username: newTeacherData.username.trim(),
@@ -405,35 +485,101 @@ const UserManagement: React.FC = () => {
     } catch (err: any) {
       showToast(`添加教师失败: ${err.message}`, 'error');
     } finally {
-      setIsSubmitting(false);
+      setIsTeacherSubmitting(false);
     }
   };
 
-  const handleBatchSubmit = async () => {
-    if (!batchFile) {
-      setBatchErrors((prev) => ({ ...prev, file: "请上传CSV文件" }));
+  const handleCreateAssistant = async () => {
+    const usernameError = getUserFieldError("username", newAssistantData.username);
+    const fullNameError = getUserFieldError("full_name", newAssistantData.full_name);
+    const emailError = getUserFieldError("email", newAssistantData.email);
+    const phoneError = getUserFieldError("phone", newAssistantData.phone);
+    const passwordError = getUserFieldError("password", newAssistantData.password);
+
+    setAssistantErrors({
+      username: usernameError,
+      full_name: fullNameError,
+      email: emailError,
+      phone: phoneError,
+      password: passwordError,
+    });
+
+    if (usernameError || fullNameError || emailError || phoneError || passwordError) {
       return;
     }
 
-    const fileName = batchFile.name.toLowerCase();
+    setIsAssistantSubmitting(true);
+    try {
+      await apiClient.post<User>("/users/assistants", {
+        username: newAssistantData.username.trim(),
+        full_name: newAssistantData.full_name.trim(),
+        email: newAssistantData.email.trim(),
+        phone: newAssistantData.phone.trim(),
+        password: newAssistantData.password.trim(),
+      });
+      showToast('助教添加成功', 'success');
+      closeAddAssistantModal();
+      await fetchUsers(currentPage, debouncedSearchTerm);
+    } catch (err: any) {
+      showToast(`添加助教失败: ${err.message}`, 'error');
+    } finally {
+      setIsAssistantSubmitting(false);
+    }
+  };
+
+  const handleBatchTeacherSubmit = async () => {
+    if (!batchTeacherFile) {
+      setBatchTeacherErrors((prev) => ({ ...prev, file: "请上传CSV文件" }));
+      return;
+    }
+
+    const fileName = batchTeacherFile.name.toLowerCase();
     if (!fileName.endsWith(".csv")) {
-      setBatchErrors((prev) => ({ ...prev, file: "仅支持上传CSV格式文件" }));
+      setBatchTeacherErrors((prev) => ({ ...prev, file: "仅支持上传CSV格式文件" }));
       return;
     }
 
     const formData = new FormData();
-    formData.append("file", batchFile);
+    formData.append("file", batchTeacherFile);
 
     try {
-      setIsBatchSubmitting(true);
+      setIsBatchTeacherSubmitting(true);
       await apiClient.postFormData("/users/teachers/batch", formData);
       showToast('批量添加教师成功', 'success');
-      closeBatchModal();
+      closeBatchTeacherModal();
       await fetchUsers(currentPage, debouncedSearchTerm);
     } catch (err: any) {
       showToast(`批量添加失败: ${err.message}`, 'error');
     } finally {
-      setIsBatchSubmitting(false);
+      setIsBatchTeacherSubmitting(false);
+    }
+  };
+
+  const handleBatchAssistantSubmit = async () => {
+    if (!batchAssistantFile) {
+      setBatchAssistantErrors((prev) => ({ ...prev, file: "请上传CSV文件" }));
+      return;
+    }
+
+    const fileName = batchAssistantFile.name.toLowerCase();
+    if (!fileName.endsWith(".csv")) {
+      setBatchAssistantErrors((prev) => ({ ...prev, file: "仅支持上传CSV格式文件" }));
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", batchAssistantFile);
+
+    try {
+      setIsBatchAssistantSubmitting(true);
+      await apiClient.postFormData("/users/assistants/batch", formData);
+      showToast('批量添加助教成功', 'success');
+      closeBatchAssistantModal();
+      await fetchUsers(currentPage, debouncedSearchTerm);
+    } catch (err: any) {
+      showToast(`批量添加失败: ${err.message}`, 'error');
+    } finally {
+      setIsBatchAssistantSubmitting(false);
     }
   };
 
@@ -527,10 +673,10 @@ const UserManagement: React.FC = () => {
               <div>
                 <h2 className="text-xl font-semibold text-gray-800">用户列表</h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  查看系统用户，并支持新增教师、重置密码与删除操作
+                  查看系统用户，并支持新增、重置密码与删除操作
                 </p>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:space-x-3">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={openAddTeacherModal}
                   className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
@@ -539,11 +685,25 @@ const UserManagement: React.FC = () => {
                   <span>添加教师</span>
                 </button>
                 <button
-                  onClick={openBatchModal}
+                  onClick={openBatchTeacherModal}
                   className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
                 >
                   <Upload size={16} />
                   <span>批量添加教师</span>
+                </button>
+                <button
+                  onClick={openAddAssistantModal}
+                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                >
+                  <Edit size={16} />
+                  <span>添加助教</span>
+                </button>
+                <button
+                  onClick={openBatchAssistantModal}
+                  className="flex items-center space-x-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
+                >
+                  <Upload size={16} />
+                  <span>批量添加助教</span>
                 </button>
               </div>
             </div>
@@ -688,7 +848,7 @@ const UserManagement: React.FC = () => {
               onChange={(e) => handleTeacherFieldChange("username", e.target.value)}
               placeholder="教师的登录账号"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              disabled={isSubmitting}
+              disabled={isTeacherSubmitting}
             />
             {teacherErrors.username && (
               <p className="mt-1 text-xs text-red-500">{teacherErrors.username}</p>
@@ -702,7 +862,7 @@ const UserManagement: React.FC = () => {
               onChange={(e) => handleTeacherFieldChange("full_name", e.target.value)}
               placeholder="教师的真实姓名"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              disabled={isSubmitting}
+              disabled={isTeacherSubmitting}
             />
             {teacherErrors.full_name && (
               <p className="mt-1 text-xs text-red-500">{teacherErrors.full_name}</p>
@@ -716,7 +876,7 @@ const UserManagement: React.FC = () => {
               onChange={(e) => handleTeacherFieldChange("email", e.target.value)}
               placeholder="教师的联系邮箱"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              disabled={isSubmitting}
+              disabled={isTeacherSubmitting}
             />
             {teacherErrors.email && (
               <p className="mt-1 text-xs text-red-500">{teacherErrors.email}</p>
@@ -732,7 +892,7 @@ const UserManagement: React.FC = () => {
               onChange={(e) => handleTeacherFieldChange("phone", e.target.value)}
               placeholder="请输入1开头的11位手机号码"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              disabled={isSubmitting}
+              disabled={isTeacherSubmitting}
             />
             {teacherErrors.phone && (
               <p className="mt-1 text-xs text-red-500">{teacherErrors.phone}</p>
@@ -746,7 +906,7 @@ const UserManagement: React.FC = () => {
               onChange={(e) => handleTeacherFieldChange("password", e.target.value)}
               placeholder="至少6位，可为纯数字"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              disabled={isSubmitting}
+              disabled={isTeacherSubmitting}
             />
             {teacherErrors.password && (
               <p className="mt-1 text-xs text-red-500">{teacherErrors.password}</p>
@@ -756,25 +916,25 @@ const UserManagement: React.FC = () => {
             <button
               onClick={closeAddTeacherModal}
               className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-              disabled={isSubmitting}
+              disabled={isTeacherSubmitting}
             >
               取消
             </button>
             <button
               onClick={handleCreateTeacher}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              disabled={isSubmitting || !isTeacherFormValid}
+              disabled={isTeacherSubmitting || !isTeacherFormValid}
             >
-              {isSubmitting ? "添加中..." : "确认添加"}
+              {isTeacherSubmitting ? "添加中..." : "确认添加"}
             </button>
           </div>
         </div>
       </Modal>
 
-      {/* Batch Upload Modal */}
+      {/* Batch Teacher Upload Modal */}
       <Modal
-        isOpen={isBatchModalOpen}
-        onClose={closeBatchModal}
+        isOpen={isBatchTeacherModalOpen}
+        onClose={closeBatchTeacherModal}
         title="批量添加教师"
       >
         <div className="space-y-6">
@@ -811,39 +971,215 @@ const UserManagement: React.FC = () => {
               <input
                 type="file"
                 accept=".csv"
-                onChange={(e) => handleBatchFileChange(e.target.files?.[0] || null)}
+                onChange={(e) => handleBatchTeacherFileChange(e.target.files?.[0] || null)}
                 className="hidden"
                 id="batch-teacher-upload"
               />
               <p className="text-blue-600 font-medium">点击或拖拽文件到此处</p>
-              {batchFile && (
+              {batchTeacherFile && (
                 <p className="text-sm text-green-600 mt-2 font-semibold">
-                  已选择: {batchFile.name}
+                  已选择: {batchTeacherFile.name}
                 </p>
               )}
             </label>
-            {batchErrors.file && (
-              <p className="mt-2 text-xs text-red-500">{batchErrors.file}</p>
+            {batchTeacherErrors.file && (
+              <p className="mt-2 text-xs text-red-500">{batchTeacherErrors.file}</p>
             )}
           </div>
 
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <button
-              onClick={closeBatchModal}
+              onClick={closeBatchTeacherModal}
               className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-              disabled={isBatchSubmitting}
+              disabled={isBatchTeacherSubmitting}
             >
               取消
             </button>
             <button
-              onClick={handleBatchSubmit}
-              disabled={!isBatchFormValid || isBatchSubmitting}
+              onClick={handleBatchTeacherSubmit}
+              disabled={!isBatchTeacherFormValid || isBatchTeacherSubmitting}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center"
             >
-              {isBatchSubmitting && (
+              {isBatchTeacherSubmitting && (
                 <Loader className="animate-spin mr-2" size={16} />
               )}
-              {isBatchSubmitting ? "上传中..." : "开始导入"}
+              {isBatchTeacherSubmitting ? "上传中..." : "开始导入"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add Assistant Modal */}
+      <Modal
+        isOpen={isAddAssistantModalOpen}
+        onClose={closeAddAssistantModal}
+        title="添加新助教"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">用户名</label>
+            <input
+              type="text"
+              value={newAssistantData.username}
+              onChange={(e) => handleAssistantFieldChange("username", e.target.value)}
+              placeholder="助教的登录账号"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              disabled={isAssistantSubmitting}
+            />
+            {assistantErrors.username && (
+              <p className="mt-1 text-xs text-red-500">{assistantErrors.username}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">姓名</label>
+            <input
+              type="text"
+              value={newAssistantData.full_name}
+              onChange={(e) => handleAssistantFieldChange("full_name", e.target.value)}
+              placeholder="助教的真实姓名"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              disabled={isAssistantSubmitting}
+            />
+            {assistantErrors.full_name && (
+              <p className="mt-1 text-xs text-red-500">{assistantErrors.full_name}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">邮箱</label>
+            <input
+              type="email"
+              value={newAssistantData.email}
+              onChange={(e) => handleAssistantFieldChange("email", e.target.value)}
+              placeholder="助教的联系邮箱"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              disabled={isAssistantSubmitting}
+            />
+            {assistantErrors.email && (
+              <p className="mt-1 text-xs text-red-500">{assistantErrors.email}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">手机号</label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={11}
+              value={newAssistantData.phone}
+              onChange={(e) => handleAssistantFieldChange("phone", e.target.value)}
+              placeholder="请输入1开头的11位手机号码"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              disabled={isAssistantSubmitting}
+            />
+            {assistantErrors.phone && (
+              <p className="mt-1 text-xs text-red-500">{assistantErrors.phone}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">初始密码</label>
+            <input
+              type="password"
+              value={newAssistantData.password}
+              onChange={(e) => handleAssistantFieldChange("password", e.target.value)}
+              placeholder="至少6位，可为纯数字"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              disabled={isAssistantSubmitting}
+            />
+            {assistantErrors.password && (
+              <p className="mt-1 text-xs text-red-500">{assistantErrors.password}</p>
+            )}
+          </div>
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              onClick={closeAddAssistantModal}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              disabled={isAssistantSubmitting}
+            >
+              取消
+            </button>
+            <button
+              onClick={handleCreateAssistant}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              disabled={isAssistantSubmitting || !isAssistantFormValid}
+            >
+              {isAssistantSubmitting ? "添加中..." : "确认添加"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Batch Assistant Upload Modal */}
+      <Modal
+        isOpen={isBatchAssistantModalOpen}
+        onClose={closeBatchAssistantModal}
+        title="批量添加助教"
+      >
+        <div className="space-y-6">
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm">
+            <p className="font-semibold">CSV 格式要求</p>
+            <p className="mt-1">请确保表头至少包含以下列：</p>
+            <ul className="list-disc list-inside mt-1 space-y-1">
+              <li>姓名</li>
+              <li>手机号</li>
+            </ul>
+          </div>
+
+          <div className="flex items-start space-x-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-medium text-amber-900">
+                账号和密码规则
+              </p>
+              <p className="text-xs text-amber-700 mt-1">
+                批量创建的助教账号，其登录用户名为 <span className="font-semibold">assit_手机号</span>，初始密码为 <span className="font-semibold">手机号</span>。请提醒助教首次登录后及时修改密码。
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              上传CSV文件
+            </label>
+            <label
+              htmlFor="batch-assistant-upload"
+              className="cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors"
+            >
+              <Upload size={48} className="mx-auto text-gray-400 mb-4" />
+              <input
+                type="file"
+                accept=".csv"
+                onChange={(e) => handleBatchAssistantFileChange(e.target.files?.[0] || null)}
+                className="hidden"
+                id="batch-assistant-upload"
+              />
+              <p className="text-blue-600 font-medium">点击或拖拽文件到此处</p>
+              {batchAssistantFile && (
+                <p className="text-sm text-green-600 mt-2 font-semibold">
+                  已选择: {batchAssistantFile.name}
+                </p>
+              )}
+            </label>
+            {batchAssistantErrors.file && (
+              <p className="mt-2 text-xs text-red-500">{batchAssistantErrors.file}</p>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              onClick={closeBatchAssistantModal}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              disabled={isBatchAssistantSubmitting}
+            >
+              取消
+            </button>
+            <button
+              onClick={handleBatchAssistantSubmit}
+              disabled={!isBatchAssistantFormValid || isBatchAssistantSubmitting}
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center"
+            >
+              {isBatchAssistantSubmitting && (
+                <Loader className="animate-spin mr-2" size={16} />
+              )}
+              {isBatchAssistantSubmitting ? "上传中..." : "开始导入"}
             </button>
           </div>
         </div>

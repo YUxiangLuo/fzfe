@@ -59,7 +59,7 @@ const Header: React.FC = () => {
                 </div>
                 <div className="text-sm">
                   <p className="font-medium text-gray-900">
-                    {currentUser?.full_name || currentUser?.username || "未知用户"}
+                    {currentUser?.username || "未知用户"}
                   </p>
                   <p className="text-gray-500">
                     {roleDisplay || ""}
