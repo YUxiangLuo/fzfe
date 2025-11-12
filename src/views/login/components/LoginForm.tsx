@@ -47,6 +47,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     setValidationError(error);
   }, [selectedRole, validateUsernameInput]);
 
+  // 角色切换时清除验证错误和表单内容
+  useEffect(() => {
+    setValidationError("");
+    setUsername("");
+    setPassword("");
+  }, [selectedRole]);
+
   // 登录失败后清空密码并聚焦
   useEffect(() => {
     if (error) {

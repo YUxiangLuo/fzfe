@@ -65,12 +65,13 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
           return (
             <button
               key={role.id}
+              data-role={role.id}
               onClick={() => onRoleSelect(role.id)}
               className={`
                 relative p-4 rounded-xl transition-all duration-300 group
                 ${
                   isSelected
-                    ? 'bg-white/20 scale-105 shadow-lg'
+                    ? 'bg-white/20 scale-105 shadow-lg ring-2 ring-white/40'
                     : 'bg-white/10 hover:bg-white/15 hover:scale-102'
                 }
                 backdrop-blur-sm border border-white/20
