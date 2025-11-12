@@ -319,7 +319,7 @@ const ARIMAStepper: React.FC = () => {
       // Check if at least one differencing order results in a stationary series
       const isAnyStationary = adfResults.some(r => r.stationary);
       if (!isAnyStationary) {
-        setError("所有差分阶数的检验结果均为非平稳，无法继续进行ARIMA建模。请尝试调整数据窗口或选择其他模型。");
+        setError("所有差分阶数的检验结果均为非平稳，无法继续进行ARIMA建模。请尝试调整数据窗口或选择其他产品。");
         return;
       }
 
@@ -491,7 +491,13 @@ const ARIMAStepper: React.FC = () => {
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
-      isNextDisabled={isLoading || isAutoregressionInfoPage || isDifferencingInfoPage || (isDifferencingValidationPage && !isValidDifferencing)}
+      isNextDisabled={
+        isLoading ||
+        isAutoregressionInfoPage ||
+        isDifferencingInfoPage ||
+        (isDifferencingValidationPage && !isValidDifferencing) ||
+        (isStationarityTablePage && adfResults.length > 0 && !adfResults.some(r => r.stationary))
+      }
       nextButtonText={isModelComparisonPage ? '完成' : '下一步'}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
