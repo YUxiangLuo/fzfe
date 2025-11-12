@@ -437,6 +437,7 @@ interface ExperimentStore {
   handleCompanyChange: (selected_company: string) => Promise<void>;
   handleProductChange: (selected_product: string) => Promise<void>;
   handleDataWindowChange: (updates: Partial<ExperimentState>) => Promise<void>;
+  handleEnterEvaluation: () => Promise<void>;
   handleBestModelChange: (selected_best_model: SelectedBestModel | null) => Promise<void>;
   recordStepEvent: (stepOrder: number, eventType: "STARTED" | "COMPLETED") => Promise<void>;
   isStepCompleted: (step: number) => boolean;
@@ -684,6 +685,19 @@ export const useExperimentStore = create<ExperimentStore>()(
       });
       newState.highest_completed_step = 4;
       newState.current_step = 5;
+      await get().updateState(newState, true);
+    } finally {
+      set({ isSubmitting: false });
+    }
+  },
+
+  handleEnterEvaluation: async () => {
+    set({ isSubmitting: true });
+    try {
+      const currentState = get().state;
+      const newState: ExperimentState = { ...currentState };
+      newState.highest_completed_step = 5;
+      newState.current_step = 6;
       await get().updateState(newState, true);
     } finally {
       set({ isSubmitting: false });

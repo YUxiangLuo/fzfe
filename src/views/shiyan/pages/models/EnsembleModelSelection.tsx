@@ -47,7 +47,7 @@ const ModelCard: React.FC<{ model: any; isCompleted: boolean; onClick: () => voi
 
 const EnsembleModelSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState, isSubmitting } = useExperiment();
+  const { state, updateState, isSubmitting, handleEnterEvaluation } = useExperiment();
 
   // Filter the models to be displayed based on user's selection
   const selectedModelDetails = allEnsembleModels.filter(model => state.selected_ensemble_models.includes(model.id));
@@ -67,10 +67,7 @@ const EnsembleModelSelection: React.FC = () => {
 
   const handleNext = async () => {
     if (allSelectedCompleted) {
-      await updateState({
-        highest_completed_step: 5, // Mark step 5 as fully completed
-        current_step: 6,
-      });
+      await handleEnterEvaluation();
       navigate('/evaluation');
     }
   };
