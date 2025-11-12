@@ -37,6 +37,7 @@ const WeightedEnsembleStepper: React.FC = () => {
     selectedModels,
     setSelectedModels,
     results,
+    setResults,
     isLoading,
     error,
     setError,
@@ -91,6 +92,7 @@ const WeightedEnsembleStepper: React.FC = () => {
     try {
       // Clear local state
       setSelectedModels([]);
+      setResults(null);
       setError(null);
 
       // Clear global state

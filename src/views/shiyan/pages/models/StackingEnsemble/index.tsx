@@ -35,6 +35,7 @@ const StackingEnsembleStepper: React.FC = () => {
     selectedModels,
     setSelectedModels,
     results,
+    setResults,
     isLoading,
     error,
     setError,
@@ -85,6 +86,7 @@ const StackingEnsembleStepper: React.FC = () => {
     try {
       // Clear local state
       setSelectedModels([]);
+      setResults(null);
       setError(null);
 
       // Clear global state

@@ -176,6 +176,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     selectedModels,
     setSelectedModels,
     results,
+    setResults,
     isLoading,
     error,
     setError,
