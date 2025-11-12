@@ -262,6 +262,17 @@ const DataWindowSelection: React.FC = () => {
         type: 'separation',
         message: '评估区间必须在训练区间之后，不能重叠',
       });
+    } else if (
+      isValidRange(localTrainingRange) &&
+      isValidRange(localEvaluateRange) &&
+      localEvaluateRange.startIndex! !== localTrainingRange.endIndex! + 1
+    ) {
+      const expectedIndex = localTrainingRange.endIndex! + 1;
+      const expectedMonth = points[expectedIndex]?.month || '未知';
+      errors.push({
+        type: 'separation',
+        message: `评估区间必须紧接着训练区间。当前训练结束于 ${points[localTrainingRange.endIndex!]?.month}，评估应从 ${expectedMonth} 开始，但您选择了 ${points[localEvaluateRange.startIndex!]?.month}`,
+      });
     }
 
     return errors;
