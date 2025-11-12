@@ -402,6 +402,7 @@ const ARIMAStepper: React.FC = () => {
       // From stationarity table, go back to stationarity
       const prevStep = STEPS[STATIONARITY_STEP_INDEX];
       if (prevStep) {
+        setError(null);
         navigate(prevStep.path);
       }
       return;
@@ -495,7 +496,8 @@ const ARIMAStepper: React.FC = () => {
         isLoading ||
         isAutoregressionInfoPage ||
         isDifferencingInfoPage ||
-        (isDifferencingValidationPage && !isValidDifferencing)
+        (isDifferencingValidationPage && !isValidDifferencing) ||
+        (isStationarityTablePage && error==="所有差分阶数的检验结果均为非平稳，无法继续进行ARIMA建模。请尝试调整数据窗口或选择其他产品。")
       }
       nextButtonText={isModelComparisonPage ? '完成' : '下一步'}
     >
