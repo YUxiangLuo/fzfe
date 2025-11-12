@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
 import { useConfirm } from '../../../shared/contexts/ConfirmContext';
+import Button from '../../../shared/components/common/Button';
 
 // Create a mapping from industry names to specific icons
 const INDUSTRY_ICON_MAP: { [key: string]: React.ElementType } = {
@@ -50,7 +51,7 @@ const getIndustryIcon = (industryName: string): React.ElementType => {
 
 const IndustrySelection: React.FC = () => {
     const navigate = useNavigate();
-    const { state, handleIndustryChange, recordStepEvent } = useExperiment();
+    const { state, handleIndustryChange, recordStepEvent, isSubmitting } = useExperiment();
     const [industries, setIndustries] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -202,14 +203,15 @@ const IndustrySelection: React.FC = () => {
                             ? `已选择: ${localIndustry}`
                             : '请选择一个行业'}
                     </span>
-                    <button
+                    <Button
                         onClick={handleNext}
-                        disabled={!localIndustry || isLoading || !!error}
-                        className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all disabled:bg-gray-300 disabled:cursor-not-allowed disabled:shadow-none"
+                        disabled={!localIndustry || isLoading || !!error || isSubmitting}
+                        isLoading={isSubmitting}
+                        size="lg"
                     >
                         <span>下一步</span>
-                        <ArrowRight className="w-5 h-5" />
-                    </button>
+                        <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
                 </div>
             </div>
         </div>

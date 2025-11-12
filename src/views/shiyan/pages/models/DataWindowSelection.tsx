@@ -4,6 +4,7 @@ import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import { AlertTriangle, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { MonthlySalesRecord } from '../../data/historicalDatasets';
 import { useConfirm } from '../../../../shared/contexts/ConfirmContext';
+import Button from '../../../../shared/components/common/Button';
 
 // 常量配置
 const MIN_TRAINING_POINTS = 2; // 训练集至少需要2个数据点
@@ -124,6 +125,7 @@ const DataWindowSelection: React.FC = () => {
     productSalesData,
     isLoadingSales,
     salesDataError,
+    isSubmitting,
   } = useExperiment();
   const { confirm } = useConfirm();
 
@@ -538,14 +540,14 @@ const DataWindowSelection: React.FC = () => {
       )}
 
       <footer className="flex justify-between items-center pt-6 border-t border-gray-200">
-        <button
+        <Button
           onClick={handlePrevious}
-          className="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium"
-          type="button"
+          variant="outline"
+          size="lg"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ChevronLeft className="w-5 h-5 mr-2" />
           上一步
-        </button>
+        </Button>
 
         <div className="text-center">
           {!canProceed && (
@@ -555,15 +557,15 @@ const DataWindowSelection: React.FC = () => {
           )}
         </div>
 
-        <button
+        <Button
           onClick={handleNext}
-          disabled={!canProceed}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
-          type="button"
+          disabled={!canProceed || isSubmitting}
+          isLoading={isSubmitting}
+          size="lg"
         >
           下一步
-          <ChevronRight className="w-5 h-5" />
-        </button>
+          <ChevronRight className="w-5 h-5 ml-2" />
+        </Button>
       </footer>
     </div>
   );

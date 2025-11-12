@@ -4,10 +4,11 @@ import { useExperiment } from '../contexts/ExperimentContext.zustand';
 import { Package, ArrowRight } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
 import { useConfirm } from '../../../shared/contexts/ConfirmContext';
+import Button from '../../../shared/components/common/Button';
 
 const ProductSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, handleProductChange, salesDataError, recordStepEvent } = useExperiment();
+  const { state, handleProductChange, salesDataError, recordStepEvent, isSubmitting } = useExperiment();
   const [products, setProducts] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,20 +174,23 @@ const ProductSelection: React.FC = () => {
         )}
 
         <div className="flex justify-between">
-          <button
+          <Button
             onClick={() => navigate('/company')}
-            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            variant="outline"
+            size="lg"
           >
             上一步
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleNext}
-            disabled={!localProduct || isLoading || !!error}
-            className="flex items-center justify-center space-x-2 w-48 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md hover:shadow-lg transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
+            disabled={!localProduct || isLoading || !!error || isSubmitting}
+            isLoading={isSubmitting}
+            size="lg"
+            className="w-48"
           >
             <span>下一步</span>
-            <ArrowRight className="w-5 h-5" />
-          </button>
+            <ArrowRight className="w-5 h-5 ml-2" />
+          </Button>
         </div>
       </div>
     </div>

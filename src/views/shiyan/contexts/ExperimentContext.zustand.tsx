@@ -424,6 +424,7 @@ interface ExperimentStore {
   productFieldOptions: string[] | null;
   isLoadingFields: boolean;
   productFieldsError: string | null;
+  isSubmitting: boolean;
 
   // Actions
   initialize: () => Promise<void>;
@@ -464,6 +465,7 @@ export const useExperimentStore = create<ExperimentStore>()(
   productFieldOptions: null,
   isLoadingFields: false,
   productFieldsError: null,
+  isSubmitting: false,
 
   // Initialize - fetch experiment state
   initialize: async () => {
@@ -598,84 +600,109 @@ export const useExperimentStore = create<ExperimentStore>()(
   // Handle industry change
   handleIndustryChange: async (selected_industry) => {
     logger.action("handleIndustryChange", { selected_industry });
-    const currentState = get().state;
-    const newState: ExperimentState = { ...currentState, selected_industry };
-    newState.selected_company = null;
-    newState.selected_product = null;
-    newState.highest_completed_step = 1;
-    newState.current_step = 2;
-    resetModelingFields(newState, { resetQuizzes: true });
+    set({ isSubmitting: true });
+    try {
+      const currentState = get().state;
+      const newState: ExperimentState = { ...currentState, selected_industry };
+      newState.selected_company = null;
+      newState.selected_product = null;
+      newState.highest_completed_step = 1;
+      newState.current_step = 2;
+      resetModelingFields(newState, { resetQuizzes: true });
 
-    set({
-      productSalesData: null,
-      salesDataError: null,
-      productFieldOptions: null,
-      productFieldsError: null,
-    });
+      set({
+        productSalesData: null,
+        salesDataError: null,
+        productFieldOptions: null,
+        productFieldsError: null,
+      });
 
-    await get().updateState(newState, true);
+      await get().updateState(newState, true);
+    } finally {
+      set({ isSubmitting: false });
+    }
   },
 
   // Handle company change
   handleCompanyChange: async (selected_company) => {
     logger.action("handleCompanyChange", { selected_company });
-    const currentState = get().state;
-    const newState: ExperimentState = { ...currentState, selected_company };
-    newState.selected_product = null;
-    newState.highest_completed_step = 2;
-    newState.current_step = 3;
-    resetModelingFields(newState, { resetQuizzes: true });
+    set({ isSubmitting: true });
+    try {
+      const currentState = get().state;
+      const newState: ExperimentState = { ...currentState, selected_company };
+      newState.selected_product = null;
+      newState.highest_completed_step = 2;
+      newState.current_step = 3;
+      resetModelingFields(newState, { resetQuizzes: true });
 
-    set({
-      productSalesData: null,
-      salesDataError: null,
-      productFieldOptions: null,
-      productFieldsError: null,
-    });
+      set({
+        productSalesData: null,
+        salesDataError: null,
+        productFieldOptions: null,
+        productFieldsError: null,
+      });
 
-    await get().updateState(newState, true);
+      await get().updateState(newState, true);
+    } finally {
+      set({ isSubmitting: false });
+    }
   },
 
   // Handle product change
   handleProductChange: async (selected_product) => {
     logger.action("handleProductChange", { selected_product });
-    const currentState = get().state;
-    const newState: ExperimentState = { ...currentState, selected_product };
-    newState.highest_completed_step = 3;
-    newState.current_step = 4;
-    resetModelingFields(newState, { resetQuizzes: true });
+    set({ isSubmitting: true });
+    try {
+      const currentState = get().state;
+      const newState: ExperimentState = { ...currentState, selected_product };
+      newState.highest_completed_step = 3;
+      newState.current_step = 4;
+      resetModelingFields(newState, { resetQuizzes: true });
 
-    set({
-      productSalesData: null,
-      salesDataError: null,
-      productFieldOptions: null,
-      productFieldsError: null,
-    });
+      set({
+        productSalesData: null,
+        salesDataError: null,
+        productFieldOptions: null,
+        productFieldsError: null,
+      });
 
-    await get().updateState(newState, true);
+      await get().updateState(newState, true);
+    } finally {
+      set({ isSubmitting: false });
+    }
   },
 
   // Handle data window change
   handleDataWindowChange: async (updates) => {
-    const currentState = get().state;
-    const newState: ExperimentState = { ...currentState, ...updates };
-    resetModelingFields(newState, {
-      resetQuizzes: true,
-      preserveDataWindow: true,
-    });
-    newState.highest_completed_step = 4;
-    newState.current_step = 5;
-    await get().updateState(newState, true);
+    set({ isSubmitting: true });
+    try {
+      const currentState = get().state;
+      const newState: ExperimentState = { ...currentState, ...updates };
+      resetModelingFields(newState, {
+        resetQuizzes: true,
+        preserveDataWindow: true,
+      });
+      newState.highest_completed_step = 4;
+      newState.current_step = 5;
+      await get().updateState(newState, true);
+    } finally {
+      set({ isSubmitting: false });
+    }
   },
 
   // Handle best model change
   handleBestModelChange: async (selected_best_model) => {
-    const currentState = get().state;
-    const newState: ExperimentState = { ...currentState, selected_best_model };
-    resetProductionPlanFields(newState);
-    newState.highest_completed_step = 6;
-    newState.current_step = 7;
-    await get().updateState(newState, true);
+    set({ isSubmitting: true });
+    try {
+      const currentState = get().state;
+      const newState: ExperimentState = { ...currentState, selected_best_model };
+      resetProductionPlanFields(newState);
+      newState.highest_completed_step = 6;
+      newState.current_step = 7;
+      await get().updateState(newState, true);
+    } finally {
+      set({ isSubmitting: false });
+    }
   },
 
   // Record step event
