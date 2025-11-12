@@ -1130,7 +1130,7 @@ const UserManagement: React.FC = () => {
                 账号和密码规则
               </p>
               <p className="text-xs text-amber-700 mt-1">
-                批量创建的助教账号，其登录用户名为 <span className="font-semibold">assit_手机号</span>，初始密码为 <span className="font-semibold">手机号</span>。请提醒助教首次登录后及时修改密码。
+                批量创建的助教账号，其登录用户名为 <span className="font-semibold">ta_手机号</span>，初始密码为 <span className="font-semibold">手机号</span>。请提醒助教首次登录后及时修改密码。
               </p>
             </div>
           </div>
