@@ -495,8 +495,7 @@ const ARIMAStepper: React.FC = () => {
         isLoading ||
         isAutoregressionInfoPage ||
         isDifferencingInfoPage ||
-        (isDifferencingValidationPage && !isValidDifferencing) ||
-        (isStationarityTablePage && adfResults.length > 0 && !adfResults.some(r => r.stationary))
+        (isDifferencingValidationPage && !isValidDifferencing)
       }
       nextButtonText={isModelComparisonPage ? '完成' : '下一步'}
     >
