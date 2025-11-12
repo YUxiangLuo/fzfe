@@ -257,11 +257,11 @@ const ARIMAStepper: React.FC = () => {
 
   // Auto-run ADF test when entering stationarity-table page
   useEffect(() => {
-    if (currentStep?.id === 'stationarity-table' && adfResults.length === 0 && !isLoading) {
+    if (currentStep?.id === 'stationarity-table' && adfResults.length === 0 && !isLoading && !error) {
       handleRunAdf();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep?.id, adfResults.length, isLoading]);
+  }, [currentStep?.id, adfResults.length, isLoading, error]);
 
   // Clear results when selectedD changes to trigger recalculation
   useEffect(() => {
