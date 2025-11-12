@@ -27,8 +27,30 @@ interface QuestionFormState {
 }
 
 const KNOWLEDGE_POINT_GROUPS: Record<string, string[]> = {
-  预测模型: ['ARIMA建模', 'LSTM预测', '指数平滑', '移动平均', '融合模型'],
-  生产计划: ['需求分析', '库存优化', '产能规划', '排产策略', '供应链协同'],
+  预测模型: [
+    '基础',
+    '评估',
+    '移动平均',
+    '指数平滑',
+    'ARIMA',
+    'LSTM',
+    '集成学习',
+    '时间序列分解',
+    '季节性分析',
+    '回归分析',
+  ],
+  生产计划: [
+    '基础',
+    '库存管理',
+    '能力计划',
+    '主生产计划(MPS)',
+    '物料需求计划(MRP)',
+    '需求预测',
+    '预计可用库存(PAB)',
+    '可承诺量(ATP)',
+    '安全库存',
+    '服务水平',
+  ],
 };
 
 const PRIMARY_KNOWLEDGE_POINTS = Object.keys(KNOWLEDGE_POINT_GROUPS);
@@ -101,6 +123,8 @@ const QuestionBank: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  const [selectedKnowledgePoint, setSelectedKnowledgePoint] = useState<string | null>(null);
 
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -177,9 +201,36 @@ const QuestionBank: React.FC = () => {
     }
   };
 
+  const allSecondaryKnowledgePoints = useMemo(() => {
+    const points = new Set<string>();
+    questions.forEach((question) => {
+      if (question.knowledge_point) {
+        const parts = question.knowledge_point.split('-');
+        if (parts.length > 1) {
+          const secondaryPoint = parts[parts.length - 1];
+          if (secondaryPoint) {
+            points.add(secondaryPoint);
+          }
+        }
+      }
+    });
+    return Array.from(points).sort();
+  }, [questions]);
+
   const filteredQuestions = useMemo(() => {
-    if (!debouncedSearchTerm) return questions;
-    return questions.filter((question) => {
+    let results = questions;
+
+    if (selectedKnowledgePoint) {
+      results = results.filter((question) => {
+        if (!question.knowledge_point) return false;
+        const parts = question.knowledge_point.split('-');
+        return parts.length > 1 && parts[parts.length - 1] === selectedKnowledgePoint;
+      });
+    }
+
+    if (!debouncedSearchTerm) return results;
+
+    return results.filter((question) => {
       const content = question.question_text.toLowerCase();
       const knowledge = (question.knowledge_point || '').toLowerCase();
       const creator = (question.creator_name || '').toLowerCase();
@@ -189,7 +240,7 @@ const QuestionBank: React.FC = () => {
         creator.includes(debouncedSearchTerm)
       );
     });
-  }, [questions, debouncedSearchTerm]);
+  }, [questions, debouncedSearchTerm, selectedKnowledgePoint, allSecondaryKnowledgePoints]);
 
   const primaryKnowledgeOptions = useMemo(() => PRIMARY_KNOWLEDGE_POINTS, []);
 
@@ -626,6 +677,37 @@ const QuestionBank: React.FC = () => {
             placeholder="搜索题目内容、知识点或创建者..."
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
+        </div>
+        <div className="mt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">知识点筛选:</span>
+            <button
+              type="button"
+              onClick={() => setSelectedKnowledgePoint(null)}
+              className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                !selectedKnowledgePoint
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              全部
+            </button>
+            <div className="h-5 w-px bg-gray-200" />
+            {allSecondaryKnowledgePoints.map((secondary) => (
+              <button
+                key={secondary}
+                type="button"
+                onClick={() => setSelectedKnowledgePoint(secondary)}
+                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                  selectedKnowledgePoint === secondary
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {secondary}
+              </button>
+            ))}
+          </div>
         </div>
         {error && (
           <div className="mt-4 flex items-center space-x-2 text-sm text-red-600">
