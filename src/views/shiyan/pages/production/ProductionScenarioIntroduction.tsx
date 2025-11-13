@@ -87,7 +87,7 @@ const ProductionScenarioIntroduction: React.FC = () => {
             }}
             loop={true}
             autoplay={{
-              delay: 2500,
+              delay: 4000,
               disableOnInteraction: false,
             }}
             speed={800}

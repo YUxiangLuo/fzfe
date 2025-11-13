@@ -13,7 +13,7 @@ export const Toast: React.FC<ToastProps> = ({
   message,
   type = "success",
   onClose,
-  duration = 3000,
+  duration = 2000,
   position = "top-right",
 }) => {
   useEffect(() => {
