@@ -20,6 +20,7 @@ import {
   LineChart,
   ClipboardList,
 } from "lucide-react";
+import Button from '../../../shared/components/common/Button';
 
 interface Manual {
   file_name: string;
@@ -61,7 +62,7 @@ const EXPERIMENT_STEPS = [
 const Introduction: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { state: experimentState, createNewExperiment } = useExperiment();
+  const { state: experimentState, createNewExperiment, isSubmitting, setIsSubmitting } = useExperiment();
   const [currentStep, setCurrentStep] = useState(0);
   const [manual, setManual] = useState<Manual | null>(null);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
@@ -95,7 +96,9 @@ const Introduction: React.FC = () => {
   // 开始新实验
   const startNewExperiment = async () => {
     try {
+      setIsSubmitting(true);
       await createNewExperiment();
+      setIsSubmitting(false);
       navigate("/industry");
     } catch (error) {
       console.error("Failed to create experiment:", error);
@@ -287,17 +290,18 @@ const Introduction: React.FC = () => {
             <span className="text-sm text-gray-500">
               {currentStep + 1} / {NAVIGATION_STEPS.length}
             </span>
-            <button
-              onClick={handleNext}
-              className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md transition-all font-medium"
-            >
-              <span>{getButtonLabel()}</span>
-              {currentStep === NAVIGATION_STEPS.length - 1 ? (
-                <Play className="w-5 h-5" />
-              ) : (
-                <ArrowRight className="w-5 h-5" />
-              )}
-            </button>
+            <Button
+                  onClick={handleNext}
+                  isLoading={isSubmitting}
+                  size="lg"
+              >
+                <span>{getButtonLabel()}</span>
+                {currentStep === NAVIGATION_STEPS.length - 1 ? (
+                  <Play className="w-5 h-5" />
+                ) : (
+                  <ArrowRight className="w-5 h-5" />
+                )}
+            </Button>
           </div>
         </div>
       </div>
