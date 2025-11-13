@@ -263,44 +263,33 @@ const ARIMAStepper: React.FC = () => {
     error,
   });
 
-  // When navigating back from a failed calculation, the error state can persist
-  // and incorrectly disable the "Next" button on parameter pages.
-  // This effect declaratively clears any lingering errors when the user is on a
-  // non-calculation step, ensuring the UI is always in a valid state.
+
   useEffect(() => {
-    if (currentStep?.id === 'stationarity') {
+    if (currentStep?.id === 'intro') {
+      setAdfResults([]);
+      setSelectedD('');
+      setResults(null);
+      setIsLoading(false);
+      setAutoParamsView('params');
       setError(null);
-      setAdfResults([]); // Clear results to allow re-running the test
+      setIsResetting(false);
+    }else if (currentStep?.id === 'stationarity') {
+      setError(null);
+      setAdfResults([]);
     } else if (
       currentStep?.id === 'differencing' ||
       currentStep?.id === 'differencing-validation'
     ) {
       setError(null);
-    }
-  }, [currentStep?.id, setError]);
-
-  // When returning to the intro page (e.g., after a reset),
-  // ensure all calculation-related state is cleared.
-  useEffect(() => {
-    if (currentStep?.id === 'intro') {
-      setError(null);
-      setAdfResults([]);
-      setResults(null);
-      setSelectedD('');
+    } else if (currentStep?.id === 'autoparams') {
       setAutoParamsView('params');
     }
   }, [currentStep?.id]);
 
-  // Reset autoParamsView when entering autoparams page
-  useEffect(() => {
-    if (currentStep?.id === 'autoparams') {
-      setAutoParamsView('params');
-    }
-  }, [currentStep?.id]);
 
   // Clear validation error as soon as the user corrects the input
   useEffect(() => {
-    if (selectedD && error === "请选择一个有效的差分阶数 (d)。") {
+    if (selectedD && error === "请输入差分阶数 d") {
       setError(null);
     }
   }, [selectedD, error, setError]);
@@ -367,7 +356,7 @@ const ARIMAStepper: React.FC = () => {
 
     if (currentStep?.id === 'differencing') {
       if (selectedD === '') {
-        setError("请选择一个差分阶数 d。");
+        setError("请输入差分阶数 d");
         return;
       }
       // Navigate to differencing validation page
