@@ -33,10 +33,10 @@ const ProductionScenarioIntroduction: React.FC = () => {
   const [hasViewedAll, setHasViewedAll] = useState(false);
   const [viewedSlides, setViewedSlides] = useState<Set<number>>(new Set([0])); // 初始包含第一张
 
-  // 图片列表（复用需求预测的图片）
+
   const images = [
-    `${DOWNLOAD_SERVER_BASE_URL}/images/yuceqingjing.png`,
-    `${DOWNLOAD_SERVER_BASE_URL}/images/yuceqingjing.png`,
+    `${DOWNLOAD_SERVER_BASE_URL}/images/plan1.png`,
+    `${DOWNLOAD_SERVER_BASE_URL}/images/plan2.png`,
   ];
 
   const handleSlideChange = (swiper: SwiperType) => {

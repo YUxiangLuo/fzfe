@@ -33,10 +33,10 @@ const ScenarioIntroduction: React.FC = () => {
   const [hasViewedAll, setHasViewedAll] = useState(false);
   const [viewedSlides, setViewedSlides] = useState<Set<number>>(new Set([0])); // 初始包含第一张
 
-  // 图片列表（暂时用同一张图片代替）
   const images = [
-    `${DOWNLOAD_SERVER_BASE_URL}/images/yuceqingjing.png`,
-    `${DOWNLOAD_SERVER_BASE_URL}/images/yuceqingjing.png`,
+    `${DOWNLOAD_SERVER_BASE_URL}/images/model1.png`,
+    `${DOWNLOAD_SERVER_BASE_URL}/images/model2.png`,
+    `${DOWNLOAD_SERVER_BASE_URL}/images/model3.png`,
   ];
 
   const handleSlideChange = (swiper: SwiperType) => {
