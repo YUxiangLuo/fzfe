@@ -43,7 +43,7 @@ export const Toast: React.FC<ToastProps> = ({
 
   const Icon = config.icon;
   const positionClasses = {
-    "top-right": "top-4 right-4",
+    "top-right": "top-20 right-4",
     "top-left": "top-4 left-4",
     "bottom-right": "bottom-4 right-4",
     "bottom-left": "bottom-4 left-4",

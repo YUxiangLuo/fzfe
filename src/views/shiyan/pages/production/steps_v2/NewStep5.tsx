@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { PlayCircle, ArrowRight, Calculator, Info, Zap } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
-import { useToast } from '../../../hooks/useToast';
-import Toast from '../../../components/Common/Toast';
+import { useToast } from '@/shared/hooks/useToast';
+import { Toast } from '@/shared/components/common/Toast';
 
 /**
  * Step 5: 投入量
@@ -16,7 +16,7 @@ import Toast from '../../../components/Common/Toast';
  */
 const NewStep5: React.FC = () => {
   const { state, updatePeriod2Data, completeCurrentStep } = useProductionPlan();
-  const toast = useToast();
+  const { toast, showToast, hideToast } = useToast();
 
   const [hasCalculated, setHasCalculated] = useState(false);
 
@@ -56,7 +56,7 @@ const NewStep5: React.FC = () => {
 
   const handleNext = () => {
     if (!hasCalculated) {
-      toast.showToast('请先计算投入量', 'error');
+      showToast('请先计算投入量', 'error');
       return;
     }
 
@@ -412,12 +412,13 @@ const NewStep5: React.FC = () => {
           <ArrowRight className="w-5 h-5" />
         </button>
       </div>
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={toast.hideToast}
-      />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </div>
   );
 };

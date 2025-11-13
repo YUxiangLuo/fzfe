@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Target, ArrowRight, TrendingUp, Info, BarChart3 } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
-import { useToast } from '../../../hooks/useToast';
-import Toast from '../../../components/Common/Toast';
+import { useToast } from '@/shared/hooks/useToast';
+import { Toast } from '@/shared/components/common/Toast';
 
 /**
  * Step 3: 服务水平
@@ -13,7 +13,7 @@ import Toast from '../../../components/Common/Toast';
  */
 const NewStep3: React.FC = () => {
   const { state, updatePeriod2Data, completeCurrentStep } = useProductionPlan();
-  const toast = useToast();
+  const { toast, showToast, hideToast } = useToast();
 
   const [hasCalculated, setHasCalculated] = useState(false);
 
@@ -41,7 +41,7 @@ const NewStep3: React.FC = () => {
 
   const handleNext = () => {
     if (!hasCalculated) {
-      toast.showToast('请先计算服务水平', 'error');
+      showToast('请先计算服务水平', 'error');
       return;
     }
 
@@ -399,12 +399,13 @@ const NewStep3: React.FC = () => {
         </button>
       </div>
 
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={toast.hideToast}
-      />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </div>
   );
 };

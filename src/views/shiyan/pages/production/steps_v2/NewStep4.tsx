@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Target, ArrowRight, Calculator, Info, BarChart2, Shield } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
-import { useToast } from '../../../hooks/useToast';
-import Toast from '../../../components/Common/Toast';
+import { useToast } from '@/shared/hooks/useToast';
+import { Toast } from '@/shared/components/common/Toast';
 import { validateAndFixStdDev } from '../utils/predictionValidator';
 import { STD_DEV_ESTIMATION } from '../config/mpsConstants';
 
@@ -16,7 +16,7 @@ import { STD_DEV_ESTIMATION } from '../config/mpsConstants';
  */
 const NewStep4: React.FC = () => {
   const { state, updatePeriod2Data, completeCurrentStep, fillPeriod1Data } = useProductionPlan();
-  const toast = useToast();
+  const { toast, showToast, hideToast } = useToast();
 
   const [hasCalculated, setHasCalculated] = useState(false);
 
@@ -96,7 +96,7 @@ const NewStep4: React.FC = () => {
 
   const handleNext = () => {
     if (!hasCalculated) {
-      toast.showToast('请先计算安全库存和预测量', 'error');
+      showToast('请先计算安全库存和预测量', 'error');
       return;
     }
 
@@ -487,12 +487,13 @@ const NewStep4: React.FC = () => {
         </button>
       </div>
 
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={toast.hideToast}
-      />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </div>
   );
 };

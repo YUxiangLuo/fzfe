@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { TrendingUp, ArrowRight, Calculator, Info, Loader2, Package, AlertCircle } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
-import { useToast } from '../../../hooks/useToast';
-import Toast from '../../../components/Common/Toast';
+import { useToast } from '@/shared/hooks/useToast';
+import { Toast } from '@/shared/components/common/Toast';
 
 // 模型名称映射
 const MODEL_NAME_MAP: Record<string, string> = {
@@ -27,7 +27,7 @@ const MODEL_NAME_MAP: Record<string, string> = {
  */
 const NewStep2: React.FC = () => {
   const { state, updatePeriod2Data, completeCurrentStep } = useProductionPlan();
-  const toast = useToast();
+  const { toast, showToast, hideToast } = useToast();
 
   const [hasCalculated, setHasCalculated] = useState(false);
   const [isPeriod2Loaded, setIsPeriod2Loaded] = useState(false);
@@ -93,7 +93,7 @@ const NewStep2: React.FC = () => {
 
   const handleNext = () => {
     if (!hasCalculated) {
-      toast.showToast('请先计算第2期的库存和缺货', 'error');
+      showToast('请先计算第2期的库存和缺货', 'error');
       return;
     }
 
@@ -512,12 +512,13 @@ const NewStep2: React.FC = () => {
         </button>
       </div>
 
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={toast.hideToast}
-      />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </div>
   );
 };

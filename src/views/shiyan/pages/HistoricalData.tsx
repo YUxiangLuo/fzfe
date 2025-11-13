@@ -18,8 +18,8 @@ import {
   Cell,
 } from 'recharts';
 import type { MonthlySalesRecord } from '../data/historicalDatasets';
-import { useToast } from '../hooks/useToast';
-import Toast from '../components/Common/Toast';
+import { useToast } from '@/shared/hooks/useToast';
+import { Toast } from '@/shared/components/common/Toast';
 import { ROUTES } from '../constants/routes';
 import Button from '../../../shared/components/common/Button';
 
@@ -70,7 +70,7 @@ interface HistogramBin {
 
 const HistoricalData: React.FC = () => {
   const navigate = useNavigate();
-  const toast = useToast();
+  const { toast, showToast, hideToast } = useToast();
   const {
     state,
     updateState,
@@ -416,7 +416,7 @@ const HistoricalData: React.FC = () => {
   // 下载CSV数据
   const handleDownloadCSV = () => {
     if (!activeDataset?.csvData || activeDataset.csvData.length === 0) {
-      toast.showToast('没有可下载的数据', 'error');
+      showToast('没有可下载的数据', 'error');
       return;
     }
 
@@ -449,10 +449,10 @@ const HistoricalData: React.FC = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast.showToast('CSV文件已下载', 'success');
+      showToast('CSV文件已下载', 'success');
     } catch (error) {
       console.error('下载CSV失败:', error);
-      toast.showToast('下载失败，请重试', 'error');
+      showToast('下载失败，请重试', 'error');
     }
   };
 
@@ -464,7 +464,7 @@ const HistoricalData: React.FC = () => {
       // 查找所有 SVG 元素，找到最大的那个（主图表）
       const allSvgs = chartRef.current.querySelectorAll('svg');
       if (allSvgs.length === 0) {
-        toast.showToast('未找到图表元素', 'error');
+        showToast('未找到图表元素', 'error');
         return;
       }
 
@@ -481,7 +481,7 @@ const HistoricalData: React.FC = () => {
       });
 
       if (!largestSvg) {
-        toast.showToast('未找到图表元素', 'error');
+        showToast('未找到图表元素', 'error');
         return;
       }
 
@@ -522,10 +522,10 @@ const HistoricalData: React.FC = () => {
 
       // 清理 URL 对象
       URL.revokeObjectURL(url);
-      toast.showToast('图表已保存', 'success');
+      showToast('图表已保存', 'success');
     } catch (error) {
       console.error('保存图表失败:', error);
-      toast.showToast('保存图表失败，请重试', 'error');
+      showToast('保存图表失败，请重试', 'error');
     }
   };
 
@@ -981,12 +981,13 @@ const HistoricalData: React.FC = () => {
         </div>
       )}
 
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={toast.hideToast}
-      />
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </div>
   );
 };
