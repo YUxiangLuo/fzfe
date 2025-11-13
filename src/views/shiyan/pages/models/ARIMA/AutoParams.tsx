@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import CalculationStatus from '../components/CalculationStatus';
 
 interface AutoParamsProps {
   view: 'params' | 'results';
@@ -10,35 +10,28 @@ interface AutoParamsProps {
   } | null;
   isLoading: boolean;
   error: string | null;
+  onRetry: () => void;
 }
 
-const AutoParams: React.FC<AutoParamsProps> = ({ view, data, isLoading, error }) => {
+const AutoParams: React.FC<AutoParamsProps> = ({ view, data, isLoading, error, onRetry }) => {
   const calculateAccuracy = (actual: number, predicted: number | null): string => {
     if (predicted === null || actual === 0) return 'N/A';
     const accuracy = (1 - Math.abs(actual - predicted) / Math.abs(actual)) * 100;
     return `${accuracy.toFixed(2)}%`;
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full p-8">
-        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-        <p className="ml-4 text-gray-600">正在训练模型并自动寻优，请稍候...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
-        <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-        <span>{error}</span>
-      </div>
-    );
+  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} />;
+  if (isLoading || error) {
+    return status;
   }
 
   if (!data) {
-    return <p>没有可用的结果。</p>;
+    return (
+      <div>
+        {status}
+        <p>没有可用的结果。</p>
+      </div>
+    );
   }
 
   // View 1: Parameters table (p, d, q)

@@ -7,6 +7,7 @@ import Results, { type ResultsProps } from './Results';
 import PredictionComparison, { type PredictionComparisonProps } from './PredictionComparison';
 import ModelMetricsComparison, { type ModelMetricsComparisonProps } from './ModelMetricsComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
+import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useEnsembleModel } from '../hooks/useEnsembleModel';
 
 const MODEL_NAME = '加权平均融合';
@@ -44,6 +45,7 @@ const WeightedEnsembleStepper: React.FC = () => {
     isValidSelection,
     handleCalculate,
     markAsCompleted,
+    handleRetry,
   } = useEnsembleModel({
     type: 'weighted',
     apiEndpoint: '/models/weighted-average/training',
@@ -79,25 +81,45 @@ const WeightedEnsembleStepper: React.FC = () => {
     return STEPS[currentStepIndex];
   }, [currentStepIndex, isPredictionComparisonPage, isModelMetricsComparisonPage]);
 
-  // Auto-calculate when entering results page, ONLY if parameters are valid
+  useAutoCalculation({
+    calculationStepId: 'results',
+    currentStepId: currentStep?.id,
+    handleCalculate,
+    canCalculate: isValidSelection,
+    results,
+    isLoading,
+    error,
+  });
+
+  // non-calculation step, ensuring the UI is always in a valid state.
   useEffect(() => {
-    if (currentStep?.id === 'results' && !results && !isLoading && isValidSelection) {
-      handleCalculate();
+    if (currentStep?.id === 'select-models') {
+      setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep?.id, results, isLoading, isValidSelection, handleCalculate]);
+  }, [currentStep?.id, setError]);
+
+  // When returning to the intro page (e.g., after a reset),
+  // ensure all calculation-related state is cleared.
+  useEffect(() => {
+    if (currentStep?.id === 'intro') {
+      setSelectedModels([]);
+      setResults(null);
+      setError(null);
+    }
+  }, [currentStep?.id]);
+
+  // Clear validation error as soon as the user corrects the input
+  useEffect(() => {
+    if (selectedModels.length >= 2 && error === "请至少选择两个基础模型。") {
+      setError(null);
+    }
+  }, [selectedModels, error, setError]);
 
   const handleReset = async () => {
     setIsResetting(true);
     try {
-      // Clear local state
-      setSelectedModels([]);
-      setResults(null);
-      setError(null);
-
-      // Clear global state
+      // Clear global state - local state is cleared by the useEffect above
       await resetWeightedEnsembleModel();
-
       // Navigate to first step
       navigate(`${BASE_PATH}/intro`);
     } finally {
@@ -146,6 +168,7 @@ const WeightedEnsembleStepper: React.FC = () => {
   const handlePrevious = () => {
     if (isPredictionComparisonPage) {
       // From prediction comparison, go back to results
+      setError(null); // Clear error when leaving
       const prevStep = STEPS[RESULTS_STEP_INDEX];
       if (prevStep) navigate(prevStep.path);
       return;
@@ -153,8 +176,13 @@ const WeightedEnsembleStepper: React.FC = () => {
 
     if (isModelMetricsComparisonPage) {
       // From model metrics comparison, go back to prediction comparison
+      setError(null); // Clear error when leaving
       navigate(PREDICTION_COMPARISON_PATH);
       return;
+    }
+
+    if (currentStep?.id === 'results') {
+      setError(null); // Clear error when leaving
     }
 
     const prevStep = STEPS[currentStepIndex - 1];
@@ -176,7 +204,8 @@ const WeightedEnsembleStepper: React.FC = () => {
     results: {
       data: results ? { weights: results.weights, model_names: results.model_names } : null,
       isLoading,
-      error
+      error,
+      onRetry: handleRetry
     },
     'prediction-comparison': {
       data: results ? { predictions: results.predictions } : null
@@ -203,7 +232,7 @@ const WeightedEnsembleStepper: React.FC = () => {
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
-      isNextDisabled={isLoading}
+      isNextDisabled={isLoading || !!error}
       nextButtonText={
         currentStep?.id === 'model-metrics-comparison' ? '完成' : '下一步'
       }

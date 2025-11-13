@@ -5,10 +5,9 @@ export interface ParamsProps {
   alpha: number | '';
   setAlpha: (value: number | '') => void;
   isLoading: boolean;
-  error: string | null;
 }
 
-const Params: React.FC<ParamsProps> = ({ alpha, setAlpha, isLoading, error }) => {
+const Params: React.FC<ParamsProps> = ({ alpha, setAlpha, isLoading }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value === '') {
@@ -54,13 +53,6 @@ const Params: React.FC<ParamsProps> = ({ alpha, setAlpha, isLoading, error }) =>
           <p>(4) 时间序列波动的频率和振幅较小，α取值宜小，强调历史数据发展趋势。</p>
         </div>
       </div>
-
-      {error && (
-        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
     </div>
   );
 };

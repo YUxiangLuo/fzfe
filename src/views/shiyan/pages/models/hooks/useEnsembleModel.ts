@@ -66,10 +66,16 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     return selectedModels.length >= ENSEMBLE_CONSTANTS.MIN_BASE_MODELS;
   }, [selectedModels]);
 
+  // Automatically clear the error when the selection becomes valid
+  useEffect(() => {
+    if (isValidSelection) {
+      setError(null);
+    }
+  }, [isValidSelection, setError]);
+
   // Handle model training
   const handleCalculate = useCallback(async () => {
     setIsLoading(true);
-    setError(null);
 
     try {
       const backendModels = selectedModels.map(id => MODEL_ID_MAP[id] || id);
@@ -128,6 +134,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
         }
 
         setResults(ensembleResults);
+        setError(null); // Clear error on success
 
         await updateState({
           [config.stateKey.baseModels]: selectedModels,
@@ -172,6 +179,10 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     await updateState({ [config.stateKey.completed]: true });
   }, [config.stateKey.completed, updateState]);
 
+  const handleRetry = useCallback(() => {
+    setError(null);
+  }, [setError]);
+
   return {
     selectedModels,
     setSelectedModels,
@@ -183,5 +194,6 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     isValidSelection,
     handleCalculate,
     markAsCompleted,
+    handleRetry,
   };
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import CalculationStatus from '../components/CalculationStatus';
 
 export interface ResultsProps {
   data: {
@@ -8,9 +8,10 @@ export interface ResultsProps {
   } | null;
   isLoading: boolean;
   error: string | null;
+  onRetry: () => void;
 }
 
-const Results: React.FC<ResultsProps> = ({ data, isLoading, error }) => {
+const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry }) => {
   const modelIdToName: Record<string, string> = {
     ma: '移动平均法',
     es: '指数平滑法',
@@ -18,25 +19,23 @@ const Results: React.FC<ResultsProps> = ({ data, isLoading, error }) => {
     lstm: 'LSTM神经网络',
   };
 
-  if (isLoading) {
+  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} />;
+  if (isLoading || error) {
+    return status;
+  }
+
+  if (!data) {
     return (
-      <div className="flex items-center justify-center h-full p-8">
-        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-        <p className="ml-4 text-gray-600">正在计算...</p>
+      <div>
+        {status}
+        <p>没有可用的结果。</p>
       </div>
     );
   }
 
-  if (error) {
-    return <p className="text-red-500">{error}</p>;
-  }
-
-  if (!data) {
-    return <p>没有可用的结果。</p>;
-  }
-
   return (
     <div className="space-y-6">
+      {status}
       <div>
         <h3 className="text-2xl font-bold text-gray-800 mb-3">加权平均融合 - 计算结果</h3>
       </div>

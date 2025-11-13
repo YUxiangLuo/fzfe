@@ -8,6 +8,7 @@ import Validation, { type ValidationProps } from './Validation';
 import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
+import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useSimpleModel } from '../hooks/useSimpleModel';
 import { EXPONENTIAL_SMOOTHING_CONSTANTS } from '../constants';
 
@@ -47,6 +48,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
     isValidParam: isValidAlpha,
     handleCalculate,
     markAsCompleted,
+    handleRetry,
   } = useSimpleModel<number | ''>({
     type: 'exponential_smoothing',
     apiEndpoint: '/models/es/training',
@@ -94,20 +96,41 @@ const ExponentialSmoothingStepper: React.FC = () => {
     return STEPS[currentStepIndex];
   }, [currentStepIndex, isValidationPage, isComparisonPage]);
 
-  // Auto-calculate when entering results page, ONLY if parameters are valid
+  useAutoCalculation({
+    calculationStepId: 'results',
+    currentStepId: currentStep?.id,
+    handleCalculate,
+    canCalculate: isValidAlpha,
+    results,
+    isLoading,
+    error,
+  });
+
+  // When navigating back from a failed calculation, the error state can persist
+  // and incorrectly disable the "Next" button on parameter pages.
+  // This effect declaratively clears any lingering errors when the user is on a
+  // non-calculation step, ensuring the UI is always in a valid state.
   useEffect(() => {
-    if (currentStep?.id === 'results' && !results && !isLoading && isValidAlpha) {
-      handleCalculate();
+    if (currentStep?.id === 'params' || currentStep?.id === 'validation') {
+      setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep?.id, results, isLoading, isValidAlpha, handleCalculate]);
+  }, [currentStep?.id, setError]);
+
+  // When returning to the intro page (e.g., after a reset),
+  // ensure all calculation-related state is cleared.
+  useEffect(() => {
+    if (currentStep?.id === 'intro') {
+      setAlpha('');
+      setError(null);
+    }
+  }, [currentStep?.id]);
 
   const handleReset = async () => {
     setIsResetting(true);
     try {
-      setAlpha('');
-      setError(null);
+      // Clear global state - local state is cleared by the useEffect above
       await resetExponentialSmoothingModel();
+      // Navigate to first step
       navigate(`${BASE_PATH}/intro`);
     } finally {
       setIsResetting(false);
@@ -185,9 +208,9 @@ const ExponentialSmoothingStepper: React.FC = () => {
   const CurrentComponent = currentStep.component as React.FC<any>;
 
   const componentProps: { [key: string]: ParamsProps | ValidationProps | ResultsProps | {} } = {
-    params: { alpha, setAlpha, isLoading, error },
+    params: { alpha, setAlpha, isLoading },
     validation: { alpha, isValid: isValidAlpha },
-    results: { data: results, isLoading, error },
+    results: { data: results, isLoading, error, onRetry: handleRetry },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
@@ -213,7 +236,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
-      isNextDisabled={isLoading || (isValidationPage && !isValidAlpha)}
+      isNextDisabled={isLoading || !!error || (isValidationPage && !isValidAlpha)}
       nextButtonText={getNextButtonText()}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />

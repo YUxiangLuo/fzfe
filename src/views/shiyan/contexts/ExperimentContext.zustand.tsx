@@ -428,6 +428,7 @@ interface ExperimentStore {
 
   // Actions
   initialize: () => Promise<void>;
+  setIsSubmitting: (isSubmitting: boolean) => void;
   updateState: (
     updates: Partial<ExperimentState>,
     forceSync?: boolean,
@@ -467,6 +468,11 @@ export const useExperimentStore = create<ExperimentStore>()(
   isLoadingFields: false,
   productFieldsError: null,
   isSubmitting: false,
+
+  // Set submitting state
+  setIsSubmitting: (isSubmitting) => {
+    set({ isSubmitting });
+  },
 
   // Initialize - fetch experiment state
   initialize: async () => {

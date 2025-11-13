@@ -64,7 +64,8 @@ const ModelSelection: React.FC = () => {
   const allSelectedCompleted = selectedModelDetails.length > 0 && selectedModelDetails.every(model => completionMap[model.id]);
 
   const handlePrevious = () => {
-    navigate('/model/model-intro');
+    // Navigate back to the intro flow with a state to indicate the return context
+    navigate('/model/model-intro', { state: { returnTo: 'last' } });
   };
 
   const handleNext = () => {

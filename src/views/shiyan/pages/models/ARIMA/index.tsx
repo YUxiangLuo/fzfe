@@ -13,6 +13,7 @@ import ModelComparison from './ModelComparison';
 import { useExperiment, type AdfStationarityRow } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 import { ARIMA_CONSTANTS } from '../constants';
+import { useAutoCalculation } from '../hooks/useAutoCalculation';
 
 const MODEL_NAME = 'ARIMA 模型';
 const BASE_PATH = '/model/arima';
@@ -110,7 +111,7 @@ const ARIMAStepper: React.FC = () => {
     return STEPS[currentStepIndex];
   }, [currentStepIndex, isAutoregressionInfoPage, isStationarityTablePage, isDifferencingInfoPage, isDifferencingValidationPage, isModelComparisonPage]);
 
-  const handleRunAdf = async () => {
+  const handleRunAdf = useCallback(async () => {
     // Cancel any pending ADF request
     if (adfAbortControllerRef.current) {
       adfAbortControllerRef.current.abort();
@@ -120,7 +121,6 @@ const ARIMAStepper: React.FC = () => {
     const abortController = new AbortController();
     adfAbortControllerRef.current = abortController;
 
-    setError(null);
     setIsLoading(true);
     try {
       const {
@@ -149,6 +149,7 @@ const ARIMAStepper: React.FC = () => {
       const validResults = response.result.filter(r => r.stationary !== null);
 
       setAdfResults(validResults);
+      setError(null); // Clear error on success
       await updateState({ arima_adf_stationarity: validResults });
     } catch (e: any) {
       // Ignore abort errors
@@ -161,7 +162,7 @@ const ARIMAStepper: React.FC = () => {
         setIsLoading(false);
       }
     }
-  };
+  }, [state, productSalesData, updateState]);
 
   const handleCalculate = useCallback(async () => {
     // Cancel any pending calculation request
@@ -174,7 +175,6 @@ const ARIMAStepper: React.FC = () => {
     calculateAbortControllerRef.current = abortController;
 
     setIsLoading(true);
-    setError(null);
     try {
       const requestBody = {
         selected_industry: state.selected_industry,
@@ -206,6 +206,7 @@ const ARIMAStepper: React.FC = () => {
           metrics: apiResults.metrics,
           order: apiResults.best_order,
         });
+        setError(null); // Clear error on success
         await updateState({
           arima_p: apiResults.best_order.p,
           arima_q: apiResults.best_order.q,
@@ -240,13 +241,55 @@ const ARIMAStepper: React.FC = () => {
     updateState
   ]);
 
+  // Auto-run ADF test when entering stationarity-table page
+  useAutoCalculation({
+    calculationStepId: 'stationarity-table',
+    currentStepId: currentStep?.id,
+    handleCalculate: handleRunAdf,
+    canCalculate: adfResults.length === 0,
+    results: adfResults.length > 0 ? adfResults : null, // Pass results to prevent re-calculation
+    isLoading,
+    error,
+  });
+
   // Auto-calculate when entering autoparams page, ONLY if parameters are valid
+  useAutoCalculation({
+    calculationStepId: 'autoparams',
+    currentStepId: currentStep?.id,
+    handleCalculate: handleCalculate,
+    canCalculate: selectedD !== '',
+    results,
+    isLoading,
+    error,
+  });
+
+  // When navigating back from a failed calculation, the error state can persist
+  // and incorrectly disable the "Next" button on parameter pages.
+  // This effect declaratively clears any lingering errors when the user is on a
+  // non-calculation step, ensuring the UI is always in a valid state.
   useEffect(() => {
-    if (currentStep?.id === 'autoparams' && !results && !isLoading && selectedD !== '') {
-      handleCalculate();
+    if (currentStep?.id === 'stationarity') {
+      setError(null);
+      setAdfResults([]); // Clear results to allow re-running the test
+    } else if (
+      currentStep?.id === 'differencing' ||
+      currentStep?.id === 'differencing-validation'
+    ) {
+      setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep?.id, results, isLoading, selectedD, handleCalculate]);
+  }, [currentStep?.id, setError]);
+
+  // When returning to the intro page (e.g., after a reset),
+  // ensure all calculation-related state is cleared.
+  useEffect(() => {
+    if (currentStep?.id === 'intro') {
+      setError(null);
+      setAdfResults([]);
+      setResults(null);
+      setSelectedD('');
+      setAutoParamsView('params');
+    }
+  }, [currentStep?.id]);
 
   // Reset autoParamsView when entering autoparams page
   useEffect(() => {
@@ -255,13 +298,12 @@ const ARIMAStepper: React.FC = () => {
     }
   }, [currentStep?.id]);
 
-  // Auto-run ADF test when entering stationarity-table page
+  // Clear validation error as soon as the user corrects the input
   useEffect(() => {
-    if (currentStep?.id === 'stationarity-table' && adfResults.length === 0 && !isLoading && !error) {
-      handleRunAdf();
+    if (selectedD && error === "请选择一个有效的差分阶数 (d)。") {
+      setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep?.id, adfResults.length, isLoading, error]);
+  }, [selectedD, error, setError]);
 
   // Clear results when selectedD changes to trigger recalculation
   useEffect(() => {
@@ -283,16 +325,8 @@ const ARIMAStepper: React.FC = () => {
   const handleReset = async () => {
     setIsResetting(true);
     try {
-      // Clear local state
-      setAdfResults([]);
-      setSelectedD('');
-      setResults(null);
-      setAutoParamsView('params');
-      setError(null);
-
-      // Clear global state
+      // Clear global state - local state is cleared by the useEffect above
       await resetARIMAModel();
-
       // Navigate to first step
       navigate(`${BASE_PATH}/intro`);
     } finally {
@@ -402,7 +436,6 @@ const ARIMAStepper: React.FC = () => {
       // From stationarity table, go back to stationarity
       const prevStep = STEPS[STATIONARITY_STEP_INDEX];
       if (prevStep) {
-        setError(null);
         navigate(prevStep.path);
       }
       return;
@@ -464,12 +497,16 @@ const ARIMAStepper: React.FC = () => {
 
   const CurrentComponent = currentStep.component as React.FC<any>;
 
+  const handleRetry = useCallback(() => {
+    setError(null);
+  }, []);
+
   const componentProps: { [key: string]: StationarityProps | StationarityTableProps | DifferencingProps | DifferencingValidationProps | {} } = {
     stationarity: { onShowAutoregression: handleShowAutoregression },
-    'stationarity-table': { adfResults, isLoading, error },
+    'stationarity-table': { adfResults, isLoading, error, onRetry: handleRetry, navigate },
     differencing: { selectedD, setSelectedD, error, onShowDifferencingInfo: handleShowDifferencingInfo },
     'differencing-validation': { selectedD, adfResults },
-    autoparams: { view: autoParamsView, data: results, isLoading, error },
+    autoparams: { view: autoParamsView, data: results, isLoading, error, onRetry: handleRetry },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
@@ -494,6 +531,7 @@ const ARIMAStepper: React.FC = () => {
       isResetting={isResetting}
       isNextDisabled={
         isLoading ||
+        !!error ||
         isAutoregressionInfoPage ||
         isDifferencingInfoPage ||
         (isDifferencingValidationPage && !isValidDifferencing) ||

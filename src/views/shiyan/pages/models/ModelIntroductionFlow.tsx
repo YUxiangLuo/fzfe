@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import {
   LineChart,
@@ -328,11 +328,20 @@ type View = 'introduction' | 'selection';
 
 const ModelIntroductionFlow: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { updateState } = useExperiment();
   const [currentModelIndex, setCurrentModelIndex] = useState(0);
   const [view, setView] = useState<View>('introduction');
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // On mount, check if we should jump to the last step
+  useEffect(() => {
+    if (location.state?.returnTo === 'last') {
+      setView('selection');
+      setCurrentModelIndex(baseModels.length - 1);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (scrollContainerRef.current) {
@@ -370,7 +379,8 @@ const ModelIntroductionFlow: React.FC = () => {
       }
     } else if (view === 'selection') {
       setView('introduction');
-      setCurrentModelIndex(baseModels.length - 1);
+      // The currentModelIndex is already at the last model, so no change needed here.
+      // This ensures that going back from the selection view lands on the last model's intro.
     }
   };
 
@@ -642,28 +652,26 @@ const ModelIntroductionFlow: React.FC = () => {
       <div className="flex-1">
         <h3 className="text-3xl font-bold text-gray-900 mb-4">选择基础模型</h3>
         <p className="text-gray-600 mb-6">请选择至少两个基础模型进行后续的训练和对比。</p>
-        <div className="grid grid-cols-1 gap-4">
+        <div className="flex flex-col items-start gap-4">
           {baseModels.map(model => {
             const isSelected = selectedModels.includes(model.id);
             const ModelIcon = model.icon;
             return (
-              <div
+              <label
                 key={model.id}
-                onClick={() => handleModelToggle(model.id)}
-                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${isSelected ? 'bg-blue-50 border-blue-500 shadow-md' : 'bg-white border-gray-200 hover:border-blue-400'}`}
+                className={`py-4 pl-4 pr-6 rounded-lg border-2 cursor-pointer transition-all flex items-center justify-between ${isSelected ? 'bg-blue-50 border-blue-500 shadow-md' : 'bg-white border-gray-200 hover:border-blue-400'}`}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <ModelIcon className={`w-6 h-6 ${isSelected ? 'text-blue-600' : 'text-gray-500'}`} />
-                    <span className={`font-semibold ${isSelected ? 'text-blue-800' : 'text-gray-800'}`}>{model.name}</span>
-                  </div>
-                  <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}
-                  >
-                    {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
-                  </div>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => handleModelToggle(model.id)}
+                    className="form-checkbox h-5 w-5 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <ModelIcon className={`w-6 h-6 ${isSelected ? 'text-blue-600' : 'text-gray-500'}`} />
+                  <span className={`font-semibold ${isSelected ? 'text-blue-800' : 'text-gray-800'}`}>{model.name}</span>
                 </div>
-              </div>
+              </label>
             );
           })}
         </div>

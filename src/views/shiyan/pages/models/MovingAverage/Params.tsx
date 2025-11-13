@@ -5,10 +5,9 @@ export interface ParamsProps {
   windowSize: number | '';
   setWindowSize: (value: number | '') => void;
   isLoading: boolean;
-  error: string | null;
 }
 
-const Params: React.FC<ParamsProps> = ({ windowSize, setWindowSize, isLoading, error }) => {
+const Params: React.FC<ParamsProps> = ({ windowSize, setWindowSize, isLoading }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value === '') {
@@ -47,13 +46,6 @@ const Params: React.FC<ParamsProps> = ({ windowSize, setWindowSize, isLoading, e
           请根据您的数据特点和分析目标，选取合适的时间窗口大小 n。窗口大小 n 会影响到移动平均的平滑程度和对数据趋势的反应灵敏度。较小的窗口大小会使移动平均更接近原始数据，但可能保留较多的噪声；较大的窗口大小则会平滑掉更多的波动，但也可能导致对快速变化趋势的反应迟缓。
         </p>
       </div>
-
-      {error && (
-        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
     </div>
   );
 };

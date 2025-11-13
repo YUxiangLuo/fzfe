@@ -62,7 +62,8 @@ const EnsembleModelSelection: React.FC = () => {
   const allSelectedCompleted = selectedModelDetails.length > 0 && selectedModelDetails.every(model => completionMap[model.id]);
 
   const handlePrevious = () => {
-    navigate('/model/ensemble-intro');
+    // Navigate back to the intro flow with a state to indicate the return context
+    navigate('/model/ensemble-intro', { state: { returnTo: 'last' } });
   };
 
   const handleNext = async () => {

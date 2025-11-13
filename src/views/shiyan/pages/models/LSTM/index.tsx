@@ -10,6 +10,7 @@ import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
+import { useAutoCalculation } from '../hooks/useAutoCalculation';
 
 const MODEL_NAME = 'LSTM 神经网络';
 const BASE_PATH = '/model/lstm';
@@ -120,7 +121,6 @@ const LSTMStepper: React.FC = () => {
     abortControllerRef.current = abortController;
 
     setIsLoading(true);
-    setError(null);
     try {
       const requestBody = {
         selected_industry: state.selected_industry,
@@ -151,6 +151,7 @@ const LSTMStepper: React.FC = () => {
           })),
           metrics: apiResults.metrics,
         });
+        setError(null); // Clear error on success
 
         await updateState({
           lstm_features: features,
@@ -192,12 +193,47 @@ const LSTMStepper: React.FC = () => {
     return !!normalization && !!target && features.length > 0;
   }, [normalization, target, features]);
 
+  useAutoCalculation({
+    calculationStepId: 'results',
+    currentStepId: currentStep?.id,
+    handleCalculate,
+    canCalculate: areParamsValid,
+    results,
+    isLoading,
+    error,
+  });
+
+  // When navigating back from a failed calculation, the error state can persist
+  // and incorrectly disable the "Next" button on parameter pages.
+  // This effect declaratively clears any lingering errors when the user is on a
+  // non-calculation step, ensuring the UI is always in a valid state.
   useEffect(() => {
-    if (currentStep?.id === 'results' && !results && !isLoading && areParamsValid && !error) {
-      handleCalculate();
+    if (currentStep?.id === 'preprocessing' || currentStep?.id === 'build') {
+      setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep?.id, results, isLoading, areParamsValid, handleCalculate, error]);
+  }, [currentStep?.id, setError]);
+
+  // When returning to the intro page (e.g., after a reset),
+  // ensure all calculation-related state is cleared.
+  useEffect(() => {
+    if (currentStep?.id === 'intro') {
+      setNormalization(null);
+      setFeatures([]);
+      setTarget(null);
+      setResults(null);
+      setError(null);
+    }
+  }, [currentStep?.id]);
+
+  // Clear validation errors as soon as the user corrects the input
+  useEffect(() => {
+    if (normalization && error === "请选择一种数据预处理方法。") {
+      setError(null);
+    }
+    if (target && features.length > 0 && error === "请选择目标字段和至少一个特征字段。") {
+      setError(null);
+    }
+  }, [normalization, target, features, error, setError]);
 
   // Cleanup: cancel all pending requests on unmount
   useEffect(() => {
@@ -211,16 +247,8 @@ const LSTMStepper: React.FC = () => {
   const handleReset = async () => {
     setIsResetting(true);
     try {
-      // Clear local state
-      setNormalization(null);
-      setFeatures([]);
-      setTarget(null);
-      setResults(null);
-      setError(null);
-
-      // Clear global state
+      // Clear global state - local state is cleared by the useEffect above
       await resetLSTMModel();
-
       // Navigate to first step
       navigate(`${BASE_PATH}/intro`);
     } finally {
@@ -316,6 +344,10 @@ const LSTMStepper: React.FC = () => {
 
   const CurrentComponent = currentStep.component as React.FC<any>;
 
+  const handleRetry = useCallback(() => {
+    setError(null);
+  }, []);
+
   const componentProps: { [key: string]: PreprocessingProps | BuildProps | ResultsProps | {} } = {
     preprocessing: { normalization, setNormalization, error, onShowNormalizationInfo: handleShowNormalizationInfo },
     build: {
@@ -327,7 +359,7 @@ const LSTMStepper: React.FC = () => {
       fieldOptions: productFieldOptions ?? [],
       onShowLSTMMethodInfo: handleShowLSTMMethodInfo
     },
-    results: { data: results, isLoading, error },
+    results: { data: results, isLoading, error, onRetry: handleRetry },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
@@ -348,7 +380,7 @@ const LSTMStepper: React.FC = () => {
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
-      isNextDisabled={isLoading || isNormalizationInfoPage || isLSTMMethodInfoPage}
+      isNextDisabled={isLoading || !!error || isNormalizationInfoPage || isLSTMMethodInfoPage}
       nextButtonText={isComparisonPage ? '完成' : '下一步'}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />

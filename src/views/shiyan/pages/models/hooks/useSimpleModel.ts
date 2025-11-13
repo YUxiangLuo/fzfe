@@ -56,7 +56,6 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
   // Handle model training
   const handleCalculate = useCallback(async () => {
     setIsLoading(true);
-    setError(null);
 
     try {
       const requestBody: Record<string, any> = {
@@ -99,6 +98,7 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
         };
 
         setResults(modelResults);
+        setError(null); // Clear error on success
 
         await updateState({
           [config.stateKeys.param]: param === '' ? null : param,
@@ -137,6 +137,10 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
     await updateState({ [config.stateKeys.completed]: true });
   }, [config.stateKeys.completed, updateState]);
 
+  const handleRetry = useCallback(() => {
+    setError(null);
+  }, [setError]);
+
   return {
     param,
     setParam,
@@ -147,5 +151,6 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
     isValidParam,
     handleCalculate,
     markAsCompleted,
+    handleRetry,
   };
 }

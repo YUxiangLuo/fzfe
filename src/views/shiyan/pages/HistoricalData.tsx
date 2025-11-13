@@ -21,6 +21,7 @@ import type { MonthlySalesRecord } from '../data/historicalDatasets';
 import { useToast } from '../hooks/useToast';
 import Toast from '../components/Common/Toast';
 import { ROUTES } from '../constants/routes';
+import Button from '../../../shared/components/common/Button';
 
 // 常量配置
 const CURRENT_STEP = 4;
@@ -78,6 +79,8 @@ const HistoricalData: React.FC = () => {
     salesDataError,
     loadProductSalesData,
     recordStepEvent,
+    isSubmitting,
+    setIsSubmitting,
   } = useExperiment();
   const [selectedPeriod, setSelectedPeriod] = useState<'all' | '12months' | '6months'>('all');
   const [chartType, setChartType] = useState<ChartType>('line');
@@ -369,11 +372,16 @@ const HistoricalData: React.FC = () => {
     }));
   }, [filteredData]);
 
-  const handleNext = () => {
-    updateState({
+  const handleNext = async () => {
+    setIsSubmitting(true);
+    // A small delay is kept to ensure the UI has a chance to show the loading state
+    // before the synchronous state updates and navigation potentially block the main thread.
+    await new Promise(resolve => setTimeout(resolve, 50));
+    await updateState({
       highest_completed_step: CURRENT_STEP,
       current_step: NEXT_STEP,
     });
+    setIsSubmitting(false);
     navigate(PATHS.NEXT);
   };
 
@@ -892,16 +900,19 @@ const HistoricalData: React.FC = () => {
           <button
             onClick={() => navigate(PATHS.PREVIOUS)}
             className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            disabled={isSubmitting}
           >
             上一步
           </button>
-          <button
+          <Button
             onClick={handleNext}
-            className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md"
+            isLoading={isSubmitting}
+            disabled={isSubmitting}
+            size="lg"
           >
             <span>下一步：需求预测</span>
-            <ArrowRight className="w-5 h-5" />
-          </button>
+            <ArrowRight className="w-5 h-5 ml-2" />
+          </Button>
         </div>
       </div>
 

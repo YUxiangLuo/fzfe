@@ -1,12 +1,19 @@
 import React from 'react';
-import { Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import type { AdfStationarityRow } from '../../../contexts/ExperimentContext.zustand';
+import CalculationStatus from '../components/CalculationStatus';
+import type { NavigateFunction } from 'react-router-dom';
+import Button from '../../../../../shared/components/common/Button';
 
 export interface StationarityTableProps {
   adfResults: AdfStationarityRow[];
   isLoading: boolean;
   error: string | null;
+  onRetry: () => void;
+  navigate: NavigateFunction;
 }
+
+const NON_RETRYABLE_ERROR = "所有差分阶数的检验结果均为非平稳，无法继续进行ARIMA建模。请尝试调整数据窗口或选择其他产品。";
 
 const formatNumber = (value: number | null | undefined, fractionDigits = 3) =>
   typeof value === "number" ? value.toFixed(fractionDigits) : "—";
@@ -17,27 +24,34 @@ const formatPValue = (value: number | null | undefined) => {
   return value.toFixed(3);
 };
 
-const StationarityTable: React.FC<StationarityTableProps> = ({ adfResults, isLoading, error }) => {
-  if (isLoading) {
+const StationarityTable: React.FC<StationarityTableProps> = ({ adfResults, isLoading, error, onRetry, navigate }) => {
+  // Handle the specific non-retryable error case with custom action buttons
+  if (error === NON_RETRYABLE_ERROR) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[400px]">
-        <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
-        <p className="text-gray-600 text-lg">正在执行 ADF 平稳性检验...</p>
+      <div className="p-4 border border-amber-300 bg-amber-50 text-amber-800 rounded-md">
+        <p className="font-semibold">提示</p>
+        <p className="mb-4">{error}</p>
+        <div className="flex gap-4">
+          <Button onClick={() => navigate('/model/window')} variant="outline" size="sm">
+            重新选择数据时段
+          </Button>
+          <Button onClick={() => navigate('/product')} variant="outline" size="sm">
+            重新选择产品
+          </Button>
+        </div>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center gap-2 text-red-600 bg-red-50 p-6 rounded-lg border border-red-200">
-        <AlertTriangle className="w-6 h-6" />
-        <span className="text-base">{error}</span>
-      </div>
-    );
+  // Handle all other cases (loading, other errors) with the generic status component
+  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} />;
+  if (isLoading || error) {
+    return status;
   }
 
   return (
     <div className="space-y-6">
+      {status}
       <div>
         <h3 className="text-2xl font-bold text-gray-800 mb-3">平稳性检验表</h3>
         <p className="text-gray-600 text-base leading-relaxed">

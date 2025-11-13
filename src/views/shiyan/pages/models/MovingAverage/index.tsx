@@ -8,6 +8,7 @@ import Validation, { type ValidationProps } from './Validation';
 import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
+import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useSimpleModel } from '../hooks/useSimpleModel';
 import { MOVING_AVERAGE_CONSTANTS } from '../constants';
 
@@ -55,6 +56,7 @@ const MovingAverageStepper: React.FC = () => {
     isValidParam: isValidWindowSize,
     handleCalculate,
     markAsCompleted,
+    handleRetry,
   } = useSimpleModel<number | ''>({
     type: 'moving_average',
     apiEndpoint: '/models/ma/training',
@@ -103,20 +105,41 @@ const MovingAverageStepper: React.FC = () => {
     return STEPS[currentStepIndex];
   }, [currentStepIndex, isValidationPage, isComparisonPage]);
 
-  // Auto-calculate when entering results page, ONLY if parameters are valid
+  useAutoCalculation({
+    calculationStepId: 'results',
+    currentStepId: currentStep?.id,
+    handleCalculate,
+    canCalculate: isValidWindowSize,
+    results,
+    isLoading,
+    error,
+  });
+
+  // When navigating back from a failed calculation, the error state can persist
+  // and incorrectly disable the "Next" button on parameter pages.
+  // This effect declaratively clears any lingering errors when the user is on a
+  // non-calculation step, ensuring the UI is always in a valid state.
   useEffect(() => {
-    if (currentStep?.id === 'results' && !results && !isLoading && isValidWindowSize) {
-      handleCalculate();
+    if (currentStep?.id === 'params' || currentStep?.id === 'validation') {
+      setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep?.id, results, isLoading, isValidWindowSize, handleCalculate]);
+  }, [currentStep?.id, setError]);
+
+  // When returning to the intro page (e.g., after a reset),
+  // ensure all calculation-related state is cleared.
+  useEffect(() => {
+    if (currentStep?.id === 'intro') {
+      setWindowSize('');
+      setError(null);
+    }
+  }, [currentStep?.id]);
 
   const handleReset = async () => {
     setIsResetting(true);
     try {
-      setWindowSize('');
-      setError(null);
+      // Clear global state - local state is cleared by the useEffect above
       await resetMovingAverageModel();
+      // Navigate to first step
       navigate(`${BASE_PATH}/intro`);
     } finally {
       setIsResetting(false);
@@ -194,9 +217,9 @@ const MovingAverageStepper: React.FC = () => {
   const CurrentComponent = currentStep.component as React.FC<any>;
 
   const componentProps: { [key: string]: ParamsProps | ValidationProps | ResultsProps | {} } = {
-    params: { windowSize, setWindowSize, isLoading, error },
+    params: { windowSize, setWindowSize, isLoading },
     validation: { windowSize, isValid: isValidWindowSize, trainDataLength },
-    results: { data: results, isLoading, error },
+    results: { data: results, isLoading, error, onRetry: handleRetry },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
@@ -222,7 +245,7 @@ const MovingAverageStepper: React.FC = () => {
       onPrevious={handlePrevious}
       onReset={handleReset}
       isResetting={isResetting}
-      isNextDisabled={isLoading || (isValidationPage && !isValidWindowSize)}
+      isNextDisabled={isLoading || !!error || (isValidationPage && !isValidWindowSize)}
       nextButtonText={getNextButtonText()}
     >
       <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
