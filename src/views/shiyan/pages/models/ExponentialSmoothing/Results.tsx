@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import PredictionResultsTable from '../components/PredictionResultsTable';
 import CalculationStatus from '../components/CalculationStatus';
+import PredictionChart from '../components/PredictionChart';
 
 export interface ResultsProps {
   data: {
@@ -13,6 +14,8 @@ export interface ResultsProps {
 }
 
 const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry }) => {
+  const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
+
   const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} />;
   if (isLoading || error) {
     return status;
@@ -28,13 +31,32 @@ const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry }) =>
   }
 
   return (
-    <>
+    <div className="space-y-6">
       {status}
-      <PredictionResultsTable
-        title="指数平滑法 - 计算结果"
-        predictions={data.predictions}
-      />
-    </>
+      <div className="flex justify-end">
+        <button
+          onClick={() => setViewMode('table')}
+          className={`px-4 py-2 text-sm font-medium rounded-l-lg ${viewMode === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+        >
+          表格
+        </button>
+        <button
+          onClick={() => setViewMode('chart')}
+          className={`px-4 py-2 text-sm font-medium rounded-r-lg ${viewMode === 'chart' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+        >
+          图表
+        </button>
+      </div>
+
+      {viewMode === 'table' ? (
+        <PredictionResultsTable
+          title="指数平滑法 - 计算结果"
+          predictions={data.predictions}
+        />
+      ) : (
+        <PredictionChart data={data.predictions} />
+      )}
+    </div>
   );
 };
 

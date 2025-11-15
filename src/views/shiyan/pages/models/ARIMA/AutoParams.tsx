@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import CalculationStatus from '../components/CalculationStatus';
+import PredictionChart from '../components/PredictionChart';
 
 interface AutoParamsProps {
   view: 'params' | 'results';
@@ -14,6 +15,8 @@ interface AutoParamsProps {
 }
 
 const AutoParams: React.FC<AutoParamsProps> = ({ view, data, isLoading, error, onRetry }) => {
+  const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
+
   const calculateAccuracy = (actual: number, predicted: number | null): string => {
     if (predicted === null || actual === 0) return 'N/A';
     const accuracy = (1 - Math.abs(actual - predicted) / Math.abs(actual)) * 100;
@@ -85,48 +88,66 @@ const AutoParams: React.FC<AutoParamsProps> = ({ view, data, isLoading, error, o
   // View 2: Predictions table (date, actual, predicted, accuracy)
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-2xl font-bold text-gray-800 mb-4">ARIMA 法 - 预测结果</h3>
+      <div className="flex justify-between items-center">
+        <h3 className="text-2xl font-bold text-gray-800">ARIMA 法 - 预测结果</h3>
+        <div>
+          <button
+            onClick={() => setViewMode('table')}
+            className={`px-4 py-2 text-sm font-medium rounded-l-lg ${viewMode === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+          >
+            表格
+          </button>
+          <button
+            onClick={() => setViewMode('chart')}
+            className={`px-4 py-2 text-sm font-medium rounded-r-lg ${viewMode === 'chart' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+          >
+            图表
+          </button>
+        </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 bg-white rounded-lg shadow-sm">
-          <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
-            <tr>
-              <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
-                日期
-              </th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
-                真实值
-              </th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
-                预测值
-              </th>
-              <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
-                预测准确率
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-100">
-            {data.predictions.map((row, index) => (
-              <tr key={index} className="hover:bg-blue-50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap text-base text-gray-700">
-                  {row.date}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900 font-medium">
-                  {row.actual}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-base text-blue-600 font-semibold">
-                  {row.predicted?.toFixed(2) ?? 'N/A'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-base text-green-600 font-medium">
-                  {calculateAccuracy(row.actual, row.predicted)}
-                </td>
+      {viewMode === 'table' ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 bg-white rounded-lg shadow-sm">
+            <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
+                  日期
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
+                  真实值
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
+                  预测值
+                </th>
+                <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
+                  预测准确率
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {data.predictions.map((row, index) => (
+                <tr key={index} className="hover:bg-blue-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-gray-700">
+                    {row.date}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-gray-900 font-medium">
+                    {row.actual}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-blue-600 font-semibold">
+                    {row.predicted?.toFixed(2) ?? 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-base text-green-600 font-medium">
+                    {calculateAccuracy(row.actual, row.predicted)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <PredictionChart data={data.predictions} />
+      )}
     </div>
   );
 };
