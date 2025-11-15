@@ -57,7 +57,11 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, error, isL
                 {filteredFields.map(field => {
                   const isDisabled = field === target;
                   return (
-                    <div key={field} className="flex items-center p-3 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-300 transition-colors">
+                    <label
+                      key={field}
+                      htmlFor={`feature-${field}`}
+                      className="flex items-center p-3 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-300 transition-colors cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         id={`feature-${field}`}
@@ -66,14 +70,13 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, error, isL
                         onChange={() => handleFeatureToggle(field)}
                         disabled={isDisabled}
                       />
-                      <label
-                        htmlFor={`feature-${field}`}
+                      <span
                         className={`ml-4 text-base flex-1 cursor-pointer ${isDisabled ? 'text-gray-400' : 'text-gray-800'}`}
                       >
                         {field}
                         {isDisabled && <span className="ml-2 text-xs text-gray-500">(目标字段)</span>}
-                      </label>
-                    </div>
+                      </span>
+                    </label>
                   );
                 })}
               </div>

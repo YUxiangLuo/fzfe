@@ -21,7 +21,7 @@ const Preprocessing: React.FC<PreprocessingProps> = ({ normalization, setNormali
             请选择标准化方法:
           </label>
           <div className="space-y-4">
-            <div className="flex items-start p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-colors cursor-pointer">
+            <label htmlFor="min-max" className="flex items-start p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-colors cursor-pointer">
               <input
                 id="min-max"
                 name="scaling"
@@ -30,15 +30,15 @@ const Preprocessing: React.FC<PreprocessingProps> = ({ normalization, setNormali
                 checked={normalization === 'minmax'}
                 onChange={() => setNormalization('minmax')}
               />
-              <label htmlFor="min-max" className="ml-4 flex-1 cursor-pointer">
+              <span className="ml-4 flex-1 cursor-pointer">
                 <p className="text-base font-semibold text-gray-800 mb-2">最小-最大归一化</p>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   在数据需要被压缩到特定区间及不涉及距离度量、梯度、协方差计算时被广泛使用。
                 </p>
-              </label>
-            </div>
+              </span>
+            </label>
 
-            <div className="flex items-start p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-colors cursor-pointer">
+            <label htmlFor="z-score" className="flex items-start p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-colors cursor-pointer">
               <input
                 id="z-score"
                 name="scaling"
@@ -47,13 +47,13 @@ const Preprocessing: React.FC<PreprocessingProps> = ({ normalization, setNormali
                 checked={normalization === 'zscore'}
                 onChange={() => setNormalization('zscore')}
               />
-              <label htmlFor="z-score" className="ml-4 flex-1 cursor-pointer">
+              <span className="ml-4 flex-1 cursor-pointer">
                 <p className="text-base font-semibold text-gray-800 mb-2">Z-score 标准化</p>
                 <p className="text-sm text-gray-700 leading-relaxed">
                   适用于属性 A 的最大值和最小值未知的情况，或有超出取值范围的离群数据的情况。
                 </p>
-              </label>
-            </div>
+              </span>
+            </label>
           </div>
         </div>
 

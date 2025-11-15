@@ -547,28 +547,13 @@ export const useExperimentStore = create<ExperimentStore>()(
     const stepCompleted =
       nextState.highest_completed_step > previousState.highest_completed_step;
 
-    const modelCompletionFields = [
-      "moving_average_completed",
-      "exponential_smoothing_completed",
-      "arima_completed",
-      "lstm_completed",
-      "ensemble_weighted_completed",
-      "ensemble_boosting_completed",
-      "ensemble_stacking_completed",
-    ] as const;
-
-
-    const modelReset = modelCompletionFields.some(
-      (field) => nextState[field] === false && previousState[field] === true,
-    );
-
     const experimentCompleted =
       Object.prototype.hasOwnProperty.call(updates, "status") &&
       nextState.status === "Completed" &&
       previousState.status !== "Completed";
 
     const shouldSyncToBackend =
-      !skipSync && (forceSync || stepCompleted || modelReset || experimentCompleted);
+      !skipSync && (forceSync || stepCompleted || experimentCompleted);
 
     if (shouldSyncToBackend) {
       try {

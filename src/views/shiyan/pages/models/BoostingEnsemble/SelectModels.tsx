@@ -41,9 +41,10 @@ const SelectModels: React.FC<SelectModelsProps> = ({ selectedModels, setSelected
         <div className="space-y-3">
           {completedModels.length > 0 ? (
             completedModels.map(model => (
-              <div
+              <label
                 key={model.id}
-                className="flex items-center p-3 bg-white rounded-lg border-2 border-gray-200 hover:border-orange-300 transition-colors"
+                htmlFor={model.id}
+                className="flex items-center p-3 bg-white rounded-lg border-2 border-gray-200 hover:border-orange-300 transition-colors cursor-pointer"
               >
                 <input
                   id={model.id}
@@ -53,13 +54,12 @@ const SelectModels: React.FC<SelectModelsProps> = ({ selectedModels, setSelected
                   checked={selectedModels.includes(model.id)}
                   onChange={() => handleToggle(model.id)}
                 />
-                <label
-                  htmlFor={model.id}
+                <span
                   className="ml-4 text-base text-gray-800 cursor-pointer flex-1"
                 >
                   {model.name}
-                </label>
-              </div>
+                </span>
+              </label>
             ))
           ) : (
             <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
