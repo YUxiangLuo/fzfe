@@ -44,6 +44,7 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
   const [results, setResults] = useState<SimpleModelResults | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Validate parameter
   const isValidParam = config.validateParam(param);
@@ -51,6 +52,13 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
   // Clear results when param changes to trigger recalculation
   useEffect(() => {
     setResults(null);
+  }, [param]);
+
+  // Reset retry count when parameters are reset
+  useEffect(() => {
+    if (param === '') {
+      setRetryCount(0);
+    }
   }, [param]);
 
   // Handle model training
@@ -112,6 +120,7 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
     } catch (e: unknown) {
       const error = e as Error;
       setError(error.message || '计算失败，请稍后重试。');
+      setRetryCount(prev => prev + 1);
     } finally {
       setIsLoading(false);
     }
@@ -138,8 +147,10 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
   }, [config.stateKeys.completed, updateState]);
 
   const handleRetry = useCallback(() => {
-    setError(null);
-  }, [setError]);
+    if (retryCount < 3) {
+      setError(null);
+    }
+  }, [retryCount, setError]);
 
   return {
     param,
@@ -152,5 +163,6 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
     handleCalculate,
     markAsCompleted,
     handleRetry,
+    retryCount,
   };
 }

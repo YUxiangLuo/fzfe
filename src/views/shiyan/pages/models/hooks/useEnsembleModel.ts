@@ -48,6 +48,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
   const [results, setResults] = useState<EnsembleResults | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Calculate evaluate months
   const evaluateMonths = useMemo(() => {
@@ -72,6 +73,11 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       setError(null);
     }
   }, [isValidSelection, setError]);
+
+  // Reset retry count when model selection changes
+  useEffect(() => {
+    setRetryCount(0);
+  }, [selectedModels]);
 
   // Handle model training
   const handleCalculate = useCallback(async () => {
@@ -148,6 +154,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     } catch (e: unknown) {
       const error = e as Error;
       setError(error.message || "模型训练时发生错误。");
+      setRetryCount(prev => prev + 1);
     } finally {
       setIsLoading(false);
     }
@@ -180,8 +187,10 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
   }, [config.stateKey.completed, updateState]);
 
   const handleRetry = useCallback(() => {
-    setError(null);
-  }, [setError]);
+    if (retryCount < 3) {
+      setError(null);
+    }
+  }, [retryCount, setError]);
 
   return {
     selectedModels,
@@ -195,5 +204,6 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     handleCalculate,
     markAsCompleted,
     handleRetry,
+    retryCount,
   };
 }

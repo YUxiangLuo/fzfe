@@ -11,6 +11,7 @@ import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
+import RetryExceededFallback from '../components/RetryExceededFallback';
 
 const MODEL_NAME = 'LSTM 神经网络';
 const BASE_PATH = '/model/lstm';
@@ -44,6 +45,7 @@ const LSTMStepper: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   // AbortController ref for cancelling requests
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -169,6 +171,7 @@ const LSTMStepper: React.FC = () => {
         return;
       }
       setError(e.message || "模型训练时发生错误。");
+      setRetryCount(prev => prev + 1);
     } finally {
       if (abortControllerRef.current === abortController) {
         setIsLoading(false);
@@ -222,6 +225,7 @@ const LSTMStepper: React.FC = () => {
       setTarget(null);
       setResults(null);
       setError(null);
+      setRetryCount(0);
     }
   }, [currentStep?.id]);
 
@@ -249,6 +253,7 @@ const LSTMStepper: React.FC = () => {
     try {
       // Clear global state - local state is cleared by the useEffect above
       await resetLSTMModel();
+      setRetryCount(0);
       // Navigate to first step
       navigate(`${BASE_PATH}/intro`);
     } finally {
@@ -345,8 +350,10 @@ const LSTMStepper: React.FC = () => {
   const CurrentComponent = currentStep.component as React.FC<any>;
 
   const handleRetry = useCallback(() => {
-    setError(null);
-  }, []);
+    if (retryCount < 3) {
+      setError(null);
+    }
+  }, [retryCount]);
 
   const componentProps: { [key: string]: PreprocessingProps | BuildProps | ResultsProps | {} } = {
     preprocessing: { normalization, setNormalization, error, onShowNormalizationInfo: handleShowNormalizationInfo },
@@ -371,6 +378,13 @@ const LSTMStepper: React.FC = () => {
     return currentStep.id;
   };
 
+  const renderContent = () => {
+    if (currentStep.id === 'results' && error && retryCount >= 3) {
+      return <RetryExceededFallback navigate={navigate} />;
+    }
+    return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
+  };
+
   return (
     <ModelStepLayout
       title={MODEL_NAME}
@@ -383,7 +397,7 @@ const LSTMStepper: React.FC = () => {
       isNextDisabled={isLoading || !!error || isNormalizationInfoPage || isLSTMMethodInfoPage}
       nextButtonText={isComparisonPage ? '完成' : '下一步'}
     >
-      <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
+      {renderContent()}
     </ModelStepLayout>
   );
 };

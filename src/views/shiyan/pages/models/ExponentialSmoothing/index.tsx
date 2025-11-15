@@ -11,6 +11,7 @@ import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useSimpleModel } from '../hooks/useSimpleModel';
 import { EXPONENTIAL_SMOOTHING_CONSTANTS } from '../constants';
+import RetryExceededFallback from '../components/RetryExceededFallback';
 
 const MODEL_NAME = '指数平滑法';
 const BASE_PATH = '/model/exponential-smoothing';
@@ -49,6 +50,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
     handleCalculate,
     markAsCompleted,
     handleRetry,
+    retryCount,
   } = useSimpleModel<number | ''>({
     type: 'exponential_smoothing',
     apiEndpoint: '/models/es/training',
@@ -123,7 +125,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
       setAlpha('');
       setError(null);
     }
-  }, [currentStep?.id]);
+  }, [currentStep?.id, setAlpha, setError]);
 
   const handleReset = async () => {
     setIsResetting(true);
@@ -227,6 +229,13 @@ const ExponentialSmoothingStepper: React.FC = () => {
     return currentStep.id;
   };
 
+  const renderContent = () => {
+    if (currentStep.id === 'results' && error && retryCount >= 3) {
+      return <RetryExceededFallback navigate={navigate} />;
+    }
+    return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
+  };
+
   return (
     <ModelStepLayout
       title={MODEL_NAME}
@@ -239,7 +248,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
       isNextDisabled={isLoading || !!error || (isValidationPage && !isValidAlpha)}
       nextButtonText={getNextButtonText()}
     >
-      <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
+      {renderContent()}
     </ModelStepLayout>
   );
 };

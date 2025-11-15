@@ -8,6 +8,7 @@ import ModelMetricsComparison, { type ModelMetricsComparisonProps } from './Mode
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useEnsembleModel } from '../hooks/useEnsembleModel';
+import RetryExceededFallback from '../components/RetryExceededFallback';
 
 const MODEL_NAME = 'Boosting 融合';
 const BASE_PATH = '/model/boosting-ensemble';
@@ -44,6 +45,7 @@ const BoostingEnsembleStepper: React.FC = () => {
     handleCalculate,
     markAsCompleted,
     handleRetry,
+    retryCount,
   } = useEnsembleModel({
     type: 'boosting',
     apiEndpoint: '/models/boosting/training',
@@ -100,7 +102,7 @@ const BoostingEnsembleStepper: React.FC = () => {
       setResults(null);
       setError(null);
     }
-  }, [currentStep?.id]);
+  }, [currentStep?.id, setSelectedModels, setResults, setError]);
 
   // Clear validation error as soon as the user corrects the input
   useEffect(() => {
@@ -198,6 +200,13 @@ const BoostingEnsembleStepper: React.FC = () => {
     return currentStep.id;
   };
 
+  const renderContent = () => {
+    if (currentStep.id === 'results' && error && retryCount >= 3) {
+      return <RetryExceededFallback navigate={navigate} />;
+    }
+    return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
+  };
+
   return (
     <ModelStepLayout
       title={MODEL_NAME}
@@ -212,7 +221,7 @@ const BoostingEnsembleStepper: React.FC = () => {
         currentStep?.id === 'model-metrics-comparison' ? '完成' : '下一步'
       }
     >
-      <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
+      {renderContent()}
     </ModelStepLayout>
   );
 };

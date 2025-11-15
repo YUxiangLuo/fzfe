@@ -9,6 +9,7 @@ import ModelMetricsComparison, { type ModelMetricsComparisonProps } from './Mode
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useEnsembleModel } from '../hooks/useEnsembleModel';
+import RetryExceededFallback from '../components/RetryExceededFallback';
 
 const MODEL_NAME = '加权平均融合';
 const BASE_PATH = '/model/weighted-ensemble';
@@ -46,6 +47,7 @@ const WeightedEnsembleStepper: React.FC = () => {
     handleCalculate,
     markAsCompleted,
     handleRetry,
+    retryCount,
   } = useEnsembleModel({
     type: 'weighted',
     apiEndpoint: '/models/weighted-average/training',
@@ -106,7 +108,7 @@ const WeightedEnsembleStepper: React.FC = () => {
       setResults(null);
       setError(null);
     }
-  }, [currentStep?.id]);
+  }, [currentStep?.id, setSelectedModels, setResults, setError]);
 
   // Clear validation error as soon as the user corrects the input
   useEffect(() => {
@@ -223,6 +225,13 @@ const WeightedEnsembleStepper: React.FC = () => {
     return currentStep.id;
   };
 
+  const renderContent = () => {
+    if (currentStep.id === 'results' && error && retryCount >= 3) {
+      return <RetryExceededFallback navigate={navigate} />;
+    }
+    return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
+  };
+
   return (
     <ModelStepLayout
       title={MODEL_NAME}
@@ -237,7 +246,7 @@ const WeightedEnsembleStepper: React.FC = () => {
         currentStep?.id === 'model-metrics-comparison' ? '完成' : '下一步'
       }
     >
-      <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
+      {renderContent()}
     </ModelStepLayout>
   );
 };

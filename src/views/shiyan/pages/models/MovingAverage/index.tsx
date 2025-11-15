@@ -11,6 +11,7 @@ import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useSimpleModel } from '../hooks/useSimpleModel';
 import { MOVING_AVERAGE_CONSTANTS } from '../constants';
+import RetryExceededFallback from '../components/RetryExceededFallback';
 
 const MODEL_NAME = '移动平均法';
 const BASE_PATH = '/model/moving-average';
@@ -57,6 +58,7 @@ const MovingAverageStepper: React.FC = () => {
     handleCalculate,
     markAsCompleted,
     handleRetry,
+    retryCount,
   } = useSimpleModel<number | ''>({
     type: 'moving_average',
     apiEndpoint: '/models/ma/training',
@@ -132,7 +134,7 @@ const MovingAverageStepper: React.FC = () => {
       setWindowSize('');
       setError(null);
     }
-  }, [currentStep?.id]);
+  }, [currentStep?.id, setWindowSize, setError]);
 
   const handleReset = async () => {
     setIsResetting(true);
@@ -236,6 +238,13 @@ const MovingAverageStepper: React.FC = () => {
     return currentStep.id;
   };
 
+  const renderContent = () => {
+    if (currentStep.id === 'results' && error && retryCount >= 3) {
+      return <RetryExceededFallback navigate={navigate} />;
+    }
+    return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
+  };
+
   return (
     <ModelStepLayout
       title={MODEL_NAME}
@@ -248,7 +257,7 @@ const MovingAverageStepper: React.FC = () => {
       isNextDisabled={isLoading || !!error || (isValidationPage && !isValidWindowSize)}
       nextButtonText={getNextButtonText()}
     >
-      <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
+      {renderContent()}
     </ModelStepLayout>
   );
 };

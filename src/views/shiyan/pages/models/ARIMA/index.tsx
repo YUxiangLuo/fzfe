@@ -14,6 +14,7 @@ import { useExperiment, type AdfStationarityRow } from '../../../contexts/Experi
 import { apiClient } from '../../../../../utils/apiClient';
 import { ARIMA_CONSTANTS } from '../constants';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
+import RetryExceededFallback from '../components/RetryExceededFallback';
 
 const MODEL_NAME = 'ARIMA 模型';
 const BASE_PATH = '/model/arima';
@@ -49,6 +50,8 @@ const ARIMAStepper: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [adfRetryCount, setAdfRetryCount] = useState(0);
+  const [retryCount, setRetryCount] = useState(0);
 
   // AbortController refs for cancelling requests
   const adfAbortControllerRef = useRef<AbortController | null>(null);
@@ -157,6 +160,7 @@ const ARIMAStepper: React.FC = () => {
         return;
       }
       setError(e.message || "ADF检验失败。");
+      setAdfRetryCount(prev => prev + 1);
     } finally {
       if (adfAbortControllerRef.current === abortController) {
         setIsLoading(false);
@@ -223,6 +227,7 @@ const ARIMAStepper: React.FC = () => {
         return;
       }
       setError(e.message || "模型训练时发生错误。");
+      setRetryCount(prev => prev + 1);
     } finally {
       if (calculateAbortControllerRef.current === abortController) {
         setIsLoading(false);
@@ -273,9 +278,12 @@ const ARIMAStepper: React.FC = () => {
       setAutoParamsView('params');
       setError(null);
       setIsResetting(false);
+      setAdfRetryCount(0);
+      setRetryCount(0);
     }else if (currentStep?.id === 'stationarity') {
       setError(null);
       setAdfResults([]);
+      setAdfRetryCount(0);
     } else if (
       currentStep?.id === 'differencing' ||
       currentStep?.id === 'differencing-validation'
@@ -283,6 +291,7 @@ const ARIMAStepper: React.FC = () => {
       setError(null);
     } else if (currentStep?.id === 'autoparams') {
       setAutoParamsView('params');
+      setRetryCount(0);
     }
   }, [currentStep?.id]);
 
@@ -316,6 +325,8 @@ const ARIMAStepper: React.FC = () => {
     try {
       // Clear global state - local state is cleared by the useEffect above
       await resetARIMAModel();
+      setAdfRetryCount(0);
+      setRetryCount(0);
       // Navigate to first step
       navigate(`${BASE_PATH}/intro`);
     } finally {
@@ -486,16 +497,24 @@ const ARIMAStepper: React.FC = () => {
 
   const CurrentComponent = currentStep.component as React.FC<any>;
 
-  const handleRetry = useCallback(() => {
-    setError(null);
-  }, []);
+  const handleAdfRetry = useCallback(() => {
+    if (adfRetryCount < 3) {
+      setError(null);
+    }
+  }, [adfRetryCount]);
+
+  const handleCalculateRetry = useCallback(() => {
+    if (retryCount < 3) {
+      setError(null);
+    }
+  }, [retryCount]);
 
   const componentProps: { [key: string]: StationarityProps | StationarityTableProps | DifferencingProps | DifferencingValidationProps | {} } = {
     stationarity: { onShowAutoregression: handleShowAutoregression },
-    'stationarity-table': { adfResults, isLoading, error, onRetry: handleRetry, navigate },
+    'stationarity-table': { adfResults, isLoading, error, onRetry: handleAdfRetry, navigate },
     differencing: { selectedD, setSelectedD, error, onShowDifferencingInfo: handleShowDifferencingInfo },
     'differencing-validation': { selectedD, adfResults },
-    autoparams: { view: autoParamsView, data: results, isLoading, error, onRetry: handleRetry },
+    autoparams: { view: autoParamsView, data: results, isLoading, error, onRetry: handleCalculateRetry },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
@@ -507,6 +526,16 @@ const ARIMAStepper: React.FC = () => {
     if (isDifferencingValidationPage) return 'differencing'; // Differencing validation is part of differencing
     if (isModelComparisonPage) return 'autoparams'; // Model comparison is part of autoparams
     return currentStep.id;
+  };
+
+  const renderContent = () => {
+    if (currentStep.id === 'stationarity-table' && error && adfRetryCount >= 3) {
+      return <RetryExceededFallback navigate={navigate} />;
+    }
+    if (currentStep.id === 'autoparams' && error && retryCount >= 3) {
+      return <RetryExceededFallback navigate={navigate} />;
+    }
+    return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
   };
 
   return (
@@ -528,7 +557,7 @@ const ARIMAStepper: React.FC = () => {
       }
       nextButtonText={isModelComparisonPage ? '完成' : '下一步'}
     >
-      <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />
+      {renderContent()}
     </ModelStepLayout>
   );
 };
