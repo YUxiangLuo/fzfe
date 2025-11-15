@@ -104,11 +104,11 @@ const ExperimentReport: React.FC = () => {
       'moving_average': '移动平均法',
       'exponential_smoothing': '指数平滑法',
       'ARIMA': 'ARIMA模型',
-      'LSTM': 'LSTM神经网络',
+      'LSTM': 'LSTM模型',
       'ma': '移动平均法',
       'exp': '指数平滑法',
       'arima': 'ARIMA模型',
-      'lstm': 'LSTM神经网络',
+      'lstm': 'LSTM模型',
     };
 
     const getEnsembleParams = (baseModels: (SelectedBestModel | string)[] | null | undefined): string => {
@@ -171,7 +171,7 @@ const ExperimentReport: React.FC = () => {
     try {
       // Markdown generation logic...
       // This part remains complex but is now more manageable.
-      const modelLabels: Record<SelectedBestModel, string> = { ma: '移动平均法', exp: '指数平滑法', arima: 'ARIMA模型', lstm: 'LSTM神经网络', ensemble_weighted: '加权平均融合', ensemble_boosting: 'Boosting融合', ensemble_stacking: 'Stacking融合' };
+      const modelLabels: Record<SelectedBestModel, string> = { ma: '移动平均法', exp: '指数平滑法', arima: 'ARIMA模型', lstm: 'LSTM模型', ensemble_weighted: '加权平均融合', ensemble_boosting: 'Boosting融合', ensemble_stacking: 'Stacking融合' };
       const renderValue = (val: number | null | undefined, precision = 4) => val !== null && val !== undefined ? val.toFixed(precision) : 'N/A';
       const formatDate = (dateString: string | null): string => dateString ? new Date(dateString).toLocaleString('zh-CN', { hour12: false }) : '未知';
       const currentDate = new Date().toLocaleString('zh-CN', { hour12: false });

@@ -15,7 +15,7 @@ const SelectModels: React.FC<SelectModelsProps> = ({ selectedModels, setSelected
     { id: 'moving_average', name: '移动平均法', completed: state.moving_average_completed },
     { id: 'exponential_smoothing', name: '指数平滑法', completed: state.exponential_smoothing_completed },
     { id: 'arima', name: 'ARIMA模型', completed: state.arima_completed },
-    { id: 'lstm', name: 'LSTM神经网络', completed: state.lstm_completed },
+    { id: 'lstm', name: 'LSTM模型', completed: state.lstm_completed },
   ].filter(m => m.completed);
 
   const handleToggle = (modelId: string) => {

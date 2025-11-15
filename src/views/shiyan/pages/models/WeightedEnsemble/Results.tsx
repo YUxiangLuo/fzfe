@@ -13,13 +13,13 @@ export interface ResultsProps {
 }
 
 const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry }) => {
-  const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'chart'>('chart');
 
   const modelIdToName: Record<string, string> = {
     ma: '移动平均法',
     es: '指数平滑法',
     arima: 'ARIMA模型',
-    lstm: 'LSTM神经网络',
+    lstm: 'LSTM模型',
   };
 
   const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} />;

@@ -94,17 +94,17 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
         data_window_train_end_index: state.data_window_train_end_index,
         data_window_evaluate_start_index: state.data_window_evaluate_start_index,
         data_window_evaluate_end_index: state.data_window_evaluate_end_index,
-        [`ensemble_${config.type}_base_models`]: backendModels,
+        [`models`]: backendModels.join(","),
       };
 
       // Add base model parameters
-      if (backendModels.includes('arima')) requestBody.arima_d = state.arima_d;
+      if (backendModels.includes('arima')) requestBody.arimaD = state.arima_d;
       if (backendModels.includes('es')) requestBody.exponential_smoothing_alpha = state.exponential_smoothing_alpha;
       if (backendModels.includes('ma')) requestBody.moving_average_window = state.moving_average_window;
       if (backendModels.includes('lstm')) {
-        requestBody.lstm_features = state.lstm_features;
-        requestBody.lstm_target_field = state.lstm_target_field;
-        requestBody.lstm_normalization = state.lstm_normalization;
+        requestBody.lstmFeatures = state.lstm_features.join(",");
+        requestBody.lstmTargetFeature = state.lstm_target_field;
+        requestBody.lstmNormalization = state.lstm_normalization;
       }
 
       const result = await executeRequest<any>(async (signal) => {

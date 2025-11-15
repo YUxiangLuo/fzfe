@@ -17,7 +17,7 @@ const allModels = [
   { id: 'moving_average', name: '移动平均法', description: '简单的时间序列预测方法。', icon: LineChart, path: '/model/moving-average/intro' },
   { id: 'exponential_smoothing', name: '指数平滑法', description: '加权平均，近期数据权重更大。', icon: ChartSpline, path: '/model/exponential-smoothing/intro' },
   { id: 'arima', name: 'ARIMA模型', description: '经典的统计预测模型。', icon: Sigma, path: '/model/arima/intro' },
-  { id: 'lstm', name: 'LSTM神经网络', description: '先进的深度学习预测模型。', icon: BrainCircuit, path: '/model/lstm/intro' },
+  { id: 'lstm', name: 'LSTM模型', description: '先进的深度学习预测模型。', icon: BrainCircuit, path: '/model/lstm/intro' },
 ];
 
 const ModelCard: React.FC<{ model: any; isCompleted: boolean; onClick: () => void }> = ({ model, isCompleted, onClick }) => {

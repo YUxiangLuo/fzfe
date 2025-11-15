@@ -81,7 +81,7 @@ const NewStep6: React.FC = () => {
         const response = await apiClient.post<{
           status: string;
           results: { predictions: Array<{ prediction: number; std_dev: number }> };
-        }>('/models/predictions', {
+        }>(`/models/${modelType==="weighted-average"?"weighted_avg":modelType}/predict`, {
           model_type: modelType,
           forecast_steps: state.forecastPeriods,
         });

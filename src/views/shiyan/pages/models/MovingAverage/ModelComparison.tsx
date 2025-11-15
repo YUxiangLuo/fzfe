@@ -33,7 +33,7 @@ const modelData = useMemo(() => {
   }
   if (state.lstm_completed) {
     data.push({
-      model: 'LSTM神经网络',
+      model: 'LSTM模型',
       rmse: state.lstm_metrics_rmse,
       mae: state.lstm_metrics_mae,
       r2: state.lstm_metrics_r2,

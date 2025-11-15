@@ -132,9 +132,9 @@ const LSTMStepper: React.FC = () => {
         data_window_train_end_index: state.data_window_train_end_index,
         data_window_evaluate_start_index: state.data_window_evaluate_start_index,
         data_window_evaluate_end_index: state.data_window_evaluate_end_index,
-        lstm_normalization: normalization,
-        lstm_target_field: target ?? '',
-        lstm_features: features,
+        lstmNormalization: normalization,
+        lstmTargetFeature: target ?? '销售数量',
+        lstmFeatures: features.join(","),
       };
 
       const response = await apiClient.post<any>(

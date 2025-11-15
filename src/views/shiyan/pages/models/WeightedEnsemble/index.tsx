@@ -50,7 +50,7 @@ const WeightedEnsembleStepper: React.FC = () => {
     retryCount,
   } = useEnsembleModel({
     type: 'weighted',
-    apiEndpoint: '/models/weighted-average/training',
+    apiEndpoint: '/models/weighted_avg/training',
     stateKey: {
       baseModels: 'ensemble_weighted_base_models',
       completed: 'ensemble_weighted_completed',

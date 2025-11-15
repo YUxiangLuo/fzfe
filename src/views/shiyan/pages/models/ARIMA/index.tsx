@@ -188,7 +188,7 @@ const ARIMAStepper: React.FC = () => {
         data_window_train_end_index: state.data_window_train_end_index,
         data_window_evaluate_start_index: state.data_window_evaluate_start_index,
         data_window_evaluate_end_index: state.data_window_evaluate_end_index,
-        arima_d: selectedD,
+        arimaD: selectedD,
       };
       const response = await apiClient.post<any>(
         "/models/arima/training",

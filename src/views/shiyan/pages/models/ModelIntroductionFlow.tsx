@@ -257,7 +257,7 @@ const baseModels: Model[] = [
   },
   {
     id: 'lstm',
-    name: 'LSTM神经网络',
+    name: 'LSTM模型',
     shortName: 'LSTM',
     icon: BrainCircuit,
     category: '深度学习方法',
