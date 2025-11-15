@@ -36,8 +36,6 @@ const MovingAverageStepper: React.FC = () => {
   const location = useLocation();
   const { state, resetMovingAverageModel } = useExperiment();
 
-  const [isResetting, setIsResetting] = useState(false);
-
   // Calculate training data length for validation
   const trainDataLength = useMemo(() => {
     if (state.data_window_train_start_index === null || state.data_window_train_end_index === null) {
@@ -135,18 +133,6 @@ const MovingAverageStepper: React.FC = () => {
       setError(null);
     }
   }, [currentStep?.id, setWindowSize, setError]);
-
-  const handleReset = async () => {
-    setIsResetting(true);
-    try {
-      // Clear global state - local state is cleared by the useEffect above
-      await resetMovingAverageModel();
-      // Navigate to first step
-      navigate(`${BASE_PATH}/intro`);
-    } finally {
-      setIsResetting(false);
-    }
-  };
 
   const handleNext = async () => {
     setError(null);
@@ -252,8 +238,6 @@ const MovingAverageStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      onReset={handleReset}
-      isResetting={isResetting}
       isNextDisabled={isLoading || !!error || (isValidationPage && !isValidWindowSize)}
       nextButtonText={getNextButtonText()}
     >

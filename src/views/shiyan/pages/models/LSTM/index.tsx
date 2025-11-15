@@ -44,7 +44,6 @@ const LSTMStepper: React.FC = () => {
   const [results, setResults] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isResetting, setIsResetting] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
   // AbortController ref for cancelling requests
@@ -248,19 +247,6 @@ const LSTMStepper: React.FC = () => {
     };
   }, []);
 
-  const handleReset = async () => {
-    setIsResetting(true);
-    try {
-      // Clear global state - local state is cleared by the useEffect above
-      await resetLSTMModel();
-      setRetryCount(0);
-      // Navigate to first step
-      navigate(`${BASE_PATH}/intro`);
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
   const handleNext = async () => {
     setError(null);
 
@@ -392,8 +378,6 @@ const LSTMStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      onReset={handleReset}
-      isResetting={isResetting}
       isNextDisabled={isLoading || !!error || isNormalizationInfoPage || isLSTMMethodInfoPage}
       nextButtonText={isComparisonPage ? '完成' : '下一步'}
     >

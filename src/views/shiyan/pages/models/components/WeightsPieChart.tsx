@@ -4,6 +4,7 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recha
 interface WeightData {
   name: string;
   value: number;
+  [key: string]: any; // Add index signature for Recharts compatibility
 }
 
 interface WeightsPieChartProps {

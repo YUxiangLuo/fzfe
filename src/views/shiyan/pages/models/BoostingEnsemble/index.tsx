@@ -30,8 +30,6 @@ const BoostingEnsembleStepper: React.FC = () => {
   const location = useLocation();
   const { resetBoostingEnsembleModel } = useExperiment();
 
-  const [isResetting, setIsResetting] = useState(false);
-
   // Use shared ensemble model hook
   const {
     selectedModels,
@@ -110,18 +108,6 @@ const BoostingEnsembleStepper: React.FC = () => {
       setError(null);
     }
   }, [selectedModels, error, setError]);
-
-  const handleReset = async () => {
-    setIsResetting(true);
-    try {
-      // Clear global state - local state is cleared by the useEffect above
-      await resetBoostingEnsembleModel();
-      // Navigate to first step
-      navigate(`${BASE_PATH}/intro`);
-    } finally {
-      setIsResetting(false);
-    }
-  };
 
   const handleNext = async () => {
     setError(null);
@@ -214,8 +200,6 @@ const BoostingEnsembleStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      onReset={handleReset}
-      isResetting={isResetting}
       isNextDisabled={isLoading || !!error}
       nextButtonText={
         currentStep?.id === 'model-metrics-comparison' ? '完成' : '下一步'

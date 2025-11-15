@@ -38,8 +38,8 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ data }) => {
           <YAxis />
           <Tooltip />
           <Legend />
-          <Line type="monotone" dataKey="actual" name="真实值" stroke="#8884d8" activeDot={{ r: 8 }} />
-          <Line type="monotone" dataKey="predicted" name="预测值" stroke="#82ca9d" />
+          <Line strokeWidth={4} type="monotone" dataKey="actual" name="真实值" stroke="#8884d8" activeDot={{ r: 8 }} />
+          <Line strokeWidth={4} type="monotone" dataKey="predicted" name="预测值" stroke="#82ca9d" />
         </LineChart>
       </ResponsiveContainer>
     </div>

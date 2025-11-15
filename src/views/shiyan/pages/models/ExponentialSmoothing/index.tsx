@@ -36,8 +36,6 @@ const ExponentialSmoothingStepper: React.FC = () => {
   const location = useLocation();
   const { resetExponentialSmoothingModel } = useExperiment();
 
-  const [isResetting, setIsResetting] = useState(false);
-
   // Use shared simple model hook
   const {
     param: alpha,
@@ -126,18 +124,6 @@ const ExponentialSmoothingStepper: React.FC = () => {
       setError(null);
     }
   }, [currentStep?.id, setAlpha, setError]);
-
-  const handleReset = async () => {
-    setIsResetting(true);
-    try {
-      // Clear global state - local state is cleared by the useEffect above
-      await resetExponentialSmoothingModel();
-      // Navigate to first step
-      navigate(`${BASE_PATH}/intro`);
-    } finally {
-      setIsResetting(false);
-    }
-  };
 
   const handleNext = async () => {
     setError(null);
@@ -243,8 +229,6 @@ const ExponentialSmoothingStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      onReset={handleReset}
-      isResetting={isResetting}
       isNextDisabled={isLoading || !!error || (isValidationPage && !isValidAlpha)}
       nextButtonText={getNextButtonText()}
     >

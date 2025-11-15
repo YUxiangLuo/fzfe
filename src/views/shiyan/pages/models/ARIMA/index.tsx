@@ -49,7 +49,6 @@ const ARIMAStepper: React.FC = () => {
   const [autoParamsView, setAutoParamsView] = useState<'params' | 'results'>('params');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isResetting, setIsResetting] = useState(false);
   const [adfRetryCount, setAdfRetryCount] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -277,7 +276,6 @@ const ARIMAStepper: React.FC = () => {
       setIsLoading(false);
       setAutoParamsView('params');
       setError(null);
-      setIsResetting(false);
       setAdfRetryCount(0);
       setRetryCount(0);
     }else if (currentStep?.id === 'stationarity') {
@@ -319,20 +317,6 @@ const ARIMAStepper: React.FC = () => {
       }
     };
   }, []);
-
-  const handleReset = async () => {
-    setIsResetting(true);
-    try {
-      // Clear global state - local state is cleared by the useEffect above
-      await resetARIMAModel();
-      setAdfRetryCount(0);
-      setRetryCount(0);
-      // Navigate to first step
-      navigate(`${BASE_PATH}/intro`);
-    } finally {
-      setIsResetting(false);
-    }
-  };
 
   const handleNext = async () => {
     setError(null);
@@ -545,8 +529,6 @@ const ARIMAStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      onReset={handleReset}
-      isResetting={isResetting}
       isNextDisabled={
         isLoading ||
         !!error ||
