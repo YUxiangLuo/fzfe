@@ -13,7 +13,7 @@ import { apiClient } from '../../../../../utils/apiClient';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import RetryExceededFallback from '../components/RetryExceededFallback';
 
-const MODEL_NAME = 'LSTM 神经网络';
+const MODEL_NAME = 'LSTM模型';
 const BASE_PATH = '/model/lstm';
 
 const STEPS = [
