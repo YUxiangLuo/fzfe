@@ -46,6 +46,7 @@ export const useAutoCalculation = ({
   error,
 }: UseAutoCalculationParams) => {
   useEffect(() => {
+    console.log(results);
     if (
       currentStepId === calculationStepId &&
       !results &&

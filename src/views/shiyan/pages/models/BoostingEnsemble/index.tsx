@@ -1,11 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ModelStepLayout from '../components/ModelStepLayout';
 import Intro from './Intro';
 import SelectModels, { type SelectModelsProps } from './SelectModels';
 import Results, { type ResultsProps } from './Results';
 import ModelMetricsComparison, { type ModelMetricsComparisonProps } from './ModelMetricsComparison';
-import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useEnsembleModel } from '../hooks/useEnsembleModel';
 import RetryExceededFallback from '../components/RetryExceededFallback';
@@ -28,7 +27,6 @@ const RESULTS_STEP_INDEX = 2;
 const BoostingEnsembleStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { resetBoostingEnsembleModel } = useExperiment();
 
   // Use shared ensemble model hook
   const {
@@ -85,54 +83,23 @@ const BoostingEnsembleStepper: React.FC = () => {
     error,
   });
 
-  // non-calculation step, ensuring the UI is always in a valid state.
-  useEffect(() => {
-    if (currentStep?.id === 'select-models') {
-      setError(null);
-    }
-  }, [currentStep?.id, setError]);
-
-  // When returning to the intro page (e.g., after a reset),
-  // ensure all calculation-related state is cleared.
-  useEffect(() => {
-    if (currentStep?.id === 'intro') {
-      setSelectedModels([]);
-      setResults(null);
-      setError(null);
-    }
-  }, [currentStep?.id, setSelectedModels, setResults, setError]);
-
-  // Clear validation error as soon as the user corrects the input
-  useEffect(() => {
-    if (selectedModels.length >= 2 && error === "请至少选择两个基础模型。") {
-      setError(null);
-    }
-  }, [selectedModels, error, setError]);
-
+  
   const handleNext = async () => {
-    setError(null);
     const nextStepIndex = currentStepIndex + 1;
 
     if (currentStep?.id === 'select-models') {
-      if (!isValidSelection) {
-        setError("请至少选择两个基础模型进行融合。");
-        return;
-      }
       const nextStep = STEPS[nextStepIndex];
       if (nextStep) navigate(nextStep.path);
       return;
     }
 
     if (currentStep?.id === 'results') {
-      // Navigate to model metrics comparison page
       await markAsCompleted();
       navigate(MODEL_METRICS_COMPARISON_PATH);
       return;
     }
 
     if (currentStep?.id === 'model-metrics-comparison') {
-      // Mark as completed and return to ensemble model select
-      
       navigate('/model/ensemble-select');
       return;
     }
@@ -145,15 +112,9 @@ const BoostingEnsembleStepper: React.FC = () => {
 
   const handlePrevious = () => {
     if (isModelMetricsComparisonPage) {
-      // From model metrics comparison, go back to results
-      setError(null); // Clear error when leaving
       const prevStep = STEPS[RESULTS_STEP_INDEX];
       if (prevStep) navigate(prevStep.path);
       return;
-    }
-
-    if (currentStep?.id === 'results') {
-      setError(null); // Clear error when leaving
     }
 
     const prevStep = STEPS[currentStepIndex - 1];
@@ -200,7 +161,8 @@ const BoostingEnsembleStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      isNextDisabled={isLoading || !!error}
+      isPreviousDisabled={isLoading || retryCount>=3}
+      isNextDisabled={isLoading || !!error || (currentStep.id==="select-models"&&!(selectedModels.length>1))}
       nextButtonText={
         currentStep?.id === 'model-metrics-comparison' ? '完成' : '下一步'
       }

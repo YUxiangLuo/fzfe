@@ -4,10 +4,9 @@ import { AlertTriangle } from 'lucide-react';
 export interface ParamsProps {
   windowSize: number | '';
   setWindowSize: (value: number | '') => void;
-  isLoading: boolean;
 }
 
-const Params: React.FC<ParamsProps> = ({ windowSize, setWindowSize, isLoading }) => {
+const Params: React.FC<ParamsProps> = ({ windowSize, setWindowSize }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value === '') {
@@ -35,7 +34,6 @@ const Params: React.FC<ParamsProps> = ({ windowSize, setWindowSize, isLoading })
           id="window-size"
           value={windowSize}
           onChange={handleChange}
-          disabled={isLoading}
           className="block w-full max-w-md px-4 py-3 bg-white border-2 border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
           placeholder="请输入窗口大小"
         />

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ModelStepLayout from '../components/ModelStepLayout';
 import Intro from './Intro';
@@ -7,7 +7,6 @@ import Params, { type ParamsProps } from './Params';
 import Validation, { type ValidationProps } from './Validation';
 import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
-import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useSimpleModel } from '../hooks/useSimpleModel';
 import { EXPONENTIAL_SMOOTHING_CONSTANTS } from '../constants';
@@ -23,20 +22,16 @@ const STEPS = [
   { id: 'results', name: '计算结果', path: `${BASE_PATH}/results`, component: Results },
 ];
 
-// Hidden pages - not part of the main steps
 const VALIDATION_PATH = `${BASE_PATH}/validation`;
 const COMPARISON_PATH = `${BASE_PATH}/comparison`;
 
-// Step indices for navigation
 const PARAMS_STEP_INDEX = 2;
 const RESULTS_STEP_INDEX = 3;
 
 const ExponentialSmoothingStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { resetExponentialSmoothingModel } = useExperiment();
 
-  // Use shared simple model hook
   const {
     param: alpha,
     setParam: setAlpha,
@@ -72,13 +67,9 @@ const ExponentialSmoothingStepper: React.FC = () => {
 
   const currentStepIndex = useMemo(() => {
     if (isValidationPage) {
-      // Validation is between params and results
-      // We treat it as if we're still on params for step navigation purposes
       return PARAMS_STEP_INDEX;
     }
     if (isComparisonPage) {
-      // Comparison is after results
-      // We treat it as if we're still on results for step navigation purposes
       return RESULTS_STEP_INDEX;
     }
     const currentPath = location.pathname;
@@ -106,56 +97,28 @@ const ExponentialSmoothingStepper: React.FC = () => {
     error,
   });
 
-  // When navigating back from a failed calculation, the error state can persist
-  // and incorrectly disable the "Next" button on parameter pages.
-  // This effect declaratively clears any lingering errors when the user is on a
-  // non-calculation step, ensuring the UI is always in a valid state.
-  useEffect(() => {
-    if (currentStep?.id === 'params' || currentStep?.id === 'validation') {
-      setError(null);
-    }
-  }, [currentStep?.id, setError]);
-
-  // When returning to the intro page (e.g., after a reset),
-  // ensure all calculation-related state is cleared.
-  useEffect(() => {
-    if (currentStep?.id === 'intro') {
-      setAlpha('');
-      setError(null);
-    }
-  }, [currentStep?.id, setAlpha, setError]);
-
   const handleNext = async () => {
-    setError(null);
-
     if (currentStep?.id === 'params') {
-      // Navigate to validation page
       navigate(VALIDATION_PATH);
       return;
     }
 
     if (currentStep?.id === 'validation') {
-      // Check if params are valid
       if (!isValidAlpha) {
-        // Stay on validation page, error message will be shown
         return;
       }
-      // If valid, proceed to results
       const nextStep = STEPS[RESULTS_STEP_INDEX];
       if (nextStep) navigate(nextStep.path);
       return;
     }
 
     if (currentStep?.id === 'results') {
-      // Mark model as completed and navigate to comparison page
       await markAsCompleted();
       navigate(COMPARISON_PATH);
       return;
     }
 
     if (currentStep?.id === 'comparison') {
-      
-      // Go back to model select (model already marked as completed)
       navigate('/model/model-select');
       return;
     }
@@ -168,14 +131,12 @@ const ExponentialSmoothingStepper: React.FC = () => {
 
   const handlePrevious = () => {
     if (isValidationPage) {
-      // From validation, go back to params
       const prevStep = STEPS[PARAMS_STEP_INDEX];
       if (prevStep) navigate(prevStep.path);
       return;
     }
 
     if (isComparisonPage) {
-      // From comparison, go back to results
       const prevStep = STEPS[RESULTS_STEP_INDEX];
       if (prevStep) navigate(prevStep.path);
       return;
@@ -196,7 +157,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
   const CurrentComponent = currentStep.component as React.FC<any>;
 
   const componentProps: { [key: string]: ParamsProps | ValidationProps | ResultsProps | {} } = {
-    params: { alpha, setAlpha, isLoading },
+    params: { alpha, setAlpha },
     validation: { alpha, isValid: isValidAlpha },
     results: { data: results, isLoading, error, onRetry: handleRetry },
   };
@@ -205,13 +166,13 @@ const ExponentialSmoothingStepper: React.FC = () => {
 
   const getNextButtonText = () => {
     if (isComparisonPage) return '完成';
-    if (currentStepIndex === STEPS.length - 1) return '下一步'; // Results page now goes to comparison
+    if (currentStepIndex === STEPS.length - 1) return '下一步';
     return '下一步';
   };
 
   const getCurrentStepId = () => {
-    if (isValidationPage) return 'params'; // Validation is part of params in the step navigation
-    if (isComparisonPage) return 'results'; // Comparison is part of results in the step navigation
+    if (isValidationPage) return 'params';
+    if (isComparisonPage) return 'results';
     return currentStep.id;
   };
 
@@ -229,6 +190,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
+      isPreviousDisabled={retryCount>=3 || isLoading}
       isNextDisabled={isLoading || !!error || (isValidationPage && !isValidAlpha)}
       nextButtonText={getNextButtonText()}
     >

@@ -4,10 +4,9 @@ import { AlertTriangle } from 'lucide-react';
 export interface ParamsProps {
   alpha: number | '';
   setAlpha: (value: number | '') => void;
-  isLoading: boolean;
 }
 
-const Params: React.FC<ParamsProps> = ({ alpha, setAlpha, isLoading }) => {
+const Params: React.FC<ParamsProps> = ({ alpha, setAlpha }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value === '') {
@@ -35,7 +34,6 @@ const Params: React.FC<ParamsProps> = ({ alpha, setAlpha, isLoading }) => {
           id="alpha-input"
           value={alpha}
           onChange={handleChange}
-          disabled={isLoading}
           step="0.01"
           min="0"
           max="1"

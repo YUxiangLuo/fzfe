@@ -36,7 +36,7 @@ const RESULTS_STEP_INDEX = 3;
 const LSTMStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData, productFieldOptions, resetLSTMModel } = useExperiment();
+  const { state, updateState, productSalesData, productFieldOptions } = useExperiment();
 
   const [normalization, setNormalization] = useState<'minmax' | 'zscore' | null>(state.lstm_normalization);
   const [features, setFeatures] = useState<string[]>(state.lstm_features ?? []);
@@ -99,7 +99,7 @@ const LSTMStepper: React.FC = () => {
     return STEPS[currentStepIndex];
   }, [currentStepIndex, isNormalizationInfoPage, isLSTMMethodInfoPage, isComparisonPage]);
 
-  // Auto-set target to "销售数量" when entering build page
+  // Auto-set target to "销售数量"
   useEffect(() => {
     if (currentStep?.id === 'build' && !target && productFieldOptions) {
       const salesQuantityField = productFieldOptions.find(field =>
@@ -112,15 +112,14 @@ const LSTMStepper: React.FC = () => {
   }, [currentStep?.id, target, productFieldOptions]);
 
   const handleCalculate = useCallback(async () => {
-    // Cancel any pending request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-
-    // Create new AbortController for this request
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
-
+    
+    setError(null);
+    setResults(null);
     setIsLoading(true);
     try {
       const requestBody = {
@@ -152,8 +151,6 @@ const LSTMStepper: React.FC = () => {
           })),
           metrics: apiResults.metrics,
         });
-        setError(null); // Clear error on success
-
         await updateState({
           lstm_features: features,
           lstm_target_field: target,
@@ -162,14 +159,14 @@ const LSTMStepper: React.FC = () => {
           lstm_metrics_r2: apiResults.metrics.r2,
         });
       } else {
-        throw new Error(response.message || "模型训练失败。");
+        throw new Error(response.message || "计算失败，请重试...");
       }
     } catch (e: any) {
       // Ignore abort errors
       if (e.name === 'AbortError') {
         return;
       }
-      setError(e.message || "模型训练时发生错误。");
+      setError(e.message || "遇到错误，请重试...");
       setRetryCount(prev => prev + 1);
     } finally {
       if (abortControllerRef.current === abortController) {
@@ -195,6 +192,10 @@ const LSTMStepper: React.FC = () => {
     return !!normalization && !!target && features.length > 0;
   }, [normalization, target, features]);
 
+  const normSelected = useMemo(() => {
+    return !!normalization;
+  }, [normalization])
+
   useAutoCalculation({
     calculationStepId: 'results',
     currentStepId: currentStep?.id,
@@ -204,39 +205,6 @@ const LSTMStepper: React.FC = () => {
     isLoading,
     error,
   });
-
-  // When navigating back from a failed calculation, the error state can persist
-  // and incorrectly disable the "Next" button on parameter pages.
-  // This effect declaratively clears any lingering errors when the user is on a
-  // non-calculation step, ensuring the UI is always in a valid state.
-  useEffect(() => {
-    if (currentStep?.id === 'preprocessing' || currentStep?.id === 'build') {
-      setError(null);
-    }
-  }, [currentStep?.id, setError]);
-
-  // When returning to the intro page (e.g., after a reset),
-  // ensure all calculation-related state is cleared.
-  useEffect(() => {
-    if (currentStep?.id === 'intro') {
-      setNormalization(null);
-      setFeatures([]);
-      setTarget(null);
-      setResults(null);
-      setError(null);
-      setRetryCount(0);
-    }
-  }, [currentStep?.id]);
-
-  // Clear validation errors as soon as the user corrects the input
-  useEffect(() => {
-    if (normalization && error === "请选择一种数据预处理方法。") {
-      setError(null);
-    }
-    if (target && features.length > 0 && error === "请选择目标字段和至少一个特征字段。") {
-      setError(null);
-    }
-  }, [normalization, target, features, error, setError]);
 
   // Cleanup: cancel all pending requests on unmount
   useEffect(() => {
@@ -248,13 +216,7 @@ const LSTMStepper: React.FC = () => {
   }, []);
 
   const handleNext = async () => {
-    setError(null);
-
     if (currentStep?.id === 'preprocessing') {
-      if (!normalization) {
-        setError("请选择一种数据预处理方法。");
-        return;
-      }
       await updateState({ lstm_normalization: normalization });
       const nextStep = STEPS[BUILD_STEP_INDEX];
       if (nextStep) navigate(nextStep.path);
@@ -262,25 +224,18 @@ const LSTMStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'build') {
-      if (!target || features.length === 0) {
-        setError("请选择目标字段和至少一个特征字段。");
-        return;
-      }
       const nextStep = STEPS[RESULTS_STEP_INDEX];
       if (nextStep) navigate(nextStep.path);
       return;
     }
 
     if (currentStep?.id === 'results') {
-      // Mark as completed and navigate to comparison
       await updateState({ lstm_completed: true });
       navigate(COMPARISON_PATH);
       return;
     }
 
     if (currentStep?.id === 'comparison') {
-      
-      // From comparison page, return to model select
       navigate('/model/model-select');
       return;
     }
@@ -293,21 +248,18 @@ const LSTMStepper: React.FC = () => {
 
   const handlePrevious = () => {
     if (isNormalizationInfoPage) {
-      // From normalization info, go back to preprocessing
       const prevStep = STEPS[PREPROCESSING_STEP_INDEX];
       if (prevStep) navigate(prevStep.path);
       return;
     }
 
     if (isLSTMMethodInfoPage) {
-      // From LSTM method info, go back to build
       const prevStep = STEPS[BUILD_STEP_INDEX];
       if (prevStep) navigate(prevStep.path);
       return;
     }
 
     if (isComparisonPage) {
-      // From comparison, go back to results
       const prevStep = STEPS[RESULTS_STEP_INDEX];
       if (prevStep) navigate(prevStep.path);
       return;
@@ -378,7 +330,8 @@ const LSTMStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      isNextDisabled={isLoading || !!error || isNormalizationInfoPage || isLSTMMethodInfoPage}
+      isPreviousDisabled={retryCount>=3 || isLoading}
+      isNextDisabled={isLoading || !!error || isNormalizationInfoPage || isLSTMMethodInfoPage || (currentStep?.id === 'preprocessing'&&!normSelected) || (currentStep?.id === 'build'&&!areParamsValid)}
       nextButtonText={isComparisonPage ? '完成' : '下一步'}
     >
       {renderContent()}

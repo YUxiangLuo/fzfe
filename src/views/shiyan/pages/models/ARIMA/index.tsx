@@ -41,9 +41,9 @@ const AUTOPARAMS_STEP_INDEX = 3;
 const ARIMAStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData, resetARIMAModel } = useExperiment();
+  const { state, updateState, productSalesData } = useExperiment();
 
-  const [adfResults, setAdfResults] = useState<AdfStationarityRow[]>(state.arima_adf_stationarity ?? []);
+  const [adfResults, setAdfResults] = useState<AdfStationarityRow[]>([]);
   const [selectedD, setSelectedD] = useState<number | ''>(state.arima_d ?? '');
   const [results, setResults] = useState<any>(null);
   const [autoParamsView, setAutoParamsView] = useState<'params' | 'results'>('params');
@@ -52,7 +52,6 @@ const ARIMAStepper: React.FC = () => {
   const [adfRetryCount, setAdfRetryCount] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
 
-  // AbortController refs for cancelling requests
   const adfAbortControllerRef = useRef<AbortController | null>(null);
   const calculateAbortControllerRef = useRef<AbortController | null>(null);
 
@@ -70,23 +69,18 @@ const ARIMAStepper: React.FC = () => {
 
   const currentStepIndex = useMemo(() => {
     if (isAutoregressionInfoPage) {
-      // Autoregression info is part of stationarity in the step navigation
       return STATIONARITY_STEP_INDEX;
     }
     if (isStationarityTablePage) {
-      // Stationarity table is between stationarity and differencing
       return STATIONARITY_STEP_INDEX;
     }
     if (isDifferencingInfoPage) {
-      // Differencing info is part of differencing in the step navigation
       return DIFFERENCING_STEP_INDEX;
     }
     if (isDifferencingValidationPage) {
-      // Differencing validation is between differencing and autoparams
       return DIFFERENCING_STEP_INDEX;
     }
     if (isModelComparisonPage) {
-      // Model comparison is after autoparams
       return AUTOPARAMS_STEP_INDEX;
     }
     const currentPath = location.pathname;
@@ -114,15 +108,16 @@ const ARIMAStepper: React.FC = () => {
   }, [currentStepIndex, isAutoregressionInfoPage, isStationarityTablePage, isDifferencingInfoPage, isDifferencingValidationPage, isModelComparisonPage]);
 
   const handleRunAdf = useCallback(async () => {
-    // Cancel any pending ADF request
     if (adfAbortControllerRef.current) {
       adfAbortControllerRef.current.abort();
     }
-
-    // Create new AbortController for this request
     const abortController = new AbortController();
     adfAbortControllerRef.current = abortController;
 
+
+    // 重新请求adf之前清除所有错误/清除adf结果
+    setError(null);
+    setAdfResults([]);
     setIsLoading(true);
     try {
       const {
@@ -147,18 +142,15 @@ const ARIMAStepper: React.FC = () => {
         throw new Error("ADF检验未返回有效结果。");
       }
 
-      // Filter out results with errors (where stationary is null) to prevent crashes
       const validResults = response.result.filter(r => r.stationary !== null);
-
       setAdfResults(validResults);
-      setError(null); // Clear error on success
       await updateState({ arima_adf_stationarity: validResults });
     } catch (e: any) {
       // Ignore abort errors
       if (e.name === 'AbortError') {
         return;
       }
-      setError(e.message || "ADF检验失败。");
+      setError(e.message || "ADF检验失败，请重试...");
       setAdfRetryCount(prev => prev + 1);
     } finally {
       if (adfAbortControllerRef.current === abortController) {
@@ -168,15 +160,15 @@ const ARIMAStepper: React.FC = () => {
   }, [state, productSalesData, updateState]);
 
   const handleCalculate = useCallback(async () => {
-    // Cancel any pending calculation request
     if (calculateAbortControllerRef.current) {
       calculateAbortControllerRef.current.abort();
     }
-
-    // Create new AbortController for this request
     const abortController = new AbortController();
     calculateAbortControllerRef.current = abortController;
 
+    // 计算之前清除所有错误和已有结果
+    setError(null);
+    setResults(null);
     setIsLoading(true);
     try {
       const requestBody = {
@@ -209,7 +201,6 @@ const ARIMAStepper: React.FC = () => {
           metrics: apiResults.metrics,
           order: apiResults.best_order,
         });
-        setError(null); // Clear error on success
         await updateState({
           arima_p: apiResults.best_order.p,
           arima_q: apiResults.best_order.q,
@@ -218,14 +209,14 @@ const ARIMAStepper: React.FC = () => {
           arima_metrics_r2: apiResults.metrics.r2,
         });
       } else {
-        throw new Error(response.message || "模型训练失败。");
+        throw new Error(response.message || "计算失败，请重试...");
       }
     } catch (e: any) {
       // Ignore abort errors
       if (e.name === 'AbortError') {
         return;
       }
-      setError(e.message || "模型训练时发生错误。");
+      setError(e.message || "遇到错误，请重试...");
       setRetryCount(prev => prev + 1);
     } finally {
       if (calculateAbortControllerRef.current === abortController) {
@@ -245,18 +236,15 @@ const ARIMAStepper: React.FC = () => {
     updateState
   ]);
 
-  // Auto-run ADF test when entering stationarity-table page
   useAutoCalculation({
     calculationStepId: 'stationarity-table',
     currentStepId: currentStep?.id,
     handleCalculate: handleRunAdf,
     canCalculate: adfResults.length === 0,
-    results: adfResults.length > 0 ? adfResults : null, // Pass results to prevent re-calculation
+    results: adfResults.length > 0 ? adfResults : null,
     isLoading,
     error,
   });
-
-  // Auto-calculate when entering autoparams page, ONLY if parameters are valid
   useAutoCalculation({
     calculationStepId: 'autoparams',
     currentStepId: currentStep?.id,
@@ -267,43 +255,9 @@ const ARIMAStepper: React.FC = () => {
     error,
   });
 
-
-  useEffect(() => {
-    if (currentStep?.id === 'intro') {
-      setAdfResults([]);
-      setSelectedD('');
-      setResults(null);
-      setIsLoading(false);
-      setAutoParamsView('params');
-      setError(null);
-      setAdfRetryCount(0);
-      setRetryCount(0);
-    }else if (currentStep?.id === 'stationarity') {
-      setError(null);
-      setAdfResults([]);
-      setAdfRetryCount(0);
-    } else if (
-      currentStep?.id === 'differencing' ||
-      currentStep?.id === 'differencing-validation'
-    ) {
-      setError(null);
-    } else if (currentStep?.id === 'autoparams') {
-      setAutoParamsView('params');
-      setRetryCount(0);
-    }
-  }, [currentStep?.id]);
-
-
-  // Clear validation error as soon as the user corrects the input
-  useEffect(() => {
-    if (selectedD && error === "请输入差分阶数 d") {
-      setError(null);
-    }
-  }, [selectedD, error, setError]);
-
-  // Clear results when selectedD changes to trigger recalculation
   useEffect(() => {
     setResults(null);
+    setError(null);
   }, [selectedD]);
 
   // Cleanup: cancel all pending requests on unmount
@@ -319,29 +273,18 @@ const ARIMAStepper: React.FC = () => {
   }, []);
 
   const handleNext = async () => {
-    setError(null);
-
     if (currentStep?.id === 'stationarity') {
-      // Navigate to stationarity table page
       navigate(STATIONARITY_TABLE_PATH);
       return;
     }
 
     if (currentStep?.id === 'stationarity-table') {
-      // Check if ADF test has results
-      if (adfResults.length === 0) {
-        setError("平稳性检验未完成，请稍候。");
-        return;
-      }
-
-      // Check if at least one differencing order results in a stationary series
+      // 在adf检验结果页面
       const isAnyStationary = adfResults.some(r => r.stationary);
       if (!isAnyStationary) {
         setError("所有差分阶数的检验结果均为非平稳，无法继续进行ARIMA建模。请尝试调整数据窗口或选择其他产品。");
         return;
       }
-
-      // Navigate to differencing step
       const nextStep = STEPS[DIFFERENCING_STEP_INDEX];
       if (nextStep) {
         navigate(nextStep.path);
@@ -350,22 +293,15 @@ const ARIMAStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'differencing') {
-      if (selectedD === '') {
-        setError("请输入差分阶数 d");
-        return;
-      }
-      // Navigate to differencing validation page
       navigate(DIFFERENCING_VALIDATION_PATH);
       return;
     }
 
     if (currentStep?.id === 'differencing-validation') {
-      // Check if the differencing is valid
       if (!isValidDifferencing) {
-        setError("差分阶数检验未通过，请返回重新选择。");
+        setError("差分阶数检验未通过，请返回上一步重新选择。");
         return;
       }
-      // Save the selectedD and navigate to autoparams
       await updateState({ arima_d: selectedD === '' ? null : selectedD });
       const nextStep = STEPS[AUTOPARAMS_STEP_INDEX];
       if (nextStep) {
@@ -376,11 +312,9 @@ const ARIMAStepper: React.FC = () => {
 
     if (currentStep?.id === 'autoparams') {
       if (autoParamsView === 'params') {
-        // Switch to results view
         setAutoParamsView('results');
         return;
       } else {
-        // From results view, mark as completed and navigate to comparison
         await updateState({ arima_completed: true });
         navigate(MODEL_COMPARISON_PATH);
         return;
@@ -388,25 +322,28 @@ const ARIMAStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'model-comparison') {
-      
-      // From comparison page, return to model select
       navigate('/model/model-select');
       return;
     }
 
-    const isLastStep = currentStepIndex === STEPS.length - 1;
-    if (isLastStep) {
-      await updateState({ arima_completed: true });
-      navigate('/model/model-select');
-    } else {
-      const nextStep = STEPS[currentStepIndex + 1];
-      if (nextStep) {
-        navigate(nextStep.path);
-      }
+    const nextStep = STEPS[currentStepIndex + 1];
+    if (nextStep) {
+      navigate(nextStep.path);
     }
   };
 
   const handlePrevious = () => {
+
+    if (currentStep?.id === 'stationarity-table') {
+      // 在adf检验结果页面返回上一步，清除错误
+      setError(null);
+      const prevStep = STEPS[currentStepIndex - 1];
+      if (prevStep) {
+        navigate(prevStep.path);
+      } 
+      return;
+    }
+
     if (isAutoregressionInfoPage) {
       // From autoregression info, go back to stationarity
       const prevStep = STEPS[STATIONARITY_STEP_INDEX];
@@ -467,10 +404,12 @@ const ARIMAStepper: React.FC = () => {
     }
   };
 
+
+  // 科普性页面
   const handleShowAutoregression = () => {
     navigate(AUTOREGRESSION_INFO_PATH);
   };
-
+  // 科普性页面
   const handleShowDifferencingInfo = () => {
     navigate(DIFFERENCING_INFO_PATH);
   };
@@ -529,13 +468,13 @@ const ARIMAStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
+      isPreviousDisabled={retryCount>=3 || isLoading}
       isNextDisabled={
         isLoading ||
         !!error ||
         isAutoregressionInfoPage ||
         isDifferencingInfoPage ||
-        (isDifferencingValidationPage && !isValidDifferencing) ||
-        (isStationarityTablePage && error==="所有差分阶数的检验结果均为非平稳，无法继续进行ARIMA建模。请尝试调整数据窗口或选择其他产品。")
+        (isDifferencingValidationPage && !isValidDifferencing)
       }
       nextButtonText={isModelComparisonPage ? '完成' : '下一步'}
     >
