@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileText, XCircle, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, XCircle, AlertTriangle, Download } from 'lucide-react';
 import Modal from '@/shared/components/common/Modal';
 import Button from '@/shared/components/common/Button';
 import { validateClassName, validateClassCode } from '@/shared/utils/validation';
@@ -52,6 +52,30 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({ isOpen, onCl
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = ['学号', '姓名'];
+    const examples = [
+      ['20240001', '张三'],
+      ['20240002', '李四']
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...examples.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '学生名单导入模板.csv';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleCreate = async () => {
@@ -118,7 +142,17 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({ isOpen, onCl
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">学生名单（可选）</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">学生名单（可选）</label>
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="text-xs text-blue-600 hover:text-blue-800 flex items-center hover:underline"
+            >
+              <Download size={12} className="mr-1" />
+              下载模板
+            </button>
+          </div>
           <div className="space-y-2">
             {!csvFile ? (
               <div className="relative">

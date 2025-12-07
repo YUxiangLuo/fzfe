@@ -252,6 +252,30 @@ const ExperimentDataView: React.FC = () => {
     window.open(fullUrl, "_blank");
   };
 
+  const handleDownloadTemplate = () => {
+    const headers = ['行业名称', '公司名称', '产品名称', '年份', '月份', '销售数量', '数量单位'];
+    const examples = [
+      ['电子行业', '示例科技', '智能手机', '2023', '1', '1200', '部'],
+      ['电子行业', '示例科技', '智能手机', '2023', '2', '1350', '部']
+    ];
+
+    const csvContent = [
+      headers.join(','),
+      ...examples.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '实验数据导入模板.csv';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const resetUploadModal = () => {
     setIsUploadModalOpen(false);
     setUploadFile(null);
@@ -439,9 +463,19 @@ const ExperimentDataView: React.FC = () => {
               数据格式要求
             </label>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-              <p className="font-semibold mb-2">
-                请确保上传的CSV文件包含以下列标题：
-              </p>
+              <div className="flex justify-between items-start mb-2">
+                <p className="font-semibold">
+                  请确保上传的CSV文件包含以下列标题：
+                </p>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center hover:underline bg-white px-2 py-1 rounded border border-blue-200"
+                >
+                  <Download size={12} className="mr-1" />
+                  下载模板
+                </button>
+              </div>
               <ul className="list-disc list-inside space-y-1">
                 <li>
                   <code className="bg-blue-100 px-1 rounded">行业名称</code>
