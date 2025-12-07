@@ -88,6 +88,7 @@ export interface StudentGradeOverview {
   knowledge_test: number | null;
   report_quality: number | null;
   final_score: number | null;
+  report_status?: 'submitted' | 'graded' | 'rejected' | null;
   exp_flow_breakdown?: GradeBreakdownEntry[] | null;
   final_score_breakdown?: FinalScoreBreakdown | null;
 }
@@ -111,6 +112,7 @@ export interface ExperimentReport {
   full_name: string;
   report_id: number | null;
   experiment_id: number | null;
+  status?: 'submitted' | 'graded' | 'rejected';
   submitted_at: string | null;
   pdf_file_path: string | null;
   grade: number | null;

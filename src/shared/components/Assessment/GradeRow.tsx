@@ -2,43 +2,13 @@ import React from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { StudentGradeOverview } from '@/shared/types';
 import FinalBreakdown from './FinalBreakdown';
+import { getEvaluationBadge, getProgressStatus } from '@/shared/utils/gradeStatus';
 
 const formatScore = (value: number | null) => {
   if (value === null || Number.isNaN(value)) {
     return '—';
   }
   return value.toFixed(2);
-};
-
-const getEvaluationBadge = (grade: StudentGradeOverview) => {
-  const status = getProgressStatus(grade);
-
-  if (status === 'not-started') {
-    return { text: '未进行实验', color: 'bg-gray-100 text-gray-600 border border-gray-200' };
-  }
-  if (status === 'in-progress') {
-    return { text: '实验进行中', color: 'bg-amber-100 text-amber-800 border border-amber-200' };
-  }
-  if (status === 'waiting-evaluation') {
-    return { text: '实验待评分', color: 'bg-indigo-100 text-indigo-800 border border-indigo-200' };
-  }
-
-  return { text: '已完成评分', color: 'bg-blue-100 text-blue-800 border border-blue-200' };
-};
-
-type ProgressStatus = 'not-started' | 'in-progress' | 'waiting-evaluation' | 'completed';
-
-const getProgressStatus = (grade: StudentGradeOverview): ProgressStatus => {
-  if (grade.experiment_id === null) {
-    return 'not-started';
-  }
-  if (grade.exp_flow_score === 0) {
-    return 'in-progress';
-  }
-  if (grade.model_quality === 0 || grade.report_quality === 0) {
-    return 'waiting-evaluation';
-  }
-  return 'completed';
 };
 
 interface GradeRowProps {
@@ -50,6 +20,10 @@ interface GradeRowProps {
 
 const GradeRow: React.FC<GradeRowProps> = ({ grade, index, isExpanded, onToggle }) => {
   const badge = getEvaluationBadge(grade);
+  const status = getProgressStatus(grade);
+  const isRejected = status === 'rejected';
+
+  const displayScore = (score: number | null) => (isRejected ? '—' : formatScore(score));
 
   return (
     <React.Fragment>
@@ -57,11 +31,11 @@ const GradeRow: React.FC<GradeRowProps> = ({ grade, index, isExpanded, onToggle 
         <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
         <td className="px-4 py-3 text-sm text-gray-900 font-medium">{grade.full_name}</td>
         <td className="px-4 py-3 text-sm text-gray-600">{grade.username}</td>
-        <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.exp_flow_score)}</td>
-        <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.knowledge_test)}</td>
-        <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.model_quality)}</td>
-        <td className="px-4 py-3 text-sm text-gray-700">{formatScore(grade.report_quality)}</td>
-        <td className="px-4 py-3 text-sm font-semibold text-gray-900">{formatScore(grade.final_score)}</td>
+        <td className="px-4 py-3 text-sm text-gray-700">{displayScore(grade.exp_flow_score)}</td>
+        <td className="px-4 py-3 text-sm text-gray-700">{displayScore(grade.knowledge_test)}</td>
+        <td className="px-4 py-3 text-sm text-gray-700">{displayScore(grade.model_quality)}</td>
+        <td className="px-4 py-3 text-sm text-gray-700">{displayScore(grade.report_quality)}</td>
+        <td className="px-4 py-3 text-sm font-semibold text-gray-900">{displayScore(grade.final_score)}</td>
         <td className="px-4 py-3 text-sm">
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>{badge.text}</span>
         </td>

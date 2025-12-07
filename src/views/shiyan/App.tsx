@@ -17,6 +17,7 @@ import Profile from './pages/Profile';
 import ModelQuiz from './pages/ModelQuiz';
 import PlanQuiz from './pages/PlanQuiz';
 import ExperimentReport from './pages/ExperimentReport';
+import ReportStatusCheck from './pages/ReportStatusCheck';
 
 // A component to protect routes based on experiment step completion
 const ProtectedRoute = ({ step, children }: { step: number, children: React.ReactElement }) => {
@@ -70,7 +71,7 @@ function App() {
         <ExperimentStoreProvider>
           <Router basename="/exp">
             <Routes>
-              <Route path="/" element={<Navigate to="/introduction" replace />} />
+              <Route path="/" element={<ReportStatusCheck />} />
               <Route path="/introduction" element={<Introduction />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/quiz" element={<ModelQuiz />} />

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { StudentGradeOverview } from '@/shared/types';
+import { getProgressStatus } from '@/shared/utils/gradeStatus';
 
 const FINAL_BREAKDOWN_LABELS: Record<'exp_flow' | 'knowledge_test' | 'model_quality' | 'report_quality', string> = {
   exp_flow: '实验流程',
@@ -32,8 +33,11 @@ const FinalBreakdown: React.FC<FinalBreakdownProps> = ({ grade }) => {
   });
 
   const expFlowDetails = grade.exp_flow_breakdown ?? [];
+  const status = getProgressStatus(grade);
+  const isRejected = status === 'rejected';
 
   const renderValue = (value: number | null | undefined) => {
+    if (isRejected) return '—';
     if (value === null || value === undefined) return '—';
     return Number.isFinite(value) ? value.toFixed(2) : '—';
   };

@@ -27,6 +27,12 @@ import { DOWNLOAD_SERVER_BASE_URL } from '@/config/appConfig';
 import GradeCharts, { type GradeChartDatum } from '@/shared/components/Assessment/GradeCharts';
 import GradeRow from './GradeRow';
 import Button from '@/shared/components/common/Button';
+import { 
+  getProgressStatus, 
+  getEvaluationBadge, 
+  type ProgressStatus, 
+  type StatusVariant 
+} from '@/shared/utils/gradeStatus';
 
 const SCORE_SEGMENT_CONFIG = {
   excellent: {
@@ -84,22 +90,6 @@ const formatScore = (value: number | null) => {
   return value.toFixed(2);
 };
 
-const getEvaluationBadge = (grade: StudentGradeOverview) => {
-  const status = getProgressStatus(grade);
-
-  if (status === 'not-started') {
-    return { text: '未进行实验', color: 'bg-gray-100 text-gray-600 border border-gray-200' };
-  }
-  if (status === 'in-progress') {
-    return { text: '实验进行中', color: 'bg-amber-100 text-amber-800 border border-amber-200' };
-  }
-  if (status === 'waiting-evaluation') {
-    return { text: '实验待评分', color: 'bg-indigo-100 text-indigo-800 border border-indigo-200' };
-  }
-
-  return { text: '已完成评分', color: 'bg-blue-100 text-blue-800 border border-blue-200' };
-};
-
 const formatStatValue = (value: number | null) => {
   if (value === null || Number.isNaN(value)) {
     return null;
@@ -116,28 +106,12 @@ type SortKey =
   | 'final_score'
   | 'evaluation';
 
-type ProgressStatus = 'not-started' | 'in-progress' | 'waiting-evaluation' | 'completed';
-
-const getProgressStatus = (grade: StudentGradeOverview): ProgressStatus => {
-  if (grade.experiment_id === null) {
-    return 'not-started';
-  }
-  if (grade.exp_flow_score === 0) {
-    return 'in-progress';
-  }
-  if (grade.model_quality === 0 || grade.report_quality === 0) {
-    return 'waiting-evaluation';
-  }
-  return 'completed';
-};
-
-type StatusVariant = 'completed' | 'waiting' | 'progress' | 'idle';
-
 const STATUS_STYLES: Record<StatusVariant, string> = {
   completed: 'bg-blue-50 text-blue-700 border border-blue-100',
   waiting: 'bg-indigo-50 text-indigo-700 border border-indigo-100',
   progress: 'bg-amber-50 text-amber-700 border border-amber-100',
   idle: 'bg-gray-50 text-gray-600 border border-gray-200',
+  rejected: 'bg-red-50 text-red-700 border border-red-100',
 };
 
 const StatusChip: React.FC<{ variant: StatusVariant; label: string; value: number }> = ({ variant, label, value }) => (
@@ -309,7 +283,8 @@ const GradesOverview: React.FC = () => {
             'not-started': 0,
             'in-progress': 1,
             'waiting-evaluation': 2,
-            'completed': 3,
+            'rejected': 3,
+            'completed': 4,
           };
           const aStatus = getProgressStatus(a);
           const bStatus = getProgressStatus(b);
@@ -369,6 +344,7 @@ const GradesOverview: React.FC = () => {
     const inProgress = grades.filter((grade) => getProgressStatus(grade) === 'in-progress');
     const waitingEvaluation = grades.filter((grade) => getProgressStatus(grade) === 'waiting-evaluation');
     const notStarted = grades.filter((grade) => getProgressStatus(grade) === 'not-started');
+    const rejected = grades.filter((grade) => getProgressStatus(grade) === 'rejected');
 
     const validScores = completed
       .map((grade) => grade.final_score)
@@ -381,6 +357,7 @@ const GradesOverview: React.FC = () => {
         inProgressCount: inProgress.length,
         waitingEvaluationCount: waitingEvaluation.length,
         notStartedCount: notStarted.length,
+        rejectedCount: rejected.length,
         avgFinalGrade: null as number | null,
         highestGrade: null as number | null,
         lowestGrade: null as number | null,
@@ -397,6 +374,7 @@ const GradesOverview: React.FC = () => {
       inProgressCount: inProgress.length,
       waitingEvaluationCount: waitingEvaluation.length,
       notStartedCount: notStarted.length,
+      rejectedCount: rejected.length,
       avgFinalGrade: parseFloat((sum / validScores.length).toFixed(2)),
       highestGrade: validScores.length ? Math.max(...validScores) : null,
       lowestGrade: validScores.length ? Math.min(...validScores) : null,
@@ -446,10 +424,13 @@ const GradesOverview: React.FC = () => {
   );
 
   const pendingCount =
-    gradeInsights.inProgressCount + gradeInsights.waitingEvaluationCount + gradeInsights.notStartedCount;
+    gradeInsights.inProgressCount +
+    gradeInsights.waitingEvaluationCount +
+    gradeInsights.notStartedCount +
+    gradeInsights.rejectedCount;
   const pendingMessage =
     pendingCount > 0
-      ? `提示：未进行实验、实验进行中或等待评分的学生暂不纳入平均分、分布等统计（当前共 ${pendingCount} 人）。`
+      ? `提示：未进行实验、实验进行中、等待评分或已驳回的学生暂不纳入平均分、分布等统计（当前共 ${pendingCount} 人）。`
       : '提示：当前班级所有学生都已完成评分，统计数据包含全部学生。';
 
   const chartGrades = useMemo<GradeChartDatum[]>(
@@ -542,6 +523,7 @@ const GradesOverview: React.FC = () => {
         <div className="flex flex-wrap gap-2">
           <StatusChip variant="completed" label="已完成评分" value={gradeInsights.completedCount} />
           <StatusChip variant="waiting" label="实验待评分" value={gradeInsights.waitingEvaluationCount} />
+          <StatusChip variant="rejected" label="已驳回" value={gradeInsights.rejectedCount} />
           <StatusChip variant="progress" label="实验进行中" value={gradeInsights.inProgressCount} />
           <StatusChip variant="idle" label="未进行实验" value={gradeInsights.notStartedCount} />
         </div>

@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowUpDown,
+  XCircle,
 } from "lucide-react";
 import type { Class, ExperimentReport } from "@/shared/types";
 import Modal from "@/shared/components/common/Modal";
@@ -23,6 +24,8 @@ import { decodeToken } from "@/utils/auth";
 import { DOWNLOAD_SERVER_BASE_URL } from "@/config/appConfig";
 import { useToast } from "@/shared/hooks/useToast";
 import { Toast } from "@/shared/components/common/Toast";
+import { ConfirmDialog } from "@/shared/components/common/ConfirmDialog";
+import { useConfirm } from "@/shared/hooks/useConfirm";
 
 const buildDownloadUrl = (filePath: string) => {
   const filename = filePath.split("/").pop();
@@ -40,6 +43,11 @@ const STATUS_META = {
     badge: "bg-yellow-50 text-yellow-700 border border-yellow-200",
     dot: "bg-yellow-500",
   },
+  rejected: {
+    label: "已驳回",
+    badge: "bg-red-50 text-red-700 border border-red-200",
+    dot: "bg-red-500",
+  },
   draft: {
     label: "未提交",
     badge: "bg-slate-50 text-slate-600 border border-slate-200",
@@ -54,6 +62,11 @@ type SortKey = "status" | "username" | "submitted_at" | "grade";
 
 const getReportStatusKey = (report: ExperimentReport): StatusKey => {
   if (!report.report_id) return "draft";
+  if (report.status === "rejected") return "rejected";
+  if (report.status === "graded") return "submitted";
+  if (report.status === "submitted") return "pending";
+  
+  // Fallback compatibility
   if (report.grade !== null && report.grade !== undefined) return "submitted";
   return "pending";
 };
@@ -72,6 +85,7 @@ const formatDateTime = (value: string | null) => {
 
 const ExperimentReports: React.FC = () => {
   const { toast, showToast, hideToast } = useToast();
+  const confirm = useConfirm();
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>("");
   const [reports, setReports] = useState<ExperimentReport[]>([]);
@@ -89,6 +103,7 @@ const ExperimentReports: React.FC = () => {
   const [tempScore, setTempScore] = useState("");
   const [tempModelQualityScore, setTempModelQualityScore] = useState("");
   const [tempFeedback, setTempFeedback] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [showExpFlowScores, setShowExpFlowScores] = useState(false);
   const [expFlowScores, setExpFlowScores] = useState({
@@ -215,7 +230,7 @@ const ExperimentReports: React.FC = () => {
     next.sort((a, b) => {
       switch (key) {
         case "status": {
-          const order: Record<StatusKey, number> = { draft: 0, pending: 1, submitted: 2 };
+          const order: Record<StatusKey, number> = { draft: 0, rejected: 1, pending: 2, submitted: 3 };
           const aKey = getReportStatusKey(a);
           const bKey = getReportStatusKey(b);
           if (aKey === bKey) return 0;
@@ -314,6 +329,7 @@ const ExperimentReports: React.FC = () => {
         : ""
     );
     setTempFeedback(report.feedback ?? "");
+    setRejectReason(""); // Initialize reject reason
 
     // 初始化实验步骤评分
     const eg = report.experiment_grade;
@@ -380,6 +396,7 @@ const ExperimentReports: React.FC = () => {
     setTempScore("");
     setTempModelQualityScore("");
     setTempFeedback("");
+    setRejectReason("");
     setIsSubmittingReview(false);
     setShowExpFlowScores(false);
     setExpFlowScores({
@@ -401,7 +418,10 @@ const ExperimentReports: React.FC = () => {
       grade?: number;
       feedback?: string;
       experiment_grade?: any;
-    } = {};
+      status?: string;
+    } = {
+      status: 'graded' // 只要提交评分，状态就变为已评阅
+    };
 
     if (tempScore.trim()) {
       const scoreValue = Number(tempScore);
@@ -466,6 +486,60 @@ const ExperimentReports: React.FC = () => {
       resetReviewState();
     } catch (err: any) {
       showToast(err.message || "保存评阅结果失败", "error");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedReport || !selectedReport.report_id) return;
+
+    if (!rejectReason.trim()) {
+      showToast("驳回报告时必须填写驳回原因", "error");
+      return;
+    }
+
+    // 确认对话框
+    const confirmed = await confirm.showConfirm(
+      "驳回报告",
+      "确定要驳回该学生的实验报告吗？学生将需要重新提交。",
+      "danger"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setIsSubmittingReview(true);
+      const payload = {
+        status: "rejected",
+        feedback: rejectReason.trim(),
+        grade: 0,
+        experiment_grade: {
+          model_quality: 0,
+          exp_flow_demand_data_preparation: 0,
+          exp_flow_demand_descriptive_stats: 0,
+          exp_flow_demand_model_selection: 0,
+          exp_flow_demand_generate_results: 0,
+          exp_flow_production_inventory_calc: 0,
+          exp_flow_production_service_level: 0,
+          exp_flow_production_variable_calc: 0,
+          exp_flow_production_plan_creation: 0,
+          exp_flow_report_submission: 0,
+        }
+      };
+
+      const updatedReport = await apiClient.put(`/reports/${selectedReport.report_id}`, payload);
+      setReports((prev) =>
+        prev.map((report) =>
+          report.user_id === selectedReport.user_id
+            ? { ...(updatedReport as ExperimentReport) }
+            : report,
+        ),
+      );
+      showToast("报告已驳回", "success");
+      resetReviewState();
+    } catch (err: any) {
+      showToast(err.message || "驳回失败", "error");
     } finally {
       setIsSubmittingReview(false);
     }
@@ -825,193 +899,242 @@ const ExperimentReports: React.FC = () => {
                 </Button>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">实验报告得分（0-100）</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={tempScore}
-                  onChange={(event) => setTempScore(event.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-                  placeholder="请输入报告得分"
-                />
-                {!isScoreValid && <p className="mt-1 text-xs text-red-500">分数需在 0-100 之间</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">模型选择得分（0-100）</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={tempModelQualityScore}
-                  onChange={(event) => setTempModelQualityScore(event.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-                  placeholder="请输入模型选择得分"
-                />
-                {!isModelQualityScoreValid && <p className="mt-1 text-xs text-red-500">分数需在 0-100 之间</p>}
-              </div>
-
-              {/* 实验步骤评分 - 可折叠 */}
-              <div className="border border-gray-300 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => setShowExpFlowScores(!showExpFlowScores)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  <span className="text-sm font-medium text-gray-700">实验步骤评分（可选）</span>
-                  {showExpFlowScores ? (
-                    <ChevronUp size={18} className="text-gray-500" />
-                  ) : (
-                    <ChevronDown size={18} className="text-gray-500" />
+              {selectedReport.status === "rejected" ? (
+                <div className="flex flex-col flex-1 justify-center items-center space-y-6 py-10">
+                  <div className="bg-red-50 p-4 rounded-full">
+                    <XCircle size={48} className="text-red-500" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-lg font-bold text-gray-900">报告已驳回</h3>
+                    <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">
+                      该报告已被驳回，分数已归零。<br />
+                      需等待学生重新提交后，方可再次评阅。
+                    </p>
+                  </div>
+                  
+                  {selectedReport.feedback && (
+                    <div className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700">
+                      <span className="font-semibold block mb-1 text-gray-900">驳回原因：</span>
+                      {selectedReport.feedback}
+                    </div>
                   )}
-                </button>
 
-                {showExpFlowScores && (
-                  <div className="p-4 space-y-4 border-t border-gray-300">
-                    <div className="text-xs text-gray-600 mb-3">
-                      <p className="font-medium mb-1">需求预测任务：</p>
-                    </div>
+                  <Button variant="outline" onClick={resetReviewState} className="w-full">
+                    关闭
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">实验报告得分（0-100）</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={tempScore}
+                      onChange={(event) => setTempScore(event.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                      placeholder="请输入报告得分"
+                    />
+                    {!isScoreValid && <p className="mt-1 text-xs text-red-500">分数需在 0-100 之间</p>}
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">（1）数据准备</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={expFlowScores.exp_flow_demand_data_preparation}
-                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_data_preparation: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        placeholder="0-100"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">模型选择得分（0-100）</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={tempModelQualityScore}
+                      onChange={(event) => setTempModelQualityScore(event.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                      placeholder="请输入模型选择得分"
+                    />
+                    {!isModelQualityScoreValid && <p className="mt-1 text-xs text-red-500">分数需在 0-100 之间</p>}
+                  </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">（2）描述性统计</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={expFlowScores.exp_flow_demand_descriptive_stats}
-                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_descriptive_stats: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        placeholder="0-100"
-                      />
-                    </div>
+                  {/* 实验步骤评分 - 可折叠 */}
+                  <div className="border border-gray-300 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setShowExpFlowScores(!showExpFlowScores)}
+                      className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                      <span className="text-sm font-medium text-gray-700">实验步骤评分（可选）</span>
+                      {showExpFlowScores ? (
+                        <ChevronUp size={18} className="text-gray-500" />
+                      ) : (
+                        <ChevronDown size={18} className="text-gray-500" />
+                      )}
+                    </button>
 
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">（3）预测模型选择</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={expFlowScores.exp_flow_demand_model_selection}
-                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_model_selection: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        placeholder="0-100"
-                      />
-                    </div>
+                    {showExpFlowScores && (
+                      <div className="p-4 space-y-4 border-t border-gray-300">
+                        <div className="text-xs text-gray-600 mb-3">
+                          <p className="font-medium mb-1">需求预测任务：</p>
+                        </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">（4）生成预测结果</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={expFlowScores.exp_flow_demand_generate_results}
-                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_generate_results: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        placeholder="0-100"
-                      />
-                    </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">（1）数据准备</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={expFlowScores.exp_flow_demand_data_preparation}
+                            onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_data_preparation: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            placeholder="0-100"
+                          />
+                        </div>
 
-                    <div className="text-xs text-gray-600 mb-3 pt-3 border-t border-gray-200">
-                      <p className="font-medium mb-1">生产计划决策任务：</p>
-                    </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">（2）描述性统计</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={expFlowScores.exp_flow_demand_descriptive_stats}
+                            onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_descriptive_stats: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            placeholder="0-100"
+                          />
+                        </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">（1）库存变量参数计算</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={expFlowScores.exp_flow_production_inventory_calc}
-                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_inventory_calc: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        placeholder="0-100"
-                      />
-                    </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">（3）预测模型选择</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={expFlowScores.exp_flow_demand_model_selection}
+                            onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_model_selection: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            placeholder="0-100"
+                          />
+                        </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">（2）服务水平参数计算</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={expFlowScores.exp_flow_production_service_level}
-                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_service_level: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        placeholder="0-100"
-                      />
-                    </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">（4）生成预测结果</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={expFlowScores.exp_flow_demand_generate_results}
+                            onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_generate_results: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            placeholder="0-100"
+                          />
+                        </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">（3）生产变量参数计算</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={expFlowScores.exp_flow_production_variable_calc}
-                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_variable_calc: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        placeholder="0-100"
-                      />
-                    </div>
+                        <div className="text-xs text-gray-600 mb-3 pt-3 border-t border-gray-200">
+                          <p className="font-medium mb-1">生产计划决策任务：</p>
+                        </div>
 
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">（4）制定生产计划</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={expFlowScores.exp_flow_production_plan_creation}
-                        onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_plan_creation: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                        placeholder="0-100"
-                      />
-                    </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">（1）库存变量参数计算</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={expFlowScores.exp_flow_production_inventory_calc}
+                            onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_inventory_calc: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            placeholder="0-100"
+                          />
+                        </div>
 
-                    {!areExpFlowScoresValid && (
-                      <p className="text-xs text-red-500">所有步骤评分需在 0-100 之间</p>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">（2）服务水平参数计算</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={expFlowScores.exp_flow_production_service_level}
+                            onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_service_level: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            placeholder="0-100"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">（3）生产变量参数计算</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={expFlowScores.exp_flow_production_variable_calc}
+                            onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_variable_calc: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            placeholder="0-100"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">（4）制定生产计划</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={expFlowScores.exp_flow_production_plan_creation}
+                            onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_plan_creation: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            placeholder="0-100"
+                          />
+                        </div>
+
+                        {!areExpFlowScoresValid && (
+                          <p className="text-xs text-red-500">所有步骤评分需在 0-100 之间</p>
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">评语</label>
-                <textarea
-                  value={tempFeedback}
-                  onChange={(event) => setTempFeedback(event.target.value)}
-                  rows={6}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                  placeholder="请输入评语，可为空"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">评语（评分时使用）</label>
+                    <textarea
+                      value={tempFeedback}
+                      onChange={(event) => setTempFeedback(event.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                      placeholder="请输入评语，可为空"
+                    />
+                  </div>
 
-              <div className="flex flex-col space-y-3 pt-4 border-t border-gray-200">
-                <Button
-                  onClick={handleSaveReview}
-                  disabled={!canSubmitReview}
-                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300"
-                >
-                  {isSubmittingReview ? "保存中..." : "保存评阅结果"}
-                </Button>
-                <Button variant="outline" onClick={resetReviewState} className="w-full">
-                  取消
-                </Button>
-              </div>
+                  <div className="flex flex-col space-y-3 pt-4 border-t border-gray-200">
+                    <Button
+                      onClick={handleSaveReview}
+                      disabled={!canSubmitReview}
+                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300"
+                    >
+                      {isSubmittingReview ? "保存中..." : "保存评阅结果"}
+                    </Button>
+
+                    <Button variant="outline" onClick={resetReviewState} className="w-full">
+                      取消
+                    </Button>
+                  </div>
+
+                  {/* 驳回区域 - 放在最下方 */}
+                  <div className="bg-red-50 border border-red-100 rounded-lg p-4 space-y-3 mt-4">
+                    <label className="block text-sm font-medium text-red-800">驳回原因（驳回时必填）</label>
+                    <textarea
+                      value={rejectReason}
+                      onChange={(event) => setRejectReason(event.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
+                      placeholder="请输入具体的修改建议..."
+                    />
+                    <Button
+                      onClick={handleReject}
+                      disabled={isSubmittingReview || !rejectReason.trim()}
+                      variant="outline"
+                      className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                    >
+                      驳回报告
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -1024,6 +1147,14 @@ const ExperimentReports: React.FC = () => {
           position="bottom-right"
         />
       )}
+      <ConfirmDialog
+        isOpen={confirm.isOpen}
+        title={confirm.title}
+        message={confirm.message}
+        variant={confirm.variant}
+        onConfirm={confirm.handleConfirm}
+        onCancel={confirm.handleCancel}
+      />
     </div>
   );
 };
