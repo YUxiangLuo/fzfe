@@ -26,9 +26,8 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, error, isL
       '代码', 'code', 'id', '编码', '编号', 'number', 'no', 'num',
       '名称', 'name', '地址', 'address', '描述', 'description', 'desc',
       '备注', 'remark', 'note', 'comment', '类型', 'type', 'category',
-      '状态', 'status', 'state', '单位', 'unit', '日期', 'date', 'time',
-      '年份', 'year', '年', '月份', 'month', '月', '季度', 'quarter',
-      '日', 'day', '链接', 'url', 'link', '图片', 'image', 'img',
+      '状态', 'status', 'state', '单位', 'unit',
+      '链接', 'url', 'link', '图片', 'image', 'img',
     ];
     return !excludeKeywords.some(keyword => lowerField.includes(keyword));
   };
