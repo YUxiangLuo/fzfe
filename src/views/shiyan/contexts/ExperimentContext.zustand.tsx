@@ -28,7 +28,7 @@ declare global {
   }
 }
 
-const DEBUG_MODE = true; // Default debug mode
+const DEBUG_MODE = false; // Default debug mode
 
 // Helper to check debug mode (supports runtime override)
 const isDebugEnabled = () => {

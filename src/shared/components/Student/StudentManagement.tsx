@@ -7,6 +7,7 @@ import { apiClient } from '@/utils/apiClient';
 import { decodeToken } from '@/utils/auth';
 import { validateFullName, validateEmail, validatePhone, validatePassword } from '@/shared/utils/validation';
 import SelectStudentModal from './SelectStudentModal';
+import ResetPasswordModal from './ResetPasswordModal';
 import { useToast } from '@/shared/hooks/useToast';
 import { Toast } from '@/shared/components/common/Toast';
 
@@ -196,9 +197,6 @@ const StudentManagement: React.FC = () => {
   const [studentToRemove, setStudentToRemove] = useState<Student | null>(null);
   const [isProcessingRemoval, setIsProcessingRemoval] = useState(false);
   const [studentForPasswordReset, setStudentForPasswordReset] = useState<Student | null>(null);
-  const [resetPasswordForm, setResetPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
-  const [resetPasswordErrors, setResetPasswordErrors] = useState({ newPassword: '', confirmPassword: '' });
-  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   const handleCloseRemoveStudentModal = useCallback(() => {
     if (isProcessingRemoval) return;
@@ -206,9 +204,8 @@ const StudentManagement: React.FC = () => {
   }, [isProcessingRemoval]);
 
   const handleClosePasswordResetModal = useCallback(() => {
-    if (isResettingPassword) return;
     setStudentForPasswordReset(null);
-  }, [isResettingPassword]);
+  }, []);
 
   const handleCloseAddModal = useCallback(() => {
     setShowAddModal(false);
@@ -226,40 +223,7 @@ const StudentManagement: React.FC = () => {
 
   const handleResetPassword = (student: Student) => {
     setStudentForPasswordReset(student);
-    setResetPasswordForm({ newPassword: '', confirmPassword: '' });
-    setResetPasswordErrors({ newPassword: '', confirmPassword: '' });
   };
-
-  const handleResetPasswordConfirm = async () => {
-    if (!studentForPasswordReset) return;
-
-    const trimmedNewPassword = resetPasswordForm.newPassword.trim();
-    const trimmedConfirm = resetPasswordForm.confirmPassword.trim();
-
-    const newPasswordValidation = validatePassword(trimmedNewPassword, { minLength: 6, requireMixed: false });
-    const newPasswordError = newPasswordValidation.valid ? '' : newPasswordValidation.error ?? '密码至少需要6位';
-    const confirmError = trimmedConfirm ? (trimmedConfirm === trimmedNewPassword ? '' : '两次输入的密码不一致') : '请再次输入密码';
-
-    setResetPasswordErrors({ newPassword: newPasswordError, confirmPassword: confirmError });
-
-    if (newPasswordError || confirmError) {
-      return;
-    }
-
-    setIsResettingPassword(true);
-    try {
-      await apiClient.post(`/users/${studentForPasswordReset.user_id}/reset-password`, {
-        newPassword: trimmedNewPassword,
-      });
-      showToast(`学生 ${studentForPasswordReset.full_name} 的密码已成功更新。`, 'success');
-      setStudentForPasswordReset(null);
-    } catch (err: any) {
-      showToast(`密码重置失败: ${err.message}`, 'error');
-    } finally {
-      setIsResettingPassword(false);
-    }
-  };
-
 
   const handleOpenAddModal = () => {
     if (!selectedClassId) {
@@ -440,9 +404,9 @@ const StudentManagement: React.FC = () => {
               onClick={() => handleResetPassword(student)}
               size="sm"
               title="重置学生密码"
-              disabled={isResettingPassword}
+              disabled={false}
             >
-              {isResettingPassword ? '提交中...' : '设置新密码'}
+              设置新密码
             </Button>
             <Button
               onClick={() => setStudentToRemove(student)}
@@ -588,83 +552,12 @@ const StudentManagement: React.FC = () => {
         </div>
       </Modal>
 
-      <Modal
+      <ResetPasswordModal
         isOpen={!!studentForPasswordReset}
         onClose={handleClosePasswordResetModal}
-        title="重置学生密码"
-      >
-        <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-            为学生
-            <span className="font-semibold text-blue-900 mx-1">
-              {studentForPasswordReset?.full_name}
-            </span>
-            ({studentForPasswordReset?.username}) 设置新的登录密码。
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              新密码 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="password"
-              value={resetPasswordForm.newPassword}
-              onChange={(e) => {
-                const value = e.target.value;
-                setResetPasswordForm((prev) => ({ ...prev, newPassword: value }));
-                setResetPasswordErrors((prev) => ({ ...prev, newPassword: '' }));
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="至少6个字符，可为纯数字"
-              minLength={6}
-              maxLength={20}
-              disabled={isResettingPassword}
-              required
-            />
-            {resetPasswordErrors.newPassword && (
-              <p className="mt-1 text-xs text-red-500">{resetPasswordErrors.newPassword}</p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              确认新密码 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="password"
-              value={resetPasswordForm.confirmPassword}
-              onChange={(e) => {
-                const value = e.target.value;
-                setResetPasswordForm((prev) => ({ ...prev, confirmPassword: value }));
-                setResetPasswordErrors((prev) => ({ ...prev, confirmPassword: '' }));
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="请再次输入新密码"
-              minLength={6}
-              maxLength={20}
-              disabled={isResettingPassword}
-              required
-            />
-            {resetPasswordErrors.confirmPassword && (
-              <p className="mt-1 text-xs text-red-500">{resetPasswordErrors.confirmPassword}</p>
-            )}
-          </div>
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <Button
-              variant="outline"
-              onClick={handleClosePasswordResetModal}
-              disabled={isResettingPassword}
-            >
-              取消
-            </Button>
-            <Button
-              onClick={handleResetPasswordConfirm}
-              disabled={isResettingPassword}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {isResettingPassword ? '提交中...' : '确认修改'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        student={studentForPasswordReset}
+        showToast={showToast}
+      />
 
       <Modal
         isOpen={showAddModal}
