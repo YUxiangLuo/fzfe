@@ -120,6 +120,10 @@ const ExperimentReports: React.FC = () => {
   const [exportedFileUrl, setExportedFileUrl] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
+  // New states for CSV export
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [exportedCsvUrl, setExportedCsvUrl] = useState<string | null>(null);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -265,6 +269,7 @@ const ExperimentReports: React.FC = () => {
   const handleClassChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setSelectedClassId(event.target.value);
     setExportedFileUrl(null);
+    setExportedCsvUrl(null);
     setExportError(null);
   };
 
@@ -290,6 +295,29 @@ const ExperimentReports: React.FC = () => {
       setIsExportingReports(false);
     }
   }, [selectedClassId, filteredReports.length, isExportingReports]);
+
+  const handleExportCsv = useCallback(async () => {
+    if (!selectedClassId || filteredReports.length === 0 || isExportingCsv) return;
+    setIsExportingCsv(true);
+    setExportError(null);
+    setExportedCsvUrl(null);
+    try {
+      const response = await apiClient.get<{ file_path: string }>(`/classes/${selectedClassId}/report-export.csv`);
+
+      if (!response || !response.file_path) {
+        throw new Error("导出失败：服务器未返回文件地址");
+      }
+
+      const filename = response.file_path.split("/").pop();
+      const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/exports/${filename}`;
+      setExportedCsvUrl(fullUrl);
+    } catch (err: any) {
+      const errorMessage = err.message || "导出 CSV 失败，请稍后再试。";
+      setExportError(errorMessage);
+    } finally {
+      setIsExportingCsv(false);
+    }
+  }, [selectedClassId, filteredReports.length, isExportingCsv]);
 
   const getReportStatus = useCallback((report: ExperimentReport): StatusMeta => {
     const key = getReportStatusKey(report);
@@ -763,6 +791,38 @@ const ExperimentReports: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center space-x-3">
+            {exportedCsvUrl ? (
+              <a
+                href={exportedCsvUrl}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                <Download size={16} />
+                <span>下载报告列表</span>
+              </a>
+            ) : (
+              <Button
+                onClick={handleExportCsv}
+                disabled={!selectedClassId || filteredReports.length === 0 || isExportingCsv}
+                variant="outline"
+                className="flex items-center space-x-2 bg-white"
+              >
+                {isExportingCsv ? (
+                  <>
+                    <Loader size={16} className="animate-spin" />
+                    <span>生成报告列表...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText size={16} />
+                    <span>导出报告列表</span>
+                  </>
+                )}
+              </Button>
+            )}
+
             {exportedFileUrl ? (
               <a
                 href={exportedFileUrl}
@@ -772,7 +832,7 @@ const ExperimentReports: React.FC = () => {
                 className="inline-flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
               >
                 <Download size={16} />
-                <span>下载报告压缩包</span>
+                <span>下载所有报告文件</span>
               </a>
             ) : (
               <Button
@@ -784,12 +844,12 @@ const ExperimentReports: React.FC = () => {
                 {isExportingReports ? (
                   <>
                     <Loader size={16} className="animate-spin" />
-                    <span>正在导出...</span>
+                    <span>正在导出文件...</span>
                   </>
                 ) : (
                   <>
                     <Download size={16} />
-                    <span>导出所有报告</span>
+                    <span>导出所有报告文件</span>
                   </>
                 )}
               </Button>
@@ -844,7 +904,7 @@ const ExperimentReports: React.FC = () => {
                     onClick={() => handleSort("grade")}
                     className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
                   >
-                    <span>成绩</span>
+                    <span>报告得分</span>
                     {renderSortIcon("grade")}
                   </button>
                 </th>

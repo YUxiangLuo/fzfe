@@ -19,6 +19,17 @@ import {
   Pie,
   Cell,
   Tooltip as RechartsTooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
 } from 'recharts';
 import type { StudentGradeOverview, Class } from '@/shared/types';
 import { apiClient, API_BASE_URL } from '@/utils/apiClient';
@@ -27,12 +38,33 @@ import { DOWNLOAD_SERVER_BASE_URL } from '@/config/appConfig';
 import GradeCharts, { type GradeChartDatum } from '@/shared/components/Assessment/GradeCharts';
 import GradeRow from './GradeRow';
 import Button from '@/shared/components/common/Button';
-import { 
-  getProgressStatus, 
-  getEvaluationBadge, 
-  type ProgressStatus, 
-  type StatusVariant 
+import {
+  getProgressStatus,
+  getEvaluationBadge,
+  type ProgressStatus,
+  type StatusVariant
 } from '@/shared/utils/gradeStatus';
+
+const ALL_CLASSES = 'all';
+
+// Extended type with class information for display
+interface StudentGradeWithClass extends StudentGradeOverview {
+  class_id?: number;
+  class_name?: string;
+}
+
+// Class summary for "All Classes" view
+interface ClassSummary {
+  class_id: number;
+  class_name: string;
+  total_students: number;
+  graded_count: number;         // report_status = 'graded'
+  submitted_count: number;       // report_status = 'submitted'
+  rejected_count: number;        // report_status = 'rejected'
+  not_submitted_count: number;   // report_status = null
+  average_score: number | null;
+  grades: StudentGradeOverview[];
+}
 
 const SCORE_SEGMENT_CONFIG = {
   excellent: {
@@ -107,7 +139,7 @@ type SortKey =
   | 'evaluation';
 
 const STATUS_STYLES: Record<StatusVariant, string> = {
-  completed: 'bg-blue-50 text-blue-700 border border-blue-100',
+  completed: 'bg-green-50 text-green-700 border border-green-100',
   waiting: 'bg-indigo-50 text-indigo-700 border border-indigo-100',
   progress: 'bg-amber-50 text-amber-700 border border-amber-100',
   idle: 'bg-gray-50 text-gray-600 border border-gray-200',
@@ -123,7 +155,8 @@ const StatusChip: React.FC<{ variant: StatusVariant; label: string; value: numbe
 const GradesOverview: React.FC = () => {
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
-  const [grades, setGrades] = useState<StudentGradeOverview[]>([]);
+  const [grades, setGrades] = useState<StudentGradeWithClass[]>([]);
+  const [classSummaries, setClassSummaries] = useState<ClassSummary[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' } | null>(null);
@@ -170,10 +203,8 @@ const GradesOverview: React.FC = () => {
         const response = await apiClient.get<Class[]>(`/teachers/${teacherId}/classes`);
         if (Array.isArray(response) && response.length > 0) {
           setClasses(response);
-          const firstClass = response[0];
-          if (firstClass) {
-            setSelectedClassId(String(firstClass.class_id));
-          }
+          // Default to "All Classes"
+          setSelectedClassId(ALL_CLASSES);
         } else {
           setClasses([]);
           setError("您当前没有管理的班级。");
@@ -191,6 +222,7 @@ const GradesOverview: React.FC = () => {
   useEffect(() => {
     if (!selectedClassId) {
       setGrades([]);
+      setClassSummaries([]);
       setExpandedRows([]);
       return;
     }
@@ -202,16 +234,83 @@ const GradesOverview: React.FC = () => {
       setIsLoadingGrades(true);
       setError(null);
       try {
-        const response = await apiClient.get<StudentGradeOverview[]>(`/classes/${selectedClassId}/grade-summaries`);
-        setGrades(Array.isArray(response) ? response : []);
-        setExpandedRows([]);
-        if (!Array.isArray(response) || response.length === 0) {
-          setError('该班级暂无成绩记录。');
+        if (selectedClassId === ALL_CLASSES) {
+          // Fetch grades from all classes and create summaries
+          const summaryPromises = classes.map(async (cls) => {
+            try {
+              const response = await apiClient.get<StudentGradeOverview[]>(`/classes/${cls.class_id}/grade-summaries`);
+              const gradesArray = Array.isArray(response) ? response : [];
+
+              // Calculate summary statistics by report status
+              const gradedCount = gradesArray.filter((g) => g.report_status === 'graded').length;
+              const submittedCount = gradesArray.filter((g) => g.report_status === 'submitted').length;
+              const rejectedCount = gradesArray.filter((g) => g.report_status === 'rejected').length;
+              const notSubmittedCount = gradesArray.filter((g) => !g.report_status).length;
+
+              // Calculate average score from graded reports only
+              const gradedReports = gradesArray.filter((g) => g.report_status === 'graded' && g.final_score !== null);
+              const avgScore = gradedReports.length > 0
+                ? gradedReports.reduce((sum, g) => sum + (g.final_score || 0), 0) / gradedReports.length
+                : null;
+
+              return {
+                class_id: cls.class_id,
+                class_name: cls.class_name,
+                total_students: gradesArray.length,
+                graded_count: gradedCount,
+                submitted_count: submittedCount,
+                rejected_count: rejectedCount,
+                not_submitted_count: notSubmittedCount,
+                average_score: avgScore,
+                grades: gradesArray,
+              } as ClassSummary;
+            } catch (err: any) {
+              console.warn(`Failed to fetch grades for class ${cls.class_name}:`, err.message);
+              return {
+                class_id: cls.class_id,
+                class_name: cls.class_name,
+                total_students: 0,
+                graded_count: 0,
+                submitted_count: 0,
+                rejected_count: 0,
+                not_submitted_count: 0,
+                average_score: null,
+                grades: [],
+              } as ClassSummary;
+            }
+          });
+
+          const summaries = await Promise.all(summaryPromises);
+          setClassSummaries(summaries);
+          setGrades([]);
+          setExpandedRows([]);
+
+          if (summaries.every(s => s.total_students === 0)) {
+            setError('暂无成绩记录。部分班级可能尚未设置成绩权重。');
+          }
+        } else {
+          // Fetch grades from single class
+          const response = await apiClient.get<StudentGradeOverview[]>(`/classes/${selectedClassId}/grade-summaries`);
+          const gradesWithClass = (Array.isArray(response) ? response : []).map(grade => {
+            const cls = classes.find(c => String(c.class_id) === selectedClassId);
+            return {
+              ...grade,
+              class_id: cls?.class_id,
+              class_name: cls?.class_name,
+            };
+          });
+          setGrades(gradesWithClass);
+          setClassSummaries([]);
+          setExpandedRows([]);
+          if (gradesWithClass.length === 0) {
+            setError('该班级暂无成绩记录。');
+          }
         }
       } catch (err: any) {
         setGrades([]);
+        setClassSummaries([]);
         if (err.message && err.message.includes("Grade weights for this class have not been set up")) {
-          setError("无法计算成绩，因为当前班级尚未设置成绩权重。请先前往‘成绩权重’页面进行设置。");
+          setError("无法计算成绩，因为当前班级尚未设置成绩权重。请先前往'成绩权重'页面进行设置。");
         } else {
           setError(err?.message || '获取成绩数据失败。');
         }
@@ -221,7 +320,7 @@ const GradesOverview: React.FC = () => {
     };
 
     fetchGrades();
-  }, [selectedClassId]);
+  }, [selectedClassId, classes]);
 
   const filteredGrades = useMemo(() => {
     if (!debouncedSearch) return grades;
@@ -334,18 +433,44 @@ const GradesOverview: React.FC = () => {
   };
 
   const currentClass = useMemo(
-    () =>
-      classes.find((cls) => String(cls.class_id) === selectedClassId) ?? null,
+    () => {
+      if (selectedClassId === ALL_CLASSES) return null;
+      return classes.find((cls) => String(cls.class_id) === selectedClassId) ?? null;
+    },
     [classes, selectedClassId],
   );
 
   const gradeInsights = useMemo(() => {
-    const completed = grades.filter((grade) => getProgressStatus(grade) === 'completed');
-    const inProgress = grades.filter((grade) => getProgressStatus(grade) === 'in-progress');
-    const waitingEvaluation = grades.filter((grade) => getProgressStatus(grade) === 'waiting-evaluation');
-    const notStarted = grades.filter((grade) => getProgressStatus(grade) === 'not-started');
-    const rejected = grades.filter((grade) => getProgressStatus(grade) === 'rejected');
+    // Initialize buckets
+    const completed: StudentGradeWithClass[] = [];
+    const waitingEvaluation: StudentGradeWithClass[] = [];
+    const rejected: StudentGradeWithClass[] = [];
+    const notStarted: StudentGradeWithClass[] = [];
+    const inProgress: StudentGradeWithClass[] = [];
 
+    // Single source of truth: Iterate and classify using getProgressStatus
+    grades.forEach(grade => {
+      const status = getProgressStatus(grade);
+      switch (status) {
+        case 'completed':
+          completed.push(grade);
+          break;
+        case 'waiting-evaluation':
+          waitingEvaluation.push(grade);
+          break;
+        case 'rejected':
+          rejected.push(grade);
+          break;
+        case 'not-started':
+          notStarted.push(grade);
+          break;
+        case 'in-progress':
+          inProgress.push(grade);
+          break;
+      }
+    });
+
+    // Calculate statistics ONLY from completed (graded) reports
     const validScores = completed
       .map((grade) => grade.final_score)
       .filter((score): score is number => score !== null && !Number.isNaN(score));
@@ -391,6 +516,7 @@ const GradesOverview: React.FC = () => {
       fail: 0,
     };
 
+    // Distribution is strictly based on graded students
     gradeInsights.completedStudents.forEach((grade) => {
       const score = grade.final_score;
       if (score === null || Number.isNaN(score)) {
@@ -454,6 +580,11 @@ const GradesOverview: React.FC = () => {
       return;
     }
 
+    if (selectedClassId === ALL_CLASSES) {
+      setExportError('导出功能暂不支持"全部班级"，请选择单个班级进行导出。');
+      return;
+    }
+
     setIsExporting(true);
     setExportError(null);
     setExportedFileUrl(null);
@@ -481,7 +612,264 @@ const GradesOverview: React.FC = () => {
     );
   }, []);
 
-  
+  // Render class comparison view (for "All Classes")
+  const renderClassComparison = () => {
+    if (isLoadingGrades) {
+      return (
+        <div className="flex justify-center py-20">
+          <Loader className="animate-spin text-blue-500" size={40} />
+        </div>
+      );
+    }
+
+    // Prepare data for charts
+    const barChartData = classSummaries.map(s => ({
+      name: s.class_name,
+      平均分: s.average_score !== null ? parseFloat(s.average_score.toFixed(2)) : 0,
+    }));
+
+    const submissionPieData = classSummaries.map((s, index) => ({
+      name: s.class_name,
+      已提交: s.graded_count + s.submitted_count + s.rejected_count,
+      未提交: s.not_submitted_count,
+      color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5],
+    }));
+
+    const studentCountPieData = classSummaries.map((s, index) => ({
+      name: s.class_name,
+      value: s.total_students,
+      color: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index % 5],
+    }));
+
+    const completionStackData = classSummaries.map(s => ({
+      name: s.class_name,
+      已评分: s.graded_count,
+      待评分: s.submitted_count,
+      已驳回: s.rejected_count,
+      未提交: s.not_submitted_count,
+    }));
+
+    const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+
+    const CLASS_CARD_COLORS = [
+      { bg: 'bg-blue-500', header: 'bg-blue-50', border: 'border-blue-200' },
+      { bg: 'bg-green-500', header: 'bg-green-50', border: 'border-green-200' },
+      { bg: 'bg-yellow-500', header: 'bg-yellow-50', border: 'border-yellow-200' },
+      { bg: 'bg-red-500', header: 'bg-red-50', border: 'border-red-200' },
+      { bg: 'bg-purple-500', header: 'bg-purple-50', border: 'border-purple-200' },
+      { bg: 'bg-pink-500', header: 'bg-pink-50', border: 'border-pink-200' },
+    ];
+
+    return (
+      <>
+        {/* Summary Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {classSummaries.map((summary, index) => {
+            const colorIndex = index % CLASS_CARD_COLORS.length;
+            const colorScheme = CLASS_CARD_COLORS[colorIndex]!;
+            const submittedTotal = summary.graded_count + summary.submitted_count + summary.rejected_count;
+            
+            return (
+              <div
+                key={summary.class_id}
+                className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all cursor-pointer border-2 ${colorScheme.border} transform hover:scale-105`}
+                onClick={() => setSelectedClassId(String(summary.class_id))}
+              >
+                <div className={`px-6 py-4 ${colorScheme.header}`}>
+                  <h3 className="text-xl font-bold text-gray-900">{summary.class_name}</h3>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
+                      <p className="text-2xl font-bold text-blue-600">{summary.total_students}</p>
+                      <p className="text-xs text-gray-600 mt-1">班级人数</p>
+                    </div>
+                    <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
+                      <p className="text-2xl font-bold text-green-600">{submittedTotal}</p>
+                      <p className="text-xs text-gray-600 mt-1">已提交</p>
+                      {summary.rejected_count > 0 && (
+                        <p className="text-xs text-red-500 mt-0.5">（含 {summary.rejected_count} 份已驳回）</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="border-t-2 border-gray-100 pt-4">
+                    <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-100">
+                      <p className="text-4xl font-bold text-purple-900">
+                        {summary.average_score !== null ? summary.average_score.toFixed(1) : '—'}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-2 font-medium">平均分</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm pt-2">
+                    <span className="text-gray-500">提交率</span>
+                    <span className="font-bold text-gray-900">
+                      {summary.total_students > 0
+                        ? `${((submittedTotal / summary.total_students) * 100).toFixed(1)}%`
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="text-center pt-2 border-t border-gray-200">
+                    <span className="text-xs text-blue-600 font-medium">点击查看详情 →</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Bar Chart - Average Scores */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+              <div className="w-1 h-6 bg-blue-600 mr-3 rounded"></div>
+              各班级平均分对比
+            </h3>
+            {barChartData.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-10">暂无数据</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={barChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    angle={-15}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    domain={[0, 100]}
+                  />
+                  <RechartsTooltip
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                    formatter={(value: number) => [`${value.toFixed(2)} 分`, '平均分']}
+                  />
+                  <Bar dataKey="平均分" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Stacked Bar Chart - Completion Status */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+              <div className="w-1 h-6 bg-green-600 mr-3 rounded"></div>
+              各班级完成情况
+            </h3>
+            {completionStackData.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-10">暂无数据</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={completionStackData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    angle={-15}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} />
+                  <RechartsTooltip
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                    formatter={(value: number, name: string) => [`${value} 人`, name]}
+                  />
+                  <Legend
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    iconType="circle"
+                  />
+                  <Bar dataKey="已评分" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="待评分" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="已驳回" stackId="a" fill="#f59e0b" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="未提交" stackId="a" fill="#9ca3af" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Pie Chart - Student Distribution */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+              <div className="w-1 h-6 bg-purple-600 mr-3 rounded"></div>
+              各班级人数分布
+            </h3>
+            {studentCountPieData.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-10">暂无数据</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <RechartsTooltip
+                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                    formatter={(value: number) => [`${value} 人`]}
+                  />
+                  <Pie
+                    data={studentCountPieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    label={(entry) => `${entry.name}: ${entry.value}人`}
+                    labelLine={{ stroke: '#6b7280', strokeWidth: 1 }}
+                  >
+                    {studentCountPieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          {/* Donut Chart - Submission Rate */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+              <div className="w-1 h-6 bg-yellow-600 mr-3 rounded"></div>
+              各班级提交率对比
+            </h3>
+            {submissionPieData.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-10">暂无数据</p>
+            ) : (
+              <div className="space-y-4">
+                {submissionPieData.map((data, index) => {
+                  const total = data.已提交 + data.未提交;
+                  const rate = total > 0 ? (data.已提交 / total) * 100 : 0;
+                  return (
+                    <div key={index} className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-medium text-gray-700">{data.name}</span>
+                        <span className="font-bold text-gray-900">{rate.toFixed(1)}%</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="flex-1 h-6 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all flex items-center justify-end pr-2"
+                            style={{
+                              width: `${rate}%`,
+                              backgroundColor: COLORS[index % COLORS.length]
+                            }}
+                          >
+                            {rate > 15 && (
+                              <span className="text-xs font-bold text-white">{data.已提交}</span>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-xs text-gray-500 w-16">
+                          {data.已提交}/{total}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -498,16 +886,33 @@ const GradesOverview: React.FC = () => {
               {classes.length === 0 ? (
                 <option value="">{isLoadingClasses ? '加载班级...' : '暂无班级'}</option>
               ) : (
-                classes.map((cls) => (
-                  <option key={cls.class_id} value={cls.class_id}>{cls.class_name}</option>
-                ))
+                <>
+                  <option value={ALL_CLASSES}>全部班级</option>
+                  {classes.map((cls) => (
+                    <option key={cls.class_id} value={cls.class_id}>{cls.class_name}</option>
+                  ))}
+                </>
               )}
             </select>
           </div>
-          <p className="text-sm text-gray-500">查看班级整体成绩表现与分布</p>
+          <p className="text-sm text-gray-500">
+            {selectedClassId === ALL_CLASSES ? '查看各班级整体表现对比' : '查看班级整体成绩表现与分布'}
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        {error && !isLoadingGrades && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
+            {error}
+          </div>
+        )}
+      </div>
+
+      {selectedClassId === ALL_CLASSES ? (
+        renderClassComparison()
+      ) : (
+        <>
+          <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <StatCard icon={Users} color="blue" title="班级人数" value={grades.length} />
           <StatCard icon={Award} color="green" title="平均分" value={formatStatValue(gradeInsights.avgFinalGrade)} />
           <StatCard icon={TrendingUp} color="yellow" title="最高分" value={formatStatValue(gradeInsights.highestGrade)} />
@@ -522,10 +927,10 @@ const GradesOverview: React.FC = () => {
 
         <div className="flex flex-wrap gap-2">
           <StatusChip variant="completed" label="已完成评分" value={gradeInsights.completedCount} />
-          <StatusChip variant="waiting" label="实验待评分" value={gradeInsights.waitingEvaluationCount} />
+          <StatusChip variant="waiting" label="待评分" value={gradeInsights.waitingEvaluationCount} />
           <StatusChip variant="rejected" label="已驳回" value={gradeInsights.rejectedCount} />
-          <StatusChip variant="progress" label="实验进行中" value={gradeInsights.inProgressCount} />
-          <StatusChip variant="idle" label="未进行实验" value={gradeInsights.notStartedCount} />
+          <StatusChip variant="progress" label="进行中" value={gradeInsights.inProgressCount} />
+          <StatusChip variant="idle" label="未开始" value={gradeInsights.notStartedCount} />
         </div>
         <div className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
           {pendingMessage}
@@ -743,6 +1148,8 @@ const GradesOverview: React.FC = () => {
           </table>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };
