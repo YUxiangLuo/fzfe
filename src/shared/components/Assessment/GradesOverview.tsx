@@ -561,16 +561,19 @@ const GradesOverview: React.FC = () => {
 
   const chartGrades = useMemo<GradeChartDatum[]>(
     () =>
-      grades.map((grade) => ({
-        id: grade.student_id,
-        fullName: grade.full_name,
-        username: grade.username,
-        finalScore: grade.final_score,
-        expFlowScore: grade.exp_flow_score,
-        knowledgeTest: grade.knowledge_test,
-        modelQuality: grade.model_quality,
-        reportQuality: grade.report_quality,
-      })),
+      // Filter strictly for graded reports for charts
+      grades
+        .filter((grade) => grade.report_status === 'graded')
+        .map((grade) => ({
+          id: grade.student_id,
+          fullName: grade.full_name,
+          username: grade.username,
+          finalScore: grade.final_score,
+          expFlowScore: grade.exp_flow_score,
+          knowledgeTest: grade.knowledge_test,
+          modelQuality: grade.model_quality,
+          reportQuality: grade.report_quality,
+        })),
     [grades],
   );
 
