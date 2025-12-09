@@ -63,11 +63,10 @@ type SortKey = "status" | "username" | "submitted_at" | "grade";
 const getReportStatusKey = (report: ExperimentReport): StatusKey => {
   if (!report.report_id) return "draft";
   if (report.status === "rejected") return "rejected";
-  if (report.status === "graded") return "submitted";
-  if (report.status === "submitted") return "pending";
+  if (report.status === "graded") return "submitted"; // 'submitted' in STATUS_META maps to "已评阅" label
+  if (report.status === "submitted") return "pending"; // 'pending' in STATUS_META maps to "待评阅" label
   
-  // Fallback compatibility
-  if (report.grade !== null && report.grade !== undefined) return "submitted";
+  // Default to pending if status is unknown but report_id exists
   return "pending";
 };
 
@@ -200,18 +199,24 @@ const ExperimentReports: React.FC = () => {
     if (reports.length === 0) {
       return { total: 0, submitted: 0, pendingReview: 0, reviewed: 0, averageGrade: "--" };
     }
-    const submitted = reports.filter((report) => report.report_id !== null);
-    const reviewed = submitted.filter((report) => report.grade !== null);
-    const pendingReview = submitted.filter((report) => report.grade === null);
-    const averageGrade = reviewed.length
-      ? Math.round(reviewed.reduce((acc, report) => acc + (report.grade ?? 0), 0) / reviewed.length).toString()
+
+    // Categorize based on status
+    const submittedReports = reports.filter(r => ['submitted', 'graded', 'rejected'].includes(r.status || ''));
+    const pendingReports = reports.filter(r => r.status === 'submitted');
+    const gradedReports = reports.filter(r => r.status === 'graded');
+    const rejectedReports = reports.filter(r => r.status === 'rejected');
+
+    const averageGrade = gradedReports.length
+      ? Math.round(gradedReports.reduce((acc, report) => acc + (report.grade ?? 0), 0) / gradedReports.length).toString()
       : "--";
+
     return {
       total: reports.length,
-      submitted: submitted.length,
-      pendingReview: pendingReview.length,
-      reviewed: reviewed.length,
+      submitted: submittedReports.length,
+      pendingReview: pendingReports.length,
+      reviewed: gradedReports.length, // This is used for average calculation base, though not displayed directly in cards
       averageGrade,
+      rejectedReportsCount: rejectedReports.length,
     };
   }, [reports]);
 
@@ -762,7 +767,14 @@ const ExperimentReports: React.FC = () => {
           icon={CheckCircle2}
           title="已提交"
           value={summaryStats.submitted}
-          description="已完成报告提交"
+          description={
+            <>
+              已完成报告提交{' '}
+              {summaryStats.rejectedReportsCount > 0 && (
+                <span className="text-red-500">（含 {summaryStats.rejectedReportsCount} 份已驳回）</span>
+              )}
+            </>
+          }
           accent="bg-emerald-100 text-emerald-600"
         />
         <SummaryCard
@@ -774,7 +786,7 @@ const ExperimentReports: React.FC = () => {
         />
         <SummaryCard
           icon={Activity}
-          title="平均得分"
+          title="报告平均得分"
           value={summaryStats.averageGrade}
           description="所有已评阅报告的平均分"
           accent="bg-purple-100 text-purple-600"
