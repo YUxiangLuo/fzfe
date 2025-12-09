@@ -22,7 +22,7 @@ const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry }) =>
     lstm: 'LSTM模型',
   };
 
-  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} />;
+  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} isEnsembleModel={true} />;
   if (isLoading || error) {
     return status;
   }

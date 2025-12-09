@@ -16,7 +16,7 @@ export interface ResultsProps {
 const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry }) => {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
 
-  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} />;
+  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} isEnsembleModel={true} />;
   if (isLoading || error) {
     return status;
   }

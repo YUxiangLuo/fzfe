@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useExperiment } from './contexts/ExperimentContext.zustand';
 import { ExperimentStoreProvider } from './contexts/ExperimentStoreProvider';
 import { ConfirmProvider } from '../../shared/contexts/ConfirmContext';
@@ -32,6 +32,10 @@ const ProtectedRoute = ({ step, children }: { step: number, children: React.Reac
 // The main layout with Header and Sidebar
 const MainLayout = () => {
   const { loading } = useExperiment();
+  const location = useLocation();
+
+  // Hide sidebar on production plan page
+  const hideSidebar = location.pathname.startsWith('/production');
 
   if (loading) {
     return (
@@ -45,7 +49,7 @@ const MainLayout = () => {
     <div className="min-h-screen bg-gray-50">
       <Header />
       <div className="flex pt-20">
-        <Sidebar />
+        {!hideSidebar && <Sidebar />}
         <main className="flex-1 overflow-auto" style={{ height: 'calc(100vh - 5rem)' }}>
           <Routes>
             <Route path="/industry" element={<IndustrySelection />} />
