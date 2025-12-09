@@ -195,64 +195,63 @@ const baseModels: Model[] = [
     shortName: 'ARIMA',
     icon: Sigma,
     category: '高级统计方法',
-    summary: 'ARIMA（自回归积分移动平均模型）是时间序列分析的经典方法，结合AR、I、MA三大组件，能够系统地建模和预测非平稳时间序列。',
+    summary: 'ARIMA（自回归积分移动平均模型）是经典的统计预测方法。本系统实现了自动化定阶功能：用户只需指定差分阶数d，系统会自动基于AIC/BIC准则搜索最优的AR阶数(p)和MA阶数(q)。',
     principle: {
-      description: 'ARIMA通过三个核心机制处理时间序列：AR（自回归）利用数据自身的历史值预测未来；I（差分）将非平稳序列转化为平稳序列；MA（移动平均）对预测误差进行建模。三者结合，形成强大而灵活的预测框架。',
-      keyIdea: '将复杂的时间序列分解为可建模的平稳成分，然后用线性模型精确刻画其内在规律。'
+      description: 'ARIMA通过三个核心组件建模：AR（自回归）利用历史值预测未来；I（差分）将非平稳序列转化为平稳序列；MA（移动平均）利用历史预测误差修正当前预测。本系统引入了智能定阶机制，针对小样本数据（<30个点）优先采用BIC准则以防止过拟合，对大样本则兼顾AIC准则以提升精度。',
+      keyIdea: '将非平稳序列平稳化，然后自动搜索最优的线性方程来刻画数据规律。'
     },
     mathematics: {
-      description: 'ARIMA(p,d,q)模型的一般形式：',
-      formula: '(1-φ₁B-...-φₚBᵖ)(1-B)ᵈX(t) = (1+θ₁B+...+θ_qB^q)ε(t)',
+      description: 'ARIMA(p,d,q)模型方程：',
+      formula: '(1 - ΣφᵢBⁱ)(1-B)ᵈ yₜ = c + (1 + ΣθᵢBⁱ)εₜ\n目标：min(AIC = 2k - 2ln(L))',
       variables: [
-        { symbol: 'p', meaning: 'AR阶数（自回归项数量）' },
-        { symbol: 'd', meaning: '差分阶数（差分次数）' },
-        { symbol: 'q', meaning: 'MA阶数（移动平均项数量）' },
-        { symbol: 'B', meaning: '后移算子' },
-        { symbol: 'ε(t)', meaning: '白噪声误差项' }
+        { symbol: 'p', meaning: '自回归阶数（自动搜索）' },
+        { symbol: 'd', meaning: '差分阶数（用户指定）' },
+        { symbol: 'q', meaning: '移动平均阶数（自动搜索）' },
+        { symbol: 'AIC/BIC', meaning: '信息准则，用于平衡模型精度与复杂度' },
+        { symbol: 'k', meaning: '参数数量' }
       ],
-      example: 'ARIMA(1,1,1)表示：1阶差分后，用1个AR项和1个MA项建模。适合有趋势的数据。'
+      example: '若用户设定d=1，系统可能会比较(1,1,0), (0,1,1)等多种组合，最终发现(1,1,1)的AIC最小，则自动选用ARIMA(1,1,1)。'
     },
     workflow: {
       steps: [
-        { title: '平稳性检验', description: '通过ADF检验等方法判断序列是否平稳，确定差分阶数d。', tip: '非平稳序列需要差分，差分后再次检验' },
-        { title: '模型定阶', description: '通过ACF和PACF图，或使用AIC/BIC准则确定p和q的值。', tip: '这是ARIMA最关键也最困难的步骤' },
-        { title: '参数估计', description: '使用最大似然估计或最小二乘法估计模型参数φ和θ。', tip: '现代软件会自动完成，但需检查参数显著性' },
-        { title: '模型诊断', description: '检查残差是否为白噪声，通过Ljung-Box检验验证模型充分性。', tip: '残差有模式说明模型不够好，需重新定阶' },
-        { title: '预测', description: '使用拟合好的模型进行未来值预测，可给出置信区间。', tip: 'ARIMA可进行多期预测，但越远越不准' }
+        { title: '平稳性处理', description: '用户根据数据的趋势情况设定差分阶数d（通常0或1）。', tip: '有趋势的数据通常设d=1' },
+        { title: '空间搜索', description: '系统在给定的最大p和最大q范围内（如0-5），遍历所有可能的(p,q)组合。', tip: '系统会自动限制搜索范围以适配数据量' },
+        { title: '准则评估', description: '计算每个候选模型的AIC和BIC值。对于小样本，系统会惩罚复杂模型。', tip: '自动平衡拟合优度和复杂度' },
+        { title: '最优拟合', description: '选中最佳参数组合进行最终训练，并计算残差和置信区间。', tip: '输出包括95%置信区间' }
       ]
     },
     parameters: [
-      { name: 'p - AR阶数', description: '模型使用多少个历史值进行自回归', impact: 'p过小无法捕捉自相关结构，p过大导致过拟合和计算复杂', typical: '通常0-5，观察PACF图截尾位置' },
-      { name: 'd - 差分阶数', description: '需要进行几次差分使序列平稳', impact: 'd=0表示序列已平稳，d=1去除线性趋势，d=2去除二次趋势', typical: '通常0-2，多于2次差分很少见' },
-      { name: 'q - MA阶数', description: '模型使用多少个历史误差项', impact: 'q过小丢失误差信息，q过大模型复杂且不稳定', typical: '通常0-5，观察ACF图截尾位置' }
+      { name: '差分阶数 (d)', description: '消除趋势所需的差分次数', impact: 'd=1去除线性趋势，d=2去除二次趋势。设错可能导致模型不收敛。', typical: '0（平稳数据）或 1（趋势数据）' },
+      { name: '最大AR阶数 (max_p)', description: '自动搜索p时的上限', impact: '范围越大搜索越慢，且易过拟合。系统会根据数据量自动调整默认值。', typical: '3-5' },
+      { name: '最大MA阶数 (max_q)', description: '自动搜索q时的上限', impact: '同max_p。对于小样本，建议设小一点。', typical: '3-5' }
     ],
     suitability: {
-      suitable: ['数据有明显的自相关性', '序列可通过差分变平稳', '需要理论支撑和可解释性', '数据量充足（至少50个观测）', '线性趋势和规律性强'],
-      notSuitable: ['数据有复杂非线性关系', '强季节性（需用SARIMA）', '数据量太小（<30个点）', '有大量缺失值或异常值', '需要纳入外部变量（需用ARIMAX）']
+      suitable: ['数据具有线性趋势或自相关性', '样本量适中（30-100个点）', '需要明确的统计解释（置信区间）', '短期预测（精度随步长递减）'],
+      notSuitable: ['数据具有极其复杂的非线性', '样本量极小（<10个点，差分后更少）', '存在大量缺失值（需插值处理）', '完全随机波动的数据']
     },
     useCases: [
-      { industry: '经济学', scenario: 'GDP预测', description: '经济学家用ARIMA(2,1,2)模型预测季度GDP增长率。差分去除趋势，AR和MA项捕捉经济周期的自相关。' },
-      { industry: '金融', scenario: '汇率预测', description: '银行用ARIMA模型预测短期汇率波动，结合基本面分析制定交易策略。模型可提供置信区间评估风险。' },
-      { industry: '能源', scenario: '电力负荷预测', description: '电网公司用SARIMA（季节性ARIMA）预测每小时电力需求，兼顾日内模式和季节性，优化发电调度。' }
+      { industry: '经济', scenario: 'GDP增长预测', description: '设定d=1消除增长趋势，系统自动匹配ARIMA(2,1,2)，捕捉经济周期的惯性。' },
+      { industry: '制造', scenario: '物料消耗', description: '对于平稳的消耗数据（d=0），系统自动选择ARMA(1,1)模型进行库存预警。' },
+      { industry: '销售', scenario: '季度业绩', description: '利用AIC准则自动剔除冗余参数，防止仅有的12个季度数据导致模型过拟合。' }
     ],
     pros: [
-      { title: '理论严谨', description: '有完整的统计理论支撑，可进行假设检验和区间估计' },
-      { title: '灵活强大', description: '通过调整(p,d,q)可适应多种时间序列模式' },
-      { title: '可解释性强', description: '参数有明确含义，可分析序列的内在机制' },
-      { title: '基础地位', description: '是许多现代方法（如GARCH、VAR）的基础' }
+      { title: '自动定阶', description: '无需人工查看ACF/PACF图，自动找到最优参数' },
+      { title: '防过拟合', description: '内置BIC准则优先策略，特别适合小样本场景' },
+      { title: '区间预测', description: '不仅给出预测值，还能给出置信区间范围' },
+      { title: '理论成熟', description: '经典的统计学方法，结果具有强可解释性' }
     ],
     cons: [
-      { title: '定阶困难', description: '选择合适的p、d、q需要经验和反复试验' },
-      { title: '仅限线性', description: '无法捕捉非线性关系和复杂交互' },
-      { title: '数据要求高', description: '需要大量连续数据，不能有缺失值' },
-      { title: '计算复杂', description: '参数估计和诊断过程相对繁琐' }
+      { title: '需手动定d', description: '差分阶数仍需用户根据经验或检验确定' },
+      { title: '仅限线性', description: '对非线性模式的捕捉能力不如神经网络' },
+      { title: '对异常值敏感', description: '异常值会严重扭曲参数估计（均值回归特性）' },
+      { title: '长步长失效', description: '预测误差会随时间步长积累而迅速扩大' }
     ],
-    bestPractices: ['先绘制时序图和ACF/PACF图，理解数据特征', '使用auto.arima或类似工具自动选择最优阶数', '始终检查残差，确保无剩余模式', '对比多个候选模型，选择AIC/BIC最小的', '预测时给出置信区间，量化不确定性', '定期用新数据重新拟合，模型会"老化"'],
+    bestPractices: ['如果不确定d，先试d=1（大多数经济数据都有趋势）', '数据量少时（<20），信任系统自动降低的max_p/max_q限制', '观察置信区间，如果区间极宽，说明模型不确定性很高', '对比d=0和d=1的结果，选择RMSE更小的那个'],
     performance: {
-      speed: { level: 'medium', description: '参数估计较慢，预测较快' },
-      accuracy: { level: 'medium', description: '线性平稳数据优秀，非线性数据一般' },
-      dataRequirement: { level: 'high', description: '需要至少50-100个观测点' },
-      complexity: { level: 'high', description: '需要统计学知识，实施复杂' }
+      speed: { level: 'medium', description: '搜索过程需要多次拟合，比简单模型慢' },
+      accuracy: { level: 'medium', description: '线性数据表现优秀，鲁棒性好' },
+      dataRequirement: { level: 'medium', description: '建议至少20-30个有效数据点' },
+      complexity: { level: 'medium', description: '原理复杂但使用简单（自动化了）' }
     }
   },
   {
@@ -261,65 +260,62 @@ const baseModels: Model[] = [
     shortName: 'LSTM',
     icon: BrainCircuit,
     category: '深度学习方法',
-    summary: 'LSTM（长短期记忆网络）是一种特殊的循环神经网络，通过精巧的门控机制解决了传统RNN的梯度消失问题，能够学习长期依赖和复杂非线性模式。',
+    summary: 'LSTM（长短期记忆网络）是一种特殊的循环神经网络，本系统采用3层堆叠架构（每层288个单元），支持多变量输入和类别特征自动编码，能捕捉复杂非线性和长期依赖。',
     principle: {
-      description: 'LSTM的核心是"记忆细胞"和三个门结构。遗忘门决定丢弃哪些旧信息，输入门决定存储哪些新信息，输出门决定输出什么。通过这种机制，LSTM能够选择性地记住重要信息，忘记无关信息，从而在长序列中保持有效的信息传递。',
-      keyIdea: '用可学习的门控机制，让神经网络自主决定记住什么、忘记什么，突破传统方法的线性和短期限制。'
+      description: 'LSTM的核心是"记忆细胞"和门控机制（遗忘门、输入门、输出门），能够自主决定记住或忘记历史信息。本系统特别实现了混合特征处理：对数值特征进行归一化（MinMax/Z-Score），对类别特征进行One-Hot编码，然后输入到深层网络中学习。',
+      keyIdea: '通过多层堆叠的门控机制，从多变量历史数据中提取深层特征，并采用递归策略进行多步预测。'
     },
     mathematics: {
       description: 'LSTM的核心方程组（简化版）：',
-      formula: 'f(t)=σ(W_f·[h(t-1),x(t)])\ni(t)=σ(W_i·[h(t-1),x(t)])\nC(t)=f(t)*C(t-1)+i(t)*tanh(W_C·[h(t-1),x(t)])',
+      formula: 'f_t = σ(W_f·[h_{t-1}, x_t] + b_f)\ni_t = σ(W_i·[h_{t-1}, x_t] + b_i)\nC_t = f_t * C_{t-1} + i_t * tanh(W_C·[h_{t-1}, x_t] + b_C)',
       variables: [
-        { symbol: 'f(t)', meaning: '遗忘门激活值' },
-        { symbol: 'i(t)', meaning: '输入门激活值' },
-        { symbol: 'C(t)', meaning: '细胞状态（记忆）' },
-        { symbol: 'h(t)', meaning: '隐藏状态（输出）' },
-        { symbol: 'σ', meaning: 'sigmoid函数' }
+        { symbol: 'f_t', meaning: '遗忘门：决定丢弃多少旧记忆' },
+        { symbol: 'i_t', meaning: '输入门：决定更新多少新信息' },
+        { symbol: 'C_t', meaning: '细胞状态：LSTM的长期记忆载体' },
+        { symbol: 'x_t', meaning: '输入向量（包含数值和编码后的类别特征）' }
       ],
-      example: '每个时间步，LSTM会根据当前输入和上一步状态，动态调整记忆内容。例如预测销量时，可能记住去年同期数据，忘记无关的短期噪声。'
+      example: '在预测销量时，f_t可能学会忽略上个月的随机噪声，i_t则重点关注刚发生的促销活动信号（由类别特征编码而来）。'
     },
     workflow: {
       steps: [
-        { title: '数据准备', description: '将时间序列转为监督学习格式，创建滑动窗口。标准化数据到相同尺度。', tip: '窗口大小（lookback）是关键超参数' },
-        { title: '网络设计', description: '确定LSTM层数、每层单元数、dropout率等架构参数。', tip: '从简单开始（1-2层），逐步增加复杂度' },
-        { title: '模型训练', description: '用反向传播和优化器（如Adam）最小化损失函数。通常需要多个epoch。', tip: '使用早停法防止过拟合，监控验证集损失' },
-        { title: '超参数调优', description: '调整学习率、批次大小、LSTM单元数等，找到最优配置。', tip: '使用网格搜索或贝叶斯优化' },
-        { title: '预测', description: '用训练好的模型进行单步或多步预测。', tip: '多步预测可用递归或直接多输出方式' }
+        { title: '特征工程', description: '自动识别特征类型。数值特征进行标准化/归一化，类别特征进行One-Hot编码。', tip: '支持多变量输入，自动处理混合数据' },
+        { title: '序列构造', description: '基于Lookback窗口将时间序列转换为监督学习样本(X, Y)。', tip: 'X形如(样本数, 窗口长, 特征数)' },
+        { title: '深度建模', description: '构建3层堆叠LSTM网络（每层288单元），使用Adam优化器和学习率衰减策略进行训练。', tip: '深层网络能捕捉更抽象的模式' },
+        { title: '递归预测', description: '对于未来多步预测，采用递归策略：将当前预测值作为下一步的输入。', tip: '允许预测任意长度的未来序列' }
       ]
     },
     parameters: [
-      { name: 'LSTM单元数', description: '每层LSTM的隐藏单元数量', impact: '越多模型容量越大，但易过拟合且计算慢', typical: '32-256，视数据复杂度而定' },
-      { name: 'lookback窗口', description: '用多少个历史时间步预测下一步', impact: '太小捕捉不到长期模式，太大训练样本减少且易过拟合', typical: '10-60个时间步，取决于数据周期' },
-      { name: 'dropout率', description: '训练时随机丢弃神经元的比例，用于正则化', impact: '太低易过拟合，太高欠拟合', typical: '0.2-0.5' },
-      { name: '学习率', description: '优化器的步长大小', impact: '太大不收敛，太小训练慢', typical: '0.001-0.01，常用Adam自适应调整' }
+      { name: 'Lookback窗口', description: '模型向后看多少个时间步', impact: '决定了模型能利用的历史信息长度，太短看不明，太长学不会', typical: '12-60，系统会自动推荐' },
+      { name: '训练轮数 (Epochs)', description: '整个数据集被训练的次数', impact: '过多易过拟合，过少欠拟合。配合学习率衰减使用。', typical: '20-50轮' },
+      { name: '归一化方式', description: '数值特征的缩放方法', impact: 'MinMax适合有界数据，Z-Score适合正态分布数据', typical: '默认MinMax (0-1)' }
     ],
     suitability: {
-      suitable: ['数据有复杂非线性关系', '存在长期依赖（几十步以上）', '数据量充足（几千个样本以上）', '传统方法效果不佳', '有GPU等计算资源'],
-      notSuitable: ['数据量很小（<500个点）', '数据是简单线性关系', '需要强可解释性', '计算资源有限', '需要快速迭代和调整']
+      suitable: ['数据量充足（>100个点）', '存在复杂非线性关系', '包含类别型特征（如天气、节假日）', '需要捕捉长期依赖模式'],
+      notSuitable: ['数据极少（<20个点）', '完全随机的白噪声数据', '对训练速度要求极高', '需要极其直观的公式解释']
     },
     useCases: [
-      { industry: '金融', scenario: '股票价格预测', description: '对冲基金用多层LSTM学习股价的非线性动态，结合技术指标和市场情绪，捕捉复杂的市场规律。lookback=60天。' },
-      { industry: '能源', scenario: '风电功率预测', description: '风电场用LSTM预测未来24小时发电功率。模型学习风速、温度、历史功率的复杂交互，准确率超过传统方法15%。' },
-      { industry: '互联网', scenario: '用户行为预测', description: '电商用LSTM预测用户未来7天购买概率。模型处理用户浏览、搜索、购买等长序列行为，个性化推荐。' }
+      { industry: '零售', scenario: '多维销量预测', description: '结合历史销量（数值）和促销类型（类别），预测未来一周销量。One-Hot编码让模型理解了"大促"与"日常"的区别。' },
+      { industry: '能源', scenario: '负荷预测', description: '输入温度、湿度和历史负荷，3层LSTM捕捉了气象因素对电力负荷的非线性影响延迟。' },
+      { industry: '交通', scenario: '流量预测', description: '利用过去24小时流量预测未来1小时。深层架构有效记住了早晚高峰的周期性特征。' }
     ],
     pros: [
-      { title: '强大表达力', description: '可学习任意复杂的非线性时序模式' },
-      { title: '长期记忆', description: '有效处理长期依赖，突破传统方法限制' },
-      { title: '自动特征', description: '无需手动特征工程，自动学习有用表示' },
-      { title: '多变量支持', description: '容易扩展为多变量时间序列预测' }
+      { title: '混合特征支持', description: '原生支持数值和类别特征的混合输入' },
+      { title: '深层表达力', description: '3层288单元架构，容量大，拟合能力强' },
+      { title: '自动衰减', description: '内置学习率衰减策略，训练更稳定' },
+      { title: '递归预测', description: '支持任意长度的未来趋势推演' }
     ],
     cons: [
-      { title: '数据饥渴', description: '需要大量数据才能充分训练，小样本易过拟合' },
-      { title: '黑箱特性', description: '难以解释模型决策，不知道为何做出预测' },
-      { title: '计算昂贵', description: '训练慢，需要GPU加速，推理也比统计方法慢' },
-      { title: '调参困难', description: '超参数多，需要大量实验找到最优配置' }
+      { title: '训练较慢', description: '庞大的网络参数量导致训练耗时较长' },
+      { title: '数据饥渴', description: '大模型需要足够的数据喂养才能避免过拟合' },
+      { title: '误差累积', description: '递归预测时，早期误差可能会传递到后期' },
+      { title: '黑箱模型', description: '难以像线性回归那样给出精确的参数解释' }
     ],
-    bestPractices: ['数据量不足时考虑数据增强或迁移学习', '始终划分训练/验证/测试集，避免数据泄露', '标准化输入数据，预测后记得反标准化', '使用early stopping和checkpoint保存最佳模型', '尝试双向LSTM或attention机制提升性能', '与传统方法对比，确保复杂度带来实际收益', '监控训练曲线，识别过拟合和欠拟合'],
+    bestPractices: ['数据量少时减少Epochs防止过拟合', '对于包含类别特征的数据，LSTM通常比统计模型表现更好', '关注Lookback窗口，通常覆盖一个完整周期（如12个月）效果最好', '预测步数不宜过长，避免递归误差发散'],
     performance: {
-      speed: { level: 'low', description: '训练很慢，推理中等' },
-      accuracy: { level: 'high', description: '复杂非线性数据表现优秀' },
-      dataRequirement: { level: 'high', description: '需要数千个样本才能有效' },
-      complexity: { level: 'high', description: '实现复杂，需要深度学习知识' }
+      speed: { level: 'low', description: '深层网络计算量大，训练耗时' },
+      accuracy: { level: 'high', description: '在复杂数据集上通常优于统计模型' },
+      dataRequirement: { level: 'medium', description: '建议至少几百个数据点' },
+      complexity: { level: 'high', description: '内部结构复杂，但对外参数已简化' }
     }
   }
 ];

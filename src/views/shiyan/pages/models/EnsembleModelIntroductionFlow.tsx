@@ -136,63 +136,63 @@ const ensembleModels: EnsembleModel[] = [
     shortName: 'Boosting',
     icon: Sparkles,
     category: '模型融合方法',
-    summary: 'Boosting通过串行训练一系列模型，每个新模型专注于修正前一个模型的误差，迭代地将"弱学习器"提升为"强学习器"，追求极致预测精度。',
+    summary: 'Boosting通过串行训练一系列模型，每个新模型专注于修正前一个模型的误差。本系统采用基于异构模型的残差学习法，支持将MA、ES、ARIMA、LSTM等不同类型的模型串联使用，逐步提升预测精度。',
     principle: {
-      description: 'Boosting的核心是"从错误中学习"。第一个模型对数据进行预测后，会产生误差（残差）。第二个模型不再预测原始目标，而是专门预测第一个模型的残差。第三个模型再预测第二个模型的残差，如此迭代。最终，所有模型预测相加，理论上可以完美拟合训练数据。',
-      keyIdea: '每个新模型都在"纠正"前面所有模型的集体错误，逐步逼近真实值。'
+      description: 'Boosting的核心是"从错误中学习"。传统的AdaBoost通过调整样本权重来关注错误，但ARIMA等时序模型通常不支持样本权重。因此，本系统采用"基于残差的贪心Boosting"：算法首先训练一个基模型预测原始数据。随后的每一轮，系统都会遍历模型库中所有可用模型，评估它们拟合当前残差的效果，并"贪心"地选择表现最好的那个加入链条。',
+      keyIdea: '贪心策略 + 残差学习。每一步都选择当前最优的异构模型（如ARIMA或LSTM）来修正前一步的错误。'
     },
     mathematics: {
-      description: 'Gradient Boosting的迭代公式：',
-      formula: 'F_m(x) = F_{m-1}(x) + η·h_m(x)\nh_m训练目标 = -∂L(y, F_{m-1})/∂F',
+      description: '基于残差学习的加法模型公式：',
+      formula: 'F_m(x) = F_{m-1}(x) + η·h_m(x)\n其中 h_m = argmin(Loss(y - F_{m-1}, h))',
       variables: [
-        { symbol: 'F_m(x)', meaning: '第m轮的融合模型' },
-        { symbol: 'h_m(x)', meaning: '第m个基学习器' },
-        { symbol: 'η', meaning: '学习率，控制每步的步长' },
-        { symbol: 'L', meaning: '损失函数' }
+        { symbol: 'F_m(x)', meaning: '第m轮后的最终预测值' },
+        { symbol: 'h_m(x)', meaning: '本轮贪心选出的最佳模型' },
+        { symbol: 'η', meaning: '学习率，控制每个新模型的贡献权重' },
+        { symbol: 'argmin', meaning: '从候选模型库中选择误差最小的' }
       ],
-      example: '预测销量100，第1个模型预测90（残差10），第2个模型预测残差得8，第3个模型预测剩余残差得1.5...最终：90+8+1.5+... ≈ 100'
+      example: '第一轮MA预测100（残差10）；第二轮对比LSTM和ARIMA拟合残差的效果，发现LSTM更好（预测8），于是贪心选择LSTM；最终预测 = 100 + 0.5×8。'
     },
     workflow: {
       steps: [
-        { title: '初始化', description: '用一个简单模型（如均值）作为初始预测。', tip: '初始预测可以是常数或简单线性模型' },
-        { title: '计算残差', description: '计算当前融合模型的预测误差（真实值-预测值）。', tip: '残差是下一个模型的训练目标' },
-        { title: '训练新模型', description: '训练一个新的基学习器，目标是预测当前残差。', tip: '基学习器通常是决策树或简单神经网络' },
-        { title: '更新融合模型', description: '将新模型乘以学习率后加入融合模型。', tip: '学习率<1可防止过拟合' },
-        { title: '迭代或停止', description: '重复2-4步，直到达到最大迭代次数或残差足够小。', tip: '用验证集监控，避免过拟合' }
+        { title: '初始预测', description: '从模型库中选择一个基模型预测原始时间序列y。', tip: '第一轮通常预测原始数据的整体趋势' },
+        { title: '计算残差', description: '计算当前组合模型的预测误差（真实值 - 预测值）。', tip: '残差代表了目前模型还无法解释的部分' },
+        { title: '贪心选择', description: '遍历所有候选模型（MA, ARIMA, LSTM等），分别训练它们去拟合当前残差，并记录效果。', tip: '这是"贪心"策略的核心：每轮都试错' },
+        { title: '择优集成', description: '选出本轮拟合残差效果最好的那个模型，乘以学习率加入到总预测公式中。', tip: '只保留最好的，确保每一步提升最大' },
+        { title: '循环迭代', description: '重复上述步骤，直到达到最大轮数或误差不再降低。', tip: '系统会自动构建一个最优的异构模型链' }
       ]
     },
     parameters: [
-      { name: '迭代次数 (n_estimators)', description: '训练多少个基学习器', impact: '越多精度越高但易过拟合，训练也越慢', typical: '50-500，视数据复杂度' },
-      { name: '学习率 (learning_rate)', description: '每个新模型的贡献比例', impact: '越小需要更多迭代但更稳定，越大收敛快但易过拟合', typical: '0.01-0.3' },
-      { name: '基学习器复杂度', description: '每个基模型的容量（如树的深度）', impact: '越复杂单个模型越强但易过拟合', typical: '深度3-6的决策树' }
+      { name: '最大迭代轮数 (max_rounds)', description: '最多串联多少个模型', impact: '越多精度可能越高，但训练变慢且易过拟合', typical: '5-10轮（异构模型通常不需要太多轮）' },
+      { name: '学习率 (learning_rate)', description: '每个新模型修正误差的步长', impact: '越小收敛越稳健但需更多轮数，越大收敛快但易震荡', typical: '0.1 - 0.5' },
+      { name: '候选模型库', description: '参与Boosting的基础模型类型', impact: '模型类型越丰富，互补性越强', typical: 'ARIMA, LSTM, MA, ES' }
     ],
     suitability: {
-      suitable: ['追求极致预测精度', '数据有复杂非线性关系', '特征与目标关系不明确', '愿意投入计算资源', '可解释性要求不高'],
-      notSuitable: ['数据噪声很大', '样本量极小（<100）', '需要实时预测（毫秒级）', '需要强可解释性', '数据有严重异常值']
+      suitable: ['数据模式复杂，单一模型难以完全捕捉', '追求比单一模型更高的精度', '不同模型之间存在互补性（如线性+非线性）', '可以接受较长的训练时间'],
+      notSuitable: ['数据信噪比极低（全是噪声）', '时间序列极短，无法支持多次残差拟合', '需要极快的实时响应', '模型库单一，无法发挥异构优势']
     },
     useCases: [
-      { industry: '数据竞赛', scenario: 'Kaggle销量预测', description: '数据科学家用XGBoost（Boosting的高效实现）赢得销量预测竞赛。1000轮迭代，学习率0.05，最终RMSE比第二名低3%。' },
-      { industry: '金融', scenario: '信用评分', description: '银行用LightGBM（快速Boosting）预测客户违约概率。500轮迭代，AUC达0.85，比逻辑回归高10个百分点，用于贷款审批。' },
-      { industry: '推荐系统', scenario: '点击率预测', description: '广告平台用Boosting预测广告点击率。捕捉用户行为的微妙模式，CTR预测准确率提升20%，广告收入显著增加。' }
+      { industry: '金融', scenario: '股价波动预测', description: '使用ARIMA捕捉长期趋势，再用LSTM捕捉ARIMA遗漏的高频非线性波动残差，组合预测精度显著提升。' },
+      { industry: '零售', scenario: '复杂销量预测', description: '先用ES（指数平滑）处理季节性，再用Boosting串联一个回归树模型去拟合促销带来的突发销量残差。' },
+      { industry: '能源', scenario: '电力负荷预测', description: '基础模型预测日常负荷曲线，Boosting引入气象敏感模型专门修正极端天气下的负荷偏差。' }
     ],
     pros: [
-      { title: '精度极高', description: '通常是单一模型和简单融合中最准确的' },
-      { title: '特征自动', description: '可自动发现特征交互，无需手动工程' },
-      { title: '处理多种数据', description: '可处理数值、类别、缺失值等多种数据' },
-      { title: '成熟工具', description: 'XGBoost、LightGBM等高效实现广泛应用' }
+      { title: '异构互补', description: '能结合线性、非线性等不同模型的长处' },
+      { title: '精度极高', description: '通过针对性地修正误差，通常能达到最高精度' },
+      { title: '适应性强', description: '自动根据数据特点选择最适合修正残差的模型' },
+      { title: '灵活扩展', description: '可以随时加入新的模型类型作为基学习器' }
     ],
     cons: [
-      { title: '易过拟合', description: '对噪声敏感，需仔细调参和正则化' },
-      { title: '训练慢', description: '串行训练无法并行，大数据集很慢' },
-      { title: '黑箱模型', description: '难以理解为何做出某个预测' },
-      { title: '调参复杂', description: '超参数多且交互复杂，需要经验' }
+      { title: '易过拟合', description: '如果对噪声也强行拟合，会导致泛化能力下降' },
+      { title: '训练耗时', description: '串行训练，且每轮都要评估多个候选模型' },
+      { title: '误差累积', description: '若早期模型出现严重偏差，后续模型可能难以挽回' },
+      { title: '参数敏感', description: '学习率和轮数需要配合调整' }
     ],
-    bestPractices: ['始终用早停法（early stopping）防止过拟合', '学习率和迭代次数成反比，学习率小需更多迭代', '用验证曲线观察过拟合点', '对异常值敏感的数据先进行预处理', '尝试不同的损失函数（如Huber对异常值鲁棒）', '调参顺序：先迭代次数和学习率，再树深度', '与简单模型对比，确保复杂度物有所值'],
+    bestPractices: ['基模型应包含多种类型（如ARIMA+LSTM）以实现优势互补', '学习率设置保守一些（如0.3），避免步子太大错过最优解', '关注验证集误差，一旦验证集误差上升立即停止（Early Stopping）', '对于噪声很大的数据，限制迭代轮数'],
     performance: {
-      speed: { level: 'low', description: '串行训练慢，现代实现有所改善' },
-      accuracy: { level: 'high', description: '通常是最准确的方法之一' },
-      dataRequirement: { level: 'medium', description: '几百到几千样本即可，但越多越好' },
-      complexity: { level: 'high', description: '调参和理解都有难度' }
+      speed: { level: 'low', description: '串行且每轮需训练多个候选模型，速度较慢' },
+      accuracy: { level: 'high', description: '异构互补通常能获得SOTA级别的精度' },
+      dataRequirement: { level: 'medium', description: '需要足够的数据来划分验证集以评估残差' },
+      complexity: { level: 'high', description: '系统内部逻辑复杂，但对外表现为自动优化' }
     }
   },
   {
@@ -201,62 +201,62 @@ const ensembleModels: EnsembleModel[] = [
     shortName: 'Stacking',
     icon: Layers,
     category: '模型融合方法',
-    summary: 'Stacking构建多层学习架构：第一层多个异构模型各自预测，第二层元模型学习如何最优组合这些预测，是最强大但也最复杂的融合方法。',
+    summary: 'Stacking（堆叠法）构建多层学习架构：第一层多个异构模型各自预测，第二层元模型学习如何最优组合这些预测。本系统采用严谨的Hold-out验证策略防止数据泄露，并使用非负线性回归作为元模型。',
     principle: {
-      description: 'Stacking的哲学是"让模型教模型"。不同模型有不同的视角和偏好——ARIMA擅长捕捉线性趋势，LSTM擅长非线性模式。Stacking不是简单平均它们的预测，而是训练一个元模型（meta-learner）去学习：在什么情况下更相信哪个模型，如何将它们的预测智能地组合。',
-      keyIdea: '用机器学习的方式学习如何做机器学习融合，自动发现最优组合策略。'
+      description: 'Stacking的哲学是"让模型教模型"。不同模型有不同的视角和偏好——ARIMA擅长捕捉线性趋势，LSTM擅长非线性模式。Stacking不是简单平均它们的预测，而是训练一个元模型（Meta-Learner）去学习：在什么情况下更相信哪个模型。为了防止"作弊"，元模型的训练数据必须是基础模型从未见过的（Out-of-Fold）预测值。',
+      keyIdea: '用机器学习的方式学习如何做机器学习融合。本系统自动划分Level-0和Level-1数据集，确保元模型学到的是泛化能力而非记忆。'
     },
     mathematics: {
-      description: 'Stacking的两层结构：',
-      formula: '第一层: ŷ₁=M₁(X), ŷ₂=M₂(X), ..., ŷₙ=Mₙ(X)\n第二层: ŷ_final = Meta([ŷ₁, ŷ₂, ..., ŷₙ])',
+      description: '两层堆叠结构（Meta-Model采用非负线性回归）：',
+      formula: '第一层: z_{i} = M_{i}(X)  (i=1...n)\n第二层: ŷ = w_0 + Σ(w_i · z_i),  w_i ≥ 0',
       variables: [
-        { symbol: 'M₁...Mₙ', meaning: 'n个异构基础模型（第一层）' },
-        { symbol: 'ŷ₁...ŷₙ', meaning: '各基础模型的预测输出' },
-        { symbol: 'Meta', meaning: '元模型（第二层），如线性回归、神经网络等' },
-        { symbol: 'ŷ_final', meaning: '最终融合预测' }
+        { symbol: 'M_{i}', meaning: '第i个基础模型（MA, ARIMA, LSTM等）' },
+        { symbol: 'z_{i}', meaning: '基础模型的预测输出（作为第二层的特征）' },
+        { symbol: 'w_i', meaning: '元模型学到的组合权重' },
+        { symbol: 'w_i ≥ 0', meaning: '约束权重非负，保证组合逻辑稳定可解释' }
       ],
-      example: '第一层：MA预测100，ARIMA预测105，LSTM预测98。第二层元模型（如岭回归）学到的权重为0.2, 0.5, 0.3，最终预测=0.2×100+0.5×105+0.3×98=101.9'
+      example: 'ARIMA预测100，LSTM预测110。元模型发现LSTM在类似情况下更准，给予0.8权重，ARIMA给0.2。最终预测 = 0.2×100 + 0.8×110 + 截距。'
     },
     workflow: {
       steps: [
-        { title: '训练第一层模型', description: '在训练集上分别训练多个异构的基础模型（如MA、ARIMA、LSTM等）。', tip: '模型越多样化越好，避免高度相关的模型' },
-        { title: '生成元特征', description: '用交叉验证获取第一层模型在训练集上的预测，作为第二层的训练数据。', tip: '必须用交叉验证，否则元模型会过拟合' },
-        { title: '训练元模型', description: '用第一层的预测作为特征，真实值作为目标，训练元模型（如岭回归、GBDT等）。', tip: '元模型通常选择简单模型防止过拟合' },
-        { title: '整体预测', description: '对新数据：先用第一层模型预测，再将预测结果输入元模型得到最终预测。', tip: '两层预测是串行的' }
+        { title: '数据划分', description: '将训练数据划分为Level-0（约80%）和Level-1（约20%）两部分。', tip: '防止元模型直接记住训练数据（数据泄露）' },
+        { title: 'Level-1预测', description: '用Level-0数据训练所有基础模型，并让它们对Level-1数据进行预测。', tip: '这些预测值构成了元模型的训练特征' },
+        { title: '训练元模型', description: '以Level-1的真实值为目标，训练一个线性回归模型来组合基础模型的预测。', tip: '学习如何分配权重以最小化误差' },
+        { title: '全局重训练', description: '使用全部训练数据重新训练所有基础模型，用于最终的实际预测。', tip: '最大化基础模型的利用率' }
       ]
     },
     parameters: [
-      { name: '基础模型选择', description: '第一层使用哪些模型', impact: '模型多样性是关键，同质模型收益小', typical: '3-10个不同类型的模型' },
-      { name: '元模型选择', description: '第二层用什么模型融合', impact: '复杂元模型易过拟合，简单模型更稳健', typical: '线性回归、岭回归、简单神经网络' },
-      { name: '交叉验证折数', description: '生成元特征时的CV折数', impact: '太少元模型易过拟合，太多计算慢', typical: '5-10折' }
+      { name: '基础模型组合', description: '选择参与第一层的异构模型', impact: '模型越多样（统计+深度学习），Stacking效果越好', typical: '建议至少包含ARIMA和LSTM' },
+      { name: '元模型类型', description: '第二层融合模型的算法', impact: '本系统固定使用非负线性回归', typical: 'LinearRegression(positive=True)' },
+      { name: '划分比例', description: 'Level-0/Level-1的分割点', impact: 'Level-1太少会导致元模型过拟合', typical: '系统自动设定（通常80/20）' }
     ],
     suitability: {
-      suitable: ['追求最高预测精度', '有多个表现不错但风格不同的基础模型', '数据量充足（上千样本）', '有充足计算资源和时间', '可接受复杂系统'],
-      notSuitable: ['数据量很小（<500）', '只有一两个基础模型', '基础模型都很差', '需要快速部署和预测', '需要强可解释性']
+      suitable: ['追求最高预测精度', '有多个表现不错但风格不同的基础模型', '数据量充足（支持划分Hold-out集）', '有充足计算资源'],
+      notSuitable: ['数据量很小（<15个数据点）', '只有一两个基础模型', '基础模型预测结果高度相关', '需要快速训练']
     },
     useCases: [
-      { industry: 'Kaggle竞赛', scenario: '房价预测', description: '冠军方案：第一层10个模型（GBDT、XGB、LSTM、RandomForest等），第二层用神经网络融合。最终RMSE比最好单模型低5%，险胜第二名。' },
-      { industry: '医疗', scenario: '疾病诊断', description: '医院用Stacking融合影像AI、基因分析、临床指标三个模型预测癌症风险。元模型学会在不同病例类型下信任不同模型，准确率92%。' },
-      { industry: '工业', scenario: '设备故障预测', description: '工厂融合时序模型（ARIMA）、传感器模型（CNN）、维修记录模型（XGB）。Stacking将三者优势结合，故障预警提前3天，准确率85%。' }
+      { industry: 'Kaggle竞赛', scenario: '房价预测', description: '冠军方案通常是3-4层的Stacking。本系统简化为2层，但保留了核心的Out-of-Fold训练机制，能有效提升单模型无法突破的精度瓶颈。' },
+      { industry: '工业', scenario: '传感器融合', description: '融合振动传感器（高频）和温度传感器（低频）的预测模型。Stacking能自动学习不同工况下应该侧重哪个传感器的数据。' },
+      { industry: '量化交易', scenario: '多因子策略', description: '将基于动量的模型和基于价值的模型通过Stacking结合，根据近期市场风格自动调整权重。' }
     ],
     pros: [
       { title: '性能天花板', description: '通常能达到单一融合方法的最高精度' },
-      { title: '自动优化', description: '元模型自动学习最优组合，无需手动调权重' },
-      { title: '捕捉复杂交互', description: '可学习模型间的非线性关系和条件依赖' },
-      { title: '高度灵活', description: '可堆叠任意类型和数量的模型' }
+      { title: '纠错能力', description: '元模型能学会忽略某些表现糟糕的模型' },
+      { title: '防过拟合', description: '严格的Hold-out划分机制减少了过拟合风险' },
+      { title: '自动权重', description: '比人工指定权重的加权平均更科学' }
     ],
     cons: [
-      { title: '极易过拟合', description: '两层学习导致过拟合风险翻倍，需仔细验证' },
-      { title: '计算昂贵', description: '训练和预测都是两层，时间和资源消耗大' },
-      { title: '实现复杂', description: '涉及交叉验证、多模型管理，工程难度高' },
-      { title: '调试困难', description: '出问题时难以定位是哪层或哪个模型的问题' }
+      { title: '数据饥渴', description: '需要额外的数据进行Hold-out划分，小数据不友好' },
+      { title: '计算昂贵', description: '需要多次训练基础模型（部分数据+全量数据）' },
+      { title: '黑箱属性', description: '虽然使用了线性回归，但双层结构仍增加了解释难度' },
+      { title: '工程复杂', description: '涉及复杂的数据流转和多次模型IO' }
     ],
-    bestPractices: ['第一层选择差异化模型：统计+机器学习+深度学习', '元模型从简单开始（线性回归），确有必要再用复杂模型', '必须用out-of-fold预测训练元模型，严防泄露', '在独立测试集上验证，训练集表现不可信', '监控各基础模型和元模型的过拟合', '考虑多层Stacking，但每层都增加过拟合风险', '与简单融合对比，确保复杂度物有所值', '保存所有模型和pipeline，便于部署和调试'],
+    bestPractices: ['务必选择原理差异大的模型（如MA vs LSTM）', '数据量少时优先选用加权平均而非Stacking', '观察元模型的系数，如果某模型系数为0，说明它对集成无贡献', '保持基础模型参数的一致性'],
     performance: {
-      speed: { level: 'low', description: '两层计算，训练和预测都慢' },
-      accuracy: { level: 'high', description: '通常是所有方法中最准确的' },
-      dataRequirement: { level: 'high', description: '需要大量数据支撑两层学习' },
-      complexity: { level: 'high', description: '实现和维护都非常复杂' }
+      speed: { level: 'low', description: '最慢，需要训练两轮基础模型' },
+      accuracy: { level: 'high', description: '理论上限最高' },
+      dataRequirement: { level: 'high', description: '需要足够数据进行切分' },
+      complexity: { level: 'high', description: '逻辑最复杂的融合方法' }
     }
   }
 ];
