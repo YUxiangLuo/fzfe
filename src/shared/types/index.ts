@@ -117,6 +117,7 @@ export interface ExperimentReport {
   pdf_file_path: string | null;
   grade: number | null;
   feedback: string | null;
+  grader_name: string | null;
   experiment_grade?: {
     model_quality?: number | null;
     exp_flow_demand_data_preparation?: number | null;

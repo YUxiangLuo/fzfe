@@ -582,7 +582,7 @@ const ExperimentReports: React.FC = () => {
     if (!selectedClassId) {
       return (
         <tr>
-          <td colSpan={8} className="py-12 text-center text-gray-500">
+          <td colSpan={9} className="py-12 text-center text-gray-500">
             请先选择一个班级查看实验报告。
           </td>
         </tr>
@@ -592,7 +592,7 @@ const ExperimentReports: React.FC = () => {
     if (isLoadingReports) {
       return (
         <tr>
-          <td colSpan={8} className="py-12 text-center text-gray-500">
+          <td colSpan={9} className="py-12 text-center text-gray-500">
             <div className="flex items-center justify-center space-x-2">
               <Loader className="animate-spin" size={18} />
               <span>正在加载实验报告...</span>
@@ -605,7 +605,7 @@ const ExperimentReports: React.FC = () => {
     if (reports.length === 0) {
       return (
         <tr>
-          <td colSpan={8} className="py-12 text-center text-gray-500">
+          <td colSpan={9} className="py-12 text-center text-gray-500">
             暂无学生可供显示。
           </td>
         </tr>
@@ -615,7 +615,7 @@ const ExperimentReports: React.FC = () => {
     if (filteredReports.length === 0) {
       return (
         <tr>
-          <td colSpan={8} className="py-12 text-center text-gray-500">
+          <td colSpan={9} className="py-12 text-center text-gray-500">
             未找到匹配的学生，请调整搜索条件。
           </td>
         </tr>
@@ -657,6 +657,9 @@ const ExperimentReports: React.FC = () => {
             ) : (
               <span className="text-gray-400">—</span>
             )}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+            {report.grader_name || <span className="text-gray-400">—</span>}
           </td>
           <td className="px-6 py-4 whitespace-nowrap text-sm">
             <div className="flex items-center space-x-2">
@@ -921,6 +924,7 @@ const ExperimentReports: React.FC = () => {
                   </button>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">评语</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">评阅人</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
