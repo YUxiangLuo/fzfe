@@ -19,8 +19,10 @@ import {
   Brain,
   LineChart,
   ClipboardList,
+  LogOut, // Added LogOut icon
 } from "lucide-react";
 import Button from '../../../shared/components/common/Button';
+import { useConfirm } from "../../../shared/contexts/ConfirmContext";
 
 interface Manual {
   file_name: string;
@@ -66,6 +68,7 @@ const Introduction: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [manual, setManual] = useState<Manual | null>(null);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const { confirm } = useConfirm();
 
   useEffect(() => {
     const fetchManual = async () => {
@@ -82,6 +85,42 @@ const Introduction: React.FC = () => {
     };
     fetchManual();
   }, []);
+
+  // Logout function
+  const handleLogout = async () => {
+    const isConfirmed = await confirm({
+      title: "确认退出",
+      message: "您确定要退出系统吗？",
+      confirmText: "退出",
+      cancelText: "取消",
+      variant: "danger",
+    });
+
+    if (!isConfirmed) return;
+
+    try {
+      localStorage.removeItem("token");
+      // Redirect to login page, assuming /login is the path to your login SPA
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Failed to remove token from localStorage:", error);
+      // Even if token removal fails, try to redirect
+      window.location.href = "/login";
+    }
+  };
+
+    // Logout function
+  const handleLogoutNoConfirm = async () => {
+    try {
+      localStorage.removeItem("token");
+      // Redirect to login page, assuming /login is the path to your login SPA
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Failed to remove token from localStorage:", error);
+      // Even if token removal fails, try to redirect
+      window.location.href = "/login";
+    }
+  };
 
   // 计算返回路径
   const fromState = location.state as { from?: string } | null;
@@ -230,7 +269,7 @@ const Introduction: React.FC = () => {
   return (
     <div className="h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <div className="h-full flex flex-col">
-        <div className="bg-white border-b border-gray-200 px-8 pt-12 pb-4">
+        <div className="relative bg-white border-b border-gray-200 px-8 pt-12 pb-4"> {/* Added relative to parent for absolute positioning */}
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-4">
               {NAVIGATION_STEPS.map((step, index) => {
@@ -265,6 +304,14 @@ const Introduction: React.FC = () => {
               })}
             </div>
           </div>
+          {/* Top-right logout button */}
+          <button
+            onClick={handleLogout}
+            className="absolute top-4 right-8 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            title="退出登录"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
         <div
           className={`flex-1 ${currentStep === 2 ? "" : "flex items-center justify-center p-8"}`}
@@ -382,6 +429,13 @@ const Introduction: React.FC = () => {
                   className="w-full px-6 py-3 bg-white text-gray-700 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
                 >
                   开始新的实验
+                </button>
+                {/* Logout button in the resume dialog */}
+                <button
+                  onClick={handleLogoutNoConfirm}
+                  className="w-full px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors mt-3"
+                >
+                  退出系统
                 </button>
               </div>
             </div>

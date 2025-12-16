@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import { apiClient } from "../../../utils/apiClient";
 import { getRoleByBackendValue } from "../../../config/roles";
 import { ROUTES, getLogoutRedirectPath } from "../constants/routes";
+import { useConfirm } from "../../../shared/contexts/ConfirmContext";
 
 interface UserSummary {
   user_id: number;
@@ -27,6 +28,7 @@ const Header: React.FC = () => {
   const [user, setUser] = useState<UserSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { confirm } = useConfirm();
 
   useEffect(() => {
     let active = true;
@@ -55,6 +57,16 @@ const Header: React.FC = () => {
   }, []);
 
   const handleLogout = async () => {
+    const isConfirmed = await confirm({
+      title: "确认退出",
+      message: "您确定要退出系统吗？未保存的实验进度可能会丢失。",
+      confirmText: "退出",
+      cancelText: "取消",
+      variant: "danger",
+    });
+
+    if (!isConfirmed) return;
+
     try {
       localStorage.removeItem("token");
     } catch (error) {
