@@ -286,7 +286,7 @@ const ExperimentReports: React.FC = () => {
   };
 
   const handleExportReports = useCallback(async () => {
-    if (!selectedClassId || filteredReports.length === 0 || isExportingReports) return;
+    if (!selectedClassId || reports.length === 0 || isExportingReports) return;
     setIsExportingReports(true);
     setExportError(null);
     setExportedFileUrl(null);
@@ -306,10 +306,10 @@ const ExperimentReports: React.FC = () => {
     } finally {
       setIsExportingReports(false);
     }
-  }, [selectedClassId, filteredReports.length, isExportingReports]);
+  }, [selectedClassId, reports.length, isExportingReports]);
 
   const handleExportCsv = useCallback(async () => {
-    if (!selectedClassId || filteredReports.length === 0 || isExportingCsv) return;
+    if (!selectedClassId || reports.length === 0 || isExportingCsv) return;
     setIsExportingCsv(true);
     setExportError(null);
     setExportedCsvUrl(null);
@@ -329,7 +329,7 @@ const ExperimentReports: React.FC = () => {
     } finally {
       setIsExportingCsv(false);
     }
-  }, [selectedClassId, filteredReports.length, isExportingCsv]);
+  }, [selectedClassId, reports.length, isExportingCsv]);
 
   const getReportStatus = useCallback((report: ExperimentReport): StatusMeta => {
     const key = getReportStatusKey(report);
@@ -459,9 +459,7 @@ const ExperimentReports: React.FC = () => {
       feedback?: string;
       experiment_grade?: any;
       status?: string;
-    } = {
-      status: 'graded' // 只要提交评分，状态就变为已评阅
-    };
+    } = {};
 
     if (tempScore.trim()) {
       const scoreValue = Number(tempScore);
@@ -510,6 +508,11 @@ const ExperimentReports: React.FC = () => {
     if (payload.grade === undefined && payload.experiment_grade === undefined && payload.feedback === undefined) {
       showToast("请至少填写一项成绩或评语", "error");
       return;
+    }
+
+    // 只在提交了分数时才标记为已评阅，仅提交评语不改变状态
+    if (payload.grade !== undefined || hasExperimentGrade) {
+      payload.status = 'graded';
     }
 
     try {

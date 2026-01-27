@@ -154,7 +154,11 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
       if (editingQuestion) {
         const formType = API_TYPE_TO_FORM_TYPE[editingQuestion.question_type];
         const options = normalizeOptions(editingQuestion, formType);
-        const correctAnswers = editingQuestion.correct_answers ?? [];
+        let correctAnswers = editingQuestion.correct_answers ?? [];
+        if (formType === 'boolean') {
+          const labelToKey: Record<string, string> = { '正确': 'true', '错误': 'false' };
+          correctAnswers = correctAnswers.map((a) => labelToKey[a] ?? a);
+        }
         const { primary, secondary } = parseKnowledgePoint(editingQuestion.knowledge_point ?? null);
 
         setEditorState({

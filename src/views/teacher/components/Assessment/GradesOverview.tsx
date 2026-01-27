@@ -96,31 +96,6 @@ const SCORE_SEGMENT_CONFIG = {
 
 type ScoreSegmentKey = keyof typeof SCORE_SEGMENT_CONFIG;
 
-const FINAL_BREAKDOWN_LABELS: Record<'exp_flow' | 'knowledge_test' | 'model_quality' | 'report_quality', string> = {
-  exp_flow: '实验流程',
-  knowledge_test: '知识点测试',
-  model_quality: '模型选择',
-  report_quality: '实验报告',
-};
-
-const EXP_FLOW_FIELD_LABELS: Record<string, string> = {
-  exp_flow_demand_data_preparation: '需求预测 - 数据准备',
-  exp_flow_demand_descriptive_stats: '需求预测 - 描述性统计',
-  exp_flow_demand_model_selection: '需求预测 - 模型选择',
-  exp_flow_demand_generate_results: '需求预测 - 生成预测结果',
-  exp_flow_production_inventory_calc: '生产计划 - 库存变量计算',
-  exp_flow_production_service_level: '生产计划 - 服务水平计算',
-  exp_flow_production_variable_calc: '生产计划 - 生产变量计算',
-  exp_flow_production_plan_creation: '生产计划 - 制定计划',
-  exp_flow_report_submission: '提交实验报告',
-};
-
-const formatScore = (value: number | null) => {
-  if (value === null || Number.isNaN(value)) {
-    return '—';
-  }
-  return value.toFixed(2);
-};
 
 const formatStatValue = (value: number | null) => {
   if (value === null || Number.isNaN(value)) {
