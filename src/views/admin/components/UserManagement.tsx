@@ -27,7 +27,7 @@ import {
   validatePassword,
   validatePhone,
   validateUsername,
-} from "@/shared/utils/validation";
+} from "../utils/validation";
 
 const PAGE_LIMIT = 10;
 const SEARCH_DEBOUNCE_MS = 400;

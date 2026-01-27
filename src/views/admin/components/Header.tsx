@@ -2,13 +2,13 @@ import React, { useState, useEffect } from "react";
 import { LogOut, User } from "lucide-react";
 import { decodeToken, type DecodedToken } from "../../../utils/auth";
 import { getRoleByBackendValue } from "../../../config/roles";
-import { useConfirm } from '@/shared/hooks/useConfirm';
+import { useConfirm } from '../hooks/useConfirm';
 import ConfirmDialog from './ConfirmDialog';
 import { Button } from "@/components/ui/button";
 
 const Header: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
-  const confirm = useConfirm();
+  const { confirmState, showConfirm, hideConfirm } = useConfirm();
 
   useEffect(() => {
     try {
@@ -21,21 +21,19 @@ const Header: React.FC = () => {
     }
   }, []);
 
-  const handleLogout = async () => {
-    const confirmed = await confirm.showConfirm(
-      '退出登录',
+  const handleLogout = () => {
+    showConfirm(
       '确定要退出登录吗？退出后需要重新登录才能继续操作。',
-      'danger'
+      () => {
+        try {
+          localStorage.removeItem("token");
+        } catch (err) {
+          console.error('Failed to remove token from localStorage:', err);
+        }
+        window.location.href = "/login";
+      },
+      { title: '退出登录', variant: 'danger' }
     );
-
-    if (!confirmed) return;
-
-    try {
-      localStorage.removeItem("token");
-    } catch (err) {
-      console.error('Failed to remove token from localStorage:', err);
-    }
-    window.location.href = "/login";
   };
 
   const roleDisplay = currentUser
@@ -76,12 +74,12 @@ const Header: React.FC = () => {
         </div>
       </header>
       <ConfirmDialog
-        isOpen={confirm.isOpen}
-        title={confirm.title}
-        message={confirm.message}
-        variant={confirm.variant}
-        onConfirm={confirm.handleConfirm}
-        onCancel={confirm.handleCancel}
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant={confirmState.variant}
+        onConfirm={() => { hideConfirm(); confirmState.onConfirm(); }}
+        onCancel={hideConfirm}
       />
     </>
   );
