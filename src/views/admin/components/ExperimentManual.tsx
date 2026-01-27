@@ -12,10 +12,22 @@ import type { ExperimentManual } from "../types";
 import { apiClient } from "../../../utils/apiClient";
 import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig"; // Import the new config value
 import Modal from "./Modal";
-import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useToast } from "../hooks/useToast";
 import { useConfirm } from "../hooks/useConfirm";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Switch } from "@/components/ui/switch";
 
 const MAX_MANUAL_NAME_LENGTH = 100;
 const MANUAL_NAME_MIN_LENGTH = 2;
@@ -95,7 +107,7 @@ const ExperimentManualView: React.FC = () => {
   );
 
   // Toast and Confirm hooks
-  const { toast, showToast, hideToast } = useToast();
+  const { showToast } = useToast();
   const { confirmState, showConfirm, hideConfirm } = useConfirm();
 
   const handleManualNameChange = (value: string) => {
@@ -306,91 +318,84 @@ const ExperimentManualView: React.FC = () => {
   const renderTableBody = () => {
     if (isLoading)
       return (
-        <tr>
-          <td colSpan={6} className="text-center py-12">
-            <Loader className="animate-spin mx-auto text-gray-400" />
-          </td>
-        </tr>
+        <TableRow>
+          <TableCell colSpan={6} className="py-12 text-center">
+            <Loader className="mx-auto h-5 w-5 animate-spin text-muted-foreground" />
+          </TableCell>
+        </TableRow>
       );
     if (error)
       return (
-        <tr>
-          <td colSpan={6} className="text-center py-12 text-red-500">
-            <AlertTriangle className="mx-auto" />
+        <TableRow>
+          <TableCell colSpan={6} className="py-12 text-center text-destructive">
+            <AlertTriangle className="mx-auto h-5 w-5" />
             <p className="mt-2">{error}</p>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     if (manuals.length === 0)
       return (
-        <tr>
-          <td colSpan={6} className="text-center py-12 text-gray-500">
+        <TableRow>
+          <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
             暂无实验手册
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
 
     return manuals.map((manual) => (
-      <tr
-        key={manual.manual_id}
-        className="hover:bg-blue-50/30 transition-colors duration-200"
-      >
-        <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-          {manual.file_name}
-        </td>
-        <td className="px-6 py-4 text-sm text-gray-600">
+      <TableRow key={manual.manual_id}>
+        <TableCell className="font-medium">{manual.file_name}</TableCell>
+        <TableCell className="text-muted-foreground">
           {manual.description || "-"}
-        </td>
-        <td className="px-6 py-4 text-sm text-gray-600">
+        </TableCell>
+        <TableCell className="text-muted-foreground">
           {manual.uploader_name}
-        </td>
-        <td className="px-6 py-4 text-sm text-gray-600">
+        </TableCell>
+        <TableCell className="text-muted-foreground">
           {formatDateTime(manual.uploaded_at)}
-        </td>
-        <td className="px-6 py-4">
-          <label
-            className="relative inline-flex items-center cursor-pointer"
-            title={manual.is_active === 1 ? "启用中 - 点击禁用" : "已禁用 - 点击启用"}
-          >
-            <input
-              type="checkbox"
-              checked={manual.is_active === 1}
-              onChange={() => handleStatusToggle(manual)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-          </label>
-        </td>
-        <td className="px-6 py-4">
-          <div className="flex items-center space-x-1">
-            <button
+        </TableCell>
+        <TableCell>
+          <Switch
+            checked={manual.is_active === 1}
+            onCheckedChange={() => handleStatusToggle(manual)}
+            aria-label={
+              manual.is_active === 1 ? "启用中 - 点击禁用" : "已禁用 - 点击启用"
+            }
+          />
+        </TableCell>
+        <TableCell>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => {
                 setEditingManual({ ...manual });
                 setEditErrors({ ...INITIAL_EDIT_ERRORS });
                 setIsEditModalOpen(true);
               }}
-              className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-all duration-200 hover:scale-110"
               title="修改"
             >
-              <Edit size={16} />
-            </button>
-            <button
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => handleDelete(manual.manual_id)}
-              className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-all duration-200 hover:scale-110"
               title="删除"
             >
-              <Trash2 size={16} />
-            </button>
-            <button
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
               onClick={() => handleDownload(manual.file_path)}
-              className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-all duration-200 hover:scale-110"
               title="下载"
             >
-              <Download size={16} />
-            </button>
+              <Download className="h-4 w-4" />
+            </Button>
           </div>
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
     ));
   };
 
@@ -398,48 +403,31 @@ const ExperimentManualView: React.FC = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">实验手册管理</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">实验手册管理</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             管理学生端显示的实验手册，支持上传、更新和启用/禁用操作
           </p>
         </div>
-        <button
-          onClick={openUploadModal}
-          className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-        >
-          <Plus size={18} />
-          <span>新增</span>
-        </button>
+        <Button onClick={openUploadModal}>
+          <Plus className="mr-2 h-4 w-4" />
+          新增
+        </Button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                手册名称
-              </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                备注
-              </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                上传者
-              </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                上传时间
-              </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                状态
-              </th>
-              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                操作
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {renderTableBody()}
-          </tbody>
-        </table>
+      <div className="rounded-2xl border border-border bg-card shadow-sm">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>手册名称</TableHead>
+              <TableHead>备注</TableHead>
+              <TableHead>上传者</TableHead>
+              <TableHead>上传时间</TableHead>
+              <TableHead>状态</TableHead>
+              <TableHead>操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>{renderTableBody()}</TableBody>
+        </Table>
       </div>
 
       <Modal
@@ -449,52 +437,44 @@ const ExperimentManualView: React.FC = () => {
       >
         <div className="space-y-6">
           <div>
-            <label
-              htmlFor="manual-name"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
+            <Label htmlFor="manual-name" className="mb-2">
               手册名称
-            </label>
-            <input
+            </Label>
+            <Input
               type="text"
               id="manual-name"
               value={manualName}
               onChange={(e) => handleManualNameChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="例如：生产决策仿真实验手册"
             />
             {uploadErrors.name && (
-              <p className="mt-1 text-xs text-red-500">{uploadErrors.name}</p>
+              <p className="mt-1 text-xs text-destructive">{uploadErrors.name}</p>
             )}
           </div>
           <div>
-            <label
-              htmlFor="manual-notes"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
+            <Label htmlFor="manual-notes" className="mb-2">
               备注 (可选)
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               id="manual-notes"
               value={manualNotes}
               onChange={(e) => handleManualNotesChange(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="例如：适用于2025春季学期"
-            ></textarea>
+            />
             {uploadErrors.notes && (
-              <p className="mt-1 text-xs text-red-500">{uploadErrors.notes}</p>
+              <p className="mt-1 text-xs text-destructive">{uploadErrors.notes}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Label htmlFor="file-upload" className="mb-2">
               上传PDF文件
-            </label>
+            </Label>
             <label
               htmlFor="file-upload"
-              className="cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors"
+              className="cursor-pointer flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border p-6 text-center transition-colors hover:border-primary"
             >
-              <Upload size={48} className="mx-auto text-gray-400 mb-4" />
+              <Upload size={48} className="mx-auto text-muted-foreground mb-4" />
               <input
                 type="file"
                 accept=".pdf"
@@ -502,34 +482,25 @@ const ExperimentManualView: React.FC = () => {
                 className="hidden"
                 id="file-upload"
               />
-              <p className="text-blue-600 font-medium">点击或拖拽文件到此处</p>
+              <p className="text-primary font-medium">点击或拖拽文件到此处</p>
               {uploadFile && (
-                <p className="text-sm text-green-600 mt-2 font-semibold">
+                <p className="text-sm text-emerald-600 mt-2 font-semibold">
                   已选择: {uploadFile.name}
                 </p>
               )}
             </label>
             {uploadErrors.file && (
-              <p className="mt-2 text-xs text-red-500">{uploadErrors.file}</p>
+              <p className="mt-2 text-xs text-destructive">{uploadErrors.file}</p>
             )}
           </div>
-          <div className="flex justify-end space-x-3 pt-4 border-gray-200">
-            <button
-              onClick={resetUploadModal}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-            >
+          <div className="flex justify-end gap-3 pt-4">
+            <Button variant="outline" onClick={resetUploadModal}>
               取消
-            </button>
-            <button
-              onClick={handleUpload}
-              disabled={!isUploadFormValid || isUploading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
-            >
-              {isUploading && (
-                <Loader className="animate-spin mr-2" size={16} />
-              )}
+            </Button>
+            <Button onClick={handleUpload} disabled={!isUploadFormValid || isUploading}>
+              {isUploading && <Loader className="mr-2 h-4 w-4 animate-spin" />}
               {isUploading ? "上传中..." : "确认上传"}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>
@@ -542,59 +513,42 @@ const ExperimentManualView: React.FC = () => {
         {editingManual && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Label className="mb-2">
                 手册名称
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 value={editingManual.file_name}
                 onChange={(e) => handleEditManualNameChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
               {editErrors.name && (
-                <p className="mt-1 text-xs text-red-500">{editErrors.name}</p>
+                <p className="mt-1 text-xs text-destructive">{editErrors.name}</p>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Label className="mb-2">
                 备注
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 rows={3}
                 value={editingManual.description || ""}
                 onChange={(e) => handleEditManualNotesChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              ></textarea>
+              />
               {editErrors.notes && (
-                <p className="mt-1 text-xs text-red-500">{editErrors.notes}</p>
+                <p className="mt-1 text-xs text-destructive">{editErrors.notes}</p>
               )}
             </div>
-            <div className="flex justify-end space-x-3 pt-4 border-gray-200">
-              <button
-                onClick={closeEditModal}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={closeEditModal}>
                 取消
-              </button>
-              <button
-                onClick={handleSaveEdit}
-                disabled={!isEditFormValid}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={!isEditFormValid}>
                 保存修改
-              </button>
+              </Button>
             </div>
           </div>
         )}
       </Modal>
-
-      {/* Toast Notification */}
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={hideToast}
-      />
 
       {/* Confirm Dialog */}
       <ConfirmDialog

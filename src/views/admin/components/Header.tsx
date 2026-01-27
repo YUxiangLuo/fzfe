@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import { LogOut, User } from "lucide-react";
 import { decodeToken, type DecodedToken } from "../../../utils/auth";
 import { getRoleByBackendValue } from "../../../config/roles";
-import { useConfirm } from '@/shared/hooks/useConfirm';
+import { useConfirm } from '../hooks/useConfirm';
 import ConfirmDialog from './ConfirmDialog';
+import { Button } from "@/components/ui/button";
 
 const Header: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
-  const confirm = useConfirm();
+  const { confirmState, showConfirm, hideConfirm } = useConfirm();
 
   useEffect(() => {
     try {
@@ -20,21 +21,19 @@ const Header: React.FC = () => {
     }
   }, []);
 
-  const handleLogout = async () => {
-    const confirmed = await confirm.showConfirm(
-      '退出登录',
+  const handleLogout = () => {
+    showConfirm(
       '确定要退出登录吗？退出后需要重新登录才能继续操作。',
-      'danger'
+      () => {
+        try {
+          localStorage.removeItem("token");
+        } catch (err) {
+          console.error('Failed to remove token from localStorage:', err);
+        }
+        window.location.href = "/login";
+      },
+      { title: '退出登录', variant: 'danger' }
     );
-
-    if (!confirmed) return;
-
-    try {
-      localStorage.removeItem("token");
-    } catch (err) {
-      console.error('Failed to remove token from localStorage:', err);
-    }
-    window.location.href = "/login";
   };
 
   const roleDisplay = currentUser
@@ -43,10 +42,10 @@ const Header: React.FC = () => {
 
   return (
     <>
-      <header className="w-full bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50">
+      <header className="w-full bg-card border-b border-border shadow-sm fixed top-0 left-0 right-0 z-50">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-foreground">
               面向企业多源需求融合的生产计划决策虚拟仿真系统
             </h1>
           </div>
@@ -54,36 +53,33 @@ const Header: React.FC = () => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-3 pl-4">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-blue-600" />
+                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                  <User className="w-4 h-4 text-primary" />
                 </div>
                 <div className="text-sm">
-                  <p className="font-medium text-gray-900">
+                  <p className="font-medium text-foreground">
                     {currentUser?.username || "未知用户"}
                   </p>
-                  <p className="text-gray-500">
+                  <p className="text-muted-foreground">
                     {roleDisplay || ""}
                   </p>
                 </div>
               </div>
 
-              <button
-                onClick={handleLogout}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
+              <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="退出登录">
+                <LogOut className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
       </header>
       <ConfirmDialog
-        isOpen={confirm.isOpen}
-        title={confirm.title}
-        message={confirm.message}
-        variant={confirm.variant}
-        onConfirm={confirm.handleConfirm}
-        onCancel={confirm.handleCancel}
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant={confirmState.variant}
+        onConfirm={() => { hideConfirm(); confirmState.onConfirm(); }}
+        onCancel={hideConfirm}
       />
     </>
   );

@@ -197,7 +197,14 @@ const ExperimentReports: React.FC = () => {
 
   const summaryStats = useMemo(() => {
     if (reports.length === 0) {
-      return { total: 0, submitted: 0, pendingReview: 0, reviewed: 0, averageGrade: "--" };
+      return {
+        total: 0,
+        submitted: 0,
+        pendingReview: 0,
+        reviewed: 0,
+        averageGrade: "--",
+        rejectedReportsCount: 0,
+      };
     }
 
     // Categorize based on status
@@ -1239,7 +1246,7 @@ const SummaryCard: React.FC<{
   icon: React.ElementType;
   title: string;
   value: number | string;
-  description: string;
+  description: React.ReactNode;
   accent: string;
 }> = ({ icon: Icon, title, value, description, accent }) => (
   <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center space-x-4">
