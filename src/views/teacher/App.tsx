@@ -1,23 +1,23 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Header from '@/shared/components/common/TeacherLayout/Header';
-import Sidebar from '@/shared/components/Layout/Sidebar';
-import { ErrorBoundaryWrapper } from '@/shared/components/common/ErrorBoundary';
+import Header from '@/views/teacher/components/common/TeacherLayout/Header';
+import Sidebar from '@/views/teacher/components/Layout/Sidebar';
+import { ErrorBoundaryWrapper } from '@/views/teacher/components/common/ErrorBoundary';
 import { getLogoutRedirectPath } from './constants/routes';
-import { RoleProvider, useRole } from '@/shared/contexts/RoleContext';
+import { RoleProvider, useRole } from '@/views/teacher/contexts/RoleContext';
 import { getRoleById } from '@/config/roles';
 
 // Import all the page components
-import PersonalInfo from '@/shared/components/Account/PersonalInfo';
+import PersonalInfo from '@/views/teacher/components/Account/PersonalInfo';
 import AssistantManagement from './components/Account/AssistantManagement';
-import ClassManagement from '@/shared/components/Class/ClassManagement';
-import StudentManagement from '@/shared/components/Student/StudentManagement';
-import ExperimentProgress from '@/shared/components/Experiment/ExperimentProgress';
-import ExperimentReports from '@/shared/components/Experiment/ExperimentReports';
-import ExperimentLogs from '@/shared/components/Experiment/ExperimentLogs';
-import QuestionBank from '@/shared/components/Assessment/QuestionBank';
-import GradeWeights from '@/shared/components/Assessment/GradeWeights';
-import GradesOverview from '@/shared/components/Assessment/GradesOverview';
+import ClassManagement from '@/views/teacher/components/Class/ClassManagement';
+import StudentManagement from '@/views/teacher/components/Student/StudentManagement';
+import ExperimentProgress from '@/views/teacher/components/Experiment/ExperimentProgress';
+import ExperimentReports from '@/views/teacher/components/Experiment/ExperimentReports';
+import ExperimentLogs from '@/views/teacher/components/Experiment/ExperimentLogs';
+import QuestionBank from '@/views/teacher/components/Assessment/QuestionBank';
+import GradeWeights from '@/views/teacher/components/Assessment/GradeWeights';
+import GradesOverview from '@/views/teacher/components/Assessment/GradesOverview';
 
 function AppContent() {
   const { setRole } = useRole();

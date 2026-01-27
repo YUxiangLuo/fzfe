@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Modal from '@/shared/components/common/Modal';
-import Button from '@/shared/components/common/Button';
-import type { User as Assistant, Class } from '@/shared/types';
+import Modal from '@/views/teacher/components/common/Modal';
+import Button from '@/views/teacher/components/common/Button';
+import type { User as Assistant, Class } from '@/views/teacher/types';
 import { apiClient } from '@/utils/apiClient';
 import { Loader, AlertTriangle } from 'lucide-react';
-import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
-import { useConfirm } from '@/shared/hooks/useConfirm';
+import { ConfirmDialog } from '@/views/teacher/components/common/ConfirmDialog';
+import { useConfirm } from '@/views/teacher/hooks/useConfirm';
 
 interface ReassignAssistantModalProps {
   isOpen: boolean;

@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import Modal from '@/shared/components/common/Modal';
-import Button from '@/shared/components/common/Button';
-import { validateUsername, validateFullName, validateEmail, validatePhone, validatePassword } from '@/shared/utils/validation';
-import { UI_CONSTANTS } from '@/shared/constants/ui';
-import type { Class } from '@/shared/types';
+import Modal from '@/views/teacher/components/common/Modal';
+import Button from '@/views/teacher/components/common/Button';
+import { validateUsername, validateFullName, validateEmail, validatePhone, validatePassword } from '@/views/teacher/utils/validation';
+import { UI_CONSTANTS } from '@/views/teacher/constants/ui';
+import type { Class } from '@/views/teacher/types';
 import { apiClient } from '@/utils/apiClient';
 
 interface CreateAssistantModalProps {
