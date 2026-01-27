@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, FileText, XCircle, AlertTriangle, Download } from 'lucide-react';
 import Modal from '@/views/teacher/components/common/Modal';
 import Button from '@/views/teacher/components/common/Button';
@@ -24,6 +24,17 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({ isOpen, onCl
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({ class_name: '', class_code: '' });
+      setCsvFile(null);
+      setIsSubmitting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [isOpen]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

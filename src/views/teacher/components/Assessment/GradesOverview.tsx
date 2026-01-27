@@ -599,6 +599,9 @@ const GradesOverview: React.FC = () => {
       }
 
       const filename = response.file_path.split("/").pop();
+      if (!filename) {
+        throw new Error('导出失败：无效的文件名');
+      }
       const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/exports/${filename}`;
       setExportedFileUrl(fullUrl);
     } catch (err: any) {

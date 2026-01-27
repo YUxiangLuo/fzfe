@@ -517,7 +517,7 @@ const ExperimentReports: React.FC = () => {
       const updatedReport = await apiClient.put(`/reports/${selectedReport.report_id}`, payload);
       setReports((prev) =>
         prev.map((report) =>
-          report.user_id === selectedReport.user_id
+          report.report_id === selectedReport.report_id
             ? { ...(updatedReport as ExperimentReport) }
             : report,
         ),
@@ -571,7 +571,7 @@ const ExperimentReports: React.FC = () => {
       const updatedReport = await apiClient.put(`/reports/${selectedReport.report_id}`, payload);
       setReports((prev) =>
         prev.map((report) =>
-          report.user_id === selectedReport.user_id
+          report.report_id === selectedReport.report_id
             ? { ...(updatedReport as ExperimentReport) }
             : report,
         ),

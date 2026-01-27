@@ -302,7 +302,10 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
     }
 
     const correct_answers = editorState.questionType === 'boolean'
-      ? editorState.correctAnswers.map((answer) => answer.trim()).filter((answer) => answer === '正确' || answer === '错误')
+      ? editorState.correctAnswers
+          .map((key) => DEFAULT_BOOLEAN_OPTIONS.find((opt) => opt.key === key)?.value ?? key)
+          .map((v) => v.trim())
+          .filter((answer) => answer === '正确' || answer === '错误')
       : editorState.correctAnswers.filter(Boolean);
 
     return {
@@ -464,9 +467,9 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
               type="radio"
               name="boolean-answer"
               className="text-blue-600 focus:ring-blue-500"
-              value={option.value}
-              checked={editorState.correctAnswers.includes(option.value)}
-              onChange={() => handleBooleanSelect(option.value)}
+              value={option.key}
+              checked={editorState.correctAnswers.includes(option.key)}
+              onChange={() => handleBooleanSelect(option.key)}
             />
             <span className="text-gray-700">{option.value}</span>
           </label>

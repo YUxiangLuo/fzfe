@@ -29,17 +29,20 @@ const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
   const confirm = useConfirm();
 
   useEffect(() => {
-    // First, decode token for immediate user info
-    try {
-      const token = localStorage.getItem("token");
-      if (token) {
-        const decoded = decodeToken(token);
-        setCurrentUser(decoded);
-      }
-    } catch (error) {
-      console.error('Failed to decode token:', error);
-      localStorage.removeItem("token");
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setLoading(false);
+      return;
     }
+
+    const decoded = decodeToken(token);
+    if (!decoded) {
+      localStorage.removeItem("token");
+      setLoading(false);
+      return;
+    }
+
+    setCurrentUser(decoded);
 
     // Then fetch full user profile from API
     let active = true;

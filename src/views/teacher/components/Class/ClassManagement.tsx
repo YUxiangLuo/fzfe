@@ -62,9 +62,13 @@ const ClassManagement: React.FC = () => {
   };
 
   const handleUpdateSubmit = async (classId: number, payload: { class_name: string; class_code: string }) => {
+    if (!selectedClass) {
+      showToast('未选择要编辑的班级', 'error');
+      return;
+    }
     try {
       const updatedClassData = await apiClient.put<Class>(`/classes/${classId}`, payload);
-      updateClass({ ...selectedClass!, ...updatedClassData });
+      updateClass({ ...selectedClass, ...updatedClassData });
       setShowEditModal(false);
       setSelectedClass(null);
       showToast('班级信息更新成功', 'success');

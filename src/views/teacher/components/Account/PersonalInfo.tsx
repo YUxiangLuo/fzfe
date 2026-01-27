@@ -46,18 +46,29 @@ const PersonalInfo: React.FC = () => {
     const controller = new AbortController();
 
     const fetchInitialData = async () => {
+      let userData: any;
       try {
         setIsUserLoading(true);
         setUserError(null);
-        const userData = await apiClient.get('/users/me', { signal: controller.signal });
+        userData = await apiClient.get('/users/me', { signal: controller.signal });
 
         if (!controller.signal.aborted) {
           setUser(userData);
           setTempUser(userData);
           setIsUserLoading(false);
         }
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
 
-        if (userData && userData.user_id && !controller.signal.aborted) {
+        if (!controller.signal.aborted) {
+          setUserError(err.message || '获取用户信息失败');
+          setIsUserLoading(false);
+        }
+        return;
+      }
+
+      if (userData && userData.user_id && !controller.signal.aborted) {
+        try {
           setIsClassesLoading(true);
           setClassesError(null);
           const classesData = await apiClient.get(`/teachers/${userData.user_id}/classes`, { signal: controller.signal });
@@ -66,15 +77,13 @@ const PersonalInfo: React.FC = () => {
             setManagedClasses(classesData || []);
             setIsClassesLoading(false);
           }
-        }
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+        } catch (err: any) {
+          if (err.name === 'AbortError') return;
 
-        if (!controller.signal.aborted) {
-          setUserError(err.message || '获取用户信息失败');
-          setClassesError(err.message || '获取班级信息失败');
-          setIsUserLoading(false);
-          setIsClassesLoading(false);
+          if (!controller.signal.aborted) {
+            setClassesError(err.message || '获取班级信息失败');
+            setIsClassesLoading(false);
+          }
         }
       }
     };

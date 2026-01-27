@@ -33,7 +33,7 @@ export const useClassStore = create<ClassState>((set, get) => ({
   fetchClasses: async () => {
     const teacherId = getTeacherId();
     if (!teacherId) {
-      set({ error: '无法获取用户信息，请重新登录。', isLoading: false });
+      set({ error: '无法获取用户信息，请重新登录。', isLoading: false, hasFetched: true });
       return;
     }
 

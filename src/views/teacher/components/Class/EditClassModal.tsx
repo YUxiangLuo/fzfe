@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Class } from '@/views/teacher/types';
 import Modal from '@/views/teacher/components/common/Modal';
 import Button from '@/views/teacher/components/common/Button';
+import { Toast } from '@/views/teacher/components/common/Toast';
 import { validateClassName, validateClassCode } from '@/views/teacher/utils/validation';
 import { useToast } from '@/views/teacher/hooks/useToast';
 
@@ -13,7 +14,7 @@ interface EditClassModalProps {
 }
 
 export const EditClassModal: React.FC<EditClassModalProps> = ({ isOpen, onClose, classData, onSubmit }) => {
-  const { showToast } = useToast();
+  const { toast, showToast, hideToast } = useToast();
   const [formData, setFormData] = useState({ class_name: '', class_code: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -53,6 +54,8 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({ isOpen, onClose,
   };
 
   return (
+    <>
+    {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
     <Modal isOpen={isOpen} onClose={onClose} title="修改班级信息">
       <div className="space-y-4">
         <div>
@@ -97,5 +100,6 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({ isOpen, onClose,
         </div>
       </div>
     </Modal>
+    </>
   );
 };

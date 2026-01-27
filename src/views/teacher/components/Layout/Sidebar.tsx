@@ -34,57 +34,56 @@ interface MenuItemType {
   children?: SubMenuItem[];
 }
 
+const menuItems: MenuItemType[] = [
+  {
+    key: 'account',
+    label: '账号管理',
+    icon: User,
+    children: [
+      { key: 'account-personal', label: '个人信息管理', icon: UserCog, description: '查看和编辑个人资料' },
+      { key: 'account-assistant', label: '助教管理', icon: Users, description: '管理助教账户' },
+    ],
+  },
+  {
+    key: 'class-management',
+    label: '班级管理',
+    icon: School,
+    description: '创建和管理班级',
+  },
+  {
+    key: 'student-management',
+    label: '学生管理',
+    icon: GraduationCap,
+    description: '学生信息管理',
+  },
+  {
+    key: 'experiment',
+    label: '实验管理',
+    icon: FlaskConical,
+    description: '实验进度与报告',
+    children: [
+      { key: 'experiment-progress', label: '实验进度', icon: Activity, description: '监控学生实验进度' },
+      { key: 'experiment-reports', label: '实验报告', icon: FileText, description: '批阅实验报告' },
+      { key: 'experiment-logs', label: '实验日志', icon: History, description: '查看实验操作记录' },
+    ],
+  },
+  {
+    key: 'assessment',
+    label: '考评管理',
+    icon: ClipboardCheck,
+    description: '题库与成绩管理',
+    children: [
+      { key: 'assessment-questions', label: '题库管理', icon: Brain, description: '管理考试题目' },
+      { key: 'assessment-weights', label: '成绩权重', icon: Settings, description: '设置评分权重' },
+      { key: 'assessment-grades', label: '成绩概览', icon: BarChart3, description: '查看成绩统计' },
+    ],
+  },
+];
+
 interface SidebarProps {}
 
 const Sidebar: React.FC<SidebarProps> = () => {
   const { role } = useRole();
-
-  const menuItems: MenuItemType[] = [
-    {
-      key: 'account',
-      label: '账号管理',
-      icon: User,
-      // description property is now removed
-      children: [
-        { key: 'account-personal', label: '个人信息管理', icon: UserCog, description: '查看和编辑个人资料' },
-        { key: 'account-assistant', label: '助教管理', icon: Users, description: '管理助教账户' },
-      ],
-    },
-    {
-      key: 'class-management',
-      label: '班级管理',
-      icon: School,
-      description: '创建和管理班级',
-    },
-    {
-      key: 'student-management',
-      label: '学生管理',
-      icon: GraduationCap,
-      description: '学生信息管理',
-    },
-    {
-      key: 'experiment',
-      label: '实验管理',
-      icon: FlaskConical,
-      description: '实验进度与报告',
-      children: [
-        { key: 'experiment-progress', label: '实验进度', icon: Activity, description: '监控学生实验进度' },
-        { key: 'experiment-reports', label: '实验报告', icon: FileText, description: '批阅实验报告' },
-        { key: 'experiment-logs', label: '实验日志', icon: History, description: '查看实验操作记录' },
-      ],
-    },
-    {
-      key: 'assessment',
-      label: '考评管理',
-      icon: ClipboardCheck,
-      description: '题库与成绩管理',
-      children: [
-        { key: 'assessment-questions', label: '题库管理', icon: Brain, description: '管理考试题目' },
-        { key: 'assessment-weights', label: '成绩权重', icon: Settings, description: '设置评分权重' },
-        { key: 'assessment-grades', label: '成绩概览', icon: BarChart3, description: '查看成绩统计' },
-      ],
-    },
-  ];
 
   const itemsToRender = useMemo(() => {
     if (role?.id === 'assistant') {
@@ -99,7 +98,7 @@ const Sidebar: React.FC<SidebarProps> = () => {
       });
     }
     return menuItems;
-  }, [role, menuItems]);
+  }, [role]);
 
   const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
     `flex items-center w-full px-3 py-2 text-sm text-left rounded-lg transition-colors ${

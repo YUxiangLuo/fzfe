@@ -198,7 +198,7 @@ const QuestionBank: React.FC = () => {
       'Multiple Choice': { label: '多选题', className: 'bg-green-100 text-green-800' },
       'True/False': { label: '判断题', className: 'bg-orange-100 text-orange-800' },
     };
-    return map[questionType];
+    return map[questionType] || { label: '未知题型', className: 'bg-gray-100 text-gray-800' };
   };
 
   const formatCorrectAnswers = (question: Question) => {

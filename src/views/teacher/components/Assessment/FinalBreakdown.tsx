@@ -43,7 +43,9 @@ const FinalBreakdown: React.FC<FinalBreakdownProps> = ({ grade }) => {
   };
 
   const renderWeight = (value: number | null | undefined) => {
+    if (isRejected) return '—';
     if (value === null || value === undefined) return '—';
+    if (!Number.isFinite(value)) return '—';
     return `${value}%`;
   };
 

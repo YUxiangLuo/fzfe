@@ -93,12 +93,14 @@ const GradeWeights: React.FC = () => {
     if (!token) {
       setError('未找到登录凭据，请重新登录。');
       setIsLoading(false);
+      setIsLoadingClasses(false);
       return;
     }
     const decoded = decodeToken(token);
-    if (!decoded) {
+    if (!decoded || !decoded.sub) {
       setError('登录信息已失效，请重新登录。');
       setIsLoading(false);
+      setIsLoadingClasses(false);
       return;
     }
     setTeacherId(decoded.sub);
