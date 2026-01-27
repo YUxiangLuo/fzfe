@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, Edit2, Trash2, Loader, AlertTriangle, UserPlus, RefreshCw } from 'lucide-react';
-import type { User as Assistant, Class } from '@/shared/types';
-import Modal from '@/shared/components/common/Modal';
-import Button from '@/shared/components/common/Button';
+import type { User as Assistant, Class } from '@/views/teacher/types';
+import Modal from '@/views/teacher/components/common/Modal';
+import Button from '@/views/teacher/components/common/Button';
 import { apiClient } from '@/utils/apiClient';
 import { decodeToken } from '@/utils/auth';
 import { SelectAssistantModal } from './SelectAssistantModal';
 import { ReassignAssistantModal } from './ReassignAssistantModal';
 import CreateAssistantModal from './CreateAssistantModal';
-import { validateUsername, validateFullName, validateEmail, validatePhone, validatePassword } from '@/shared/utils/validation';
-import { useToast } from '@/shared/hooks/useToast';
-import { Toast } from '@/shared/components/common/Toast';
-import { UI_CONSTANTS } from '@/shared/constants/ui';
+import { validateUsername, validateFullName, validateEmail, validatePhone, validatePassword } from '@/views/teacher/utils/validation';
+import { useToast } from '@/views/teacher/hooks/useToast';
+import { Toast } from '@/views/teacher/components/common/Toast';
+import { UI_CONSTANTS } from '@/views/teacher/constants/ui';
 
 const AssistantManagement: React.FC = () => {
   const { toast, showToast, hideToast } = useToast();

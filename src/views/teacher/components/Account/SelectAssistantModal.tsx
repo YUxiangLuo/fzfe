@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import Modal from '@/shared/components/common/Modal';
-import Button from '@/shared/components/common/Button';
+import Modal from '@/views/teacher/components/common/Modal';
+import Button from '@/views/teacher/components/common/Button';
 import { apiClient } from '@/utils/apiClient';
-import type { User as Assistant, Class } from '@/shared/types';
+import type { User as Assistant, Class } from '@/views/teacher/types';
 import { Loader, AlertTriangle } from 'lucide-react';
 
 interface SelectAssistantModalProps {
