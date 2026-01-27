@@ -131,7 +131,7 @@ const ExperimentReports: React.FC = () => {
       return;
     }
     const decoded = decodeToken(token);
-    if (!decoded) {
+    if (!decoded || !decoded.sub) {
       setError("登录信息已失效，请重新登录。");
       setIsLoadingClasses(false);
       return;
@@ -635,7 +635,7 @@ const ExperimentReports: React.FC = () => {
       const hasReport = !!report.report_id;
 
       return (
-        <tr key={report.user_id} className="hover:bg-gray-50">
+        <tr key={report.report_id ?? `user-${report.user_id}`} className="hover:bg-gray-50">
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
             <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium ${status.badge}`}>

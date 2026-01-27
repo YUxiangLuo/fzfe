@@ -230,6 +230,8 @@ const GradesOverview: React.FC = () => {
     setExportedFileUrl(null);
     setExportError(null);
 
+    let cancelled = false;
+
     const fetchGrades = async () => {
       setIsLoadingGrades(true);
       setError(null);
@@ -281,6 +283,7 @@ const GradesOverview: React.FC = () => {
           });
 
           const summaries = await Promise.all(summaryPromises);
+          if (cancelled) return;
           setClassSummaries(summaries);
           setGrades([]);
           setExpandedRows([]);
@@ -291,6 +294,7 @@ const GradesOverview: React.FC = () => {
         } else {
           // Fetch grades from single class
           const response = await apiClient.get<StudentGradeOverview[]>(`/classes/${selectedClassId}/grade-summaries`);
+          if (cancelled) return;
           const gradesWithClass = (Array.isArray(response) ? response : []).map(grade => {
             const cls = classes.find(c => String(c.class_id) === selectedClassId);
             return {
@@ -307,6 +311,7 @@ const GradesOverview: React.FC = () => {
           }
         }
       } catch (err: any) {
+        if (cancelled) return;
         setGrades([]);
         setClassSummaries([]);
         if (err.message && err.message.includes("Grade weights for this class have not been set up")) {
@@ -315,11 +320,17 @@ const GradesOverview: React.FC = () => {
           setError(err?.message || '获取成绩数据失败。');
         }
       } finally {
-        setIsLoadingGrades(false);
+        if (!cancelled) {
+          setIsLoadingGrades(false);
+        }
       }
     };
 
     fetchGrades();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedClassId, classes]);
 
   const filteredGrades = useMemo(() => {
@@ -629,10 +640,12 @@ const GradesOverview: React.FC = () => {
     }
 
     // Prepare data for charts
-    const barChartData = classSummaries.map(s => ({
-      name: s.class_name,
-      平均分: s.average_score !== null ? parseFloat(s.average_score.toFixed(2)) : 0,
-    }));
+    const barChartData = classSummaries
+      .filter(s => s.average_score !== null)
+      .map(s => ({
+        name: s.class_name,
+        平均分: parseFloat(s.average_score!.toFixed(2)),
+      }));
 
     const submissionPieData = classSummaries.map((s, index) => ({
       name: s.class_name,

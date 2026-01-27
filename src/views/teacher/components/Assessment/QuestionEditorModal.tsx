@@ -343,7 +343,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
       if (!editorState.correctAnswers.every((answer) => filledKeys.has(answer))) return false;
       if (editorState.questionType === 'single' && editorState.correctAnswers.length !== 1) return false;
     } else {
-      if (!editorState.correctAnswers.every((answer) => answer === '正确' || answer === '错误')) return false;
+      if (!editorState.correctAnswers.every((answer) => answer === 'true' || answer === 'false')) return false;
     }
     return true;
   };

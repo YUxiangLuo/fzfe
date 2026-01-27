@@ -80,6 +80,7 @@ const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
       localStorage.removeItem("token");
     } catch (error) {
       console.error('Failed to remove token:', error);
+      return;
     }
     window.location.href = getLogoutRedirectPath();
   };

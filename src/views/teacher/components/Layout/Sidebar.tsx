@@ -80,9 +80,7 @@ const menuItems: MenuItemType[] = [
   },
 ];
 
-interface SidebarProps {}
-
-const Sidebar: React.FC<SidebarProps> = () => {
+const Sidebar: React.FC = () => {
   const { role } = useRole();
 
   const itemsToRender = useMemo(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import type { Class, Student } from '@/views/teacher/types';
 import Button from '@/views/teacher/components/common/Button';
@@ -41,6 +41,7 @@ const ClassManagement: React.FC = () => {
   const [studentsError, setStudentsError] = useState<string | null>(null);
   
   const [createResult, setCreateResult] = useState<CreateClassResponse | null>(null);
+  const studentsRequestRef = useRef<number | null>(null);
 
   const handleCreateSubmit = async (formDataToSend: FormData) => {
     try {
@@ -97,6 +98,7 @@ const ClassManagement: React.FC = () => {
       deleteClass(classItem.class_id);
       if (selectedClass && selectedClass.class_id === classItem.class_id) {
         setShowEditModal(false);
+        setShowStudentsModal(false);
         setSelectedClass(null);
       }
       showToast('班级删除成功', 'success');
@@ -110,6 +112,9 @@ const ClassManagement: React.FC = () => {
   };
 
   const handleViewStudents = async (classItem: Class) => {
+    const requestId = classItem.class_id;
+    studentsRequestRef.current = requestId;
+
     setSelectedClass(classItem);
     setShowStudentsModal(true);
     setStudents([]);
@@ -118,11 +123,15 @@ const ClassManagement: React.FC = () => {
 
     try {
       const response = await apiClient.get(`/classes/${classItem.class_id}`);
+      if (studentsRequestRef.current !== requestId) return;
       setStudents(response.students || []);
     } catch (err: any) {
+      if (studentsRequestRef.current !== requestId) return;
       setStudentsError(err.message || '获取学生列表失败');
     } finally {
-      setIsStudentsLoading(false);
+      if (studentsRequestRef.current === requestId) {
+        setIsStudentsLoading(false);
+      }
     }
   };
 
