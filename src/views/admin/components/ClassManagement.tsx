@@ -127,13 +127,14 @@ const ClassManagement: React.FC = () => {
         <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <div className="flex items-center space-x-4">
             <div className="flex-1">
-              <Label className="mb-3">班级名称/编号搜索</Label>
+              <Label htmlFor="class-search-input" className="mb-3">班级名称/编号搜索</Label>
               <div className="relative">
                 <Search
                   size={18}
                   className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground"
                 />
                 <Input
+                  id="class-search-input"
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}

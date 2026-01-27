@@ -68,7 +68,7 @@ const Header: React.FC = () => {
                 </div>
               </div>
 
-              <Button variant="ghost" size="icon" onClick={handleLogout}>
+              <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="退出登录">
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>

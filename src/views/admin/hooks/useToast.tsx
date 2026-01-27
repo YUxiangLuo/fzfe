@@ -8,13 +8,5 @@ export const useToast = () => {
     toast[type](message);
   }, []);
 
-  return {
-    toast: {
-      message: "",
-      type: "info" as ToastType,
-      isVisible: false,
-    },
-    showToast,
-    hideToast: () => {},
-  };
+  return { showToast };
 };

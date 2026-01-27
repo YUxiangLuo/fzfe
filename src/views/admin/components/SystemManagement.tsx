@@ -41,18 +41,16 @@ const SystemManagement: React.FC = () => {
               </TabsTrigger>
             ))}
           </TabsList>
+
+          {tabs.map((tab) => (
+            <TabsContent key={tab.id} value={tab.id}>
+              <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                <tab.component />
+              </div>
+            </TabsContent>
+          ))}
         </Tabs>
       </div>
-
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-        {tabs.map((tab) => (
-          <TabsContent key={tab.id} value={tab.id}>
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <tab.component />
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
     </div>
   );
 };
