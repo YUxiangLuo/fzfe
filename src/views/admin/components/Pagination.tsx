@@ -1,5 +1,11 @@
-import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import React from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Pagination as UiPagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+} from "@/components/ui/pagination";
 
 interface PaginationProps {
   currentPage: number;
@@ -7,57 +13,82 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
 }
 
-const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPageChange }) => {
+const Pagination: React.FC<PaginationProps> = ({
+  currentPage,
+  totalPages,
+  onPageChange,
+}) => {
   if (totalPages <= 1) {
     return null;
   }
 
-  const buttonClass = "px-4 py-2 text-sm font-medium text-gray-600 bg-white rounded-lg border border-gray-300 hover:bg-gray-100 disabled:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400 transition-colors";
+  const isFirst = currentPage === 1;
+  const isLast = currentPage === totalPages;
+
+  const handleClick =
+    (page: number, disabled: boolean) =>
+    (event: React.MouseEvent<HTMLAnchorElement>) => {
+      event.preventDefault();
+      if (!disabled) {
+        onPageChange(page);
+      }
+    };
+
+  const disabledClass = "pointer-events-none opacity-50";
 
   return (
-    <div className="flex items-center justify-between p-4">
-      <div className="flex items-center space-x-2">
-        <button
-          onClick={() => onPageChange(1)}
-          disabled={currentPage === 1}
-          className={buttonClass}
-        >
-          第一页
-        </button>
-      </div>
+    <UiPagination>
+      <PaginationContent className="w-full items-center justify-between px-2">
+        <PaginationItem>
+          <PaginationLink
+            href="#"
+            onClick={handleClick(1, isFirst)}
+            aria-disabled={isFirst}
+            className={isFirst ? disabledClass : ""}
+          >
+            第一页
+          </PaginationLink>
+        </PaginationItem>
 
-      <div className="flex items-center space-x-2">
-        <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          className={`${buttonClass} flex items-center space-x-2`}
-        >
-          <ChevronLeft size={16} />
-          <span>上一页</span>
-        </button>
-        <div className="text-sm text-gray-700">
-          第 <span className="font-bold">{currentPage}</span> 页 / 共 <span className="font-bold">{totalPages}</span> 页
-        </div>
-        <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className={`${buttonClass} flex items-center space-x-2`}
-        >
-          <span>下一页</span>
-          <ChevronRight size={16} />
-        </button>
-      </div>
+        <PaginationItem className="flex items-center gap-3">
+          <PaginationLink
+            href="#"
+            onClick={handleClick(currentPage - 1, isFirst)}
+            aria-disabled={isFirst}
+            className={`gap-1 px-2.5 ${isFirst ? disabledClass : ""}`}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span>上一页</span>
+          </PaginationLink>
+          <span className="text-sm text-muted-foreground">
+            第 <span className="font-semibold text-foreground">{currentPage}</span>{" "}
+            页 / 共{" "}
+            <span className="font-semibold text-foreground">{totalPages}</span>{" "}
+            页
+          </span>
+          <PaginationLink
+            href="#"
+            onClick={handleClick(currentPage + 1, isLast)}
+            aria-disabled={isLast}
+            className={`gap-1 px-2.5 ${isLast ? disabledClass : ""}`}
+          >
+            <span>下一页</span>
+            <ChevronRight className="h-4 w-4" />
+          </PaginationLink>
+        </PaginationItem>
 
-      <div className="flex items-center space-x-2">
-        <button
-          onClick={() => onPageChange(totalPages)}
-          disabled={currentPage === totalPages}
-          className={buttonClass}
-        >
-          最后一页
-        </button>
-      </div>
-    </div>
+        <PaginationItem>
+          <PaginationLink
+            href="#"
+            onClick={handleClick(totalPages, isLast)}
+            aria-disabled={isLast}
+            className={isLast ? disabledClass : ""}
+          >
+            最后一页
+          </PaginationLink>
+        </PaginationItem>
+      </PaginationContent>
+    </UiPagination>
   );
 };
 

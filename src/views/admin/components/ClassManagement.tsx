@@ -3,6 +3,17 @@ import { Search, Eye, Loader, AlertTriangle } from "lucide-react";
 import type { Class } from "../types";
 import { apiClient } from "../../../utils/apiClient";
 import { ClassDetailsModal } from "./ClassDetailsModal"; // 引入新的弹窗组件
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const ClassManagement: React.FC = () => {
   const [classes, setClasses] = useState<Class[]>([]);
@@ -54,65 +65,58 @@ const ClassManagement: React.FC = () => {
   const renderTableContent = () => {
     if (isLoading) {
       return (
-        <tr>
-          <td colSpan={4} className="text-center py-12">
-            <div className="flex justify-center items-center space-x-2 text-gray-500">
-              <Loader className="animate-spin" size={20} />
+        <TableRow>
+          <TableCell colSpan={4} className="py-12 text-center">
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader className="h-5 w-5 animate-spin" />
               <span>正在加载班级数据...</span>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     if (error) {
       return (
-        <tr>
-          <td colSpan={4} className="text-center py-12">
-            <div className="flex flex-col justify-center items-center space-y-2 text-red-500">
-              <AlertTriangle size={24} />
+        <TableRow>
+          <TableCell colSpan={4} className="py-12 text-center">
+            <div className="flex flex-col items-center gap-2 text-destructive">
+              <AlertTriangle className="h-6 w-6" />
               <span>加载失败: {error}</span>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     if (filteredClasses.length === 0) {
       return (
-        <tr>
-          <td colSpan={4} className="text-center py-12 text-gray-500">
+        <TableRow>
+          <TableCell colSpan={4} className="py-12 text-center text-muted-foreground">
             未找到符合条件的班级。
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     return filteredClasses.map((classInfo) => (
-      <tr
-        key={classInfo.class_id}
-        className="hover:bg-blue-50/30 transition-colors duration-200"
-      >
-        <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-          {classInfo.class_code}
-        </td>
-        <td className="px-6 py-4 text-sm text-gray-900">
-          {classInfo.class_name}
-        </td>
-        <td className="px-6 py-4 text-sm text-gray-600">
+      <TableRow key={classInfo.class_id}>
+        <TableCell className="font-medium">{classInfo.class_code}</TableCell>
+        <TableCell>{classInfo.class_name}</TableCell>
+        <TableCell className="text-muted-foreground">
           {classInfo.teacher_name}
-        </td>
-        <td className="px-6 py-4">
-          <button
+        </TableCell>
+        <TableCell>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => handleViewDetails(classInfo)}
-            className="flex items-center space-x-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-100 rounded-lg transition-all duration-200 border border-transparent hover:border-blue-200"
-            title="查看班级详情"
           >
-            <Eye size={16} />
-            <span>查看班级详情</span>
-          </button>
-        </td>
-      </tr>
+            <Eye className="mr-2 h-4 w-4" />
+            查看班级详情
+          </Button>
+        </TableCell>
+      </TableRow>
     ));
   };
 
@@ -120,23 +124,21 @@ const ClassManagement: React.FC = () => {
     <>
       <div className="space-y-6">
         {/* 筛选器 */}
-        <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-6 rounded-2xl border border-gray-200 mb-6">
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <div className="flex items-center space-x-4">
             <div className="flex-1">
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                班级名称/编号搜索
-              </label>
+              <Label className="mb-3">班级名称/编号搜索</Label>
               <div className="relative">
                 <Search
                   size={18}
-                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground"
                 />
-                <input
+                <Input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="请输入班级名称或编号"
-                  className="w-full pl-12 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white shadow-sm"
+                  className="pl-11"
                 />
               </div>
             </div>
@@ -144,28 +146,18 @@ const ClassManagement: React.FC = () => {
         </div>
 
         {/* 班级列表 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  班级编号
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  班级名称
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  所属教师
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  操作
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {renderTableContent()}
-            </tbody>
-          </table>
+        <div className="rounded-2xl border border-border bg-card shadow-sm">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>班级编号</TableHead>
+                <TableHead>班级名称</TableHead>
+                <TableHead>所属教师</TableHead>
+                <TableHead>操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>{renderTableContent()}</TableBody>
+          </Table>
         </div>
       </div>
 

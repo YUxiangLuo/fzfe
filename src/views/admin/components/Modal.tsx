@@ -1,5 +1,23 @@
-import React from 'react';
-import { X } from 'lucide-react';
+import React from "react";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+const maxWidthClasses: Record<string, string> = {
+  "max-w-md": "sm:max-w-md",
+  "max-w-lg": "sm:max-w-lg",
+  "max-w-xl": "sm:max-w-xl",
+  "max-w-2xl": "sm:max-w-2xl",
+  "max-w-3xl": "sm:max-w-3xl",
+  "max-w-4xl": "sm:max-w-4xl",
+  "max-w-5xl": "sm:max-w-5xl",
+  "max-w-6xl": "sm:max-w-6xl",
+  "max-w-7xl": "sm:max-w-7xl",
+};
 
 interface ModalProps {
   isOpen: boolean;
@@ -9,35 +27,25 @@ interface ModalProps {
   maxWidth?: string;
 }
 
-const Modal: React.FC<ModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  title, 
-  children, 
-  maxWidth = 'max-w-md' 
+const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  maxWidth = "max-w-md",
 }) => {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-      <div 
-        className={`bg-white rounded-2xl shadow-2xl ${maxWidth} w-full transform transition-all duration-300 scale-100 border border-gray-200`}
-        onClick={(e) => e.stopPropagation()}
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className={maxWidthClasses[maxWidth] ?? "sm:max-w-md"}
       >
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50 rounded-t-2xl">
-          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white hover:shadow-md rounded-xl transition-all duration-200 transform hover:scale-110"
-          >
-            <X size={20} className="text-gray-500" />
-          </button>
-        </div>
-        <div className="p-6">
-          {children}
-        </div>
-      </div>
-    </div>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        {children}
+        <DialogClose className="sr-only">关闭</DialogClose>
+      </DialogContent>
+    </Dialog>
   );
 };
 

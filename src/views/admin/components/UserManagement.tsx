@@ -5,10 +5,22 @@ import { apiClient } from "../../../utils/apiClient";
 import { decodeToken } from "../../../utils/auth";
 import Modal from "./Modal";
 import Pagination from "./Pagination";
-import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useToast } from "../hooks/useToast";
 import { useConfirm } from "../hooks/useConfirm";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   validateEmail,
   validateFullName,
@@ -120,7 +132,7 @@ const UserManagement: React.FC = () => {
   const [isBatchAssistantSubmitting, setIsBatchAssistantSubmitting] = useState(false);
 
   // Toast and Confirm hooks
-  const { toast, showToast, hideToast } = useToast();
+  const { showToast } = useToast();
   const { confirmState, showConfirm, hideConfirm } = useConfirm();
 
   const roleLabels: { [key: string]: string } = {
@@ -586,175 +598,152 @@ const UserManagement: React.FC = () => {
   const renderTableContent = () => {
     if (isLoading)
       return (
-        <tr>
-          <td colSpan={6} className="text-center py-12">
-            <div className="flex justify-center items-center space-x-2 text-gray-500">
-              <Loader className="animate-spin" size={20} />
+        <TableRow>
+          <TableCell colSpan={6} className="py-12 text-center">
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader className="h-5 w-5 animate-spin" />
               <span>正在加载...</span>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     if (error)
       return (
-        <tr>
-          <td colSpan={6} className="text-center py-12">
-            <div className="flex flex-col items-center space-y-2 text-red-500">
-              <AlertTriangle size={24} />
+        <TableRow>
+          <TableCell colSpan={6} className="py-12 text-center">
+            <div className="flex flex-col items-center gap-2 text-destructive">
+              <AlertTriangle className="h-6 w-6" />
               <span>加载失败: {error}</span>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     if (users.length === 0)
       return (
-        <tr>
-          <td colSpan={6} className="text-center py-12 text-gray-500">
+        <TableRow>
+          <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
             未找到用户。
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
 
     return users.map((user) => {
       const isCurrentUser = user.user_id === currentAdminId;
       return (
-        <tr
-          key={user.user_id}
-          className="hover:bg-blue-50/30 transition-colors duration-200"
-        >
-          <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-            {user.username}
-          </td>
-          <td className="px-6 py-4 text-sm text-gray-900">{user.full_name}</td>
-          <td className="px-6 py-4">
-            <span
-              className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${user.role.toLowerCase() === "teacher" ? "bg-purple-100 text-purple-800" : user.role.toLowerCase() === "assistant" ? "bg-blue-100 text-blue-800" : user.role.toLowerCase() === "admin" ? "bg-red-100 text-red-800" : "bg-green-100 text-green-800"}`}
+        <TableRow key={user.user_id}>
+          <TableCell className="font-medium">{user.username}</TableCell>
+          <TableCell>{user.full_name}</TableCell>
+          <TableCell>
+            <Badge
+              variant={
+                user.role.toLowerCase() === "admin"
+                  ? "destructive"
+                  : user.role.toLowerCase() === "assistant"
+                  ? "secondary"
+                  : user.role.toLowerCase() === "teacher"
+                  ? "outline"
+                  : "default"
+              }
             >
               {roleLabels[user.role.toLowerCase()]}
-            </span>
-          </td>
-          <td className="px-6 py-4 text-sm text-gray-600">{user.email}</td>
-          <td className="px-6 py-4 text-sm text-gray-600">
+            </Badge>
+          </TableCell>
+          <TableCell className="text-muted-foreground">{user.email}</TableCell>
+          <TableCell className="text-muted-foreground">
             {formatDateTime(user.created_at)}
-          </td>
-          <td className="px-6 py-4">
-            <div className="flex items-center space-x-2">
-              <button
+          </TableCell>
+          <TableCell>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => openPasswordModal(user)}
                 disabled={isCurrentUser}
                 title={isCurrentUser ? "不能在此处修改自己的密码" : "修改密码"}
-                className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 ${isCurrentUser ? "text-gray-400 bg-gray-100 cursor-not-allowed" : "text-blue-600 hover:bg-blue-100"}`}
               >
-                <Edit size={14} />
-                <span>修改密码</span>
-              </button>
-              <button
+                <Edit className="mr-2 h-4 w-4" />
+                修改密码
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => handleDelete(user)}
                 disabled={isCurrentUser}
                 title={isCurrentUser ? "不能删除自己的账户" : "删除用户"}
-                className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 ${isCurrentUser ? "text-gray-400 bg-gray-100 cursor-not-allowed" : "text-red-600 hover:bg-red-100"}`}
               >
-                <Trash2 size={14} />
-                <span>删除</span>
-              </button>
+                <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+                删除
+              </Button>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     });
   };
 
   return (
     <>
-      <div className="rounded-2xl border border-gray-200 shadow-sm overflow-hidden bg-white">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="rounded-2xl border border-border bg-card shadow-sm">
+        <div className="px-6 py-4 border-b border-border">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-gray-800">用户列表</h2>
-                <p className="text-sm text-gray-500 mt-1">
+                <h2 className="text-xl font-semibold text-foreground">用户列表</h2>
+                <p className="text-sm text-muted-foreground mt-1">
                   查看系统用户，并支持新增、重置密码与删除操作
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={openAddTeacherModal}
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                >
-                  <Edit size={16} />
-                  <span>添加教师</span>
-                </button>
-                <button
-                  onClick={openBatchTeacherModal}
-                  className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-                >
-                  <Upload size={16} />
-                  <span>批量添加教师</span>
-                </button>
-                <button
-                  onClick={openAddAssistantModal}
-                  className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
-                >
-                  <Edit size={16} />
-                  <span>添加助教</span>
-                </button>
-                <button
-                  onClick={openBatchAssistantModal}
-                  className="flex items-center space-x-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
-                >
-                  <Upload size={16} />
-                  <span>批量添加助教</span>
-                </button>
+                <Button onClick={openAddTeacherModal}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  添加教师
+                </Button>
+                <Button variant="secondary" onClick={openBatchTeacherModal}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  批量添加教师
+                </Button>
+                <Button variant="outline" onClick={openAddAssistantModal}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  添加助教
+                </Button>
+                <Button variant="secondary" onClick={openBatchAssistantModal}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  批量添加助教
+                </Button>
               </div>
             </div>
             <div className="relative max-w-sm">
               <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
                 size={16}
               />
-              <input
+              <Input
                 type="search"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="输入关键字搜索"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="pl-10"
               />
             </div>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  账号
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  姓名
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  角色
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  邮箱
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  注册时间
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">
-                  操作
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {renderTableContent()}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>账号</TableHead>
+              <TableHead>姓名</TableHead>
+              <TableHead>角色</TableHead>
+              <TableHead>邮箱</TableHead>
+              <TableHead>注册时间</TableHead>
+              <TableHead>操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>{renderTableContent()}</TableBody>
+        </Table>
 
         {paginationInfo && (
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+          <div className="px-6 py-4 border-t border-border bg-muted/30">
             <Pagination
               currentPage={paginationInfo.currentPage}
               totalPages={paginationInfo.totalPages}
@@ -772,62 +761,54 @@ const UserManagement: React.FC = () => {
       >
         {selectedUser && (
           <div className="space-y-4">
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <p className="text-sm text-gray-600">
+            <div className="rounded-lg border border-border bg-muted p-3">
+              <p className="text-sm text-muted-foreground">
                 为用户{" "}
-                <span className="font-medium text-gray-900">
+                <span className="font-medium text-foreground">
                   {selectedUser.full_name}
                 </span>{" "}
                 ({selectedUser.username}) 重置密码
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                新密码
-              </label>
-              <input
+              <Label className="mb-2">新密码</Label>
+              <Input
                 type="password"
                 value={newPassword}
                 onChange={(e) => handleNewPasswordChange(e.target.value)}
                 placeholder="请输入新密码"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               {passwordErrors.newPassword && (
-                <p className="mt-1 text-xs text-red-500">{passwordErrors.newPassword}</p>
+                <p className="mt-1 text-xs text-destructive">
+                  {passwordErrors.newPassword}
+                </p>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                确认密码
-              </label>
-              <input
+              <Label className="mb-2">确认密码</Label>
+              <Input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => handleConfirmPasswordChange(e.target.value)}
                 placeholder="请再次输入新密码"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               {passwordErrors.confirmPassword && (
-                <p className="mt-1 text-xs text-red-500">{passwordErrors.confirmPassword}</p>
+                <p className="mt-1 text-xs text-destructive">
+                  {passwordErrors.confirmPassword}
+                </p>
               )}
             </div>
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-              <button
-                onClick={closePasswordModal}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button variant="outline" onClick={closePasswordModal}>
                 取消
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={handlePasswordConfirm}
                 disabled={!isPasswordFormValid || isSavingPassword}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center"
               >
-                {isSavingPassword && (
-                  <Loader className="animate-spin mr-2" size={16} />
-                )}
+                {isSavingPassword && <Loader className="mr-2 h-4 w-4 animate-spin" />}
                 确认
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -841,92 +822,82 @@ const UserManagement: React.FC = () => {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">用户名</label>
-            <input
+            <Label className="mb-2">用户名</Label>
+            <Input
               type="text"
               value={newTeacherData.username}
               onChange={(e) => handleTeacherFieldChange("username", e.target.value)}
               placeholder="教师的登录账号"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isTeacherSubmitting}
             />
             {teacherErrors.username && (
-              <p className="mt-1 text-xs text-red-500">{teacherErrors.username}</p>
+              <p className="mt-1 text-xs text-destructive">{teacherErrors.username}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">姓名</label>
-            <input
+            <Label className="mb-2">姓名</Label>
+            <Input
               type="text"
               value={newTeacherData.full_name}
               onChange={(e) => handleTeacherFieldChange("full_name", e.target.value)}
               placeholder="教师的真实姓名"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isTeacherSubmitting}
             />
             {teacherErrors.full_name && (
-              <p className="mt-1 text-xs text-red-500">{teacherErrors.full_name}</p>
+              <p className="mt-1 text-xs text-destructive">{teacherErrors.full_name}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">邮箱</label>
-            <input
+            <Label className="mb-2">邮箱</Label>
+            <Input
               type="email"
               value={newTeacherData.email}
               onChange={(e) => handleTeacherFieldChange("email", e.target.value)}
               placeholder="教师的联系邮箱"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isTeacherSubmitting}
             />
             {teacherErrors.email && (
-              <p className="mt-1 text-xs text-red-500">{teacherErrors.email}</p>
+              <p className="mt-1 text-xs text-destructive">{teacherErrors.email}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">手机号</label>
-            <input
+            <Label className="mb-2">手机号</Label>
+            <Input
               type="tel"
               inputMode="numeric"
               maxLength={11}
               value={newTeacherData.phone}
               onChange={(e) => handleTeacherFieldChange("phone", e.target.value)}
               placeholder="请输入1开头的11位手机号码"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isTeacherSubmitting}
             />
             {teacherErrors.phone && (
-              <p className="mt-1 text-xs text-red-500">{teacherErrors.phone}</p>
+              <p className="mt-1 text-xs text-destructive">{teacherErrors.phone}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">初始密码</label>
-            <input
+            <Label className="mb-2">初始密码</Label>
+            <Input
               type="password"
               value={newTeacherData.password}
               onChange={(e) => handleTeacherFieldChange("password", e.target.value)}
               placeholder="至少6位，可为纯数字"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isTeacherSubmitting}
             />
             {teacherErrors.password && (
-              <p className="mt-1 text-xs text-red-500">{teacherErrors.password}</p>
+              <p className="mt-1 text-xs text-destructive">{teacherErrors.password}</p>
             )}
           </div>
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <button
-              onClick={closeAddTeacherModal}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-              disabled={isTeacherSubmitting}
-            >
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="outline" onClick={closeAddTeacherModal} disabled={isTeacherSubmitting}>
               取消
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleCreateTeacher}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
               disabled={isTeacherSubmitting || !isTeacherFormValid}
             >
               {isTeacherSubmitting ? "添加中..." : "确认添加"}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>
@@ -938,7 +909,7 @@ const UserManagement: React.FC = () => {
         title="批量添加教师"
       >
         <div className="space-y-6">
-          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm">
+          <div className="rounded-lg border border-border bg-muted p-4 text-sm text-muted-foreground">
             <p className="font-semibold">CSV 格式要求</p>
             <p className="mt-1">请确保表头至少包含以下列：</p>
             <ul className="list-disc list-inside mt-1 space-y-1">
@@ -947,27 +918,27 @@ const UserManagement: React.FC = () => {
             </ul>
           </div>
 
-          <div className="flex items-start space-x-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2 rounded-lg border border-border bg-muted p-3">
+            <AlertTriangle size={16} className="text-muted-foreground flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-xs font-medium text-amber-900">
+              <p className="text-xs font-medium text-foreground">
                 账号和密码规则
               </p>
-              <p className="text-xs text-amber-700 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 批量创建的教师账号，其登录用户名为 <span className="font-semibold">prof_手机号</span>，初始密码为 <span className="font-semibold">手机号</span>。请提醒教师首次登录后及时修改密码。
               </p>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Label className="mb-2">
               上传CSV文件
-            </label>
+            </Label>
             <label
               htmlFor="batch-teacher-upload"
-              className="cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors"
+              className="cursor-pointer flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border p-6 text-center transition-colors hover:border-primary"
             >
-              <Upload size={48} className="mx-auto text-gray-400 mb-4" />
+              <Upload size={48} className="mx-auto text-muted-foreground mb-4" />
               <input
                 type="file"
                 accept=".csv"
@@ -975,36 +946,33 @@ const UserManagement: React.FC = () => {
                 className="hidden"
                 id="batch-teacher-upload"
               />
-              <p className="text-blue-600 font-medium">点击或拖拽文件到此处</p>
+              <p className="text-primary font-medium">点击或拖拽文件到此处</p>
               {batchTeacherFile && (
-                <p className="text-sm text-green-600 mt-2 font-semibold">
+                <p className="text-sm text-emerald-600 mt-2 font-semibold">
                   已选择: {batchTeacherFile.name}
                 </p>
               )}
             </label>
             {batchTeacherErrors.file && (
-              <p className="mt-2 text-xs text-red-500">{batchTeacherErrors.file}</p>
+              <p className="mt-2 text-xs text-destructive">{batchTeacherErrors.file}</p>
             )}
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <button
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button
+              variant="outline"
               onClick={closeBatchTeacherModal}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               disabled={isBatchTeacherSubmitting}
             >
               取消
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleBatchTeacherSubmit}
               disabled={!isBatchTeacherFormValid || isBatchTeacherSubmitting}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center"
             >
-              {isBatchTeacherSubmitting && (
-                <Loader className="animate-spin mr-2" size={16} />
-              )}
+              {isBatchTeacherSubmitting && <Loader className="mr-2 h-4 w-4 animate-spin" />}
               {isBatchTeacherSubmitting ? "上传中..." : "开始导入"}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>
@@ -1017,92 +985,86 @@ const UserManagement: React.FC = () => {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">用户名</label>
-            <input
+            <Label className="mb-2">用户名</Label>
+            <Input
               type="text"
               value={newAssistantData.username}
               onChange={(e) => handleAssistantFieldChange("username", e.target.value)}
               placeholder="助教的登录账号"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isAssistantSubmitting}
             />
             {assistantErrors.username && (
-              <p className="mt-1 text-xs text-red-500">{assistantErrors.username}</p>
+              <p className="mt-1 text-xs text-destructive">{assistantErrors.username}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">姓名</label>
-            <input
+            <Label className="mb-2">姓名</Label>
+            <Input
               type="text"
               value={newAssistantData.full_name}
               onChange={(e) => handleAssistantFieldChange("full_name", e.target.value)}
               placeholder="助教的真实姓名"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isAssistantSubmitting}
             />
             {assistantErrors.full_name && (
-              <p className="mt-1 text-xs text-red-500">{assistantErrors.full_name}</p>
+              <p className="mt-1 text-xs text-destructive">{assistantErrors.full_name}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">邮箱</label>
-            <input
+            <Label className="mb-2">邮箱</Label>
+            <Input
               type="email"
               value={newAssistantData.email}
               onChange={(e) => handleAssistantFieldChange("email", e.target.value)}
               placeholder="助教的联系邮箱"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isAssistantSubmitting}
             />
             {assistantErrors.email && (
-              <p className="mt-1 text-xs text-red-500">{assistantErrors.email}</p>
+              <p className="mt-1 text-xs text-destructive">{assistantErrors.email}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">手机号</label>
-            <input
+            <Label className="mb-2">手机号</Label>
+            <Input
               type="tel"
               inputMode="numeric"
               maxLength={11}
               value={newAssistantData.phone}
               onChange={(e) => handleAssistantFieldChange("phone", e.target.value)}
               placeholder="请输入1开头的11位手机号码"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isAssistantSubmitting}
             />
             {assistantErrors.phone && (
-              <p className="mt-1 text-xs text-red-500">{assistantErrors.phone}</p>
+              <p className="mt-1 text-xs text-destructive">{assistantErrors.phone}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">初始密码</label>
-            <input
+            <Label className="mb-2">初始密码</Label>
+            <Input
               type="password"
               value={newAssistantData.password}
               onChange={(e) => handleAssistantFieldChange("password", e.target.value)}
               placeholder="至少6位，可为纯数字"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               disabled={isAssistantSubmitting}
             />
             {assistantErrors.password && (
-              <p className="mt-1 text-xs text-red-500">{assistantErrors.password}</p>
+              <p className="mt-1 text-xs text-destructive">{assistantErrors.password}</p>
             )}
           </div>
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <button
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button
+              variant="outline"
               onClick={closeAddAssistantModal}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               disabled={isAssistantSubmitting}
             >
               取消
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleCreateAssistant}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
               disabled={isAssistantSubmitting || !isAssistantFormValid}
             >
               {isAssistantSubmitting ? "添加中..." : "确认添加"}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>
@@ -1114,7 +1076,7 @@ const UserManagement: React.FC = () => {
         title="批量添加助教"
       >
         <div className="space-y-6">
-          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm">
+          <div className="rounded-lg border border-border bg-muted p-4 text-sm text-muted-foreground">
             <p className="font-semibold">CSV 格式要求</p>
             <p className="mt-1">请确保表头至少包含以下列：</p>
             <ul className="list-disc list-inside mt-1 space-y-1">
@@ -1123,27 +1085,27 @@ const UserManagement: React.FC = () => {
             </ul>
           </div>
 
-          <div className="flex items-start space-x-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-            <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-2 rounded-lg border border-border bg-muted p-3">
+            <AlertTriangle size={16} className="text-muted-foreground flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-xs font-medium text-amber-900">
+              <p className="text-xs font-medium text-foreground">
                 账号和密码规则
               </p>
-              <p className="text-xs text-amber-700 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 批量创建的助教账号，其登录用户名为 <span className="font-semibold">ta_手机号</span>，初始密码为 <span className="font-semibold">手机号</span>。请提醒助教首次登录后及时修改密码。
               </p>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Label className="mb-2">
               上传CSV文件
-            </label>
+            </Label>
             <label
               htmlFor="batch-assistant-upload"
-              className="cursor-pointer flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors"
+              className="cursor-pointer flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border p-6 text-center transition-colors hover:border-primary"
             >
-              <Upload size={48} className="mx-auto text-gray-400 mb-4" />
+              <Upload size={48} className="mx-auto text-muted-foreground mb-4" />
               <input
                 type="file"
                 accept=".csv"
@@ -1151,47 +1113,36 @@ const UserManagement: React.FC = () => {
                 className="hidden"
                 id="batch-assistant-upload"
               />
-              <p className="text-blue-600 font-medium">点击或拖拽文件到此处</p>
+              <p className="text-primary font-medium">点击或拖拽文件到此处</p>
               {batchAssistantFile && (
-                <p className="text-sm text-green-600 mt-2 font-semibold">
+                <p className="text-sm text-emerald-600 mt-2 font-semibold">
                   已选择: {batchAssistantFile.name}
                 </p>
               )}
             </label>
             {batchAssistantErrors.file && (
-              <p className="mt-2 text-xs text-red-500">{batchAssistantErrors.file}</p>
+              <p className="mt-2 text-xs text-destructive">{batchAssistantErrors.file}</p>
             )}
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <button
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Button
+              variant="outline"
               onClick={closeBatchAssistantModal}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
               disabled={isBatchAssistantSubmitting}
             >
               取消
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleBatchAssistantSubmit}
               disabled={!isBatchAssistantFormValid || isBatchAssistantSubmitting}
-              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 flex items-center"
             >
-              {isBatchAssistantSubmitting && (
-                <Loader className="animate-spin mr-2" size={16} />
-              )}
+              {isBatchAssistantSubmitting && <Loader className="mr-2 h-4 w-4 animate-spin" />}
               {isBatchAssistantSubmitting ? "上传中..." : "开始导入"}
-            </button>
+            </Button>
           </div>
         </div>
       </Modal>
-
-      {/* Toast Notification */}
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={hideToast}
-      />
 
       {/* Confirm Dialog */}
       <ConfirmDialog
