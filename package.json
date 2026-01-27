@@ -9,8 +9,7 @@
     "preview": "vite preview",
     "start": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "format": "prettier --write .",
-    "test:exp": "cypress run --spec cypress/e2e/exp-spa.cy.ts"
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@types/react-router-dom": "^5.3.3",
@@ -35,7 +34,6 @@
     "@typescript-eslint/parser": "^8.46.4",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "cypress": "^15.6.0",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
