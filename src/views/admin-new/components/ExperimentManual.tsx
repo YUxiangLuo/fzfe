@@ -127,8 +127,11 @@ const ExperimentManualView: React.FC = () => {
             return;
         }
 
-        const file = fileList[0]?.originFileObj;
-        if (!file) return;
+        const file = (fileList[0]?.originFileObj || fileList[0]) as any;
+        if (!file) {
+            message.error('无法获取文件对象');
+            return;
+        }
 
         setIsSubmitting(true);
         const formData = new FormData();
