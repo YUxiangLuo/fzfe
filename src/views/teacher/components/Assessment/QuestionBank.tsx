@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, Edit2, RefreshCcw, Search, AlertCircle, Plus } from 'lucide-react';
 import type { Question, QuestionTypeApi } from '@/views/teacher/types';
-import Modal from '@/views/teacher/components/common/Modal';
-import Button from '@/views/teacher/components/common/Button';
+import Modal from '@/views/teacher/components/shadcn/TeacherModal';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { apiClient } from '@/utils/apiClient';
 import { useToast } from '@/views/teacher/hooks/useToast';
-import { Toast } from '@/views/teacher/components/common/Toast';
-import { ConfirmDialog } from '@/views/teacher/components/common/ConfirmDialog';
+import { ConfirmDialog } from '@/views/teacher/components/shadcn/TeacherConfirmDialog';
 import { useConfirm } from '@/views/teacher/hooks/useConfirm';
 import { QuestionEditorModal } from './QuestionEditorModal';
 
@@ -31,7 +32,7 @@ const KNOWLEDGE_POINT_GROUPS: Record<string, string[]> = {
 };
 
 const QuestionBank: React.FC = () => {
-  const { toast, showToast, hideToast } = useToast();
+  const { showToast } = useToast();
   const confirm = useConfirm();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -194,11 +195,11 @@ const QuestionBank: React.FC = () => {
 
   const getTypeBadge = (questionType: QuestionTypeApi) => {
     const map: Record<QuestionTypeApi, { label: string; className: string }> = {
-      'Single Choice': { label: '单选题', className: 'bg-blue-100 text-blue-800' },
-      'Multiple Choice': { label: '多选题', className: 'bg-green-100 text-green-800' },
-      'True/False': { label: '判断题', className: 'bg-orange-100 text-orange-800' },
+      'Single Choice': { label: '单选题', className: 'bg-primary/10 text-primary' },
+      'Multiple Choice': { label: '多选题', className: 'bg-success/10 text-success' },
+      'True/False': { label: '判断题', className: 'bg-warning/10 text-warning' },
     };
-    return map[questionType] || { label: '未知题型', className: 'bg-gray-100 text-gray-800' };
+    return map[questionType] || { label: '未知题型', className: 'bg-muted text-foreground' };
   };
 
   const formatCorrectAnswers = (question: Question) => {
@@ -219,40 +220,40 @@ const QuestionBank: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 space-y-3 md:space-y-0">
-        <h1 className="text-2xl font-bold text-gray-900">题库管理</h1>
+        <h1 className="text-2xl font-bold text-foreground">题库管理</h1>
         <Button onClick={fetchQuestions} variant="outline" disabled={isRefreshing}>
           <RefreshCcw size={16} className={isRefreshing ? 'mr-2 animate-spin' : 'mr-2'} />
           刷新题库
         </Button>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-card rounded-lg shadow-md p-6">
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+          <Input
             type="text"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder="搜索题目内容、知识点或创建者..."
             aria-label="搜索题目内容、知识点或创建者"
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="pl-10 pr-4 rounded-lg"
           />
         </div>
         <div className="mt-4">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">知识点筛选:</span>
+            <span className="text-sm font-medium text-foreground">知识点筛选:</span>
             <button
               type="button"
               onClick={() => setSelectedKnowledgePoint(null)}
               className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                 !selectedKnowledgePoint
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-foreground hover:bg-muted'
               }`}
             >
               全部
             </button>
-            <div className="h-5 w-px bg-gray-200" />
+            <div className="h-5 w-px bg-muted" />
             {allSecondaryKnowledgePoints.map((secondary) => (
               <button
                 key={secondary}
@@ -260,8 +261,8 @@ const QuestionBank: React.FC = () => {
                 onClick={() => setSelectedKnowledgePoint(secondary)}
                 className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                   selectedKnowledgePoint === secondary
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-foreground hover:bg-muted'
                 }`}
               >
                 {secondary}
@@ -270,7 +271,7 @@ const QuestionBank: React.FC = () => {
           </div>
         </div>
         {error && (
-          <div className="mt-4 flex items-center space-x-2 text-sm text-red-600">
+          <div className="mt-4 flex items-center space-x-2 text-sm text-destructive">
             <AlertCircle size={16} />
             <span>{error}</span>
           </div>
@@ -278,35 +279,35 @@ const QuestionBank: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-blue-600">{statistics.total}</p>
-            <p className="text-sm text-gray-600">总题目数</p>
+            <p className="text-3xl font-bold text-primary">{statistics.total}</p>
+            <p className="text-sm text-muted-foreground">总题目数</p>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-blue-600">{statistics.single}</p>
-            <p className="text-sm text-gray-600">单选题</p>
+            <p className="text-3xl font-bold text-primary">{statistics.single}</p>
+            <p className="text-sm text-muted-foreground">单选题</p>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-green-600">{statistics.multiple}</p>
-            <p className="text-sm text-gray-600">多选题</p>
+            <p className="text-3xl font-bold text-success">{statistics.multiple}</p>
+            <p className="text-sm text-muted-foreground">多选题</p>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <div className="text-center">
-            <p className="text-3xl font-bold text-orange-600">{statistics.booleanCount}</p>
-            <p className="text-sm text-gray-600">判断题</p>
+            <p className="text-3xl font-bold text-warning">{statistics.booleanCount}</p>
+            <p className="text-sm text-muted-foreground">判断题</p>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">题目列表</h2>
+      <div className="bg-card rounded-lg shadow-md">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-foreground">题目列表</h2>
           <Button onClick={openCreate}>
             <Plus size={16} className="mr-2" />
             新建题目
@@ -314,81 +315,84 @@ const QuestionBank: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">序号</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">题目内容</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">知识点</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建者</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+          <Table>
+            <TableHeader className="bg-muted">
+              <TableRow>
+                <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">序号</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">题目内容</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">类型</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">知识点</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">创建者</TableHead>
+                <TableHead className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="bg-card">
               {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                <TableRow>
+                  <TableCell colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
                     正在加载题库...
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : filteredQuestions.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                <TableRow>
+                  <TableCell colSpan={6} className="px-6 py-8 text-center text-muted-foreground">
                     {questions.length === 0 ? '题库暂无数据，请稍后重试。' : '未找到符合搜索条件的题目。'}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 filteredQuestions.map((question, index) => {
                   const badge = getTypeBadge(question.question_type);
                   return (
-                    <tr key={question.question_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-500 align-top">{index + 1}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 align-top min-w-[300px] whitespace-normal">
+                    <TableRow key={question.question_id}>
+                      <TableCell className="px-6 py-4 text-sm text-muted-foreground align-top">{index + 1}</TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-foreground align-top min-w-[300px] whitespace-normal">
                         {question.question_text}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700 align-top whitespace-nowrap">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-foreground align-top whitespace-nowrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.className}`}>
                           {badge.label}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700 align-top whitespace-nowrap">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-foreground align-top whitespace-nowrap">
                         {question.knowledge_point || '—'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 align-top whitespace-nowrap">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-muted-foreground align-top whitespace-nowrap">
                         {question.creator_name || '—'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700 align-top">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-foreground align-top">
                         <div className="flex items-center space-x-2">
-                          <button
+                          <Button
                             onClick={() => openPreview(question)}
-                            className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center cursor-pointer whitespace-nowrap"
+                            variant="outline"
+                            size="sm"
                           >
                             <Eye size={14} className="mr-1" />
-                            <span>预览</span>
-                          </button>
-                          <button
+                            预览
+                          </Button>
+                          <Button
                             onClick={() => openEditor(question)}
-                            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center cursor-pointer whitespace-nowrap"
+                            size="sm"
                           >
                             <Edit2 size={14} className="mr-1" />
-                            <span>编辑</span>
-                          </button>
-                          <button
+                            编辑
+                          </Button>
+                          <Button
                             onClick={() => handleDeleteQuestion(question.question_id)}
                             disabled={isDeleting === question.question_id}
-                            className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors flex items-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
                           >
                             {isDeleting === question.question_id ? '删除中...' : '删除'}
-                          </button>
+                          </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
 
@@ -400,13 +404,13 @@ const QuestionBank: React.FC = () => {
       >
         {selectedQuestion && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900">{selectedQuestion.question_text}</h2>
+            <h2 className="text-lg font-semibold text-foreground">{selectedQuestion.question_text}</h2>
 
             {selectedQuestion.question_type !== 'True/False' && selectedQuestion.options && !Array.isArray(selectedQuestion.options) && (
               <div className="space-y-2">
                 {Object.entries(selectedQuestion.options).map(([key, value]) => (
-                  <div key={key} className="flex items-start space-x-2 text-sm text-gray-700">
-                    <span className="font-medium text-gray-900">{key}.</span>
+                  <div key={key} className="flex items-start space-x-2 text-sm text-foreground">
+                    <span className="font-medium text-foreground">{key}.</span>
                     <span>{value}</span>
                   </div>
                 ))}
@@ -416,15 +420,15 @@ const QuestionBank: React.FC = () => {
             {Array.isArray(selectedQuestion.options) && (
               <div className="space-y-2">
                 {selectedQuestion.options.map((value, index) => (
-                  <div key={index} className="flex items-start space-x-2 text-sm text-gray-700">
-                    <span className="font-medium text-gray-900">选项{index + 1}.</span>
+                  <div key={index} className="flex items-start space-x-2 text-sm text-foreground">
+                    <span className="font-medium text-foreground">选项{index + 1}.</span>
                     <span>{value}</span>
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
+            <div className="bg-success/10 border border-success/20 rounded-lg p-4 text-sm text-success">
               <span className="font-semibold">正确答案：</span>
               {formatCorrectAnswers(selectedQuestion)}
             </div>
@@ -440,14 +444,7 @@ const QuestionBank: React.FC = () => {
         showToast={showToast}
       />
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={hideToast}
-          position="bottom-right"
-        />
-      )}
+      
       <ConfirmDialog
         isOpen={confirm.isOpen}
         title={confirm.title}
@@ -461,4 +458,3 @@ const QuestionBank: React.FC = () => {
 };
 
 export default QuestionBank;
-

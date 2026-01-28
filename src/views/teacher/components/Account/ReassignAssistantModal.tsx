@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Modal from '@/views/teacher/components/common/Modal';
-import Button from '@/views/teacher/components/common/Button';
+import Modal from '@/views/teacher/components/shadcn/TeacherModal';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
 import type { User as Assistant, Class } from '@/views/teacher/types';
 import { apiClient } from '@/utils/apiClient';
 import { Loader, AlertTriangle } from 'lucide-react';
-import { ConfirmDialog } from '@/views/teacher/components/common/ConfirmDialog';
+import { ConfirmDialog } from '@/views/teacher/components/shadcn/TeacherConfirmDialog';
 import { useConfirm } from '@/views/teacher/hooks/useConfirm';
 
 interface ReassignAssistantModalProps {
@@ -139,11 +139,11 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
 
   const renderContent = () => {
     if (!assistant) {
-      return <p className="text-gray-500">请选择一位助教以进行重新分配。</p>;
+      return <p className="text-muted-foreground">请选择一位助教以进行重新分配。</p>;
     }
 
     if (managedClasses.length === 0) {
-      return <p className="text-gray-500">当前没有可管理的班级。</p>;
+      return <p className="text-muted-foreground">当前没有可管理的班级。</p>;
     }
 
     if (isLoading) {
@@ -164,16 +164,16 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
           return (
             <div
               key={cls.class_id}
-              className="flex items-center justify-between border border-gray-200 rounded-lg p-3 bg-white"
+              className="flex items-center justify-between border border-border rounded-lg p-3 bg-card"
             >
               <div className="flex items-center space-x-3">
                 <div>
-                  <p className="font-medium text-gray-900">{cls.class_name}</p>
-                  <p className="text-xs text-gray-500">班级编号：{cls.class_code}</p>
+                  <p className="font-medium text-foreground">{cls.class_name}</p>
+                  <p className="text-xs text-muted-foreground">班级编号：{cls.class_code}</p>
                 </div>
                 <span
                   className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    isAssigned ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                    isAssigned ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   {isAssigned ? '已绑定' : '未绑定'}
@@ -186,7 +186,7 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
                     size="sm"
                     onClick={() => handleUnassign(cls.class_id)}
                     disabled={isProcessing}
-                    className="text-red-600 border-red-200 hover:bg-red-50"
+                    className="text-destructive border-destructive/20 hover:bg-destructive/10"
                   >
                     {isProcessing ? '解绑中...' : '解绑'}
                   </Button>
@@ -216,19 +216,19 @@ export const ReassignAssistantModal: React.FC<ReassignAssistantModalProps> = ({
       >
         <div className="space-y-4">
           {assistant && (
-            <div className="bg-blue-50 border border-blue-100 text-sm text-blue-700 rounded-lg p-3">
+            <div className="bg-primary/10 border border-primary/20 text-sm text-primary rounded-lg p-3">
               <p>当前助教：<span className="font-semibold">{assistantName}</span></p>
               <p>请选择需要绑定或解绑的班级。</p>
             </div>
           )}
           {error && (
-            <div className="flex items-center space-x-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">
+            <div className="flex items-center space-x-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3">
               <AlertTriangle size={16} />
               <span>{error}</span>
             </div>
           )}
           {renderContent()}
-          <div className="flex justify-end pt-4 border-gray-100">
+          <div className="flex justify-end pt-4 border-border">
             <Button variant="outline" onClick={onClose}>
               关闭
             </Button>

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { StudentGradeOverview } from '@/views/teacher/types';
 import { getProgressStatus } from '@/views/teacher/utils/gradeStatus';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const FINAL_BREAKDOWN_LABELS: Record<'exp_flow' | 'knowledge_test' | 'model_quality' | 'report_quality', string> = {
   exp_flow: '实验流程',
@@ -53,67 +54,67 @@ const FinalBreakdown: React.FC<FinalBreakdownProps> = ({ grade }) => {
   const hasExpFlowDetails = expFlowDetails.length > 0;
 
   if (!hasTopLevelData && !hasExpFlowDetails) {
-    return <p className="text-sm text-gray-500">暂无成绩构成数据。</p>;
+    return <p className="text-sm text-muted-foreground">暂无成绩构成数据。</p>;
   }
 
   return (
     <div className="space-y-4">
       {hasTopLevelData && (
         <div>
-          <h4 className="text-sm font-semibold text-gray-900 mb-2">最终得分构成</h4>
+          <h4 className="text-sm font-semibold text-foreground mb-2">最终得分构成</h4>
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-100 text-gray-600 uppercase tracking-wider text-xs">
-                <tr>
-                  <th className="px-4 py-2 text-left">考核项</th>
-                  <th className="px-4 py-2 text-right">原始分</th>
-                  <th className="px-4 py-2 text-right">权重</th>
-                  <th className="px-4 py-2 text-right">加权得分</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
+            <Table className="min-w-full text-sm">
+              <TableHeader className="bg-muted text-muted-foreground uppercase tracking-wider text-xs">
+                <TableRow>
+                  <TableHead className="px-4 py-2 text-left">考核项</TableHead>
+                  <TableHead className="px-4 py-2 text-right">原始分</TableHead>
+                  <TableHead className="px-4 py-2 text-right">权重</TableHead>
+                  <TableHead className="px-4 py-2 text-right">加权得分</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="bg-card">
                 {entries.map(({ key, label, data }) => (
-                  <tr key={key}>
-                    <td className="px-4 py-2 text-gray-800">{label}</td>
-                    <td className="px-4 py-2 text-right text-gray-700">{renderValue(data?.score)}</td>
-                    <td className="px-4 py-2 text-right text-gray-700">{renderWeight(data?.weight)}</td>
-                    <td className="px-4 py-2 text-right text-gray-900 font-medium">
+                  <TableRow key={key}>
+                    <TableCell className="px-4 py-2 text-foreground">{label}</TableCell>
+                    <TableCell className="px-4 py-2 text-right text-foreground">{renderValue(data?.score)}</TableCell>
+                    <TableCell className="px-4 py-2 text-right text-foreground">{renderWeight(data?.weight)}</TableCell>
+                    <TableCell className="px-4 py-2 text-right text-foreground font-medium">
                       {renderValue(data?.weighted_score)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
 
       {hasExpFlowDetails && (
         <div>
-          <h4 className="text-sm font-semibold text-gray-900 mb-2">实验流程细分</h4>
+          <h4 className="text-sm font-semibold text-foreground mb-2">实验流程细分</h4>
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-100 text-gray-600 uppercase tracking-wider text-xs">
-                <tr>
-                  <th className="px-4 py-2 text-left">步骤</th>
-                  <th className="px-4 py-2 text-right">原始分</th>
-                  <th className="px-4 py-2 text-right">权重</th>
-                  <th className="px-4 py-2 text-right">加权得分</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
+            <Table className="min-w-full text-sm">
+              <TableHeader className="bg-muted text-muted-foreground uppercase tracking-wider text-xs">
+                <TableRow>
+                  <TableHead className="px-4 py-2 text-left">步骤</TableHead>
+                  <TableHead className="px-4 py-2 text-right">原始分</TableHead>
+                  <TableHead className="px-4 py-2 text-right">权重</TableHead>
+                  <TableHead className="px-4 py-2 text-right">加权得分</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="bg-card">
                 {expFlowDetails.map((item) => (
-                  <tr key={item.field}>
-                    <td className="px-4 py-2 text-gray-800">{EXP_FLOW_FIELD_LABELS[item.field] ?? item.field}</td>
-                    <td className="px-4 py-2 text-right text-gray-700">{renderValue(item.score)}</td>
-                    <td className="px-4 py-2 text-right text-gray-700">{renderWeight(item.weight)}</td>
-                    <td className="px-4 py-2 text-right text-gray-900 font-medium">
+                  <TableRow key={item.field}>
+                    <TableCell className="px-4 py-2 text-foreground">{EXP_FLOW_FIELD_LABELS[item.field] ?? item.field}</TableCell>
+                    <TableCell className="px-4 py-2 text-right text-foreground">{renderValue(item.score)}</TableCell>
+                    <TableCell className="px-4 py-2 text-right text-foreground">{renderWeight(item.weight)}</TableCell>
+                    <TableCell className="px-4 py-2 text-right text-foreground font-medium">
                       {renderValue(item.weighted_score)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}

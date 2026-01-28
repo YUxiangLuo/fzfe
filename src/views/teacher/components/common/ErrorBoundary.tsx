@@ -63,27 +63,27 @@ export class ErrorBoundary extends Component<Props, State> {
 
       // Default fallback UI
       return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white rounded-lg shadow-xl p-8">
-            <div className="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
-              <AlertTriangle className="w-8 h-8 text-red-600" />
+        <div className="min-h-screen bg-muted flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-card rounded-lg shadow-xl p-8">
+            <div className="flex items-center justify-center w-16 h-16 bg-destructive/10 rounded-full mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-destructive" />
             </div>
 
-            <h1 className="text-2xl font-bold text-gray-900 text-center mb-2">
+            <h1 className="text-2xl font-bold text-foreground text-center mb-2">
               出现错误
             </h1>
 
-            <p className="text-gray-600 text-center mb-6">
+            <p className="text-muted-foreground text-center mb-6">
               抱歉，应用程序遇到了一个错误。请尝试刷新页面或联系技术支持。
             </p>
 
             {/* Show error message in development */}
             {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm font-medium text-red-800 mb-2">
+              <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-sm font-medium text-destructive mb-2">
                   错误详情（仅开发环境显示）:
                 </p>
-                <p className="text-xs text-red-700 font-mono break-all">
+                <p className="text-xs text-destructive font-mono break-all">
                   {this.state.error.toString()}
                 </p>
               </div>
@@ -92,7 +92,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="flex flex-col space-y-3">
               <button
                 onClick={this.handleReset}
-                className="flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center justify-center px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 重试
@@ -100,7 +100,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
               <button
                 onClick={() => window.location.href = '/'}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted transition-colors"
               >
                 返回首页
               </button>

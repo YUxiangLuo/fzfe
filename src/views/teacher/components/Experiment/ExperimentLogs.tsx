@@ -13,6 +13,10 @@ import {
 import type { Class, StudentExperimentLog } from '@/views/teacher/types';
 import { apiClient } from '@/utils/apiClient';
 import { decodeToken } from '@/utils/auth';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface StudentExperimentSummary {
   studentId: number;
@@ -266,12 +270,12 @@ const ExperimentLogs: React.FC = () => {
 
   const renderSortIcon = (key: SortKey) => {
     if (!sortConfig || sortConfig.key !== key) {
-      return <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />;
+      return <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground" />;
     }
     return sortConfig.direction === 'desc' ? (
-      <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+      <ChevronDown className="w-3.5 h-3.5 text-primary" />
     ) : (
-      <ChevronUp className="w-3.5 h-3.5 text-blue-600" />
+      <ChevronUp className="w-3.5 h-3.5 text-primary" />
     );
   };
 
@@ -303,62 +307,68 @@ const ExperimentLogs: React.FC = () => {
     return `${year}-${month}-${day} ${hours}:${minutes}`;
   };
 
-  const durationClass = 'text-base font-semibold text-gray-900';
+  const durationClass = 'text-base font-semibold text-foreground';
 
   const mapStatusToDisplay = (status: string) => {
     switch (status) {
       case 'Completed':
-        return { label: '已完成', color: 'text-green-700 bg-green-100' };
+        return { label: '已完成', color: 'text-success bg-success/10' };
       case 'In Progress':
-        return { label: '进行中', color: 'text-blue-700 bg-blue-100' };
+        return { label: '进行中', color: 'text-primary bg-primary/10' };
       case 'Not Started':
       default:
-        return { label: '未开始', color: 'text-gray-700 bg-gray-100' };
+        return { label: '未开始', color: 'text-foreground bg-muted' };
     }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-6 space-y-3 md:space-y-0">
-        <h1 className="text-2xl font-bold text-gray-900">实验日志</h1>
+        <h1 className="text-2xl font-bold text-foreground">实验日志</h1>
         {selectedClassId && (
-          <p className="text-sm text-gray-500">当前班级：{currentClassName}</p>
+          <p className="text-sm text-muted-foreground">当前班级：{currentClassName}</p>
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-card rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">选择班级</label>
-            <select
+            <Label className="text-foreground mb-2">选择班级</Label>
+            <Select
               value={selectedClassId}
-              onChange={(event) => setSelectedClassId(event.target.value)}
+              onValueChange={setSelectedClassId}
               disabled={isLoadingClasses || classes.length === 0}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             >
-              {classes.length === 0 ? (
-                <option value="" disabled>
-                  {isLoadingClasses ? '正在加载班级...' : '暂无班级'}
-                </option>
-              ) : (
-                classes.map((cls) => (
-                  <option key={cls.class_id} value={cls.class_id}>
-                    {cls.class_name}
-                  </option>
-                ))
-              )}
-            </select>
+              <SelectTrigger className="w-full" aria-label="选择班级">
+                <SelectValue
+                  placeholder={isLoadingClasses ? '正在加载班级...' : classes.length === 0 ? '暂无班级' : '请选择班级'}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.length === 0 ? (
+                  <SelectItem value="__empty__" disabled>
+                    {isLoadingClasses ? '正在加载班级...' : '暂无班级'}
+                  </SelectItem>
+                ) : (
+                  classes.map((cls) => (
+                    <SelectItem key={cls.class_id} value={String(cls.class_id)}>
+                      {cls.class_name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">按学号/姓名搜索</label>
+            <Label className="text-foreground mb-2">按学号/姓名搜索</Label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <Input
                 type="text"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="输入学号或姓名"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="pl-10 pr-4 rounded-lg"
               />
             </div>
           </div>
@@ -366,150 +376,150 @@ const ExperimentLogs: React.FC = () => {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center space-x-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg flex items-center space-x-2">
           <AlertTriangle size={18} />
           <span>{error}</span>
         </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <div className="flex items-center">
-            <Clock className="w-8 h-8 text-blue-600 mr-3" />
+            <Clock className="w-8 h-8 text-primary mr-3" />
             <div>
-              <p className="text-sm text-gray-600">总学生数</p>
-              <p className="text-2xl font-bold text-gray-900">{totalStudents}</p>
+              <p className="text-sm text-muted-foreground">总学生数</p>
+              <p className="text-2xl font-bold text-foreground">{totalStudents}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <div className="flex items-center">
-            <Calendar className="w-8 h-8 text-green-600 mr-3" />
+            <Calendar className="w-8 h-8 text-success mr-3" />
             <div>
-              <p className="text-sm text-gray-600">总实验次数</p>
-              <p className="text-2xl font-bold text-gray-900">{totalExperiments}</p>
+              <p className="text-sm text-muted-foreground">总实验次数</p>
+              <p className="text-2xl font-bold text-foreground">{totalExperiments}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <div className="flex items-center">
-            <Clock className="w-8 h-8 text-purple-600 mr-3" />
+            <Clock className="w-8 h-8 text-accent-foreground mr-3" />
             <div>
-              <p className="text-sm text-gray-600">总时长</p>
-              <p className="text-2xl font-bold text-gray-900">{formatDuration(totalDurationSeconds)}</p>
+              <p className="text-sm text-muted-foreground">总时长</p>
+              <p className="text-2xl font-bold text-foreground">{formatDuration(totalDurationSeconds)}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <div className="flex items-center">
-            <Clock className="w-8 h-8 text-orange-600 mr-3" />
+            <Clock className="w-8 h-8 text-warning mr-3" />
             <div>
-              <p className="text-sm text-gray-600">平均每生时长</p>
-              <p className="text-2xl font-bold text-gray-900">{formatDuration(averageDurationSeconds)}</p>
+              <p className="text-sm text-muted-foreground">平均每生时长</p>
+              <p className="text-2xl font-bold text-foreground">{formatDuration(averageDurationSeconds)}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">学生实验日志</h2>
+      <div className="bg-card rounded-lg shadow-md">
+        <div className="px-6 py-4 border-b border-border">
+          <h2 className="text-lg font-semibold text-foreground">学生实验日志</h2>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <Table>
+            <TableHeader className="bg-muted">
+              <TableRow>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">序号</TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">姓名</TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort('username')}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>学号</span>
                     {renderSortIcon('username')}
                   </button>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort('totalExperiments')}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>实验次数</span>
                     {renderSortIcon('totalExperiments')}
                   </button>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort('totalDurationSeconds')}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>总时长</span>
                     {renderSortIcon('totalDurationSeconds')}
                   </button>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort('averageDurationSeconds')}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>平均时长</span>
                     {renderSortIcon('averageDurationSeconds')}
                   </button>
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">详情</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+                </TableHead>
+                <TableHead className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">详情</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="bg-card">
               {!selectedClassId && (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-500">
+                <TableRow>
+                  <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
                     请先选择一个班级查看实验日志。
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
 
               {selectedClassId && isLoadingStatuses && (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-500">
+                <TableRow>
+                  <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
                     <div className="flex items-center justify-center space-x-2">
                       <Loader className="animate-spin" size={18} />
                       <span>正在加载实验日志...</span>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
 
               {selectedClassId && !isLoadingStatuses && sortedSummaries.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-500">
+                <TableRow>
+                  <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
                     {debouncedSearchTerm ? '未找到符合搜索条件的学生。' : '该班级暂无实验日志记录。'}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
 
               {selectedClassId && !isLoadingStatuses && sortedSummaries.map((summary, index) => {
                 const isExpanded = expandedRows.includes(summary.studentId);
                 return (
                   <React.Fragment key={summary.studentId}>
-                    <tr className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-600">{index + 1}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{summary.studentName}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{summary.studentUsername}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{summary.totalExperiments}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900 font-semibold">
+                    <TableRow>
+                      <TableCell className="px-6 py-4 text-sm text-muted-foreground">{index + 1}</TableCell>
+                      <TableCell className="px-6 py-4 text-sm font-medium text-foreground">{summary.studentName}</TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-muted-foreground">{summary.studentUsername}</TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-foreground">{summary.totalExperiments}</TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-foreground font-semibold">
                         {formatDuration(summary.totalDurationSeconds)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{formatDuration(summary.averageDurationSeconds)}</td>
-                      <td className="px-6 py-4 text-center">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-foreground">{formatDuration(summary.averageDurationSeconds)}</TableCell>
+                      <TableCell className="px-6 py-4 text-center">
                         <button
                           onClick={() => toggleRowExpansion(summary.studentId)}
-                          className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition-all duration-200"
+                          className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/10 hover:text-primary transition-all duration-200"
                         >
                           {isExpanded ? (
                             <><ChevronDown size={14} className="mr-1" />收起</>
@@ -517,70 +527,70 @@ const ExperimentLogs: React.FC = () => {
                             <><ChevronRight size={14} className="mr-1" />展开</>
                           )}
                         </button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
 
                     {isExpanded && (
-                      <tr className="bg-slate-50">
-                        <td colSpan={7} className="px-8 py-6">
+                      <TableRow className="bg-muted">
+                        <TableCell colSpan={7} className="px-8 py-6">
                           <div className="space-y-4">
-                            <h3 className="text-sm font-semibold text-gray-700">实验记录</h3>
+                            <h3 className="text-sm font-semibold text-foreground">实验记录</h3>
                             <div className="space-y-3">
                               {summary.experiments.length === 0 ? (
-                                <div className="text-sm text-gray-500">该学生暂无实验记录。</div>
+                                <div className="text-sm text-muted-foreground">该学生暂无实验记录。</div>
                               ) : (
                                 summary.experiments.slice().reverse().map((experiment) => {
                                   const statusMeta = mapStatusToDisplay(experiment.status);
                                   return (
-                                    <div key={`${summary.studentId}-${experiment.experimentId}`} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                                    <div key={`${summary.studentId}-${experiment.experimentId}`} className="bg-card rounded-xl border border-border p-5 shadow-sm">
                                       <div className="flex flex-col space-y-4">
                                         <div className="flex flex-wrap items-center gap-3">
                                           <div className={`px-3 py-1 rounded-full text-sm font-medium ${statusMeta.color}`}>
                                             {statusMeta.label}
                                           </div>
-                                          <span className="text-sm text-gray-500">
-                                            实验 ID：<span className="font-medium text-gray-900">#{experiment.experimentId}</span>
+                                          <span className="text-sm text-muted-foreground">
+                                            实验 ID：<span className="font-medium text-foreground">#{experiment.experimentId}</span>
                                           </span>
                                           {typeof experiment.currentStep === 'number' && (
-                                            <span className="text-sm text-gray-500">
-                                              当前步骤：<span className="font-medium text-gray-900">{experiment.currentStep}</span>
+                                            <span className="text-sm text-muted-foreground">
+                                              当前步骤：<span className="font-medium text-foreground">{experiment.currentStep}</span>
                                             </span>
                                           )}
                                           {typeof experiment.highestCompletedStep === 'number' && (
-                                            <span className="text-sm text-gray-500">
-                                              已完成步骤：<span className="font-medium text-gray-900">{experiment.highestCompletedStep}</span>
+                                            <span className="text-sm text-muted-foreground">
+                                              已完成步骤：<span className="font-medium text-foreground">{experiment.highestCompletedStep}</span>
                                             </span>
                                           )}
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-700">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-foreground">
                                           <div>
-                                            <span className="text-gray-500">开始时间：</span>
-                                            <span className="font-medium text-gray-900">{formatDateTime(experiment.startTime)}</span>
+                                            <span className="text-muted-foreground">开始时间：</span>
+                                            <span className="font-medium text-foreground">{formatDateTime(experiment.startTime)}</span>
                                           </div>
                                           <div>
-                                            <span className="text-gray-500">最近活跃：</span>
-                                            <span className="font-medium text-gray-900">{formatDateTime(experiment.lastActivityAt)}</span>
+                                            <span className="text-muted-foreground">最近活跃：</span>
+                                            <span className="font-medium text-foreground">{formatDateTime(experiment.lastActivityAt)}</span>
                                           </div>
                                           <div>
-                                            <span className="text-gray-500">完成时间：</span>
-                                            <span className="font-medium text-gray-900">{formatDateTime(experiment.completionTime)}</span>
+                                            <span className="text-muted-foreground">完成时间：</span>
+                                            <span className="font-medium text-foreground">{formatDateTime(experiment.completionTime)}</span>
                                           </div>
                                           <div className={durationClass}>
                                             累计时长：{formatDuration(experiment.durationSeconds)}
                                           </div>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-gray-700">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-foreground">
                                           <div>
-                                            <span className="text-gray-500">行业：</span>
-                                            <span className="font-medium text-gray-900">{experiment.industry ?? '—'}</span>
+                                            <span className="text-muted-foreground">行业：</span>
+                                            <span className="font-medium text-foreground">{experiment.industry ?? '—'}</span>
                                           </div>
                                           <div>
-                                            <span className="text-gray-500">企业：</span>
-                                            <span className="font-medium text-gray-900">{experiment.company ?? '—'}</span>
+                                            <span className="text-muted-foreground">企业：</span>
+                                            <span className="font-medium text-foreground">{experiment.company ?? '—'}</span>
                                           </div>
                                           <div>
-                                            <span className="text-gray-500">产品：</span>
-                                            <span className="font-medium text-gray-900">{experiment.product ?? '—'}</span>
+                                            <span className="text-muted-foreground">产品：</span>
+                                            <span className="font-medium text-foreground">{experiment.product ?? '—'}</span>
                                           </div>
                                         </div>
                                       </div>
@@ -590,14 +600,14 @@ const ExperimentLogs: React.FC = () => {
                               )}
                             </div>
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     )}
                   </React.Fragment>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
     </div>

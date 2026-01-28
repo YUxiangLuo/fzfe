@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import type { Class } from '@/views/teacher/types';
-import Modal from '@/views/teacher/components/common/Modal';
-import Button from '@/views/teacher/components/common/Button';
-import { Toast } from '@/views/teacher/components/common/Toast';
+import Modal from '@/views/teacher/components/shadcn/TeacherModal';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { validateClassName, validateClassCode } from '@/views/teacher/utils/validation';
 import { useToast } from '@/views/teacher/hooks/useToast';
 
@@ -14,7 +15,7 @@ interface EditClassModalProps {
 }
 
 export const EditClassModal: React.FC<EditClassModalProps> = ({ isOpen, onClose, classData, onSubmit }) => {
-  const { toast, showToast, hideToast } = useToast();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState({ class_name: '', class_code: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -55,38 +56,38 @@ export const EditClassModal: React.FC<EditClassModalProps> = ({ isOpen, onClose,
 
   return (
     <>
-    {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+    
     <Modal isOpen={isOpen} onClose={onClose} title="修改班级信息">
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            班级名称 <span className="text-red-500">*</span>
-          </label>
-          <input
+          <Label className="text-foreground mb-2">
+            班级名称 <span className="text-destructive">*</span>
+          </Label>
+          <Input
             type="text"
             value={formData.class_name}
             onChange={(e) => setFormData(prev => ({ ...prev, class_name: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="rounded-lg"
             placeholder="例如：2024级计算机1班"
             maxLength={50}
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             2-50个字符，可包含中文、英文、数字、短横线和下划线
           </p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            班级代码 <span className="text-red-500">*</span>
-          </label>
-          <input
+          <Label className="text-foreground mb-2">
+            班级代码 <span className="text-destructive">*</span>
+          </Label>
+          <Input
             type="text"
             value={formData.class_code}
             onChange={(e) => setFormData(prev => ({ ...prev, class_code: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="rounded-lg"
             placeholder="例如：CS101-2025"
             maxLength={20}
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             2-20个字符，只能包含英文、数字、短横线和下划线
           </p>
         </div>

@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Save, RotateCcw } from 'lucide-react';
 import type { GradeWeights as GradeWeightsApi } from '@/views/teacher/types';
-import Button from '@/views/teacher/components/common/Button';
-import Modal from '@/views/teacher/components/common/Modal';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
+import Modal from '@/views/teacher/components/shadcn/TeacherModal';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { apiClient } from '@/utils/apiClient';
 import { decodeToken } from '@/utils/auth';
 import { validatePercentage } from '@/views/teacher/utils/validation';
 import { useToast } from '@/views/teacher/hooks/useToast';
-import { Toast } from '@/views/teacher/components/common/Toast';
 
 type FlowKey = keyof Pick<GradeWeightsApi,
   'exp_flow_demand_data_preparation' |
@@ -46,10 +48,10 @@ const FLOW_ITEMS: FlowItem[] = [
 ];
 
 const TOP_LEVEL_ITEMS: TopLevelItem[] = [
-  { key: 'exp_flow_weight', label: '实验流程', color: 'bg-blue-500' },
-  { key: 'knowledge_test_weight', label: '知识点测试', color: 'bg-green-500' },
-  { key: 'model_quality_weight', label: '模型选择', color: 'bg-yellow-500' },
-  { key: 'report_quality_weight', label: '实验报告', color: 'bg-purple-500' },
+  { key: 'exp_flow_weight', label: '实验流程', color: 'bg-primary' },
+  { key: 'knowledge_test_weight', label: '知识点测试', color: 'bg-success' },
+  { key: 'model_quality_weight', label: '模型选择', color: 'bg-warning' },
+  { key: 'report_quality_weight', label: '实验报告', color: 'bg-accent' },
 ];
 
 const DEFAULT_WEIGHTS: GradeWeightsApi = {
@@ -69,7 +71,7 @@ const DEFAULT_WEIGHTS: GradeWeightsApi = {
 };
 
 const GradeWeights: React.FC = () => {
-  const { toast, showToast, hideToast } = useToast();
+  const { showToast } = useToast();
   const [weights, setWeights] = useState<GradeWeightsApi>(DEFAULT_WEIGHTS);
   const [tempWeights, setTempWeights] = useState<GradeWeightsApi>(DEFAULT_WEIGHTS);
   const [isLoading, setIsLoading] = useState(true);
@@ -261,9 +263,9 @@ const GradeWeights: React.FC = () => {
   const renderTopLevelControls = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {TOP_LEVEL_ITEMS.map((item) => (
-        <div key={item.key} className="bg-gray-50 rounded-lg p-4">
+        <div key={item.key} className="bg-muted rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="font-medium text-gray-900">{item.label}</span>
+            <span className="font-medium text-foreground">{item.label}</span>
             {item.key === 'exp_flow_weight' && (
               <Button size="sm" variant="outline" onClick={() => setIsDetailModalOpen(true)}>
                 细分调整
@@ -279,27 +281,27 @@ const GradeWeights: React.FC = () => {
                 step="1"
                 value={tempWeights[item.key]}
                 onChange={(event) => handleTopLevelChange(item.key, Number(event.target.value))}
-                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer"
                 disabled={isLoading}
                 aria-label={`${item.label}权重滑块`}
               />
               <div className="flex items-center space-x-2">
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="1"
-                  value={tempWeights[item.key]}
-                  onChange={(event) => handleTopLevelChange(item.key, Number(event.target.value) || 0)}
-                  className="w-16 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  disabled={isLoading}
-                  aria-label={`${item.label}权重输入`}
-                />
-                <span className="text-sm text-gray-600">%</span>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={tempWeights[item.key]}
+                onChange={(event) => handleTopLevelChange(item.key, Number(event.target.value) || 0)}
+                className="w-16 text-center"
+                disabled={isLoading}
+                aria-label={`${item.label}权重输入`}
+              />
+                <span className="text-sm text-muted-foreground">%</span>
               </div>
             </div>
 
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-muted rounded-full h-2">
               <div
                 className={`h-2 rounded-full transition-all duration-300 ${item.color}`}
                 style={{ width: `${tempWeights[item.key]}%` }}
@@ -307,7 +309,7 @@ const GradeWeights: React.FC = () => {
             </div>
 
             <div className="text-center">
-              <span className="text-xl font-bold text-gray-800">{tempWeights[item.key]}%</span>
+              <span className="text-xl font-bold text-foreground">{tempWeights[item.key]}%</span>
             </div>
           </div>
         </div>
@@ -318,22 +320,22 @@ const GradeWeights: React.FC = () => {
   const renderFlowControls = () => (
     <div className="space-y-4">
       {FLOW_ITEMS.map((item) => (
-        <div key={item.key} className="bg-gray-50 rounded-lg p-4">
+        <div key={item.key} className="bg-muted rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">{item.label}</span>
+            <span className="text-sm font-medium text-foreground">{item.label}</span>
             <div className="flex items-center space-x-2">
-              <input
+              <Input
                 type="number"
                 min="0"
                 max="100"
                 step="1"
                 value={tempWeights[item.key]}
                 onChange={(event) => handleFlowChange(item.key, Number(event.target.value) || 0)}
-                className="w-20 px-2 py-1 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-20 text-center"
                 disabled={isLoading}
                 aria-label={`${item.label}权重输入`}
               />
-              <span className="text-sm text-gray-500">%</span>
+              <span className="text-sm text-muted-foreground">%</span>
             </div>
           </div>
           <input
@@ -343,7 +345,7 @@ const GradeWeights: React.FC = () => {
             step="1"
             value={tempWeights[item.key]}
             onChange={(event) => handleFlowChange(item.key, Number(event.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
             disabled={isLoading}
             aria-label={`${item.label}权重滑块`}
           />
@@ -356,8 +358,8 @@ const GradeWeights: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 space-y-3 md:space-y-0">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">成绩权重</h1>
-          <p className="text-sm text-gray-500 mt-1">设置不同考核项在最终成绩中的占比。此设置将应用于指定班级。</p>
+          <h1 className="text-2xl font-bold text-foreground">成绩权重</h1>
+          <p className="text-sm text-muted-foreground mt-1">设置不同考核项在最终成绩中的占比。此设置将应用于指定班级。</p>
         </div>
         <div className="flex items-center space-x-3">
           <Button onClick={resetToDefault} variant="outline" disabled={!selectedClassId || isLoading}>
@@ -371,58 +373,68 @@ const GradeWeights: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-card rounded-lg shadow-md p-6">
         <div className="w-full md:max-w-xs">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            选择班级
-          </label>
-          <select
+          <Label className="text-foreground mb-2">选择班级</Label>
+          <Select
             value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
+            onValueChange={setSelectedClassId}
             disabled={isLoadingClasses || classes.length === 0}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
           >
-            {isLoadingClasses ? (
-              <option>正在加载班级...</option>
-            ) : classes.length === 0 ? (
-              <option>暂无班级</option>
-            ) : (
-              classes.map((cls) => (
-                <option key={cls.class_id} value={cls.class_id}>
-                  {cls.class_name}
-                </option>
-              ))
-            )}
-          </select>
+            <SelectTrigger className="w-full" aria-label="选择班级">
+              <SelectValue
+                placeholder={
+                  isLoadingClasses
+                    ? '正在加载班级...'
+                    : classes.length === 0
+                      ? '暂无班级'
+                      : '请选择班级'
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {classes.length === 0 ? (
+                <SelectItem value="__empty__" disabled>
+                  {isLoadingClasses ? '正在加载班级...' : '暂无班级'}
+                </SelectItem>
+              ) : (
+                classes.map((cls) => (
+                  <SelectItem key={cls.class_id} value={String(cls.class_id)}>
+                    {cls.class_name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
       )}
 
       {infoMessage && !error && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-primary/10 border border-primary/20 text-primary px-4 py-3 rounded-lg text-sm">
           {infoMessage}
         </div>
       )}
 
       {!selectedClassId && !isLoadingClasses && (
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <p className="text-gray-500">
+        <div className="text-center py-12 bg-muted rounded-lg">
+          <p className="text-muted-foreground">
             {classes.length > 0 ? '请选择一个班级以设置其成绩权重。' : '您当前没有管理的班级，请先创建或关联一个班级。'}
           </p>
         </div>
       )}
 
       <fieldset disabled={!selectedClassId || isLoading} className="space-y-6">
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">一级权重设置</h2>
+              <h2 className="text-lg font-semibold text-foreground">一级权重设置</h2>
               <div
-                className={`px-3 py-1 rounded-full text-sm font-medium ${topLevelTotal === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+                className={`px-3 py-1 rounded-full text-sm font-medium ${topLevelTotal === 100 ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}
               >
               总计 {topLevelTotal}%
             </div>
@@ -430,14 +442,14 @@ const GradeWeights: React.FC = () => {
           {renderTopLevelControls()}
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">权重分布图表</h3>
+        <div className="bg-card rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-foreground mb-4">权重分布图表</h3>
           <div className="space-y-4">
-            <div className="w-full bg-gray-200 rounded-full h-8 overflow-hidden flex">
+            <div className="w-full bg-muted rounded-full h-8 overflow-hidden flex">
               {TOP_LEVEL_ITEMS.map((item) => (
                 <div
                   key={item.key}
-                  className={`${item.color} flex items-center justify-center text-white text-sm font-medium`}
+                  className={`${item.color} flex items-center justify-center text-primary-foreground text-sm font-medium`}
                   style={{ width: `${tempWeights[item.key]}%` }}
                 >
                   {item.label} {tempWeights[item.key]}%
@@ -445,12 +457,12 @@ const GradeWeights: React.FC = () => {
               ))}
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-gray-600">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs text-muted-foreground">
               {TOP_LEVEL_ITEMS.map((item) => (
                 <div key={item.key} className="flex items-center space-x-2">
                   <span className={`inline-block w-3 h-3 rounded-full ${item.color}`}></span>
                   <span>{item.label}</span>
-                  <span className="font-medium text-gray-900">{tempWeights[item.key]}%</span>
+                  <span className="font-medium text-foreground">{tempWeights[item.key]}%</span>
                 </div>
               ))}
             </div>
@@ -466,9 +478,9 @@ const GradeWeights: React.FC = () => {
       >
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600">调整每个实验步骤在实验流程中的权重分布，必须合计 100%。</p>
+            <p className="text-sm text-muted-foreground">调整每个实验步骤在实验流程中的权重分布，必须合计 100%。</p>
             <div
-              className={`px-3 py-1 rounded-full text-sm font-medium ${flowTotal === 100 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+              className={`px-3 py-1 rounded-full text-sm font-medium ${flowTotal === 100 ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}
             >
               当前合计 {flowTotal}%
             </div>
@@ -493,14 +505,7 @@ const GradeWeights: React.FC = () => {
         </div>
       </Modal>
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={hideToast}
-          position="bottom-right"
-        />
-      )}
+      
     </div>
   );
 };

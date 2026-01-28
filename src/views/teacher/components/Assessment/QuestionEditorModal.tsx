@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import Modal from '@/views/teacher/components/common/Modal';
-import Button from '@/views/teacher/components/common/Button';
+import Modal from '@/views/teacher/components/shadcn/TeacherModal';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { apiClient } from '@/utils/apiClient';
 import { validateQuestionText, validateQuestionOption } from '@/views/teacher/utils/validation';
 import type { Question, QuestionTypeApi } from '@/views/teacher/types';
@@ -426,13 +430,13 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
                 <input
                   type="radio"
                   name="single-answer"
-                  className="text-blue-600 focus:ring-blue-500"
+                  className="text-primary focus:ring-ring"
                   value={optionKey}
                   checked={editorState.correctAnswers.includes(optionKey)}
                   onChange={() => handleSingleChoiceSelect(optionKey)}
                   disabled={!option.value.trim()}
                 />
-                <span className="text-gray-700">{option.value || `选项${optionKey}`}</span>
+                <span className="text-foreground">{option.value || `选项${optionKey}`}</span>
               </label>
             );
           })}
@@ -449,13 +453,13 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
               <label key={optionKey} className="flex items-center space-x-2 text-sm">
                 <input
                   type="checkbox"
-                  className="text-blue-600 focus:ring-blue-500"
+                  className="text-primary focus:ring-ring"
                   value={optionKey}
                   checked={editorState.correctAnswers.includes(optionKey)}
                   onChange={() => handleMultipleChoiceToggle(optionKey)}
                   disabled={!option.value.trim()}
                 />
-                <span className="text-gray-700">{option.value || `选项${optionKey}`}</span>
+                <span className="text-foreground">{option.value || `选项${optionKey}`}</span>
               </label>
             );
           })}
@@ -470,12 +474,12 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
             <input
               type="radio"
               name="boolean-answer"
-              className="text-blue-600 focus:ring-blue-500"
+              className="text-primary focus:ring-ring"
               value={option.key}
               checked={editorState.correctAnswers.includes(option.key)}
               onChange={() => handleBooleanSelect(option.key)}
             />
-            <span className="text-gray-700">{option.value}</span>
+            <span className="text-foreground">{option.value}</span>
           </label>
         ))}
       </div>
@@ -491,69 +495,79 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
     >
       <div className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            题目内容 <span className="text-red-500">*</span>
-          </label>
-          <textarea
+          <Label className="text-foreground mb-2">
+            题目内容 <span className="text-destructive">*</span>
+          </Label>
+          <Textarea
             value={editorState.questionText}
             onChange={(event) => setEditorState((prev) => ({ ...prev, questionText: event.target.value }))}
             rows={3}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="rounded-lg"
             placeholder="请输入题目内容"
             minLength={10}
             maxLength={500}
             required
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             10-500个字符
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">题目类型</label>
-            <select
-              value={editorState.questionType}
-              onChange={(event) => handleTypeChange(event.target.value as QuestionFormType)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="single">单选题</option>
-              <option value="multiple">多选题</option>
-              <option value="boolean">判断题</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              关联知识点 <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <select
-                value={editorState.knowledgePrimary}
-                onChange={(event) => handlePrimaryKnowledgeChange(event.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-foreground mb-2">题目类型</Label>
+              <Select
+                value={editorState.questionType}
+                onValueChange={(value) => handleTypeChange(value as QuestionFormType)}
               >
-                <option value="">请选择类别</option>
-                {primaryKnowledgeOptions.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-              <select
+                <SelectTrigger className="w-full" aria-label="题目类型">
+                  <SelectValue placeholder="请选择题型" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="single">单选题</SelectItem>
+                  <SelectItem value="multiple">多选题</SelectItem>
+                  <SelectItem value="boolean">判断题</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+            <Label className="text-foreground mb-2">
+              关联知识点 <span className="text-destructive">*</span>
+            </Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <Select
+                value={editorState.knowledgePrimary}
+                onValueChange={(value) => handlePrimaryKnowledgeChange(value)}
+              >
+                <SelectTrigger className="w-full" aria-label="知识点类别">
+                  <SelectValue placeholder="请选择类别" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__" disabled>请选择类别</SelectItem>
+                  {primaryKnowledgeOptions.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
                 value={editorState.knowledgeSecondary}
-                onChange={(event) => handleSecondaryKnowledgeChange(event.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
+                onValueChange={(value) => handleSecondaryKnowledgeChange(value)}
                 disabled={secondaryKnowledgeOptions.length === 0}
               >
-                <option value="">请选择知识点</option>
-                {secondaryKnowledgeOptions.map((point) => (
-                  <option key={point} value={point}>
-                    {point}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full" aria-label="知识点">
+                  <SelectValue placeholder="请选择知识点" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__" disabled>请选择知识点</SelectItem>
+                  {secondaryKnowledgeOptions.map((point) => (
+                    <SelectItem key={point} value={point}>
+                      {point}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -561,10 +575,10 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
         {editorState.questionType !== 'boolean' && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-700">选项设置</label>
+              <Label className="text-foreground">选项设置</Label>
               <button
                 type="button"
-                className="text-sm text-blue-600 hover:text-blue-700 cursor-pointer"
+                className="text-sm text-primary hover:text-primary cursor-pointer"
                 onClick={handleAddOption}
               >
                 添加选项
@@ -573,19 +587,19 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
             <div className="space-y-2">
               {editorState.options.map((option, index) => (
                 <div key={option.key || index} className="flex items-center space-x-2">
-                  <span className="w-10 text-sm text-gray-500">{option.key || String.fromCharCode(65 + index)}</span>
-                  <input
+                  <span className="w-10 text-sm text-muted-foreground">{option.key || String.fromCharCode(65 + index)}</span>
+                  <Input
                     type="text"
                     value={option.value}
                     onChange={(event) => handleOptionChange(index, event.target.value)}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="flex-1 rounded-lg"
                     placeholder="请输入选项内容"
                     maxLength={100}
                   />
                   {editorState.options.length > 2 && (
                     <button
                       type="button"
-                      className="text-sm text-red-600 hover:text-red-700 cursor-pointer"
+                      className="text-sm text-destructive hover:text-destructive cursor-pointer"
                       onClick={() => handleRemoveOption(index)}
                     >
                       删除
@@ -598,13 +612,13 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            正确答案 <span className="text-red-500">*</span>
-          </label>
-          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+          <Label className="text-foreground mb-2">
+            正确答案 <span className="text-destructive">*</span>
+          </Label>
+          <fieldset className="bg-muted rounded-lg border border-border p-4">
             {renderCorrectAnswerEditor()}
-          </div>
-          <p className="mt-1 text-xs text-gray-500">
+          </fieldset>
+          <p className="mt-1 text-xs text-muted-foreground">
             {editorState.questionType === 'single' && '请选择一个正确答案'}
             {editorState.questionType === 'multiple' && '可以选择多个正确答案'}
             {editorState.questionType === 'boolean' && '请选择正确或错误'}

@@ -109,19 +109,19 @@ const GradeCharts: React.FC<GradeChartsProps> = ({ grades }) => {
 
   if (graded.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold text-gray-900">成绩可视化</h3>
-        <p className="mt-2 text-sm text-gray-500">暂无完成评分的学生，待有评分数据后展示图表。</p>
+      <div className="bg-card rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold text-foreground">成绩可视化</h3>
+        <p className="mt-2 text-sm text-muted-foreground">暂无完成评分的学生，待有评分数据后展示图表。</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-card rounded-lg shadow-md p-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">总分排序趋势</h3>
-          <span className="text-xs text-gray-500">按总分从高到低展示学生表现</span>
+          <h3 className="text-lg font-semibold text-foreground">总分排序趋势</h3>
+          <span className="text-xs text-muted-foreground">按总分从高到低展示学生表现</span>
         </div>
         <div className="mt-4 h-64">
           <ResponsiveContainer>
@@ -145,14 +145,14 @@ const GradeCharts: React.FC<GradeChartsProps> = ({ grades }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">总分区间柱状图</h3>
-            <span className="text-xs text-gray-500">每 10 分一个区间</span>
+            <h3 className="text-lg font-semibold text-foreground">总分区间柱状图</h3>
+            <span className="text-xs text-muted-foreground">每 10 分一个区间</span>
           </div>
           <div className="mt-4 h-64">
             {histogramTotal === 0 ? (
-              <p className="text-sm text-gray-500">暂无有效的总分数据用于绘制分布图。</p>
+              <p className="text-sm text-muted-foreground">暂无有效的总分数据用于绘制分布图。</p>
             ) : (
               <ResponsiveContainer>
                 <BarChart data={histogramData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
@@ -167,14 +167,14 @@ const GradeCharts: React.FC<GradeChartsProps> = ({ grades }) => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-card rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">评分维度平均分</h3>
-            <span className="text-xs text-gray-500">仅统计有分数的学生</span>
+            <h3 className="text-lg font-semibold text-foreground">评分维度平均分</h3>
+            <span className="text-xs text-muted-foreground">仅统计有分数的学生</span>
           </div>
           <div className="mt-4 h-64">
             {averageData.length === 0 ? (
-              <p className="text-sm text-gray-500">暂无可用的评分维度数据。</p>
+              <p className="text-sm text-muted-foreground">暂无可用的评分维度数据。</p>
             ) : (
               <ResponsiveContainer>
                 <BarChart data={averageData} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
