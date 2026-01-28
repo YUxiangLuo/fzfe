@@ -99,7 +99,7 @@ const ExperimentManualView: React.FC = () => {
             onOk: async () => {
                 try {
                     await apiClient.delete(`/manuals/${manualId}`);
-                    setManuals(manuals.filter((m) => m.manual_id !== manualId));
+                    setManuals(prev => prev.filter((m) => m.manual_id !== manualId));
                     message.success('删除成功');
                 } catch (err: any) {
                     message.error(`删除失败: ${err.message}`);
@@ -158,8 +158,8 @@ const ExperimentManualView: React.FC = () => {
                     description: values.notes ? values.notes.trim() : "",
                 },
             );
-            setManuals(
-                manuals.map((m) =>
+            setManuals(prev =>
+                prev.map((m) =>
                     m.manual_id === updatedManual.manual_id ? updatedManual : m,
                 ),
             );

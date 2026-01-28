@@ -282,7 +282,7 @@ const ExperimentDataView: React.FC = () => {
                     </Form.Item>
 
                     <Alert
-                        title="数据格式要求"
+                        message="数据格式要求"
                         description={
                             <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
