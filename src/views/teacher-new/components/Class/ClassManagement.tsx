@@ -23,6 +23,7 @@ import {
     DeleteOutlined,
     TeamOutlined,
     UploadOutlined,
+    DownloadOutlined,
     ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
@@ -60,6 +61,31 @@ const ClassManagement: React.FC = () => {
     const [editForm] = Form.useForm();
     const [fileList, setFileList] = useState<UploadFile[]>([]);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Download CSV template
+    const handleDownloadTemplate = () => {
+        const headers = ['学号', '姓名'];
+        const examples = [
+            ['20240001', '张三'],
+            ['20240002', '李四']
+        ];
+
+        const csvContent = [
+            headers.join(','),
+            ...examples.map(row => row.join(','))
+        ].join('\n');
+
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = '学生名单导入模板.csv';
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
     // Fetch classes
     const fetchClasses = useCallback(async () => {
@@ -371,10 +397,23 @@ const ClassManagement: React.FC = () => {
                     >
                         <Input placeholder="请输入班级编号" />
                     </Form.Item>
-                    <Form.Item label="学生名单（可选）" extra="上传 Excel 文件批量导入学生">
-                        <Upload {...uploadProps}>
-                            <Button icon={<UploadOutlined />}>选择文件</Button>
-                        </Upload>
+                    <Form.Item 
+                        label="学生名单（可选）" 
+                        extra="上传 CSV 文件批量导入学生，CSV 文件需包含学号和姓名字段。"
+                    >
+                        <Space direction="vertical" style={{ width: '100%' }}>
+                            <Button 
+                                icon={<DownloadOutlined />} 
+                                onClick={handleDownloadTemplate}
+                                type="link"
+                                style={{ padding: 0 }}
+                            >
+                                下载模板
+                            </Button>
+                            <Upload {...uploadProps}>
+                                <Button icon={<UploadOutlined />}>选择文件</Button>
+                            </Upload>
+                        </Space>
                     </Form.Item>
                 </Form>
             </Modal>
