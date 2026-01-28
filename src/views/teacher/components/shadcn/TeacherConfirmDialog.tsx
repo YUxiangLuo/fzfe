@@ -70,7 +70,14 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           <AlertDialogDescription>{message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={onCancel}>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel
+            onClick={() => {
+              confirmInitiatedRef.current = true;
+              onCancel();
+            }}
+          >
+            {cancelText}
+          </AlertDialogCancel>
           <AlertDialogAction
             variant={actionVariant[variant]}
             onClick={() => {

@@ -117,7 +117,7 @@ const AssistantManagement: React.FC = () => {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-foreground">助教管理</h1>
           <div className="flex space-x-3">
-            <Button onClick={() => setShowCreateModal(true)} className="bg-primary hover:bg-primary/90">
+            <Button onClick={() => setShowCreateModal(true)}>
               <Plus size={16} className="mr-2" />
               创建助教
             </Button>
