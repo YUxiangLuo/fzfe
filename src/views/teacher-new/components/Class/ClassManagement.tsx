@@ -13,7 +13,8 @@ import {
     Alert,
     Typography,
     Result,
-    List
+    List,
+    Tag
 } from 'antd';
 import type { UploadFile, UploadProps } from 'antd';
 import {
@@ -211,6 +212,17 @@ const ClassManagement: React.FC = () => {
         onRemove: () => setFileList([]),
     };
 
+    // Format date
+    const formatDate = (value: string | null | undefined): string => {
+        if (!value) return '—';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '—';
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     // Table columns
     const columns = [
         {
@@ -222,6 +234,23 @@ const ClassManagement: React.FC = () => {
             title: '班级编号',
             dataIndex: 'class_code',
             key: 'class_code',
+            render: (text: string | null) => text || '未设置',
+        },
+        {
+            title: '助教',
+            key: 'assistants',
+            render: (_: any, record: Class) => {
+                const assistantNames = (record.assistants || []).map(a => a.full_name).join('、');
+                return assistantNames || '—';
+            },
+        },
+        {
+            title: '创建时间',
+            dataIndex: 'created_at',
+            key: 'created_at',
+            render: (value: string) => (
+                <Tag color="blue">{formatDate(value)}</Tag>
+            ),
         },
         {
             title: '操作',

@@ -34,11 +34,29 @@ const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 
-const QUESTION_CATEGORIES: Record<string, string[]> = {
-    '需求预测': ['需求特征分析', '数据预处理', '趋势与季节性', '时间序列分解', '模型选择策略', '预测评估指标'],
-    '模型评估': ['LSTM深度学习', '模型融合技术', '模型评估指标'],
-    '生产计划': ['MPS基本原理', '安全库存策略', '投入产出计算', '库存与缺货', '服务水平评估', '产能规划'],
+// Match teacher's knowledge point grouping
+const KNOWLEDGE_POINT_GROUPS: Record<string, string[]> = {
+    '预测模型': [
+        '时间序列基础',
+        '移动平均法(MA)',
+        '指数平滑法(ES)',
+        'ARIMA模型',
+        'LSTM深度学习',
+        '模型融合技术',
+        '模型评估指标',
+    ],
+    '生产计划': [
+        'MPS基本原理',
+        '安全库存策略',
+        '投入产出计算',
+        '库存与缺货',
+        '服务水平评估',
+        '产能规划',
+    ],
 };
+
+// Search debounce delay (ms)
+const SEARCH_DEBOUNCE_DELAY = 250;
 
 const QUESTION_TYPES: Record<string, { label: string; color: string }> = {
     'Single Choice': { label: '单选题', color: 'blue' },
@@ -51,8 +69,9 @@ const QuestionBank: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [filterType, setFilterType] = useState<string>('');
-    const [filterCategory, setFilterCategory] = useState<string>('');
+    const [selectedKnowledgePoint, setSelectedKnowledgePoint] = useState<string | null>(null);
 
     // Modal states
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -61,6 +80,15 @@ const QuestionBank: React.FC = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [form] = Form.useForm();
     const [isSaving, setIsSaving] = useState(false);
+
+    // Debounced search
+    useEffect(() => {
+        const handler = window.setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm.trim().toLowerCase());
+        }, SEARCH_DEBOUNCE_DELAY);
+
+        return () => window.clearTimeout(handler);
+    }, [searchTerm]);
 
     // Fetch questions
     const fetchQuestions = useCallback(async () => {
@@ -80,25 +108,37 @@ const QuestionBank: React.FC = () => {
         fetchQuestions();
     }, [fetchQuestions]);
 
-    // Filter questions
+    // Filter questions (using debounced search and knowledge point groups)
     const filteredQuestions = useMemo(() => {
         let result = questions;
-        if (searchTerm.trim()) {
-            const query = searchTerm.toLowerCase();
-            result = result.filter(q => q.question_text.toLowerCase().includes(query));
+        
+        // Text search (debounced)
+        if (debouncedSearchTerm) {
+            result = result.filter(q => q.question_text.toLowerCase().includes(debouncedSearchTerm));
         }
+        
+        // Question type filter
         if (filterType) {
             result = result.filter(q => q.question_type === filterType);
         }
-        if (filterCategory) {
-            result = result.filter(q => q.knowledge_point === filterCategory);
+        
+        // Knowledge point filter (using groups)
+        if (selectedKnowledgePoint) {
+            result = result.filter(q => q.knowledge_point === selectedKnowledgePoint);
         }
+        
         return result;
-    }, [questions, searchTerm, filterType, filterCategory]);
+    }, [questions, debouncedSearchTerm, filterType, selectedKnowledgePoint]);
 
-    // All categories
-    const allCategories = useMemo(() => {
-        return Object.values(QUESTION_CATEGORIES).flat();
+    // Get all knowledge points from groups for the filter
+    const allKnowledgePoints = useMemo(() => {
+        const points: { group: string; point: string }[] = [];
+        Object.entries(KNOWLEDGE_POINT_GROUPS).forEach(([group, groupPoints]) => {
+            groupPoints.forEach(point => {
+                points.push({ group, point });
+            });
+        });
+        return points;
     }, []);
 
     // Preview question
@@ -297,14 +337,18 @@ const QuestionBank: React.FC = () => {
                     <div>
                         <Text strong style={{ marginRight: 8 }}>知识点</Text>
                         <Select
-                            value={filterCategory}
-                            onChange={setFilterCategory}
-                            style={{ width: 150 }}
+                            value={selectedKnowledgePoint || undefined}
+                            onChange={(val) => setSelectedKnowledgePoint(val || null)}
+                            style={{ width: 180 }}
                             placeholder="全部"
                             allowClear
                         >
-                            {allCategories.map(cat => (
-                                <Option key={cat} value={cat}>{cat}</Option>
+                            {Object.entries(KNOWLEDGE_POINT_GROUPS).map(([group, points]) => (
+                                <Select.OptGroup key={group} label={group}>
+                                    {points.map(point => (
+                                        <Option key={point} value={point}>{point}</Option>
+                                    ))}
+                                </Select.OptGroup>
                             ))}
                         </Select>
                     </div>
@@ -405,8 +449,12 @@ const QuestionBank: React.FC = () => {
                         rules={[{ required: true, message: '请选择知识点' }]}
                     >
                         <Select placeholder="请选择">
-                            {allCategories.map(cat => (
-                                <Option key={cat} value={cat}>{cat}</Option>
+                            {Object.entries(KNOWLEDGE_POINT_GROUPS).map(([group, points]) => (
+                                <Select.OptGroup key={group} label={group}>
+                                    {points.map(point => (
+                                        <Option key={point} value={point}>{point}</Option>
+                                    ))}
+                                </Select.OptGroup>
                             ))}
                         </Select>
                     </Form.Item>

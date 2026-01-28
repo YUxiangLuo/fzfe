@@ -18,6 +18,7 @@ export interface Class {
     teacher_id: number;
     teacher_name?: string | null;
     created_at?: string;
+    assistants?: Assistant[];
 }
 
 export interface Student extends User { }

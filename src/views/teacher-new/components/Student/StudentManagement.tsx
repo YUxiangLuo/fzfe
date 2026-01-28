@@ -47,10 +47,12 @@ const StudentManagement: React.FC = () => {
     const [selectModalOpen, setSelectModalOpen] = useState(false);
     const [studentToResetPassword, setStudentToResetPassword] = useState<Student | null>(null);
     const [allUnassignedStudents, setAllUnassignedStudents] = useState<Student[]>([]);
+    const [enrollingStudentId, setEnrollingStudentId] = useState<number | null>(null);
+    const [enrolledStudentIds, setEnrolledStudentIds] = useState<Set<number>>(new Set());
+    const [searchInModal, setSearchInModal] = useState('');
 
     const [addForm] = Form.useForm();
     const [passwordForm] = Form.useForm();
-    const [selectForm] = Form.useForm();
     const [isSaving, setIsSaving] = useState(false);
 
     // Get teacher ID from token
@@ -224,30 +226,48 @@ const StudentManagement: React.FC = () => {
             // Get all students not in this class
             const data = await apiClient.get('/students/unenrolled');
             setAllUnassignedStudents(data || []);
+            setEnrolledStudentIds(new Set());
+            setSearchInModal('');
         } catch (err: any) {
             message.error('获取可选学生列表失败');
         }
     }, [selectedClassId]);
 
-    // Select existing student handler
-    const handleSelectStudent = async (values: any) => {
+    // Enroll single student (matching teacher's API)
+    const handleEnrollStudent = async (student: Student) => {
         if (!selectedClassId) return;
 
-        setIsSaving(true);
+        setEnrollingStudentId(student.user_id);
         try {
             await apiClient.post(`/classes/${selectedClassId}/enroll`, {
-                student_ids: values.student_ids,
+                student_id: student.user_id,
             });
-            await loadStudents(selectedClassId);
-            setSelectModalOpen(false);
-            selectForm.resetFields();
-            message.success(`成功添加 ${values.student_ids.length} 名学生`);
+            setEnrolledStudentIds(prev => new Set(prev).add(student.user_id));
+            message.success(`学生 ${student.full_name} 添加成功`);
         } catch (err: any) {
             message.error(err.message || '添加失败');
         } finally {
-            setIsSaving(false);
+            setEnrollingStudentId(null);
         }
     };
+
+    // Close select modal and refresh if any students were enrolled
+    const handleCloseSelectModal = () => {
+        setSelectModalOpen(false);
+        if (enrolledStudentIds.size > 0 && selectedClassId) {
+            loadStudents(selectedClassId);
+        }
+    };
+
+    // Filter students in modal by search term
+    const filteredUnassignedStudents = useMemo(() => {
+        if (!searchInModal.trim()) return allUnassignedStudents;
+        const query = searchInModal.toLowerCase();
+        return allUnassignedStudents.filter(s =>
+            s.username.toLowerCase().includes(query) ||
+            s.full_name.toLowerCase().includes(query)
+        );
+    }, [allUnassignedStudents, searchInModal]);
 
     // Open reset password modal
     const openResetPasswordModal = (student: Student) => {
@@ -539,35 +559,71 @@ const StudentManagement: React.FC = () => {
 
             {/* Select Student Modal */}
             <Modal
-                title="从学生库添加"
+                title="从学生库中添加"
                 open={selectModalOpen}
-                onCancel={() => {
-                    setSelectModalOpen(false);
-                    selectForm.resetFields();
-                }}
-                onOk={() => selectForm.submit()}
-                confirmLoading={isSaving}
-                okText="添加"
-                cancelText="取消"
+                onCancel={handleCloseSelectModal}
+                footer={[
+                    <Button key="close" onClick={handleCloseSelectModal}>
+                        关闭
+                    </Button>
+                ]}
+                width={500}
             >
-                <Form form={selectForm} layout="vertical" onFinish={handleSelectStudent}>
-                    <Form.Item
-                        label="选择学生"
-                        name="student_ids"
-                        rules={[{ required: true, message: '请选择至少一名学生' }]}
-                    >
-                        <Select
-                            mode="multiple"
-                            placeholder="搜索并选择学生"
-                            showSearch
-                            optionFilterProp="label"
-                            options={allUnassignedStudents.map(s => ({
-                                value: s.user_id,
-                                label: `${s.full_name} (${s.username})`,
-                            }))}
-                        />
-                    </Form.Item>
-                </Form>
+                <div style={{ marginBottom: 16 }}>
+                    <Input
+                        prefix={<SearchOutlined />}
+                        placeholder="按学号或姓名搜索"
+                        value={searchInModal}
+                        onChange={e => setSearchInModal(e.target.value)}
+                        allowClear
+                    />
+                </div>
+                <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+                    {filteredUnassignedStudents.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: 24, color: '#999' }}>
+                            暂无可加入的学生
+                        </div>
+                    ) : (
+                        <Space direction="vertical" style={{ width: '100%' }}>
+                            {filteredUnassignedStudents.map((student, index) => {
+                                const isEnrolling = enrollingStudentId === student.user_id;
+                                const isEnrolled = enrolledStudentIds.has(student.user_id);
+                                return (
+                                    <Card
+                                        key={student.user_id}
+                                        size="small"
+                                        style={{
+                                            borderColor: isEnrolled ? '#52c41a' : undefined,
+                                            background: isEnrolled ? '#f6ffed' : undefined,
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Space>
+                                                <Avatar style={{ backgroundColor: getAvatarColor(index) }}>
+                                                    {student.full_name.charAt(0)}
+                                                </Avatar>
+                                                <div>
+                                                    <Text strong>{student.full_name}</Text>
+                                                    <div style={{ fontSize: 12, color: '#666' }}>学号：{student.username}</div>
+                                                </div>
+                                            </Space>
+                                            <Button
+                                                type="primary"
+                                                size="small"
+                                                onClick={() => handleEnrollStudent(student)}
+                                                loading={isEnrolling}
+                                                disabled={isEnrolled}
+                                                style={isEnrolled ? { backgroundColor: '#52c41a', borderColor: '#52c41a' } : undefined}
+                                            >
+                                                {isEnrolled ? '已添加' : '添加到班级'}
+                                            </Button>
+                                        </div>
+                                    </Card>
+                                );
+                            })}
+                        </Space>
+                    )}
+                </div>
             </Modal>
         </div>
     );

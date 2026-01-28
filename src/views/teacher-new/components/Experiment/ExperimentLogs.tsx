@@ -9,19 +9,26 @@ import {
     Alert,
     Typography,
     Space,
+    Statistic,
     Row,
     Col,
     Badge
 } from 'antd';
 import {
     SearchOutlined,
-    ClockCircleOutlined
+    ClockCircleOutlined,
+    TeamOutlined,
+    ExperimentOutlined,
+    FieldTimeOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, StudentExperimentLog } from '../../types';
 
 const { Title, Text } = Typography;
+
+// Search debounce delay (ms)
+const SEARCH_DEBOUNCE_DELAY = 300;
 
 interface StudentExperimentSummary {
     studentId: number;
@@ -53,9 +60,21 @@ const ExperimentLogs: React.FC = () => {
     const [logs, setLogs] = useState<StudentExperimentLog[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [isLoadingClasses, setIsLoadingClasses] = useState(true);
     const [isLoadingLogs, setIsLoadingLogs] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Debounced search
+    useEffect(() => {
+        const handler = window.setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm.trim().toLowerCase());
+        }, SEARCH_DEBOUNCE_DELAY);
+
+        return () => {
+            window.clearTimeout(handler);
+        };
+    }, [searchTerm]);
 
     // Fetch classes
     useEffect(() => {
@@ -146,25 +165,36 @@ const ExperimentLogs: React.FC = () => {
         });
     }, [logs]);
 
-    // Filter by search
+    // Filter by search (using debounced value)
     const filteredSummaries = useMemo(() => {
-        if (!searchTerm.trim()) return summaries;
-        const query = searchTerm.toLowerCase();
+        if (!debouncedSearchTerm) return summaries;
         return summaries.filter(s =>
-            s.studentUsername.toLowerCase().includes(query) ||
-            s.studentName.toLowerCase().includes(query)
+            s.studentUsername.toLowerCase().includes(debouncedSearchTerm) ||
+            s.studentName.toLowerCase().includes(debouncedSearchTerm)
         );
-    }, [summaries, searchTerm]);
+    }, [summaries, debouncedSearchTerm]);
 
-    // Format duration
+    // Overall statistics
+    const totalStudents = summaries.length;
+    const totalExperiments = summaries.reduce((sum, s) => sum + s.totalExperiments, 0);
+    const totalDurationSeconds = summaries.reduce((sum, s) => sum + s.totalDurationSeconds, 0);
+    const averageDurationPerStudent = totalStudents > 0 ? Math.round(totalDurationSeconds / totalStudents) : 0;
+
+    // Format duration (with proper rounding)
     const formatDuration = (seconds: number): string => {
-        if (!seconds || seconds <= 0) return '0分钟';
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
+        if (!seconds || seconds <= 0) return '—';
+        const rounded = Math.max(1, Math.round(seconds));
+        const hours = Math.floor(rounded / 3600);
+        const minutes = Math.floor((rounded % 3600) / 60);
+        const secs = rounded % 60;
+
         if (hours > 0) {
-            return `${hours}小时${minutes}分钟`;
+            return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`;
         }
-        return `${minutes}分钟`;
+        if (minutes > 0) {
+            return secs > 0 ? `${minutes}分钟${secs}秒` : `${minutes}分钟`;
+        }
+        return `${secs}秒`;
     };
 
     // Format datetime
@@ -319,6 +349,50 @@ const ExperimentLogs: React.FC = () => {
     return (
         <div>
             <Title level={3} style={{ marginBottom: 24 }}>实验日志</Title>
+
+            {/* Statistics Cards */}
+            <Row gutter={16} style={{ marginBottom: 24 }}>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                        <Statistic
+                            title="总学生数"
+                            value={totalStudents}
+                            prefix={<TeamOutlined />}
+                            suffix={<Text type="secondary" style={{ fontSize: 12 }}>当前班级</Text>}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                        <Statistic
+                            title="总实验次数"
+                            value={totalExperiments}
+                            styles={{ content: { color: '#52c41a' } }}
+                            prefix={<ExperimentOutlined />}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                        <Statistic
+                            title="总时长"
+                            value={formatDuration(totalDurationSeconds)}
+                            styles={{ content: { color: '#1890ff' } }}
+                            prefix={<ClockCircleOutlined />}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                        <Statistic
+                            title="平均每生时长"
+                            value={formatDuration(averageDurationPerStudent)}
+                            styles={{ content: { color: '#faad14' } }}
+                            prefix={<FieldTimeOutlined />}
+                        />
+                    </Card>
+                </Col>
+            </Row>
 
             {/* Filters */}
             <Card style={{ marginBottom: 16 }}>

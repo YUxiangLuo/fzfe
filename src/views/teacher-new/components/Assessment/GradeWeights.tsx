@@ -259,6 +259,12 @@ const GradeWeights: React.FC = () => {
                                         addonAfter="%"
                                         style={{ width: '100%' }}
                                     />
+                                    <Progress
+                                        percent={weights[item.key]}
+                                        strokeColor={item.color}
+                                        showInfo={false}
+                                        style={{ marginTop: 8 }}
+                                    />
                                 </Card>
                             </Col>
                         ))}
@@ -285,17 +291,24 @@ const GradeWeights: React.FC = () => {
                     <Row gutter={[16, 16]}>
                         {FLOW_ITEMS.map(item => (
                             <Col span={8} key={item.key}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0' }}>
-                                    <Text>{item.label}</Text>
-                                    <InputNumber
-                                        min={0}
-                                        max={100}
-                                        value={weights[item.key]}
-                                        onChange={(val) => handleFlowChange(item.key, val)}
-                                        addonAfter="%"
-                                        style={{ width: 100 }}
+                                <Card size="small">
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                        <Text>{item.label}</Text>
+                                        <InputNumber
+                                            min={0}
+                                            max={100}
+                                            value={weights[item.key]}
+                                            onChange={(val) => handleFlowChange(item.key, val)}
+                                            addonAfter="%"
+                                            style={{ width: 100 }}
+                                        />
+                                    </div>
+                                    <Progress
+                                        percent={weights[item.key]}
+                                        strokeColor="#1890ff"
+                                        showInfo={false}
                                     />
-                                </div>
+                                </Card>
                             </Col>
                         ))}
                     </Row>
