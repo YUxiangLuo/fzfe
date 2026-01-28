@@ -25,12 +25,14 @@ import {
     CheckCircleOutlined,
     SyncOutlined,
     DownloadOutlined,
+    ExportOutlined,
     EditOutlined,
     CloseCircleOutlined,
     ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
 import { API_BASE_URL } from '../../../../utils/apiClient';
+import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, ExperimentReport } from '../../types';
 
@@ -59,6 +61,10 @@ const ExperimentReports: React.FC = () => {
     const [selectedReport, setSelectedReport] = useState<ExperimentReport | null>(null);
     const [reviewForm] = Form.useForm();
     const [isSaving, setIsSaving] = useState(false);
+
+    // CSV export state
+    const [isExportingCsv, setIsExportingCsv] = useState(false);
+    const [exportedCsvUrl, setExportedCsvUrl] = useState<string | null>(null);
 
     // Fetch classes
     useEffect(() => {
@@ -136,6 +142,29 @@ const ExperimentReports: React.FC = () => {
 
         return { total, pending, graded, rejected };
     }, [reports]);
+
+    // Export CSV
+    const handleExportCsv = useCallback(async () => {
+        if (!selectedClassId || reports.length === 0 || isExportingCsv) return;
+        setIsExportingCsv(true);
+        setExportedCsvUrl(null);
+        try {
+            const response = await apiClient.get<{ file_path: string }>(`/classes/${selectedClassId}/report-export.csv`);
+
+            if (!response || !response.file_path) {
+                throw new Error("导出失败：服务器未返回文件地址");
+            }
+
+            const filename = response.file_path.split("/").pop();
+            const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/exports/${filename}`;
+            setExportedCsvUrl(fullUrl);
+            message.success('导出成功');
+        } catch (err: any) {
+            message.error(err.message || "导出 CSV 失败，请稍后再试。");
+        } finally {
+            setIsExportingCsv(false);
+        }
+    }, [selectedClassId, reports.length, isExportingCsv]);
 
     // Format datetime
     const formatDateTime = (value: string | null) => {
@@ -391,6 +420,27 @@ const ExperimentReports: React.FC = () => {
                             style={{ width: 200 }}
                             allowClear
                         />
+                    </div>
+                    <div style={{ marginLeft: 'auto' }}>
+                        {exportedCsvUrl ? (
+                            <Button
+                                type="primary"
+                                icon={<DownloadOutlined />}
+                                href={exportedCsvUrl}
+                                target="_blank"
+                            >
+                                下载 CSV
+                            </Button>
+                        ) : (
+                            <Button
+                                icon={<ExportOutlined />}
+                                onClick={handleExportCsv}
+                                loading={isExportingCsv}
+                                disabled={!selectedClassId || filteredReports.length === 0}
+                            >
+                                导出 CSV
+                            </Button>
+                        )}
                     </div>
                 </Space>
             </Card>
