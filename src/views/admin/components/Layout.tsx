@@ -3,11 +3,12 @@ import Header from "./Header";
 import Sidebar from "./Sidebar";
 import ExperimentManualView from "./ExperimentManual";
 import ExperimentDataView from "./ExperimentData";
-import SystemManagement from "./SystemManagement";
+import UserManagement from "./UserManagement";
+import ClassManagement from "./ClassManagement";
 import Toast from "./Toast";
 
 const Layout: React.FC = () => {
-  const [activeView, setActiveView] = useState("experiment-manual");
+  const [activeView, setActiveView] = useState("experiment-data");
 
   const renderContent = () => {
     switch (activeView) {
@@ -15,10 +16,12 @@ const Layout: React.FC = () => {
         return <ExperimentManualView />;
       case "experiment-data":
         return <ExperimentDataView />;
-      case "system":
-        return <SystemManagement />;
+      case "user-management":
+        return <UserManagement />;
+      case "class-management":
+        return <ClassManagement />;
       default:
-        return <ExperimentManualView />;
+        return <ExperimentDataView />;
     }
   };
 
