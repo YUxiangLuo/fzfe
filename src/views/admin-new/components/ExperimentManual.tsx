@@ -67,7 +67,7 @@ const ExperimentManualView: React.FC = () => {
         try {
             const updatedManual = await apiClient.put(
                 `/manuals/${manual.manual_id}`,
-                { is_active: checked }
+                { is_active: checked ? 1 : 0 }
             );
 
             setManuals((prevManuals) => {
@@ -111,7 +111,14 @@ const ExperimentManualView: React.FC = () => {
     const handleDownload = (filePath: string) => {
         const filename = filePath.split("/").pop();
         const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/manuals/${filename}`;
-        window.open(fullUrl, "_blank");
+
+        const link = document.createElement('a');
+        link.href = fullUrl;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const handleUpload = async (values: any) => {
@@ -222,9 +229,28 @@ const ExperimentManualView: React.FC = () => {
             key: 'action',
             render: (_: any, record: ExperimentManual) => (
                 <Space size="middle">
-                    <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} type="link" />
-                    <Button icon={<DownloadOutlined />} onClick={() => handleDownload(record.file_path)} type="link" />
-                    <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.manual_id)} type="link" />
+                    <Button
+                        icon={<EditOutlined />}
+                        onClick={() => openEditModal(record)}
+                        type="link"
+                        aria-label={`编辑 ${record.file_name}`}
+                        title={`编辑 ${record.file_name}`}
+                    />
+                    <Button
+                        icon={<DownloadOutlined />}
+                        onClick={() => handleDownload(record.file_path)}
+                        type="link"
+                        aria-label={`下载 ${record.file_name}`}
+                        title={`下载 ${record.file_name}`}
+                    />
+                    <Button
+                        icon={<DeleteOutlined />}
+                        danger
+                        onClick={() => handleDelete(record.manual_id)}
+                        type="link"
+                        aria-label={`删除 ${record.file_name}`}
+                        title={`删除 ${record.file_name}`}
+                    />
                 </Space>
             ),
         },
@@ -285,7 +311,7 @@ const ExperimentManualView: React.FC = () => {
                         name="name"
                         label="手册名称"
                         rules={[
-                            { required: true, message: '手册名称不能为空' },
+                            { required: true, message: '手册名称不能为空', whitespace: true },
                             { min: MANUAL_NAME_MIN_LENGTH, message: `手册名称至少需要${MANUAL_NAME_MIN_LENGTH}个字符` },
                             { max: MAX_MANUAL_NAME_LENGTH, message: `手册名称不能超过${MAX_MANUAL_NAME_LENGTH}个字符` }
                         ]}
@@ -319,7 +345,7 @@ const ExperimentManualView: React.FC = () => {
                         name="name"
                         label="手册名称"
                         rules={[
-                            { required: true, message: '手册名称不能为空' },
+                            { required: true, message: '手册名称不能为空', whitespace: true },
                             { min: MANUAL_NAME_MIN_LENGTH, message: `手册名称至少需要${MANUAL_NAME_MIN_LENGTH}个字符` },
                             { max: MAX_MANUAL_NAME_LENGTH, message: `手册名称不能超过${MAX_MANUAL_NAME_LENGTH}个字符` }
                         ]}

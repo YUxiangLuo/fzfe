@@ -87,7 +87,8 @@ const ExperimentDataView: React.FC = () => {
     const handleDownload = (filePath: string) => {
         const filename = filePath.split("/").pop();
         const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/datasets/${filename}`;
-        window.open(fullUrl, "_blank");
+        const win = window.open(fullUrl, "_blank", "noopener,noreferrer");
+        if (win) win.opener = null;
     };
 
     const handleDownloadTemplate = () => {
@@ -202,9 +203,28 @@ const ExperimentDataView: React.FC = () => {
             key: 'action',
             render: (_: any, record: ExperimentData) => (
                 <Space size="middle">
-                    <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} type="link" />
-                    <Button icon={<DownloadOutlined />} onClick={() => handleDownload(record.file_path)} type="link" />
-                    <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.dataset_id)} type="link" />
+                    <Button
+                        icon={<EditOutlined />}
+                        onClick={() => openEditModal(record)}
+                        type="link"
+                        aria-label={`Edit ${record.data_name}`}
+                        title={`Edit ${record.data_name}`}
+                    />
+                    <Button
+                        icon={<DownloadOutlined />}
+                        onClick={() => handleDownload(record.file_path)}
+                        type="link"
+                        aria-label={`Download ${record.data_name}`}
+                        title={`Download ${record.data_name}`}
+                    />
+                    <Button
+                        icon={<DeleteOutlined />}
+                        danger
+                        onClick={() => handleDelete(record.dataset_id)}
+                        type="link"
+                        aria-label={`Delete ${record.data_name}`}
+                        title={`Delete ${record.data_name}`}
+                    />
                 </Space>
             ),
         },
@@ -266,7 +286,7 @@ const ExperimentDataView: React.FC = () => {
                         name="name"
                         label="数据集名称"
                         rules={[
-                            { required: true, message: '数据集名称不能为空' },
+                            { required: true, message: '数据集名称不能为空', whitespace: true },
                             { min: DATASET_NAME_MIN_LENGTH, message: `数据集名称至少需要${DATASET_NAME_MIN_LENGTH}个字符` },
                             { max: MAX_DATASET_NAME_LENGTH, message: `数据集名称不能超过${MAX_DATASET_NAME_LENGTH}个字符` }
                         ]}
@@ -317,7 +337,7 @@ const ExperimentDataView: React.FC = () => {
                         name="name"
                         label="数据集名称"
                         rules={[
-                            { required: true, message: '数据集名称不能为空' },
+                            { required: true, message: '数据集名称不能为空', whitespace: true },
                             { min: DATASET_NAME_MIN_LENGTH, message: `数据集名称至少需要${DATASET_NAME_MIN_LENGTH}个字符` },
                             { max: MAX_DATASET_NAME_LENGTH, message: `数据集名称不能超过${MAX_DATASET_NAME_LENGTH}个字符` }
                         ]}
