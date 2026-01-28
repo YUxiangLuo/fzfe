@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import Modal from '@/views/teacher/components/common/Modal';
-import Button from '@/views/teacher/components/common/Button';
+import Modal from '@/views/teacher/components/shadcn/TeacherModal';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
 import { apiClient } from '@/utils/apiClient';
 import type { User as Assistant, Class } from '@/views/teacher/types';
 import { Loader, AlertTriangle } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface SelectAssistantModalProps {
   isOpen: boolean;
@@ -100,40 +101,40 @@ export const SelectAssistantModal: React.FC<SelectAssistantModalProps> = ({
 
   const renderContent = () => {
     if (isLoading) return <div className="flex justify-center"><Loader className="animate-spin" /></div>;
-    if (error) return <div className="text-red-500"><AlertTriangle /> {error}</div>;
-    if (allAssistants.length === 0) return <p className="text-gray-500">助教库中暂无新的助教可供选择。</p>;
+    if (error) return <div className="text-destructive"><AlertTriangle /> {error}</div>;
+    if (allAssistants.length === 0) return <p className="text-muted-foreground">助教库中暂无新的助教可供选择。</p>;
 
     return (
       <div className="grid grid-cols-2 gap-6">
         <div className="space-y-2">
-          <h3 className="font-medium text-gray-800">1. 选择一位助教</h3>
+          <h3 className="font-medium text-foreground">1. 选择一位助教</h3>
           <div className="max-h-64 overflow-y-auto border rounded-lg p-2 space-y-1">
             {allAssistants.map(assistant => (
-              <label key={assistant.user_id} className={`flex items-center p-2 rounded-lg cursor-pointer ${selectedAssistantId === assistant.user_id ? 'bg-blue-100' : 'hover:bg-gray-100'}`}>
+              <label key={assistant.user_id} className={`flex items-center p-2 rounded-lg cursor-pointer ${selectedAssistantId === assistant.user_id ? 'bg-primary/10' : 'hover:bg-muted'}`}>
                 <input
                   type="radio"
                   name="assistant"
                   checked={selectedAssistantId === assistant.user_id}
                   onChange={() => setSelectedAssistantId(assistant.user_id)}
-                  className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  className="h-4 w-4 text-primary border-input focus:ring-ring"
                 />
-                <span className="ml-3 text-sm font-medium text-gray-900">{assistant.full_name}</span>
+                <Label className="ml-3 text-sm font-medium text-foreground">{assistant.full_name}</Label>
               </label>
             ))}
           </div>
         </div>
         <div className="space-y-2">
-          <h3 className="font-medium text-gray-800">2. 分配至班级</h3>
+          <h3 className="font-medium text-foreground">2. 分配至班级</h3>
           <div className="max-h-64 overflow-y-auto border rounded-lg p-2 space-y-1">
             {managedClasses.map(cls => (
-              <label key={cls.class_id} className="flex items-center p-2 rounded-lg hover:bg-gray-100 cursor-pointer">
+              <label key={cls.class_id} className="flex items-center p-2 rounded-lg hover:bg-muted cursor-pointer">
                 <input
                   type="checkbox"
                   checked={selectedClassIds.includes(cls.class_id)}
                   onChange={() => handleClassSelection(cls.class_id)}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
                 />
-                <span className="ml-3 text-sm text-gray-700">{cls.class_name}</span>
+                <Label className="ml-3 text-sm text-foreground">{cls.class_name}</Label>
               </label>
             ))}
           </div>

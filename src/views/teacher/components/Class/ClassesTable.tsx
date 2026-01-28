@@ -1,9 +1,17 @@
 import React from 'react';
 import { Users, Loader, AlertTriangle } from 'lucide-react';
 import type { Class } from '@/views/teacher/types';
-import Button from '@/views/teacher/components/common/Button';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
 import { useRole } from '@/views/teacher/contexts/RoleContext';
 import type { EnrichedClass } from '@/views/teacher/hooks/useClasses';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 interface ClassesTableProps {
   classes: EnrichedClass[];
@@ -38,37 +46,37 @@ export const ClassesTable: React.FC<ClassesTableProps> = ({
   const renderTableBody = () => {
     if (isLoading) {
       return (
-        <tr>
-          <td colSpan={colSpan} className="py-10 text-center text-gray-500">
+        <TableRow>
+          <TableCell colSpan={colSpan} className="py-10 text-center text-muted-foreground">
             <div className="flex items-center justify-center space-x-2">
               <Loader className="animate-spin" size={18} />
               <span>正在加载班级...</span>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     if (error) {
       return (
-        <tr>
-          <td colSpan={colSpan} className="py-10 text-center text-red-500">
+        <TableRow>
+          <TableCell colSpan={colSpan} className="py-10 text-center text-destructive">
             <div className="flex flex-col items-center space-y-2">
               <AlertTriangle size={20} />
               <span>{error}</span>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     if (classes.length === 0) {
       return (
-        <tr>
-          <td colSpan={colSpan} className="py-10 text-center text-gray-500">
+        <TableRow>
+          <TableCell colSpan={colSpan} className="py-10 text-center text-muted-foreground">
             尚未创建任何班级。
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
@@ -76,38 +84,38 @@ export const ClassesTable: React.FC<ClassesTableProps> = ({
       const assistantNames = (classItem.assistants || []).map(assistant => assistant.full_name).join('，');
 
       return (
-        <tr key={classItem.class_id} className="hover:bg-gray-50">
-          <td className="px-6 py-4 whitespace-nowrap">
+        <TableRow key={classItem.class_id}>
+          <TableCell className="px-6 py-4 whitespace-nowrap">
             <div className="flex items-center">
-              <Users className="w-5 h-5 text-gray-400 mr-3" />
-              <div className="text-sm font-medium text-gray-900">
+              <Users className="w-5 h-5 text-muted-foreground mr-3" />
+              <div className="text-sm font-medium text-foreground">
                 {classItem.class_name}
               </div>
             </div>
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+          </TableCell>
+          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
             {classItem.class_code || '未设置'}
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+          </TableCell>
+          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
             {assistantNames || ''}
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+          </TableCell>
+          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
             {classItem.created_at ? (
-              <span className="px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-600">
+              <span className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">
                 {formatDate(classItem.created_at)}
               </span>
             ) : '—'}
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
-            <button
+          </TableCell>
+          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-primary">
+            <Button
               onClick={() => onViewStudents(classItem)}
-              className="underline underline-offset-2 hover:text-blue-800 cursor-pointer"
+              className="h-auto p-0 text-primary hover:underline"
             >
               查看所有学生
-            </button>
-          </td>
+            </Button>
+          </TableCell>
           {role?.id === 'teacher' && (
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+            <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
               <div className="flex items-center space-x-2">
                 <Button
                   onClick={() => onEdit(classItem)}
@@ -119,43 +127,44 @@ export const ClassesTable: React.FC<ClassesTableProps> = ({
                 </Button>
                 <Button
                   onClick={() => onDelete(classItem)}
+                  variant="ghost"
                   size="sm"
-                  className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
+                  className="text-destructive hover:text-destructive"
                   title="删除班级"
                 >
                   删除
                 </Button>
               </div>
-            </td>
+            </TableCell>
           )}
-        </tr>
+        </TableRow>
       );
     });
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">班级列表</h2>
+    <div className="bg-card rounded-lg shadow-md">
+      <div className="px-6 py-4 border-b border-border">
+        <h2 className="text-lg font-semibold text-foreground">班级列表</h2>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">班级名称</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">班级代码</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">助教</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学生</th>
+        <Table>
+          <TableHeader className="bg-muted">
+            <TableRow>
+              <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">班级名称</TableHead>
+              <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">班级代码</TableHead>
+              <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">助教</TableHead>
+              <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">创建时间</TableHead>
+              <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">学生</TableHead>
               {role?.id === 'teacher' && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">操作</TableHead>
               )}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+            </TableRow>
+          </TableHeader>
+          <TableBody className="bg-card">
             {renderTableBody()}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

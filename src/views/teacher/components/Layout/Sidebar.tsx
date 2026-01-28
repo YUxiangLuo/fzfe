@@ -101,24 +101,24 @@ const Sidebar: React.FC = () => {
   const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
     `flex items-center w-full px-3 py-2 text-sm text-left rounded-lg transition-colors ${
       isActive
-        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-        : 'text-gray-600 hover:bg-gray-50 border border-transparent'
+        ? 'bg-primary/10 text-primary border border-primary/20'
+        : 'text-muted-foreground hover:bg-muted border border-transparent'
     }`;
 
   return (
-    <aside className="w-80 bg-white border-r border-gray-200 flex flex-col">
+    <aside className="w-80 bg-card border-r border-border flex flex-col">
       <nav className="flex-1 p-6 pt-8 overflow-y-auto">
         <div className="space-y-2">
           {itemsToRender.map((item) => (
             <div key={item.key}>
               {item.children ? (
                 <div className="px-3 py-3 rounded-lg border border-transparent">
-                  <div className="flex items-center text-gray-700">
+                  <div className="flex items-center text-foreground">
                     <item.icon className="w-5 h-5 flex-shrink-0" />
                     <div className="ml-3 flex-1">
                       <p className="font-medium text-sm">{item.label}</p>
                       {item.description && (
-                        <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
                       )}
                     </div>
                   </div>

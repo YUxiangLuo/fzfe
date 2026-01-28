@@ -1,27 +1,25 @@
-import { useState, useCallback } from "react";
-
-interface ToastState {
-  message: string;
-  type: "success" | "error" | "info";
-}
+import { useCallback } from "react";
+import { toast as sonnerToast } from "sonner";
 
 export const useToast = () => {
-  const [toast, setToast] = useState<ToastState | null>(null);
-
   const showToast = useCallback(
     (message: string, type: "success" | "error" | "info" = "success") => {
-      setToast({ message, type });
+      if (type === "success") {
+        sonnerToast.success(message);
+        return;
+      }
+      if (type === "error") {
+        sonnerToast.error(message);
+        return;
+      }
+      sonnerToast.info(message);
     },
-    []
+    [],
   );
 
-  const hideToast = useCallback(() => {
-    setToast(null);
-  }, []);
-
   return {
-    toast,
+    toast: null,
     showToast,
-    hideToast,
+    hideToast: () => {},
   };
 };

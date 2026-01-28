@@ -17,14 +17,18 @@ import {
   XCircle,
 } from "lucide-react";
 import type { Class, ExperimentReport } from "@/views/teacher/types";
-import Modal from "@/views/teacher/components/common/Modal";
-import Button from "@/views/teacher/components/common/Button";
+import Modal from "@/views/teacher/components/shadcn/TeacherModal";
+import Button from "@/views/teacher/components/shadcn/TeacherButton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { API_BASE_URL, apiClient } from "@/utils/apiClient";
 import { decodeToken } from "@/utils/auth";
 import { DOWNLOAD_SERVER_BASE_URL } from "@/config/appConfig";
 import { useToast } from "@/views/teacher/hooks/useToast";
-import { Toast } from "@/views/teacher/components/common/Toast";
-import { ConfirmDialog } from "@/views/teacher/components/common/ConfirmDialog";
+import { ConfirmDialog } from "@/views/teacher/components/shadcn/TeacherConfirmDialog";
 import { useConfirm } from "@/views/teacher/hooks/useConfirm";
 
 const buildDownloadUrl = (filePath: string) => {
@@ -35,23 +39,23 @@ const buildDownloadUrl = (filePath: string) => {
 const STATUS_META = {
   submitted: {
     label: "已评阅",
-    badge: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-    dot: "bg-emerald-500",
+    badge: "bg-success/10 text-success border border-success/20",
+    dot: "bg-success",
   },
   pending: {
     label: "待评阅",
-    badge: "bg-yellow-50 text-yellow-700 border border-yellow-200",
-    dot: "bg-yellow-500",
+    badge: "bg-warning/10 text-warning border border-warning/20",
+    dot: "bg-warning",
   },
   rejected: {
     label: "已驳回",
-    badge: "bg-red-50 text-red-700 border border-red-200",
-    dot: "bg-red-500",
+    badge: "bg-destructive/10 text-destructive border border-destructive/20",
+    dot: "bg-destructive",
   },
   draft: {
     label: "未提交",
-    badge: "bg-slate-50 text-slate-600 border border-slate-200",
-    dot: "bg-slate-400",
+    badge: "bg-muted text-muted-foreground border border-border",
+    dot: "bg-muted",
   },
 } as const;
 
@@ -83,7 +87,7 @@ const formatDateTime = (value: string | null) => {
 };
 
 const ExperimentReports: React.FC = () => {
-  const { toast, showToast, hideToast } = useToast();
+  const { showToast } = useToast();
   const confirm = useConfirm();
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>("");
@@ -278,8 +282,8 @@ const ExperimentReports: React.FC = () => {
     return next;
   }, [filteredReports, sortConfig]);
 
-  const handleClassChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedClassId(event.target.value);
+  const handleClassChange = (value: string) => {
+    setSelectedClassId(value);
     setExportedFileUrl(null);
     setExportedCsvUrl(null);
     setExportError(null);
@@ -350,12 +354,12 @@ const ExperimentReports: React.FC = () => {
 
   const renderSortIcon = (key: SortKey) => {
     if (!sortConfig || sortConfig.key !== key) {
-      return <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />;
+      return <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground" />;
     }
     return sortConfig.direction === "desc" ? (
-      <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+      <ChevronDown className="w-3.5 h-3.5 text-primary" />
     ) : (
-      <ChevronUp className="w-3.5 h-3.5 text-blue-600" />
+      <ChevronUp className="w-3.5 h-3.5 text-primary" />
     );
   };
 
@@ -591,44 +595,44 @@ const ExperimentReports: React.FC = () => {
   const tableBody = useMemo<React.ReactNode>(() => {
     if (!selectedClassId) {
       return (
-        <tr>
-          <td colSpan={9} className="py-12 text-center text-gray-500">
+        <TableRow>
+          <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
             请先选择一个班级查看实验报告。
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     if (isLoadingReports) {
       return (
-        <tr>
-          <td colSpan={9} className="py-12 text-center text-gray-500">
+        <TableRow>
+          <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
             <div className="flex items-center justify-center space-x-2">
               <Loader className="animate-spin" size={18} />
               <span>正在加载实验报告...</span>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     if (reports.length === 0) {
       return (
-        <tr>
-          <td colSpan={9} className="py-12 text-center text-gray-500">
+        <TableRow>
+          <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
             暂无学生可供显示。
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     if (filteredReports.length === 0) {
       return (
-        <tr>
-          <td colSpan={9} className="py-12 text-center text-gray-500">
+        <TableRow>
+          <TableCell colSpan={9} className="py-12 text-center text-muted-foreground">
             未找到匹配的学生，请调整搜索条件。
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
@@ -638,45 +642,45 @@ const ExperimentReports: React.FC = () => {
       const hasReport = !!report.report_id;
 
       return (
-        <tr key={report.report_id ?? `user-${report.user_id}`} className="hover:bg-gray-50">
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        <TableRow key={report.report_id ?? `user-${report.user_id}`}>
+          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{index + 1}</TableCell>
+          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
             <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium ${status.badge}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
               <span>{status.label}</span>
             </span>
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{report.full_name}</td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{report.username}</td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{submittedAt}</td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+          </TableCell>
+          <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-foreground">{report.full_name}</TableCell>
+          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{report.username}</TableCell>
+          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{submittedAt}</TableCell>
+          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
             {report.grade !== null && report.grade !== undefined ? (
-              <span className="font-semibold text-gray-900">{report.grade}</span>
+              <span className="font-semibold text-foreground">{report.grade}</span>
             ) : (
-              <span className="text-gray-400">--</span>
+              <span className="text-muted-foreground">--</span>
             )}
-          </td>
-          <td className="px-6 py-4 text-sm text-gray-700">
+          </TableCell>
+          <TableCell className="px-6 py-4 text-sm text-foreground">
             {report.feedback ? (
-              <span className="inline-flex items-center text-gray-700">
+              <span className="inline-flex items-center text-foreground">
                 <MessageCircle size={14} className="mr-1" />
                 <span className="truncate max-w-xs" title={report.feedback}>
                   {report.feedback}
                 </span>
               </span>
             ) : (
-              <span className="text-gray-400">—</span>
+              <span className="text-muted-foreground">—</span>
             )}
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-            {report.grader_name || <span className="text-gray-400">—</span>}
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap text-sm">
+          </TableCell>
+          <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
+            {report.grader_name || <span className="text-muted-foreground">—</span>}
+          </TableCell>
+          <TableCell className="px-6 py-4 whitespace-nowrap text-sm">
             <div className="flex items-center space-x-2">
               <Button
                 onClick={() => handleReview(report)}
                 disabled={!hasReport}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300"
+                className="bg-primary hover:bg-primary/90 disabled:bg-muted"
               >
                 <Star size={16} className="mr-2" />
                 评阅
@@ -685,14 +689,14 @@ const ExperimentReports: React.FC = () => {
                 onClick={() => handleDownload(report)}
                 disabled={!report.pdf_file_path}
                 variant="outline"
-                className="disabled:text-gray-400 disabled:border-gray-300"
+                className="disabled:text-muted-foreground disabled:border-input"
               >
                 <Download size={16} className="mr-2" />
                 下载
               </Button>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     });
   }, [
@@ -710,51 +714,57 @@ const ExperimentReports: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-6 space-y-3 md:space-y-0">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">实验报告</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">实验报告</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             查看学生提交的实验报告、成绩与评语，支持在线评阅与下载。
           </p>
           {currentClass && (
-            <p className="text-sm text-gray-500 mt-1">
-              当前班级：<span className="font-medium text-gray-900">{currentClass.class_name}</span>
+            <p className="text-sm text-muted-foreground mt-1">
+              当前班级：<span className="font-medium text-foreground">{currentClass.class_name}</span>
             </p>
           )}
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-card rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">选择班级</label>
-            <select
+            <Label className="text-foreground mb-2">选择班级</Label>
+            <Select
               value={selectedClassId}
-              onChange={handleClassChange}
+              onValueChange={handleClassChange}
               disabled={isLoadingClasses}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             >
-              {classes.length === 0 ? (
-                <option value="" disabled>
-                  {isLoadingClasses ? "加载中..." : "暂无班级"}
-                </option>
-              ) : (
-                classes.map((cls) => (
-                  <option key={cls.class_id} value={cls.class_id}>
-                    {cls.class_name}
-                  </option>
-                ))
-              )}
-            </select>
+              <SelectTrigger className="w-full" aria-label="选择班级">
+                <SelectValue
+                  placeholder={isLoadingClasses ? "加载中..." : classes.length === 0 ? "暂无班级" : "请选择班级"}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.length === 0 ? (
+                  <SelectItem value="__empty__" disabled>
+                    {isLoadingClasses ? "加载中..." : "暂无班级"}
+                  </SelectItem>
+                ) : (
+                  classes.map((cls) => (
+                    <SelectItem key={cls.class_id} value={String(cls.class_id)}>
+                      {cls.class_name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">按学号/姓名搜索</label>
+            <Label className="text-foreground mb-2">按学号/姓名搜索</Label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <Input
                 type="text"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="输入学号或姓名"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="pl-10 pr-4 rounded-lg"
               />
             </div>
           </div>
@@ -762,7 +772,7 @@ const ExperimentReports: React.FC = () => {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center space-x-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg flex items-center space-x-2">
           <AlertTriangle size={16} />
           <span>{error}</span>
         </div>
@@ -774,7 +784,7 @@ const ExperimentReports: React.FC = () => {
           title="学生总数"
           value={summaryStats.total}
           description="班级内需要提交报告的学生"
-          accent="bg-blue-100 text-blue-600"
+          accent="bg-primary/10 text-primary"
         />
         <SummaryCard
           icon={CheckCircle2}
@@ -784,33 +794,33 @@ const ExperimentReports: React.FC = () => {
             <>
               已完成报告提交{' '}
               {summaryStats.rejectedReportsCount > 0 && (
-                <span className="text-red-500">（含 {summaryStats.rejectedReportsCount} 份已驳回）</span>
+                <span className="text-destructive">（含 {summaryStats.rejectedReportsCount} 份已驳回）</span>
               )}
             </>
           }
-          accent="bg-emerald-100 text-emerald-600"
+          accent="bg-success/10 text-success"
         />
         <SummaryCard
           icon={Clock}
           title="待评阅"
           value={summaryStats.pendingReview}
           description="已提交待老师评分"
-          accent="bg-yellow-100 text-yellow-600"
+          accent="bg-warning/10 text-warning"
         />
         <SummaryCard
           icon={Activity}
           title="报告平均得分"
           value={summaryStats.averageGrade}
           description="所有已评阅报告的平均分"
-          accent="bg-purple-100 text-purple-600"
+          accent="bg-accent/10 text-accent-foreground"
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+      <div className="bg-card rounded-lg shadow-md">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <h2 className="text-lg font-semibold text-gray-900">学生实验报告</h2>
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
+            <h2 className="text-lg font-semibold text-foreground">学生实验报告</h2>
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
               <FileText size={16} />
               <span>共 {filteredReports.length} 条记录</span>
             </div>
@@ -822,7 +832,7 @@ const ExperimentReports: React.FC = () => {
                 download
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                className="inline-flex items-center space-x-2 px-4 py-2 bg-success text-primary-foreground rounded-lg hover:bg-success/90 transition-colors font-medium"
               >
                 <Download size={16} />
                 <span>下载报告列表</span>
@@ -832,7 +842,7 @@ const ExperimentReports: React.FC = () => {
                 onClick={handleExportCsv}
                 disabled={!selectedClassId || filteredReports.length === 0 || isExportingCsv}
                 variant="outline"
-                className="flex items-center space-x-2 bg-white"
+                className="flex items-center space-x-2 bg-card"
               >
                 {isExportingCsv ? (
                   <>
@@ -854,7 +864,7 @@ const ExperimentReports: React.FC = () => {
                 download
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                className="inline-flex items-center space-x-2 px-4 py-2 bg-success text-primary-foreground rounded-lg hover:bg-success/90 transition-colors font-medium"
               >
                 <Download size={16} />
                 <span>下载所有报告文件</span>
@@ -882,64 +892,64 @@ const ExperimentReports: React.FC = () => {
           </div>
         </div>
         {exportError && (
-          <div className="px-6 py-3 bg-red-50 border-t border-red-200 text-red-700 flex items-center space-x-2">
+          <div className="px-6 py-3 bg-destructive/10 border-t border-destructive/20 text-destructive flex items-center space-x-2">
             <AlertTriangle size={16} />
             <span>{exportError}</span>
           </div>
         )}
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="w-12 text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <Table>
+            <TableHeader className="bg-muted">
+              <TableRow>
+                <TableHead className="w-12 text-xs font-medium text-muted-foreground uppercase tracking-wider">序号</TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort("status")}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>评阅状态</span>
                     {renderSortIcon("status")}
                   </button>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">姓名</TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort("username")}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>学号</span>
                     {renderSortIcon("username")}
                   </button>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort("submitted_at")}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>提交时间</span>
                     {renderSortIcon("submitted_at")}
                   </button>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort("grade")}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>报告得分</span>
                     {renderSortIcon("grade")}
                   </button>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">评语</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">评阅人</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">{tableBody}</tbody>
-          </table>
+                </TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">评语</TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">评阅人</TableHead>
+                <TableHead className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="bg-card">{tableBody}</TableBody>
+          </Table>
         </div>
       </div>
 
@@ -956,23 +966,23 @@ const ExperimentReports: React.FC = () => {
                 <iframe
                   src={buildDownloadUrl(selectedReport.pdf_file_path)}
                   title="report-preview"
-                  className="w-full h-full rounded-lg border border-gray-200"
+                  className="w-full h-full rounded-lg border border-border"
                 />
               ) : (
-                <div className="h-full bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
-                  <div className="text-center text-gray-500">
+                <div className="h-full bg-muted rounded-lg flex items-center justify-center border border-border">
+                  <div className="text-center text-muted-foreground">
                     <FileText className="w-12 h-12 mx-auto mb-2" />
                     <p>该报告没有可预览的文件。</p>
                   </div>
                 </div>
               )}
             </div>
-            <div className="lg:col-span-1 space-y-6 bg-gray-50 p-6 rounded-lg border border-gray-200 overflow-y-auto">
+            <div className="lg:col-span-1 space-y-6 bg-muted p-6 rounded-lg border border-border overflow-y-auto">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-semibold text-gray-900">{selectedReport.full_name}</h3>
-                  <p className="text-sm text-gray-600">{selectedReport.username}</p>
-                  <p className="text-xs text-gray-500 mt-1">提交时间：{formatDateTime(selectedReport.submitted_at)}</p>
+                  <h3 className="font-semibold text-foreground">{selectedReport.full_name}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedReport.username}</p>
+                  <p className="text-xs text-muted-foreground mt-1">提交时间：{formatDateTime(selectedReport.submitted_at)}</p>
                 </div>
                 <Button
                   onClick={() => handleDownload(selectedReport)}
@@ -987,20 +997,20 @@ const ExperimentReports: React.FC = () => {
 
               {selectedReport.status === "rejected" ? (
                 <div className="flex flex-col flex-1 justify-center items-center space-y-6 py-10">
-                  <div className="bg-red-50 p-4 rounded-full">
-                    <XCircle size={48} className="text-red-500" />
+                  <div className="bg-destructive/10 p-4 rounded-full">
+                    <XCircle size={48} className="text-destructive" />
                   </div>
                   <div className="text-center">
-                    <h3 className="text-lg font-bold text-gray-900">报告已驳回</h3>
-                    <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">
+                    <h3 className="text-lg font-bold text-foreground">报告已驳回</h3>
+                    <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto">
                       该报告已被驳回，分数已归零。<br />
                       需等待学生重新提交后，方可再次评阅。
                     </p>
                   </div>
                   
                   {selectedReport.feedback && (
-                    <div className="w-full bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700">
-                      <span className="font-semibold block mb-1 text-gray-900">驳回原因：</span>
+                    <div className="w-full bg-muted border border-border rounded-lg p-4 text-sm text-foreground">
+                      <span className="font-semibold block mb-1 text-foreground">驳回原因：</span>
                       {selectedReport.feedback}
                     </div>
                   )}
@@ -1012,185 +1022,185 @@ const ExperimentReports: React.FC = () => {
               ) : (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">实验报告得分（0-100）</label>
-                    <input
+                    <Label className="text-foreground mb-2">实验报告得分（0-100）</Label>
+                    <Input
                       type="number"
                       min={0}
                       max={100}
                       value={tempScore}
                       onChange={(event) => setTempScore(event.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                      className="rounded-lg text-base"
                       placeholder="请输入报告得分"
                     />
-                    {!isScoreValid && <p className="mt-1 text-xs text-red-500">分数需在 0-100 之间</p>}
+                    {!isScoreValid && <p className="mt-1 text-xs text-destructive">分数需在 0-100 之间</p>}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">模型选择得分（0-100）</label>
-                    <input
+                    <Label className="text-foreground mb-2">模型选择得分（0-100）</Label>
+                    <Input
                       type="number"
                       min={0}
                       max={100}
                       value={tempModelQualityScore}
                       onChange={(event) => setTempModelQualityScore(event.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                      className="rounded-lg text-base"
                       placeholder="请输入模型选择得分"
                     />
-                    {!isModelQualityScoreValid && <p className="mt-1 text-xs text-red-500">分数需在 0-100 之间</p>}
+                    {!isModelQualityScoreValid && <p className="mt-1 text-xs text-destructive">分数需在 0-100 之间</p>}
                   </div>
 
                   {/* 实验步骤评分 - 可折叠 */}
-                  <div className="border border-gray-300 rounded-lg">
+                  <div className="border border-input rounded-lg">
                     <button
                       type="button"
                       onClick={() => setShowExpFlowScores(!showExpFlowScores)}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      className="w-full flex items-center justify-between px-4 py-3 bg-muted hover:bg-muted rounded-lg transition-colors"
                     >
-                      <span className="text-sm font-medium text-gray-700">实验步骤评分（可选）</span>
+                      <span className="text-sm font-medium text-foreground">实验步骤评分（可选）</span>
                       {showExpFlowScores ? (
-                        <ChevronUp size={18} className="text-gray-500" />
+                        <ChevronUp size={18} className="text-muted-foreground" />
                       ) : (
-                        <ChevronDown size={18} className="text-gray-500" />
+                        <ChevronDown size={18} className="text-muted-foreground" />
                       )}
                     </button>
 
                     {showExpFlowScores && (
-                      <div className="p-4 space-y-4 border-t border-gray-300">
-                        <div className="text-xs text-gray-600 mb-3">
+                      <div className="p-4 space-y-4 border-t border-input">
+                        <div className="text-xs text-muted-foreground mb-3">
                           <p className="font-medium mb-1">需求预测任务：</p>
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">（1）数据准备</label>
-                          <input
+                          <Label className="text-muted-foreground mb-1 text-xs">（1）数据准备</Label>
+                          <Input
                             type="number"
                             min={0}
                             max={100}
                             value={expFlowScores.exp_flow_demand_data_preparation}
                             onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_data_preparation: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="rounded-lg text-sm"
                             placeholder="0-100"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">（2）描述性统计</label>
-                          <input
+                          <Label className="text-muted-foreground mb-1 text-xs">（2）描述性统计</Label>
+                          <Input
                             type="number"
                             min={0}
                             max={100}
                             value={expFlowScores.exp_flow_demand_descriptive_stats}
                             onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_descriptive_stats: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="rounded-lg text-sm"
                             placeholder="0-100"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">（3）预测模型选择</label>
-                          <input
+                          <Label className="text-muted-foreground mb-1 text-xs">（3）预测模型选择</Label>
+                          <Input
                             type="number"
                             min={0}
                             max={100}
                             value={expFlowScores.exp_flow_demand_model_selection}
                             onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_model_selection: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="rounded-lg text-sm"
                             placeholder="0-100"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">（4）生成预测结果</label>
-                          <input
+                          <Label className="text-muted-foreground mb-1 text-xs">（4）生成预测结果</Label>
+                          <Input
                             type="number"
                             min={0}
                             max={100}
                             value={expFlowScores.exp_flow_demand_generate_results}
                             onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_demand_generate_results: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="rounded-lg text-sm"
                             placeholder="0-100"
                           />
                         </div>
 
-                        <div className="text-xs text-gray-600 mb-3 pt-3 border-t border-gray-200">
+                        <div className="text-xs text-muted-foreground mb-3 pt-3 border-t border-border">
                           <p className="font-medium mb-1">生产计划决策任务：</p>
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">（1）库存变量参数计算</label>
-                          <input
+                          <Label className="text-muted-foreground mb-1 text-xs">（1）库存变量参数计算</Label>
+                          <Input
                             type="number"
                             min={0}
                             max={100}
                             value={expFlowScores.exp_flow_production_inventory_calc}
                             onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_inventory_calc: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="rounded-lg text-sm"
                             placeholder="0-100"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">（2）服务水平参数计算</label>
-                          <input
+                          <Label className="text-muted-foreground mb-1 text-xs">（2）服务水平参数计算</Label>
+                          <Input
                             type="number"
                             min={0}
                             max={100}
                             value={expFlowScores.exp_flow_production_service_level}
                             onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_service_level: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="rounded-lg text-sm"
                             placeholder="0-100"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">（3）生产变量参数计算</label>
-                          <input
+                          <Label className="text-muted-foreground mb-1 text-xs">（3）生产变量参数计算</Label>
+                          <Input
                             type="number"
                             min={0}
                             max={100}
                             value={expFlowScores.exp_flow_production_variable_calc}
                             onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_variable_calc: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="rounded-lg text-sm"
                             placeholder="0-100"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">（4）制定生产计划</label>
-                          <input
+                          <Label className="text-muted-foreground mb-1 text-xs">（4）制定生产计划</Label>
+                          <Input
                             type="number"
                             min={0}
                             max={100}
                             value={expFlowScores.exp_flow_production_plan_creation}
                             onChange={(e) => setExpFlowScores(prev => ({ ...prev, exp_flow_production_plan_creation: e.target.value }))}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            className="rounded-lg text-sm"
                             placeholder="0-100"
                           />
                         </div>
 
                         {!areExpFlowScoresValid && (
-                          <p className="text-xs text-red-500">所有步骤评分需在 0-100 之间</p>
+                          <p className="text-xs text-destructive">所有步骤评分需在 0-100 之间</p>
                         )}
                       </div>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">评语（评分时使用）</label>
-                    <textarea
+                    <Label className="text-foreground mb-2">评语（评分时使用）</Label>
+                    <Textarea
                       value={tempFeedback}
                       onChange={(event) => setTempFeedback(event.target.value)}
                       rows={4}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                      className="rounded-lg resize-none"
                       placeholder="请输入评语，可为空"
                     />
                   </div>
 
-                  <div className="flex flex-col space-y-3 pt-4 border-t border-gray-200">
+                  <div className="flex flex-col space-y-3 pt-4 border-t border-border">
                     <Button
                       onClick={handleSaveReview}
                       disabled={!canSubmitReview}
-                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300"
+                      className="w-full bg-primary hover:bg-primary/90 disabled:bg-muted"
                     >
                       {isSubmittingReview ? "保存中..." : "保存评阅结果"}
                     </Button>
@@ -1201,20 +1211,20 @@ const ExperimentReports: React.FC = () => {
                   </div>
 
                   {/* 驳回区域 - 放在最下方 */}
-                  <div className="bg-red-50 border border-red-100 rounded-lg p-4 space-y-3 mt-4">
-                    <label className="block text-sm font-medium text-red-800">驳回原因（驳回时必填）</label>
-                    <textarea
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 space-y-3 mt-4">
+                    <Label className="text-destructive">驳回原因（驳回时必填）</Label>
+                    <Textarea
                       value={rejectReason}
                       onChange={(event) => setRejectReason(event.target.value)}
                       rows={3}
-                      className="w-full px-3 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm"
+                      className="rounded-lg focus-visible:border-destructive focus-visible:ring-destructive/40 resize-none text-sm border-destructive/20"
                       placeholder="请输入具体的修改建议..."
                     />
                     <Button
                       onClick={handleReject}
                       disabled={isSubmittingReview || !rejectReason.trim()}
                       variant="outline"
-                      className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                      className="w-full text-destructive border-destructive/20 hover:bg-destructive/10 hover:border-destructive/30"
                     >
                       驳回报告
                     </Button>
@@ -1225,14 +1235,7 @@ const ExperimentReports: React.FC = () => {
           </div>
         )}
       </Modal>
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={hideToast}
-          position="bottom-right"
-        />
-      )}
+      
       <ConfirmDialog
         isOpen={confirm.isOpen}
         title={confirm.title}
@@ -1252,14 +1255,14 @@ const SummaryCard: React.FC<{
   description: React.ReactNode;
   accent: string;
 }> = ({ icon: Icon, title, value, description, accent }) => (
-  <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center space-x-4">
+  <div className="bg-card border border-border rounded-xl p-4 flex items-center space-x-4">
     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${accent}`}>
       <Icon size={18} />
     </div>
     <div>
-      <p className="text-sm text-gray-500">{title}</p>
-      <p className="text-2xl font-semibold text-gray-900">{value}</p>
-      <p className="text-xs text-gray-400 mt-1">{description}</p>
+      <p className="text-sm text-muted-foreground">{title}</p>
+      <p className="text-2xl font-semibold text-foreground">{value}</p>
+      <p className="text-xs text-muted-foreground mt-1">{description}</p>
     </div>
   </div>
 );

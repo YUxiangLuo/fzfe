@@ -1,15 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, Loader, AlertTriangle, Mail, Phone, User as UserIcon, UserPlus, ListPlus } from 'lucide-react';
 import type { Student, Class } from '@/views/teacher/types';
-import Modal from '@/views/teacher/components/common/Modal';
-import Button from '@/views/teacher/components/common/Button';
+import Modal from '@/views/teacher/components/shadcn/TeacherModal';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { apiClient } from '@/utils/apiClient';
 import { decodeToken } from '@/utils/auth';
 import { validateFullName, validateEmail, validatePhone, validatePassword } from '@/views/teacher/utils/validation';
 import SelectStudentModal from './SelectStudentModal';
 import ResetPasswordModal from './ResetPasswordModal';
 import { useToast } from '@/views/teacher/hooks/useToast';
-import { Toast } from '@/views/teacher/components/common/Toast';
 
 interface NewStudentForm {
   username: string;
@@ -28,7 +31,7 @@ const INITIAL_NEW_STUDENT: NewStudentForm = {
 };
 
 const StudentManagement: React.FC = () => {
-  const { toast, showToast, hideToast } = useToast();
+  const { showToast } = useToast();
   const [classes, setClasses] = useState<Class[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -167,11 +170,11 @@ const StudentManagement: React.FC = () => {
   }, [searchTerm]);
 
   const colorPalette = useMemo(() => [
-    'from-blue-500 to-indigo-500',
-    'from-emerald-500 to-teal-500',
-    'from-purple-500 to-pink-500',
-    'from-orange-500 to-amber-500',
-    'from-sky-500 to-cyan-500',
+    'from-primary to-primary/80',
+    'from-success to-success/80',
+    'from-accent to-accent/80',
+    'from-warning to-warning/80',
+    'from-info to-info/80',
   ], []);
 
   const getInitial = (fullName?: string | null, fallback?: string) => {
@@ -339,66 +342,66 @@ const StudentManagement: React.FC = () => {
   const renderTableBody = () => {
     if (!selectedClassId) {
       return (
-        <tr>
-          <td colSpan={5} className="py-12 text-center text-gray-500">
+        <TableRow>
+          <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
             请先选择一个班级查看学生列表。
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     if (isLoadingStudents) {
       return (
-        <tr>
-          <td colSpan={6} className="py-12 text-center text-gray-500">
+        <TableRow>
+          <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
             <div className="flex items-center justify-center space-x-2">
               <Loader className="animate-spin" size={18} />
               <span>正在加载学生数据...</span>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     if (filteredStudents.length === 0) {
       return (
-        <tr>
-          <td colSpan={6} className="py-12 text-center text-gray-500">
+        <TableRow>
+          <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
             {students.length === 0 ? '该班级暂无学生。' : '未找到符合条件的学生。'}
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     return filteredStudents.map((student, index) => (
-      <tr key={student.user_id} className="hover:bg-gray-50">
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{index + 1}</td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{student.username}</td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+      <TableRow key={student.user_id}>
+        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{index + 1}</TableCell>
+        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground font-medium">{student.username}</TableCell>
+        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
           <div className="flex items-center space-x-3">
-            <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${colorPalette[index % colorPalette.length]} flex items-center justify-center text-white text-sm font-semibold`}>
+            <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${colorPalette[index % colorPalette.length]} flex items-center justify-center text-primary-foreground text-sm font-semibold`}>
               {getInitial(student.full_name, student.username)}
             </div>
             <div>
-              <p className="font-medium text-gray-900">{student.full_name}</p>
-              <p className="text-xs text-gray-500">学号 {student.username}</p>
+              <p className="font-medium text-foreground">{student.full_name}</p>
+              <p className="text-xs text-muted-foreground">学号 {student.username}</p>
             </div>
           </div>
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+        </TableCell>
+        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
           <div className="flex items-center space-x-2">
-            <Mail size={14} className="text-blue-500" />
+            <Mail size={14} className="text-primary" />
             <span>{student.email ?? '—'}</span>
           </div>
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+        </TableCell>
+        <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
           <div className="flex items-center space-x-2">
-            <Phone size={14} className="text-emerald-500" />
+            <Phone size={14} className="text-success" />
             <span>{student.phone_number ?? '—'}</span>
           </div>
-        </td>
+        </TableCell>
         
-        <td className="px-6 py-4 whitespace-nowrap text-sm">
+        <TableCell className="px-6 py-4 whitespace-nowrap text-sm">
           <div className="flex items-center space-x-2">
             <Button
               onClick={() => handleResetPassword(student)}
@@ -412,14 +415,14 @@ const StudentManagement: React.FC = () => {
               onClick={() => setStudentToRemove(student)}
               variant="outline"
               size="sm"
-              className="border-red-500 text-red-600 hover:bg-red-50 hover:text-red-700 focus:ring-red-500"
+              className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive focus:ring-destructive/40"
               title="从班级移除学生"
             >
               移除
             </Button>
           </div>
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
     ));
   };
 
@@ -427,9 +430,9 @@ const StudentManagement: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">学生管理</h1>
+          <h1 className="text-2xl font-bold text-foreground">学生管理</h1>
           {selectedClassId && (
-            <p className="text-sm text-gray-500 mt-1">当前班级：{currentClassName}</p>
+            <p className="text-sm text-muted-foreground mt-1">当前班级：{currentClassName}</p>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -446,42 +449,50 @@ const StudentManagement: React.FC = () => {
             <ListPlus size={16} className="mr-2" />
             从学生库中添加
           </Button>
-          <Button onClick={handleOpenAddModal} className="bg-green-600 hover:bg-green-700">
+          <Button onClick={handleOpenAddModal} className="bg-success hover:bg-success/90">
             <UserPlus size={16} className="mr-2" />
             添加学生
           </Button>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-card rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">选择班级</label>
-            <select
+            <Label className="text-foreground mb-2">选择班级</Label>
+            <Select
               value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
+              onValueChange={setSelectedClassId}
               disabled={isLoadingClasses}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             >
-              {classes.length === 0 ? (
-                <option value="" disabled>{isLoadingClasses ? '加载中...' : '暂无班级'}</option>
-              ) : (
-                classes.map(cls => (
-                  <option key={cls.class_id} value={cls.class_id}>{cls.class_name}</option>
-                ))
-              )}
-            </select>
+              <SelectTrigger className="w-full" aria-label="选择班级">
+                <SelectValue placeholder={isLoadingClasses ? '加载中...' : '请选择班级'} />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.length === 0 ? (
+                  <SelectItem value="__empty__" disabled>
+                    {isLoadingClasses ? '加载中...' : '暂无班级'}
+                  </SelectItem>
+                ) : (
+                  classes.map(cls => (
+                    <SelectItem key={cls.class_id} value={String(cls.class_id)}>
+                      {cls.class_name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">按学号/姓名搜索</label>
+            <Label className="text-foreground mb-2">按学号/姓名搜索</Label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <Input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="输入学号或姓名"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="pl-10 pr-4 rounded-lg"
               />
             </div>
           </div>
@@ -489,34 +500,33 @@ const StudentManagement: React.FC = () => {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center space-x-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg flex items-center space-x-2">
           <AlertTriangle size={16} />
           <span>{error}</span>
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">学生列表</h2>
+      <div className="bg-card rounded-lg shadow-md">
+        <div className="px-6 py-4 border-b border-border">
+          <h2 className="text-lg font-semibold text-foreground">学生列表</h2>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学号</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">学生姓名</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">邮箱</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">手机号码</th>
-                
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+          <Table>
+            <TableHeader className="bg-muted">
+              <TableRow>
+                <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">序号</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">学号</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">学生姓名</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">邮箱</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">手机号码</TableHead>
+                <TableHead className="px-6 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="bg-card">
               {renderTableBody()}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
       <Modal
@@ -527,22 +537,22 @@ const StudentManagement: React.FC = () => {
       >
         <div className="space-y-4">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
+            <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+              <AlertTriangle className="w-6 h-6 text-destructive" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">
-                确认将学生 <span className="font-medium text-gray-900">{studentToRemove?.full_name}</span> ({studentToRemove?.username}) 从班级
-                <span className="font-medium text-gray-900"> {currentClassName}</span> 中移除吗？
+              <p className="text-sm text-muted-foreground">
+                确认将学生 <span className="font-medium text-foreground">{studentToRemove?.full_name}</span> ({studentToRemove?.username}) 从班级
+                <span className="font-medium text-foreground"> {currentClassName}</span> 中移除吗？
               </p>
             </div>
           </div>
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-border">
             <Button variant="outline" onClick={handleCloseRemoveStudentModal} disabled={isProcessingRemoval}>
               取消
             </Button>
             <Button
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive/90"
               onClick={handleRemoveStudent}
               disabled={isProcessingRemoval}
             >
@@ -566,15 +576,15 @@ const StudentManagement: React.FC = () => {
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              学号 <span className="text-red-500">*</span>
-            </label>
-            <input
+            <Label className="text-foreground mb-2">
+              学号 <span className="text-destructive">*</span>
+            </Label>
+            <Input
               type="text"
               inputMode="numeric"
               value={newStudent.username}
               onChange={(e) => setNewStudent(prev => ({ ...prev, username: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="rounded-lg"
               placeholder="例如：20210001"
               minLength={8}
               maxLength={20}
@@ -582,88 +592,88 @@ const StudentManagement: React.FC = () => {
               disabled={isSubmitting}
               required
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               仅支持数字，至少8位
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              姓名 <span className="text-red-500">*</span>
-            </label>
-            <input
+            <Label className="text-foreground mb-2">
+              姓名 <span className="text-destructive">*</span>
+            </Label>
+            <Input
               type="text"
               value={newStudent.full_name}
               onChange={(e) => setNewStudent(prev => ({ ...prev, full_name: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="rounded-lg"
               placeholder="例如：张三"
               minLength={2}
               maxLength={20}
               disabled={isSubmitting}
               required
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               2-20个字符，允许中文和英文
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              初始密码 <span className="text-red-500">*</span>
-            </label>
-            <input
+            <Label className="text-foreground mb-2">
+              初始密码 <span className="text-destructive">*</span>
+            </Label>
+            <Input
               type="password"
               value={newStudent.password}
               onChange={(e) => setNewStudent(prev => ({ ...prev, password: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="rounded-lg"
               placeholder="至少6个字符，可为纯数字"
               minLength={6}
               maxLength={20}
               disabled={isSubmitting}
               required
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               6-20个字符
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Label className="text-foreground mb-2">
               邮箱（可选）
-            </label>
-            <input
+            </Label>
+            <Input
               type="email"
               value={newStudent.email}
               onChange={(e) => setNewStudent(prev => ({ ...prev, email: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="rounded-lg"
               placeholder="例如：zhangsan@example.com"
               disabled={isSubmitting}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               未填写时系统将自动生成邮箱
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Label className="text-foreground mb-2">
               手机号（可选）
-            </label>
-            <input
+            </Label>
+            <Input
               type="tel"
               value={newStudent.phone_number}
               onChange={(e) => setNewStudent(prev => ({ ...prev, phone_number: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="rounded-lg"
               placeholder="例如：13800138000"
               pattern="1[3-9]\d{9}"
               disabled={isSubmitting}
             />
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               请输入11位中国大陆手机号
             </p>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800">
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+            <p className="text-sm text-primary">
               <strong>提示：</strong>学生将被添加到当前选择的班级 <span className="font-semibold">{currentClassName}</span>
             </p>
           </div>
@@ -679,7 +689,7 @@ const StudentManagement: React.FC = () => {
             <Button
               onClick={handleAddStudent}
               disabled={isSubmitting}
-              className="bg-green-600 hover:bg-green-700"
+              className="bg-success hover:bg-success/90"
             >
               {isSubmitting ? '添加中...' : '确认添加'}
             </Button>
@@ -697,14 +707,7 @@ const StudentManagement: React.FC = () => {
         showToast={showToast}
       />
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={hideToast}
-          position="bottom-right"
-        />
-      )}
+      
     </div>
   );
 };

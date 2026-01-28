@@ -18,6 +18,7 @@ import ExperimentLogs from '@/views/teacher/components/Experiment/ExperimentLogs
 import QuestionBank from '@/views/teacher/components/Assessment/QuestionBank';
 import GradeWeights from '@/views/teacher/components/Assessment/GradeWeights';
 import GradesOverview from '@/views/teacher/components/Assessment/GradesOverview';
+import TeacherToast from '@/views/teacher/components/shadcn/TeacherToast';
 
 function AppContent() {
   const { setRole } = useRole();
@@ -34,11 +35,12 @@ function AppContent() {
 
   return (
     <ErrorBoundaryWrapper>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-muted">
+        <TeacherToast />
         <Header getLogoutRedirectPath={getLogoutRedirectPath} />
         <div className="flex pt-16">
           <Sidebar />
-          <main className="flex-1 overflow-auto bg-gray-50" style={{ height: 'calc(100vh - 5rem)' }}>
+          <main className="flex-1 overflow-auto bg-muted" style={{ height: 'calc(100vh - 5rem)' }}>
             <div className="p-6">
               <Routes>
                 <Route path="/" element={<Navigate to="/experiment-progress" replace />} />

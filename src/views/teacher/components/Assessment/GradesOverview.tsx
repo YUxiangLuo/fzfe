@@ -37,7 +37,10 @@ import { decodeToken } from '@/utils/auth';
 import { DOWNLOAD_SERVER_BASE_URL } from '@/config/appConfig';
 import GradeCharts, { type GradeChartDatum } from '@/views/teacher/components/Assessment/GradeCharts';
 import GradeRow from './GradeRow';
-import Button from '@/views/teacher/components/common/Button';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
+import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   getProgressStatus,
   getEvaluationBadge,
@@ -69,27 +72,27 @@ interface ClassSummary {
 const SCORE_SEGMENT_CONFIG = {
   excellent: {
     label: '≥ 90 (优秀)',
-    className: 'bg-blue-500',
+    className: 'bg-primary',
     hex: '#3b82f6',
   },
   good: {
     label: '80-89 (良好)',
-    className: 'bg-green-500',
+    className: 'bg-success',
     hex: '#10b981',
   },
   average: {
     label: '70-79 (中等)',
-    className: 'bg-yellow-500',
+    className: 'bg-warning',
     hex: '#f59e0b',
   },
   pass: {
     label: '60-69 (及格)',
-    className: 'bg-purple-500',
+    className: 'bg-accent',
     hex: '#8b5cf6',
   },
   fail: {
     label: '< 60 (不及格)',
-    className: 'bg-red-500',
+    className: 'bg-destructive',
     hex: '#ef4444',
   },
 } as const;
@@ -114,11 +117,11 @@ type SortKey =
   | 'evaluation';
 
 const STATUS_STYLES: Record<StatusVariant, string> = {
-  completed: 'bg-green-50 text-green-700 border border-green-100',
-  waiting: 'bg-indigo-50 text-indigo-700 border border-indigo-100',
-  progress: 'bg-amber-50 text-amber-700 border border-amber-100',
-  idle: 'bg-gray-50 text-gray-600 border border-gray-200',
-  rejected: 'bg-red-50 text-red-700 border border-red-100',
+  completed: 'bg-success/10 text-success border border-success/20',
+  waiting: 'bg-info/10 text-info border border-info/20',
+  progress: 'bg-warning/10 text-warning border border-warning/20',
+  idle: 'bg-muted text-muted-foreground border border-border',
+  rejected: 'bg-destructive/10 text-destructive border border-destructive/20',
 };
 
 const StatusChip: React.FC<{ variant: StatusVariant; label: string; value: number }> = ({ variant, label, value }) => (
@@ -409,12 +412,12 @@ const GradesOverview: React.FC = () => {
 
   const renderSortIcon = (key: SortKey) => {
     if (!sortConfig || sortConfig.key !== key) {
-      return <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />;
+      return <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground" />;
     }
     return sortConfig.direction === 'desc' ? (
-      <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+      <ChevronDown className="w-3.5 h-3.5 text-primary" />
     ) : (
-      <ChevronUp className="w-3.5 h-3.5 text-blue-600" />
+      <ChevronUp className="w-3.5 h-3.5 text-primary" />
     );
   };
 
@@ -609,7 +612,7 @@ const GradesOverview: React.FC = () => {
     if (isLoadingGrades) {
       return (
         <div className="flex justify-center py-20">
-          <Loader className="animate-spin text-blue-500" size={40} />
+          <Loader className="animate-spin text-primary" size={40} />
         </div>
       );
     }
@@ -646,12 +649,12 @@ const GradesOverview: React.FC = () => {
     const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
     const CLASS_CARD_COLORS = [
-      { bg: 'bg-blue-500', header: 'bg-blue-50', border: 'border-blue-200' },
-      { bg: 'bg-green-500', header: 'bg-green-50', border: 'border-green-200' },
-      { bg: 'bg-yellow-500', header: 'bg-yellow-50', border: 'border-yellow-200' },
-      { bg: 'bg-red-500', header: 'bg-red-50', border: 'border-red-200' },
-      { bg: 'bg-purple-500', header: 'bg-purple-50', border: 'border-purple-200' },
-      { bg: 'bg-pink-500', header: 'bg-pink-50', border: 'border-pink-200' },
+      { bg: 'bg-primary', header: 'bg-primary/10', border: 'border-primary/20' },
+      { bg: 'bg-success', header: 'bg-success/10', border: 'border-success/20' },
+      { bg: 'bg-warning', header: 'bg-warning/10', border: 'border-warning/20' },
+      { bg: 'bg-destructive', header: 'bg-destructive/10', border: 'border-destructive/20' },
+      { bg: 'bg-accent', header: 'bg-accent/10', border: 'border-accent/20' },
+      { bg: 'bg-accent', header: 'bg-accent/10', border: 'border-accent/20' },
     ];
 
     return (
@@ -666,44 +669,44 @@ const GradesOverview: React.FC = () => {
             return (
               <div
                 key={summary.class_id}
-                className={`bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all cursor-pointer border-2 ${colorScheme.border} transform hover:scale-105`}
+                className={`bg-card rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all cursor-pointer border-2 ${colorScheme.border} transform hover:scale-105`}
                 onClick={() => setSelectedClassId(String(summary.class_id))}
               >
                 <div className={`px-6 py-4 ${colorScheme.header}`}>
-                  <h3 className="text-xl font-bold text-gray-900">{summary.class_name}</h3>
+                  <h3 className="text-xl font-bold text-foreground">{summary.class_name}</h3>
                 </div>
                 <div className="p-6 space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                      <p className="text-2xl font-bold text-blue-600">{summary.total_students}</p>
-                      <p className="text-xs text-gray-600 mt-1">班级人数</p>
+                    <div className="text-center p-3 bg-primary/10 rounded-lg border border-primary/20">
+                      <p className="text-2xl font-bold text-primary">{summary.total_students}</p>
+                      <p className="text-xs text-muted-foreground mt-1">班级人数</p>
                     </div>
-                    <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
-                      <p className="text-2xl font-bold text-green-600">{submittedTotal}</p>
-                      <p className="text-xs text-gray-600 mt-1">已提交</p>
+                    <div className="text-center p-3 bg-success/10 rounded-lg border border-success/20">
+                      <p className="text-2xl font-bold text-success">{submittedTotal}</p>
+                      <p className="text-xs text-muted-foreground mt-1">已提交</p>
                       {summary.rejected_count > 0 && (
-                        <p className="text-xs text-red-500 mt-0.5">（含 {summary.rejected_count} 份已驳回）</p>
+                        <p className="text-xs text-destructive mt-0.5">（含 {summary.rejected_count} 份已驳回）</p>
                       )}
                     </div>
                   </div>
-                  <div className="border-t-2 border-gray-100 pt-4">
-                    <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-100">
-                      <p className="text-4xl font-bold text-purple-900">
+                  <div className="border-t-2 border-border pt-4">
+                    <div className="text-center p-4 bg-accent/10 rounded-lg border border-accent/20">
+                      <p className="text-4xl font-bold text-foreground">
                         {summary.average_score !== null ? summary.average_score.toFixed(1) : '—'}
                       </p>
-                      <p className="text-sm text-gray-600 mt-2 font-medium">平均分</p>
+                      <p className="text-sm text-muted-foreground mt-2 font-medium">平均分</p>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-sm pt-2">
-                    <span className="text-gray-500">提交率</span>
-                    <span className="font-bold text-gray-900">
+                    <span className="text-muted-foreground">提交率</span>
+                    <span className="font-bold text-foreground">
                       {summary.total_students > 0
                         ? `${((submittedTotal / summary.total_students) * 100).toFixed(1)}%`
                         : '—'}
                     </span>
                   </div>
-                  <div className="text-center pt-2 border-t border-gray-200">
-                    <span className="text-xs text-blue-600 font-medium">点击查看详情 →</span>
+                  <div className="text-center pt-2 border-t border-border">
+                    <span className="text-xs text-primary font-medium">点击查看详情 →</span>
                   </div>
                 </div>
               </div>
@@ -714,13 +717,13 @@ const GradesOverview: React.FC = () => {
         {/* Charts Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Bar Chart - Average Scores */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-              <div className="w-1 h-6 bg-blue-600 mr-3 rounded"></div>
+          <div className="bg-card rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center">
+              <div className="w-1 h-6 bg-primary mr-3 rounded"></div>
               各班级平均分对比
             </h3>
             {barChartData.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-10">暂无数据</p>
+              <p className="text-sm text-muted-foreground text-center py-10">暂无数据</p>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={barChartData}>
@@ -747,13 +750,13 @@ const GradesOverview: React.FC = () => {
           </div>
 
           {/* Stacked Bar Chart - Completion Status */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-              <div className="w-1 h-6 bg-green-600 mr-3 rounded"></div>
+          <div className="bg-card rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center">
+              <div className="w-1 h-6 bg-success mr-3 rounded"></div>
               各班级完成情况
             </h3>
             {completionStackData.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-10">暂无数据</p>
+              <p className="text-sm text-muted-foreground text-center py-10">暂无数据</p>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={completionStackData}>
@@ -784,13 +787,13 @@ const GradesOverview: React.FC = () => {
           </div>
 
           {/* Pie Chart - Student Distribution */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-              <div className="w-1 h-6 bg-purple-600 mr-3 rounded"></div>
+          <div className="bg-card rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center">
+              <div className="w-1 h-6 bg-accent mr-3 rounded"></div>
               各班级人数分布
             </h3>
             {studentCountPieData.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-10">暂无数据</p>
+              <p className="text-sm text-muted-foreground text-center py-10">暂无数据</p>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
@@ -818,13 +821,13 @@ const GradesOverview: React.FC = () => {
           </div>
 
           {/* Donut Chart - Submission Rate */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-              <div className="w-1 h-6 bg-yellow-600 mr-3 rounded"></div>
+          <div className="bg-card rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-bold text-foreground mb-4 flex items-center">
+              <div className="w-1 h-6 bg-warning mr-3 rounded"></div>
               各班级提交率对比
             </h3>
             {submissionPieData.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-10">暂无数据</p>
+              <p className="text-sm text-muted-foreground text-center py-10">暂无数据</p>
             ) : (
               <div className="space-y-4">
                 {submissionPieData.map((data, index) => {
@@ -833,11 +836,11 @@ const GradesOverview: React.FC = () => {
                   return (
                     <div key={index} className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
-                        <span className="font-medium text-gray-700">{data.name}</span>
-                        <span className="font-bold text-gray-900">{rate.toFixed(1)}%</span>
+                        <span className="font-medium text-foreground">{data.name}</span>
+                        <span className="font-bold text-foreground">{rate.toFixed(1)}%</span>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <div className="flex-1 h-6 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all flex items-center justify-end pr-2"
                             style={{
@@ -846,11 +849,11 @@ const GradesOverview: React.FC = () => {
                             }}
                           >
                             {rate > 15 && (
-                              <span className="text-xs font-bold text-white">{data.已提交}</span>
+                              <span className="text-xs font-bold text-primary-foreground">{data.已提交}</span>
                             )}
                           </div>
                         </div>
-                        <span className="text-xs text-gray-500 w-16">
+                        <span className="text-xs text-muted-foreground w-16">
                           {data.已提交}/{total}
                         </span>
                       </div>
@@ -867,35 +870,45 @@ const GradesOverview: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
+      <div className="bg-card rounded-lg shadow-md p-6 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 space-y-3 md:space-y-0">
           <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-gray-900">成绩概览</h1>
-            <select
+            <h1 className="text-2xl font-bold text-foreground">成绩概览</h1>
+            <Select
               value={selectedClassId}
-              onChange={(event) => setSelectedClassId(event.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              onValueChange={setSelectedClassId}
               disabled={isLoadingClasses || classes.length === 0}
             >
-              {classes.length === 0 ? (
-                <option value="">{isLoadingClasses ? '加载班级...' : '暂无班级'}</option>
-              ) : (
-                <>
-                  <option value={ALL_CLASSES}>全部班级</option>
-                  {classes.map((cls) => (
-                    <option key={cls.class_id} value={cls.class_id}>{cls.class_name}</option>
-                  ))}
-                </>
-              )}
-            </select>
+              <SelectTrigger className="w-full max-w-xs" aria-label="选择班级">
+                <SelectValue
+                  placeholder={classes.length === 0 ? (isLoadingClasses ? '加载班级...' : '暂无班级') : '选择班级'}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.length === 0 ? (
+                  <SelectItem value="__empty__" disabled>
+                    {isLoadingClasses ? '加载班级...' : '暂无班级'}
+                  </SelectItem>
+                ) : (
+                  <>
+                    <SelectItem value={ALL_CLASSES}>全部班级</SelectItem>
+                    {classes.map((cls) => (
+                      <SelectItem key={cls.class_id} value={String(cls.class_id)}>
+                        {cls.class_name}
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+              </SelectContent>
+            </Select>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             {selectedClassId === ALL_CLASSES ? '查看各班级整体表现对比' : '查看班级整体成绩表现与分布'}
           </p>
         </div>
 
         {error && !isLoadingGrades && (
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
+          <div className="bg-warning/10 border border-warning/20 text-warning px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
         )}
@@ -905,7 +918,7 @@ const GradesOverview: React.FC = () => {
         renderClassComparison()
       ) : (
         <>
-          <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
+          <div className="bg-card rounded-lg shadow-md p-6 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <StatCard icon={Users} color="blue" title="班级人数" value={grades.length} />
           <StatCard icon={Award} color="green" title="平均分" value={formatStatValue(gradeInsights.avgFinalGrade)} />
@@ -926,15 +939,15 @@ const GradesOverview: React.FC = () => {
           <StatusChip variant="progress" label="进行中" value={gradeInsights.inProgressCount} />
           <StatusChip variant="idle" label="未开始" value={gradeInsights.notStartedCount} />
         </div>
-        <div className="text-sm text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
+        <div className="text-sm text-primary bg-primary/10 border border-primary/20 rounded-lg px-4 py-3">
           {pendingMessage}
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold text-gray-900">最终得分分布</h3>
+      <div className="bg-card rounded-lg shadow-md p-6">
+        <h3 className="text-lg font-semibold text-foreground">最终得分分布</h3>
         {gradedTotal === 0 ? (
-          <p className="mt-4 text-sm text-gray-500">目前尚无评分数据，待学生完成实验并评分后将显示分布情况。</p>
+          <p className="mt-4 text-sm text-muted-foreground">目前尚无评分数据，待学生完成实验并评分后将显示分布情况。</p>
         ) : (
           <>
             <div className="mt-4 h-64">
@@ -956,15 +969,15 @@ const GradesOverview: React.FC = () => {
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm text-gray-600">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm text-muted-foreground">
               {pieData.map((item) => (
                 <div key={item.label} className="flex items-center space-x-2">
                   <span
                     className="inline-block w-3 h-3 rounded-full"
                     style={{ backgroundColor: item.hex }}
                   />
-                  <span className="font-medium text-gray-800">{item.label}</span>
-                  <span className="text-gray-500">{item.value} 人</span>
+                  <span className="font-medium text-foreground">{item.label}</span>
+                  <span className="text-muted-foreground">{item.value} 人</span>
                 </div>
               ))}
             </div>
@@ -974,11 +987,11 @@ const GradesOverview: React.FC = () => {
 
       <GradeCharts grades={chartGrades} />
 
-      <div className="bg-white rounded-lg shadow-md p-6 space-y-4">
+      <div className="bg-card rounded-lg shadow-md p-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between md:space-x-4 space-y-3 md:space-y-0">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">学生成绩详情</h2>
-            <p className="text-sm text-gray-500">共 {filteredGrades.length} 条记录</p>
+            <h2 className="text-lg font-semibold text-foreground">学生成绩详情</h2>
+            <p className="text-sm text-muted-foreground">共 {filteredGrades.length} 条记录</p>
           </div>
           <div className="flex flex-col md:flex-row md:items-center md:space-x-3 w-full md:w-auto">
             {exportedFileUrl ? (
@@ -987,7 +1000,7 @@ const GradesOverview: React.FC = () => {
                 download
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                className="inline-flex items-center px-4 py-2 bg-success text-primary-foreground rounded-lg hover:bg-success/90 transition-colors font-medium"
               >
                 <Download className="w-4 h-4 mr-2" />
                 下载成绩 CSV
@@ -996,7 +1009,7 @@ const GradesOverview: React.FC = () => {
               <Button
                 onClick={handleExport}
                 disabled={isExporting || !selectedClassId || isLoadingGrades}
-                className="bg-blue-600 hover:bg-blue-700 disabled:cursor-not-allowed"
+                className="bg-primary hover:bg-primary/90 disabled:cursor-not-allowed"
               >
                 {isExporting ? (
                   <span className="flex items-center">
@@ -1012,121 +1025,129 @@ const GradesOverview: React.FC = () => {
               </Button>
             )}
             <div className="relative w-full md:w-80 mt-3 md:mt-0">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
                 type="text"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="搜索学生姓名或学号"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="pl-10 pr-4 rounded-lg"
               />
             </div>
           </div>
         </div>
 
         {error && !isLoadingGrades && (
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
+          <div className="bg-warning/10 border border-warning/20 text-warning px-4 py-3 rounded-lg text-sm">
             {error}
           </div>
         )}
 
         {exportError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm flex items-center space-x-2">
+          <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm flex items-center space-x-2">
             <AlertTriangle size={16} />
             <span>{exportError}</span>
           </div>
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <Table>
+            <TableHeader className="bg-muted">
+              <TableRow>
+                <TableHead className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   序号
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   姓名
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort('username')}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>学号</span>
                     {renderSortIcon('username')}
                   </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort('exp_flow_score')}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>实验流程</span>
                     {renderSortIcon('exp_flow_score')}
                   </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort('knowledge_test')}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>知识测试</span>
                     {renderSortIcon('knowledge_test')}
                   </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort('model_quality')}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>模型选择</span>
                     {renderSortIcon('model_quality')}
                   </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort('report_quality')}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>实验报告</span>
                     {renderSortIcon('report_quality')}
                   </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort('final_score')}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>最终得分</span>
                     {renderSortIcon('final_score')}
                   </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort('evaluation')}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>状态</span>
                     {renderSortIcon('evaluation')}
                   </button>
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   详情
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="bg-card">
               {isLoadingGrades ? (
-                <tr><td colSpan={10} className="text-center py-10"><Loader className="mx-auto animate-spin text-blue-500" /></td></tr>
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center py-10">
+                    <Loader className="mx-auto animate-spin text-primary" />
+                  </TableCell>
+                </TableRow>
               ) : sortedGrades.length === 0 ? (
-                <tr><td colSpan={10} className="text-center py-10 text-gray-500">无数据显示。</td></tr>
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center py-10 text-muted-foreground">
+                    无数据显示。
+                  </TableCell>
+                </TableRow>
               ) : (
                 sortedGrades.map((grade, index) => (
                   <GradeRow
@@ -1138,8 +1159,8 @@ const GradesOverview: React.FC = () => {
                   />
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </div>
         </>
@@ -1150,34 +1171,34 @@ const GradesOverview: React.FC = () => {
 
 const COLOR_VARIANTS = {
   blue: {
-    bg: 'bg-blue-50',
-    border: 'border-blue-100',
-    text: 'text-blue-600',
-    textBold: 'text-blue-900',
+    bg: 'bg-primary/10',
+    border: 'border-primary/20',
+    text: 'text-primary',
+    textBold: 'text-primary',
   },
   green: {
-    bg: 'bg-green-50',
-    border: 'border-green-100',
-    text: 'text-green-600',
-    textBold: 'text-green-900',
+    bg: 'bg-success/10',
+    border: 'border-success/20',
+    text: 'text-success',
+    textBold: 'text-success',
   },
   yellow: {
-    bg: 'bg-yellow-50',
-    border: 'border-yellow-100',
-    text: 'text-yellow-600',
-    textBold: 'text-yellow-900',
+    bg: 'bg-warning/10',
+    border: 'border-warning/20',
+    text: 'text-warning',
+    textBold: 'text-warning',
   },
   red: {
-    bg: 'bg-red-50',
-    border: 'border-red-100',
-    text: 'text-red-600',
-    textBold: 'text-red-900',
+    bg: 'bg-destructive/10',
+    border: 'border-destructive/20',
+    text: 'text-destructive',
+    textBold: 'text-destructive',
   },
   purple: {
-    bg: 'bg-purple-50',
-    border: 'border-purple-100',
-    text: 'text-purple-600',
-    textBold: 'text-purple-900',
+    bg: 'bg-accent/10',
+    border: 'border-accent/20',
+    text: 'text-accent-foreground',
+    textBold: 'text-foreground',
   },
 } as const;
 

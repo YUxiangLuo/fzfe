@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, FileText, XCircle, AlertTriangle, Download } from 'lucide-react';
-import Modal from '@/views/teacher/components/common/Modal';
-import Button from '@/views/teacher/components/common/Button';
+import Modal from '@/views/teacher/components/shadcn/TeacherModal';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { validateClassName, validateClassCode } from '@/views/teacher/utils/validation';
 import { useToast } from '@/views/teacher/hooks/useToast';
 
@@ -120,49 +122,49 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({ isOpen, onCl
     <Modal isOpen={isOpen} onClose={onClose} title="新增班级">
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            班级名称 <span className="text-red-500">*</span>
-          </label>
-          <input
+          <Label className="text-foreground mb-2">
+            班级名称 <span className="text-destructive">*</span>
+          </Label>
+          <Input
             type="text"
             value={formData.class_name}
             onChange={(e) => setFormData(prev => ({ ...prev, class_name: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="rounded-lg"
             placeholder="例如：2024级计算机1班"
             maxLength={50}
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             2-50个字符，可包含中文、英文、数字、短横线和下划线
           </p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            班级代码 <span className="text-red-500">*</span>
-          </label>
-          <input
+          <Label className="text-foreground mb-2">
+            班级代码 <span className="text-destructive">*</span>
+          </Label>
+          <Input
             type="text"
             value={formData.class_code}
             onChange={(e) => setFormData(prev => ({ ...prev, class_code: e.target.value }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="rounded-lg"
             placeholder="例如：CS101-2025"
             maxLength={20}
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             2-20个字符，只能包含英文、数字、短横线和下划线
           </p>
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-700">学生名单（可选）</label>
-            <button
+            <Label className="text-foreground">学生名单（可选）</Label>
+            <Button
               type="button"
               onClick={handleDownloadTemplate}
-              className="text-xs text-blue-600 hover:text-blue-800 flex items-center hover:underline"
+              className="h-auto p-0 text-xs text-primary hover:underline"
             >
               <Download size={12} className="mr-1" />
               下载模板
-            </button>
+            </Button>
           </div>
           <div className="space-y-2">
             {!csvFile ? (
@@ -175,42 +177,44 @@ export const CreateClassModal: React.FC<CreateClassModalProps> = ({ isOpen, onCl
                   onChange={handleFileChange}
                   className="hidden"
                 />
-                <label
+                <Label
                   htmlFor="csv-file-input"
-                  className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all duration-200"
+                  className="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed border-input rounded-lg cursor-pointer hover:border-primary/30 hover:bg-primary/10 transition-all duration-200"
                 >
-                  <Upload size={20} className="text-gray-400 mr-2" />
-                  <span className="text-sm text-gray-600">点击上传 CSV 文件</span>
-                </label>
+                  <Upload size={20} className="text-muted-foreground mr-2" />
+                  <span className="text-sm text-muted-foreground">点击上传 CSV 文件</span>
+                </Label>
               </div>
             ) : (
-              <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between px-4 py-3 bg-primary/10 border border-primary/20 rounded-lg">
                 <div className="flex items-center space-x-2">
-                  <FileText size={20} className="text-blue-600" />
+                  <FileText size={20} className="text-primary" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{csvFile.name}</p>
-                    <p className="text-xs text-gray-500">{(csvFile.size / 1024).toFixed(2)} KB</p>
+                    <p className="text-sm font-medium text-foreground">{csvFile.name}</p>
+                    <p className="text-xs text-muted-foreground">{(csvFile.size / 1024).toFixed(2)} KB</p>
                   </div>
                 </div>
-                <button
+                <Button
                   onClick={handleRemoveFile}
-                  className="text-red-600 hover:text-red-800 transition-colors"
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive"
                   title="移除文件"
                 >
                   <XCircle size={20} />
-                </button>
+                </Button>
               </div>
             )}
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               上传 CSV 文件将自动创建学生账号并加入班级。CSV 文件需包含学号和姓名字段。
             </p>
-            <div className="flex items-start space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <AlertTriangle size={16} className="text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start space-x-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+              <AlertTriangle size={16} className="text-primary flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-xs font-medium text-blue-900">
+                <p className="text-xs font-medium text-primary">
                   批量创建提示
                 </p>
-                <p className="text-xs text-blue-700 mt-1">
+                <p className="text-xs text-primary mt-1">
                   批量创建的学生账号，其登录用户名和初始密码均为学号。请提醒学生首次登录后及时修改密码。
                 </p>
               </div>

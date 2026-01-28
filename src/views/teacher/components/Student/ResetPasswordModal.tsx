@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import Modal from '@/views/teacher/components/common/Modal';
-import Button from '@/views/teacher/components/common/Button';
+import Modal from '@/views/teacher/components/shadcn/TeacherModal';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { apiClient } from '@/utils/apiClient';
 import { validatePassword } from '@/views/teacher/utils/validation';
 import type { Student } from '@/views/teacher/types';
@@ -67,18 +69,18 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
         title="重置学生密码"
       >
         <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm text-primary">
             为学生
-            <span className="font-semibold text-blue-900 mx-1">
+            <span className="font-semibold text-primary mx-1">
               {student?.full_name}
             </span>
             ({student?.username}) 设置新的登录密码。
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              新密码 <span className="text-red-500">*</span>
-            </label>
-            <input
+            <Label className="text-foreground mb-2">
+              新密码 <span className="text-destructive">*</span>
+            </Label>
+            <Input
               type="password"
               value={resetPasswordForm.newPassword}
               onChange={(e) => {
@@ -86,7 +88,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                 setResetPasswordForm((prev) => ({ ...prev, newPassword: value }));
                 setResetPasswordErrors((prev) => ({ ...prev, newPassword: '' }));
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="rounded-lg"
               placeholder="至少6个字符，可为纯数字"
               minLength={6}
               maxLength={20}
@@ -94,14 +96,14 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
               required
             />
             {resetPasswordErrors.newPassword && (
-              <p className="mt-1 text-xs text-red-500">{resetPasswordErrors.newPassword}</p>
+              <p className="mt-1 text-xs text-destructive">{resetPasswordErrors.newPassword}</p>
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              确认新密码 <span className="text-red-500">*</span>
-            </label>
-            <input
+            <Label className="text-foreground mb-2">
+              确认新密码 <span className="text-destructive">*</span>
+            </Label>
+            <Input
               type="password"
               value={resetPasswordForm.confirmPassword}
               onChange={(e) => {
@@ -109,7 +111,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
                 setResetPasswordForm((prev) => ({ ...prev, confirmPassword: value }));
                 setResetPasswordErrors((prev) => ({ ...prev, confirmPassword: '' }));
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="rounded-lg"
               placeholder="请再次输入新密码"
               minLength={6}
               maxLength={20}
@@ -117,10 +119,10 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
               required
             />
             {resetPasswordErrors.confirmPassword && (
-              <p className="mt-1 text-xs text-red-500">{resetPasswordErrors.confirmPassword}</p>
+              <p className="mt-1 text-xs text-destructive">{resetPasswordErrors.confirmPassword}</p>
             )}
           </div>
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-border">
             <Button
               variant="outline"
               onClick={onClose}
@@ -131,7 +133,7 @@ const ResetPasswordModal: React.FC<ResetPasswordModalProps> = ({
             <Button
               onClick={handleResetPasswordConfirm}
               disabled={isResettingPassword}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-primary hover:bg-primary/90"
             >
               {isResettingPassword ? '提交中...' : '确认修改'}
             </Button>

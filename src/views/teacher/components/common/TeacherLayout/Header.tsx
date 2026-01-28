@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { decodeToken, type DecodedToken } from '@/utils/auth';
 import { getRoleByBackendValue } from '@/config/roles';
 import { useConfirm } from '@/views/teacher/hooks/useConfirm';
-import { ConfirmDialog } from '../ConfirmDialog';
+import { ConfirmDialog } from '@/views/teacher/components/shadcn/TeacherConfirmDialog';
 import { apiClient } from '@/utils/apiClient';
 
 interface UserSummary {
@@ -108,10 +108,10 @@ const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
 
   return (
     <>
-      <header className="w-full bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50">
+      <header className="w-full bg-card border-b border-border shadow-sm fixed top-0 left-0 right-0 z-50">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-foreground">
               面向企业多源需求融合的生产计划决策虚拟仿真系统
             </h1>
           </div>
@@ -120,10 +120,10 @@ const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
             {!loading && user?.must_change_password && (
               <Link
                 to="/account-personal"
-                className="flex items-center space-x-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+                className="flex items-center space-x-2 px-3 py-2 bg-warning/10 border border-warning/20 rounded-lg hover:bg-warning/10 transition-colors"
               >
-                <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
-                <span className="text-sm font-medium text-amber-800">
+                <AlertTriangle size={16} className="text-warning flex-shrink-0" />
+                <span className="text-sm font-medium text-warning">
                   请尽快修改初始密码
                 </span>
               </Link>
@@ -131,16 +131,16 @@ const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
 
             <div className="flex items-center space-x-3 pl-4">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-semibold">
+                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                  <span className="text-primary-foreground text-sm font-semibold">
                     {getAvatarInitial()}
                   </span>
                 </div>
                 <div className="text-sm">
-                  <p className="font-medium text-gray-900">
+                  <p className="font-medium text-foreground">
                     {displayName}
                   </p>
-                  <p className="text-gray-500">
+                  <p className="text-muted-foreground">
                     {roleDisplay || ""}
                   </p>
                 </div>
@@ -148,7 +148,7 @@ const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
 
               <button
                 onClick={handleLogout}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
               >
                 <LogOut className="w-4 h-4" />
               </button>

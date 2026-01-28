@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Modal from '@/views/teacher/components/common/Modal';
-import Button from '@/views/teacher/components/common/Button';
+import Modal from '@/views/teacher/components/shadcn/TeacherModal';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
+import { Input } from '@/components/ui/input';
 import { apiClient } from '@/utils/apiClient';
 import type { Student } from '@/views/teacher/types';
 import { Loader, Search, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -81,14 +82,14 @@ const SelectStudentModal: React.FC<SelectStudentModalProps> = ({
     if (isLoading) {
       return (
         <div className="flex justify-center py-8">
-          <Loader className="animate-spin text-blue-600" size={28} />
+          <Loader className="animate-spin text-primary" size={28} />
         </div>
       );
     }
 
     if (error) {
       return (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg flex items-center space-x-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg flex items-center space-x-2">
           <AlertCircle size={18} />
           <span>{error}</span>
         </div>
@@ -96,7 +97,7 @@ const SelectStudentModal: React.FC<SelectStudentModalProps> = ({
     }
 
     if (filteredStudents.length === 0) {
-      return <p className="text-sm text-gray-500 text-center py-8">暂无可加入的学生</p>;
+      return <p className="text-sm text-muted-foreground text-center py-8">暂无可加入的学生</p>;
     }
 
     return (
@@ -108,17 +109,17 @@ const SelectStudentModal: React.FC<SelectStudentModalProps> = ({
           return (
             <div
               key={student.user_id}
-              className="flex items-center justify-between border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition"
+              className="flex items-center justify-between border border-border rounded-lg p-3 hover:bg-muted transition"
             >
               <div>
-                <p className="text-sm font-semibold text-gray-900">{student.full_name}</p>
-                <p className="text-xs text-gray-500">学号：{student.username}</p>
+                <p className="text-sm font-semibold text-foreground">{student.full_name}</p>
+                <p className="text-xs text-muted-foreground">学号：{student.username}</p>
               </div>
               <Button
                 size="sm"
                 onClick={() => handleEnroll(student)}
                 disabled={isLoading || isSuccess}
-                className={isSuccess ? 'bg-green-600 hover:bg-green-600' : undefined}
+                className={isSuccess ? 'bg-success hover:bg-success' : undefined}
               >
                 {isLoading ? (
                   <Loader className="animate-spin mr-2" size={16} />
@@ -138,17 +139,17 @@ const SelectStudentModal: React.FC<SelectStudentModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="从学生库中添加">
       <div className="space-y-4">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+          <Input
             type="search"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="按学号搜索（至少两位）"
-            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="pl-10 pr-3 rounded-lg"
           />
         </div>
         {renderContent()}
-        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+        <div className="flex justify-end space-x-3 pt-4 border-t border-border">
           <Button variant="outline" onClick={onClose}>
             关闭
           </Button>

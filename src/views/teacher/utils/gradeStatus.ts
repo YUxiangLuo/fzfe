@@ -33,16 +33,16 @@ export const getEvaluationBadge = (grade: StudentGradeOverview) => {
 
   switch (status) {
     case 'not-started':
-      return { text: '未开始', color: 'bg-gray-100 text-gray-600 border border-gray-200' };
+      return { text: '未开始', color: 'bg-muted text-muted-foreground border border-border' };
     case 'in-progress':
-      return { text: '进行中', color: 'bg-amber-100 text-amber-800 border border-amber-200' };
+      return { text: '进行中', color: 'bg-warning/10 text-warning border border-warning/20' };
     case 'waiting-evaluation':
-      return { text: '待评分', color: 'bg-indigo-100 text-indigo-800 border border-indigo-200' };
+      return { text: '待评分', color: 'bg-info/10 text-info border border-info/20' };
     case 'rejected':
-      return { text: '已驳回', color: 'bg-red-100 text-red-800 border border-red-200' };
+      return { text: '已驳回', color: 'bg-destructive/10 text-destructive border border-destructive/20' };
     case 'completed':
     default:
-      return { text: '已完成评分', color: 'bg-green-100 text-green-800 border border-green-200' };
+      return { text: '已完成评分', color: 'bg-success/10 text-success border border-success/20' };
   }
 };
 

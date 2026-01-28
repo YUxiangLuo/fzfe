@@ -1,12 +1,11 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import type { Class, Student } from '@/views/teacher/types';
-import Button from '@/views/teacher/components/common/Button';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
 import { apiClient } from '@/utils/apiClient';
 import { useToast } from '@/views/teacher/hooks/useToast';
 import { useConfirm } from '@/views/teacher/hooks/useConfirm';
-import { Toast } from '@/views/teacher/components/common/Toast';
-import { ConfirmDialog } from '@/views/teacher/components/common/ConfirmDialog';
+import { ConfirmDialog } from '@/views/teacher/components/shadcn/TeacherConfirmDialog';
 import { useClasses } from '@/views/teacher/hooks/useClasses';
 import { useRole } from '@/views/teacher/contexts/RoleContext';
 
@@ -25,7 +24,7 @@ interface CreateClassResponse {
 }
 
 const ClassManagement: React.FC = () => {
-  const { toast, showToast, hideToast } = useToast();
+  const { showToast } = useToast();
   const confirm = useConfirm();
   const { role } = useRole();
   const { classes, isLoading, error, addClass, updateClass, deleteClass } = useClasses();
@@ -148,10 +147,10 @@ const ClassManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">班级管理</h1>
+        <h1 className="text-2xl font-bold text-foreground">班级管理</h1>
         {role?.id === 'teacher' && (
           <div className="flex space-x-3">
-            <Button onClick={() => setShowCreateModal(true)} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={() => setShowCreateModal(true)} className="bg-primary hover:bg-primary/90">
               <Plus size={16} className="mr-2" />
               新增班级
             </Button>
@@ -196,14 +195,7 @@ const ClassManagement: React.FC = () => {
         result={createResult}
       />
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={hideToast}
-          position="bottom-right"
-        />
-      )}
+      
 
       <ConfirmDialog
         isOpen={confirm.isOpen}

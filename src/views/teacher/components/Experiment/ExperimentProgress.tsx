@@ -17,6 +17,10 @@ import type { Class, StudentExperimentProgress, ExperimentStep, ExperimentTimeli
 import { apiClient } from "@/utils/apiClient";
 import { decodeToken } from "@/utils/auth";
 import { UI_CONSTANTS } from "@/views/teacher/constants/ui";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 const STEP_DEFINITIONS: { id: string; label: string; order: number }[] = [
   { id: "industry_selection", label: "选择行业", order: 1 },
   { id: "company_selection", label: "选择企业", order: 2 },
@@ -33,26 +37,26 @@ const STATUS_CONFIG: Record<
 > = {
   "Completed": {
     label: "已完成",
-    badge: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-    dot: "bg-emerald-500",
+    badge: "bg-success/10 text-success border border-success/20",
+    dot: "bg-success",
   },
   "In Progress": {
     label: "进行中",
-    badge: "bg-blue-50 text-blue-700 border border-blue-200",
-    dot: "bg-blue-500",
+    badge: "bg-primary/10 text-primary border border-primary/20",
+    dot: "bg-primary",
   },
   "Not Started": {
     label: "实验已创建",
-    badge: "bg-slate-50 text-slate-600 border border-slate-200",
-    dot: "bg-slate-400",
+    badge: "bg-muted text-muted-foreground border border-border",
+    dot: "bg-muted",
   },
 };
 
 const getStatusConfig = (status: string) =>
   STATUS_CONFIG[status] ?? {
     label: status || "还未进行任何实验",
-    badge: "bg-slate-50 text-slate-600 border border-slate-200",
-    dot: "bg-slate-400",
+    badge: "bg-muted text-muted-foreground border border-border",
+    dot: "bg-muted",
   };
 
 type SortKey = "username" | "status" | "completion" | "steps";
@@ -302,46 +306,46 @@ const ExperimentProgress: React.FC = () => {
 
   const renderSortIcon = (key: SortKey) => {
     if (!sortConfig || sortConfig.key !== key) {
-      return <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />;
+      return <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground" />;
     }
     return sortConfig.direction === "desc" ? (
-      <ChevronDown className="w-3.5 h-3.5 text-blue-600" />
+      <ChevronDown className="w-3.5 h-3.5 text-primary" />
     ) : (
-      <ChevronUp className="w-3.5 h-3.5 text-blue-600" />
+      <ChevronUp className="w-3.5 h-3.5 text-primary" />
     );
   };
 
   const renderProgressRows = () => {
     if (!selectedClassId) {
       return (
-        <tr>
-          <td colSpan={8} className="py-12 text-center text-gray-500">
+        <TableRow>
+          <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
             请先选择一个班级查看学生的实验进度。
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     if (isLoadingProgress) {
       return (
-        <tr>
-          <td colSpan={8} className="py-12 text-center text-gray-500">
+        <TableRow>
+          <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
             <div className="flex items-center justify-center space-x-2">
               <Loader className="animate-spin" size={18} />
               <span>正在加载实验进度...</span>
             </div>
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
     if (filteredStudents.length === 0) {
       return (
-        <tr>
-          <td colSpan={8} className="py-12 text-center text-gray-500">
+        <TableRow>
+          <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
             {studentProgress.length === 0 ? "该班级暂无学生或实验数据。" : "未找到符合条件的学生。"}
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       );
     }
 
@@ -352,39 +356,39 @@ const ExperimentProgress: React.FC = () => {
 
       return (
         <React.Fragment key={student.student_id}>
-          <tr className="hover:bg-slate-50">
-            <td className="w-12 text-center text-sm text-gray-500">{index + 1}</td>
-            <td className="px-4 py-4 text-sm font-semibold text-gray-900">{student.full_name}</td>
-            <td className="px-4 py-4 text-sm text-gray-600">{student.username}</td>
-            <td className="px-4 py-4 text-sm text-gray-900">
+          <TableRow>
+            <TableCell className="w-12 text-center text-sm text-muted-foreground">{index + 1}</TableCell>
+            <TableCell className="px-4 py-4 text-sm font-semibold text-foreground">{student.full_name}</TableCell>
+            <TableCell className="px-4 py-4 text-sm text-muted-foreground">{student.username}</TableCell>
+            <TableCell className="px-4 py-4 text-sm text-foreground">
               <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.badge}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`} />
                 <span>{statusConfig.label}</span>
               </span>
-            </td>
-            <td className="px-4 py-4">
+            </TableCell>
+            <TableCell className="px-4 py-4">
               <div className="flex items-center space-x-2">
-                <div className="flex-1 h-2 rounded-full bg-slate-200">
+                <div className="flex-1 h-2 rounded-full bg-muted">
                   <div
                     className={`h-2 rounded-full ${
-                      completionPercent === 100 ? "bg-emerald-500" : "bg-blue-500"
+                      completionPercent === 100 ? "bg-success" : "bg-primary"
                     }`}
                     style={{ width: `${completionPercent}%` }}
                   />
                 </div>
-                <span className="text-sm text-gray-600 w-12 text-right">{completionPercent}%</span>
+                <span className="text-sm text-muted-foreground w-12 text-right">{completionPercent}%</span>
               </div>
-            </td>
-            <td className="px-4 py-4 text-sm text-gray-500 text-right">
+            </TableCell>
+            <TableCell className="px-4 py-4 text-sm text-muted-foreground text-right">
               {completedSteps}/{totalSteps} 步
-            </td>
-            <td className="px-4 py-4 text-sm text-gray-500 text-right">
+            </TableCell>
+            <TableCell className="px-4 py-4 text-sm text-muted-foreground text-right">
               {formatTime(student.last_activity_at)}
-            </td>
-            <td className="px-4 py-4 text-center">
+            </TableCell>
+            <TableCell className="px-4 py-4 text-center">
               <button
                 onClick={() => toggleRow(student.student_id)}
-                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition-all duration-200"
+                className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/10 hover:text-primary transition-all duration-200"
               >
                 {isExpanded ? (
                   <>
@@ -398,16 +402,16 @@ const ExperimentProgress: React.FC = () => {
                   </>
                 )}
               </button>
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
           {isExpanded && (
-            <tr className="bg-slate-50">
-              <td colSpan={8} className="px-8 py-6 space-y-6">
+            <TableRow className="bg-muted">
+              <TableCell colSpan={8} className="px-8 py-6 space-y-6">
                 <StudentSummary student={student} />
                 <StepOverview steps={student.steps ?? []} />
                 <Timeline timeline={student.timeline ?? []} />
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}
         </React.Fragment>
       );
@@ -418,49 +422,55 @@ const ExperimentProgress: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">实验进度</h1>
-          <p className="text-sm text-gray-500 mt-1">查看每位学生最近一次实验的完成情况与操作时间线。</p>
+          <h1 className="text-2xl font-bold text-foreground">实验进度</h1>
+          <p className="text-sm text-muted-foreground mt-1">查看每位学生最近一次实验的完成情况与操作时间线。</p>
           {currentClass && (
-            <p className="text-sm text-gray-500 mt-1">
-              当前班级：<span className="font-medium text-gray-900">{currentClass.class_name}</span>
+            <p className="text-sm text-muted-foreground mt-1">
+              当前班级：<span className="font-medium text-foreground">{currentClass.class_name}</span>
             </p>
           )}
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-card rounded-lg shadow-md p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">选择班级</label>
-            <select
+            <Label className="text-foreground mb-2">选择班级</Label>
+            <Select
               value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
+              onValueChange={setSelectedClassId}
               disabled={isLoadingClasses}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             >
-              {classes.length === 0 ? (
-                <option value="" disabled>
-                  {isLoadingClasses ? "加载中..." : "暂无班级"}
-                </option>
-              ) : (
-                classes.map((cls) => (
-                  <option key={cls.class_id} value={cls.class_id}>
-                    {cls.class_name}
-                  </option>
-                ))
-              )}
-            </select>
+              <SelectTrigger className="w-full" aria-label="选择班级">
+                <SelectValue
+                  placeholder={isLoadingClasses ? "加载中..." : classes.length === 0 ? "暂无班级" : "请选择班级"}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {classes.length === 0 ? (
+                  <SelectItem value="__empty__" disabled>
+                    {isLoadingClasses ? "加载中..." : "暂无班级"}
+                  </SelectItem>
+                ) : (
+                  classes.map((cls) => (
+                    <SelectItem key={cls.class_id} value={String(cls.class_id)}>
+                      {cls.class_name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
           </div>
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">按学号/姓名搜索</label>
+            <Label className="text-foreground mb-2">按学号/姓名搜索</Label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+              <Input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="输入学号或姓名"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="pl-10 pr-4 rounded-lg"
               />
             </div>
           </div>
@@ -468,7 +478,7 @@ const ExperimentProgress: React.FC = () => {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center space-x-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg flex items-center space-x-2">
           <AlertTriangle size={16} />
           <span>{error}</span>
         </div>
@@ -480,87 +490,87 @@ const ExperimentProgress: React.FC = () => {
           title="学生总数"
           value={summaryStats.total}
           description="当前班级的总学生数"
-          accent="bg-blue-100 text-blue-600"
+          accent="bg-primary/10 text-primary"
         />
         <SummaryCard
           icon={CheckCircle2}
           title="已完成"
           value={summaryStats.completed}
           description="已完成全部步骤"
-          accent="bg-emerald-100 text-emerald-600"
+          accent="bg-success/10 text-success"
         />
         <SummaryCard
           icon={PlayCircle}
           title="进行中"
           value={summaryStats.inProgress}
           description="正在执行实验流程"
-          accent="bg-blue-100 text-blue-600"
+          accent="bg-primary/10 text-primary"
         />
         <SummaryCard
           icon={Activity}
           title="平均完成度"
           value={`${summaryStats.averageCompletion}%`}
           description="所有学生的平均完成比例"
-          accent="bg-purple-100 text-purple-600"
+          accent="bg-accent/10 text-accent-foreground"
         />
       </div>
 
-      <div className="bg-white rounded-lg shadow-md">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">学生实验进度</h2>
+      <div className="bg-card rounded-lg shadow-md">
+        <div className="px-6 py-4 border-b border-border">
+          <h2 className="text-lg font-semibold text-foreground">学生实验进度</h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="w-12 text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <Table>
+            <TableHeader className="bg-muted">
+              <TableRow>
+                <TableHead className="w-12 text-xs font-medium text-muted-foreground uppercase tracking-wider">序号</TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">姓名</TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort("username")}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>学号</span>
                     {renderSortIcon("username")}
                   </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort("status")}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>实验状态</span>
                     {renderSortIcon("status")}
                   </button>
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort("completion")}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>完成进度</span>
                     {renderSortIcon("completion")}
                   </button>
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </TableHead>
+                <TableHead className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   <button
                     type="button"
                     onClick={() => handleSort("steps")}
-                    className="inline-flex items-center space-x-1 text-gray-600 hover:text-blue-600 focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
                   >
                     <span>完成步数</span>
                     {renderSortIcon("steps")}
                   </button>
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">最近操作时间</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">{renderProgressRows()}</tbody>
-          </table>
+                </TableHead>
+                <TableHead className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">最近操作时间</TableHead>
+                <TableHead className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="bg-card">{renderProgressRows()}</TableBody>
+          </Table>
         </div>
       </div>
     </div>
@@ -574,14 +584,14 @@ const SummaryCard: React.FC<{
   description: string;
   accent: string;
 }> = ({ icon: Icon, title, value, description, accent }) => (
-  <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center space-x-4">
+  <div className="bg-card border border-border rounded-xl p-4 flex items-center space-x-4">
     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${accent}`}>
       <Icon size={18} />
     </div>
     <div>
-      <p className="text-sm text-gray-500">{title}</p>
-      <p className="text-2xl font-semibold text-gray-900">{value}</p>
-      <p className="text-xs text-gray-400 mt-1">{description}</p>
+      <p className="text-sm text-muted-foreground">{title}</p>
+      <p className="text-2xl font-semibold text-foreground">{value}</p>
+      <p className="text-xs text-muted-foreground mt-1">{description}</p>
     </div>
   </div>
 );
@@ -607,21 +617,21 @@ const SummaryItem: React.FC<{ label: string; value: string; badgeClass?: string 
   value,
   badgeClass,
 }) => (
-  <div className="bg-white border border-gray-200 rounded-xl p-4">
-    <p className="text-xs text-gray-500">{label}</p>
+  <div className="bg-card border border-border rounded-xl p-4">
+    <p className="text-xs text-muted-foreground">{label}</p>
     {badgeClass ? (
       <span className={`inline-flex items-center px-2.5 py-1 mt-2 rounded-full text-xs font-medium ${badgeClass}`}>
         {value}
       </span>
     ) : (
-      <p className="text-sm font-medium text-gray-900 mt-1">{value}</p>
+      <p className="text-sm font-medium text-foreground mt-1">{value}</p>
     )}
   </div>
 );
 
 const StepOverview: React.FC<{ steps: ExperimentStep[] }> = ({ steps }) => (
   <div>
-    <h4 className="text-sm font-semibold text-gray-900 mb-3">步骤完成情况</h4>
+    <h4 className="text-sm font-semibold text-foreground mb-3">步骤完成情况</h4>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {STEP_DEFINITIONS.map((stepDef) => {
         const stepData = steps.find((step) => step.step_order === stepDef.order);
@@ -642,24 +652,24 @@ const StepOverview: React.FC<{ steps: ExperimentStep[] }> = ({ steps }) => (
 
         const iconClass =
           status === "completed"
-            ? "bg-emerald-500 text-white"
+            ? "bg-success text-primary-foreground"
             : status === "started"
-            ? "bg-blue-500 text-white"
-            : "bg-slate-200 text-slate-500";
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted text-muted-foreground";
 
         return (
           <div
             key={stepDef.id}
-            className={`rounded-xl border p-4 flex items-start space-x-3 bg-white ${
-              status === "completed" ? "border-emerald-200" : "border-slate-200"
+            className={`rounded-xl border p-4 flex items-start space-x-3 bg-card ${
+              status === "completed" ? "border-success/20" : "border-border"
             }`}
           >
             <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${iconClass}`}>
               {icon}
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">{stepDef.label}</p>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-sm font-medium text-foreground">{stepDef.label}</p>
+              <p className="text-xs text-muted-foreground mt-1">
                 {status === "completed"
                   ? `完成：${formatTime(stepData?.completed_at)}`
                   : status === "started"
@@ -682,9 +692,9 @@ const Timeline: React.FC<{ timeline: ExperimentTimelineEvent[] }> = ({ timeline 
 
   return (
     <div>
-      <h4 className="text-sm font-semibold text-gray-900 mb-3">操作时间线</h4>
+      <h4 className="text-sm font-semibold text-foreground mb-3">操作时间线</h4>
       {sorted.length === 0 ? (
-        <p className="text-sm text-gray-500">暂无操作记录。</p>
+        <p className="text-sm text-muted-foreground">暂无操作记录。</p>
       ) : (
         <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
           {sorted.map((event) => {
@@ -695,18 +705,18 @@ const Timeline: React.FC<{ timeline: ExperimentTimelineEvent[] }> = ({ timeline 
             return (
               <div
                 key={event.event_id}
-                className="flex items-start space-x-3 border border-gray-200 bg-white rounded-lg p-3"
+                className="flex items-start space-x-3 border border-border bg-card rounded-lg p-3"
               >
                 <div
                   className={`mt-1 w-2 h-2 rounded-full ${
-                    isCompleted ? "bg-emerald-500" : "bg-blue-500"
+                    isCompleted ? "bg-success" : "bg-primary"
                   }`}
                 />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-foreground">
                     {isCompleted ? "完成" : "开始"} · {stepLabel}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {formatTime(event.event_timestamp)}
                   </p>
                 </div>

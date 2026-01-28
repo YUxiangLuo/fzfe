@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import Modal from '@/views/teacher/components/common/Modal';
-import Button from '@/views/teacher/components/common/Button';
+import Modal from '@/views/teacher/components/shadcn/TeacherModal';
+import Button from '@/views/teacher/components/shadcn/TeacherButton';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { validateUsername, validateFullName, validateEmail, validatePhone, validatePassword } from '@/views/teacher/utils/validation';
 import { UI_CONSTANTS } from '@/views/teacher/constants/ui';
 import type { Class } from '@/views/teacher/types';
@@ -123,54 +125,54 @@ const CreateAssistantModal: React.FC<CreateAssistantModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="创建新助教">
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            姓名 <span className="text-red-500">*</span>
-          </label>
-          <input name="full_name" value={newAssistant.full_name} onChange={handleInputChange} placeholder="例如：张老师" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" minLength={2} maxLength={20} required />
-          <p className="mt-1 text-xs text-gray-500">2-20个字符，允许中文和英文</p>
+        <div className="space-y-4">
+          <div>
+          <Label className="text-foreground mb-2">
+            姓名 <span className="text-destructive">*</span>
+          </Label>
+          <Input name="full_name" value={newAssistant.full_name} onChange={handleInputChange} placeholder="例如：张老师" className="rounded-lg" minLength={2} maxLength={20} required />
+          <p className="mt-1 text-xs text-muted-foreground">2-20个字符，允许中文和英文</p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            用户名 <span className="text-red-500">*</span>
-          </label>
-          <input name="username" value={newAssistant.username} onChange={handleInputChange} placeholder="例如：zhang_assistant" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" minLength={3} maxLength={20} pattern="[a-zA-Z0-9_]+" required />
-          <p className="mt-1 text-xs text-gray-500">3-20个字符，只能包含英文、数字和下划线</p>
+          <Label className="text-foreground mb-2">
+            用户名 <span className="text-destructive">*</span>
+          </Label>
+          <Input name="username" value={newAssistant.username} onChange={handleInputChange} placeholder="例如：zhang_assistant" className="rounded-lg" minLength={3} maxLength={20} pattern="[a-zA-Z0-9_]+" required />
+          <p className="mt-1 text-xs text-muted-foreground">3-20个字符，只能包含英文、数字和下划线</p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            初始密码 <span className="text-red-500">*</span>
-          </label>
-          <input name="password" type="password" value={newAssistant.password} onChange={handleInputChange} placeholder={`至少${UI_CONSTANTS.PASSWORD_MIN_LENGTH}个字符`} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" minLength={UI_CONSTANTS.PASSWORD_MIN_LENGTH} maxLength={UI_CONSTANTS.PASSWORD_MAX_LENGTH} required />
-          <p className="mt-1 text-xs text-gray-500">{UI_CONSTANTS.PASSWORD_MIN_LENGTH}-{UI_CONSTANTS.PASSWORD_MAX_LENGTH}个字符</p>
+          <Label className="text-foreground mb-2">
+            初始密码 <span className="text-destructive">*</span>
+          </Label>
+          <Input name="password" type="password" value={newAssistant.password} onChange={handleInputChange} placeholder={`至少${UI_CONSTANTS.PASSWORD_MIN_LENGTH}个字符`} className="rounded-lg" minLength={UI_CONSTANTS.PASSWORD_MIN_LENGTH} maxLength={UI_CONSTANTS.PASSWORD_MAX_LENGTH} required />
+          <p className="mt-1 text-xs text-muted-foreground">{UI_CONSTANTS.PASSWORD_MIN_LENGTH}-{UI_CONSTANTS.PASSWORD_MAX_LENGTH}个字符</p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            邮箱 <span className="text-red-500">*</span>
-          </label>
-          <input name="email" type="email" value={newAssistant.email} onChange={handleInputChange} placeholder="example@email.com" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required />
-          <p className="mt-1 text-xs text-gray-500">用于接收系统通知</p>
+          <Label className="text-foreground mb-2">
+            邮箱 <span className="text-destructive">*</span>
+          </Label>
+          <Input name="email" type="email" value={newAssistant.email} onChange={handleInputChange} placeholder="example@email.com" className="rounded-lg" required />
+          <p className="mt-1 text-xs text-muted-foreground">用于接收系统通知</p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            手机号 <span className="text-red-500">*</span>
-          </label>
-          <input
+          <Label className="text-foreground mb-2">
+            手机号 <span className="text-destructive">*</span>
+          </Label>
+          <Input
             name="phone_number"
             type="tel"
             value={newAssistant.phone_number}
             onChange={handleInputChange}
             placeholder="请输入11位手机号"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="rounded-lg"
             pattern="1[3-9]\d{9}"
             required
           />
-          <p className="mt-1 text-xs text-gray-500">请输入11位中国大陆手机号</p>
+          <p className="mt-1 text-xs text-muted-foreground">请输入11位中国大陆手机号</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">分配班级</label>
+          <Label className="text-foreground mb-2">分配班级</Label>
           <div className="max-h-40 overflow-y-auto border rounded-lg p-2 space-y-2">
             {managedClasses.map(cls => (
               <div key={cls.class_id} className="flex items-center">
@@ -179,9 +181,9 @@ const CreateAssistantModal: React.FC<CreateAssistantModalProps> = ({
                   id={`create-cls-${cls.class_id}`}
                   checked={selectedClassIds.includes(cls.class_id)}
                   onChange={() => handleClassSelection(cls.class_id)}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
                 />
-                <label htmlFor={`create-cls-${cls.class_id}`} className="ml-3 text-sm text-gray-700">{cls.class_name}</label>
+                <Label htmlFor={`create-cls-${cls.class_id}`} className="ml-3 text-sm text-foreground">{cls.class_name}</Label>
               </div>
             ))}
           </div>
