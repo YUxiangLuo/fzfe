@@ -1,0 +1,471 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+    Card,
+    Table,
+    Button,
+    Space,
+    Modal,
+    Form,
+    Input,
+    Upload,
+    message,
+    Spin,
+    Alert,
+    Typography,
+    Result,
+    List
+} from 'antd';
+import type { UploadFile, UploadProps } from 'antd';
+import {
+    PlusOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    TeamOutlined,
+    UploadOutlined,
+    ExclamationCircleOutlined
+} from '@ant-design/icons';
+import { apiClient } from '../../../../utils/apiClient';
+import { decodeToken } from '../../../../utils/auth';
+import type { Class, Student } from '../../types';
+
+const { Title, Text } = Typography;
+const { confirm } = Modal;
+
+interface CreateClassResponse {
+    class: Class;
+    students_created: number;
+    students_enrolled: number;
+    students: Student[];
+    errors: string[];
+}
+
+const ClassManagement: React.FC = () => {
+    const [classes, setClasses] = useState<Class[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    // Modal states
+    const [createModalOpen, setCreateModalOpen] = useState(false);
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [studentsModalOpen, setStudentsModalOpen] = useState(false);
+    const [resultModalOpen, setResultModalOpen] = useState(false);
+
+    const [selectedClass, setSelectedClass] = useState<Class | null>(null);
+    const [students, setStudents] = useState<Student[]>([]);
+    const [isStudentsLoading, setIsStudentsLoading] = useState(false);
+    const [createResult, setCreateResult] = useState<CreateClassResponse | null>(null);
+
+    const [createForm] = Form.useForm();
+    const [editForm] = Form.useForm();
+    const [fileList, setFileList] = useState<UploadFile[]>([]);
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Fetch classes
+    const fetchClasses = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) throw new Error('Authentication token not found.');
+            const decoded = decodeToken(token);
+            if (!decoded) throw new Error('Invalid token.');
+
+            const teacherId = decoded.sub;
+            const data = await apiClient.get(`/teachers/${teacherId}/classes`);
+            setClasses(data || []);
+        } catch (err: any) {
+            setError(err.message || 'Failed to fetch classes.');
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchClasses();
+    }, [fetchClasses]);
+
+    // Create class handler
+    const handleCreateClass = async (values: any) => {
+        setIsSaving(true);
+        try {
+            const formData = new FormData();
+            formData.append('class_name', values.class_name);
+            formData.append('class_code', values.class_code);
+            const fileList = createForm.getFieldValue('students_file');
+            if (fileList && fileList.length > 0) {
+                const file = fileList[0];
+                if (file && file.originFileObj) {
+                    formData.append('students_file', file.originFileObj);
+                }
+            }
+
+            const result = await apiClient.postFormData<CreateClassResponse>('/classes', formData);
+
+            setClasses(prev => [result.class, ...prev]);
+            setCreateResult(result);
+            setCreateModalOpen(false);
+            setResultModalOpen(true);
+            createForm.resetFields();
+            setFileList([]);
+            message.success('班级创建成功');
+        } catch (err: any) {
+            message.error(err.message || '创建失败');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Edit class handler
+    const handleEditClass = async (values: any) => {
+        if (!selectedClass) return;
+
+        setIsSaving(true);
+        try {
+            const updatedClass = await apiClient.put<Class>(`/classes/${selectedClass.class_id}`, {
+                class_name: values.class_name,
+                class_code: values.class_code,
+            });
+
+            setClasses(prev => prev.map(c =>
+                c.class_id === selectedClass.class_id
+                    ? { ...c, ...updatedClass }
+                    : c
+            ));
+
+            setEditModalOpen(false);
+            setSelectedClass(null);
+            editForm.resetFields();
+            message.success('班级信息更新成功');
+        } catch (err: any) {
+            message.error(err.message || '更新失败');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Delete class handler
+    const handleDeleteClass = (classItem: Class) => {
+        confirm({
+            title: `确定要删除班级"${classItem.class_name}"吗？`,
+            icon: <ExclamationCircleOutlined />,
+            content: '此操作不可撤销，删除班级将同时移除该班级下的所有关联数据。',
+            okText: '删除',
+            okType: 'danger',
+            cancelText: '取消',
+            onOk: async () => {
+                try {
+                    await apiClient.delete(`/classes/${classItem.class_id}`);
+                    setClasses(prev => prev.filter(c => c.class_id !== classItem.class_id));
+                    message.success('班级删除成功');
+                } catch (err: any) {
+                    message.error(err.message || '删除失败');
+                }
+            },
+        });
+    };
+
+    // View students handler
+    const handleViewStudents = async (classItem: Class) => {
+        setSelectedClass(classItem);
+        setStudentsModalOpen(true);
+        setStudents([]);
+        setIsStudentsLoading(true);
+
+        try {
+            const response = await apiClient.get(`/classes/${classItem.class_id}`);
+            setStudents(response.students || []);
+        } catch (err: any) {
+            message.error(err.message || '获取学生列表失败');
+        } finally {
+            setIsStudentsLoading(false);
+        }
+    };
+
+    // Open edit modal
+    const openEditModal = (classItem: Class) => {
+        setSelectedClass(classItem);
+        editForm.setFieldsValue({
+            class_name: classItem.class_name,
+            class_code: classItem.class_code,
+        });
+        setEditModalOpen(true);
+    };
+
+    // Upload props
+    const uploadProps: UploadProps = {
+        maxCount: 1,
+        beforeUpload: (file) => {
+            const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                || file.type === 'application/vnd.ms-excel'
+                || file.name.endsWith('.xlsx')
+                || file.name.endsWith('.xls');
+
+            if (!isExcel) {
+                message.error('只支持 Excel 文件 (.xlsx, .xls)');
+                return Upload.LIST_IGNORE;
+            }
+            return false; // Don't auto upload
+        },
+        fileList,
+        onChange: ({ fileList }) => setFileList(fileList),
+        onRemove: () => setFileList([]),
+    };
+
+    // Table columns
+    const columns = [
+        {
+            title: '班级名称',
+            dataIndex: 'class_name',
+            key: 'class_name',
+        },
+        {
+            title: '班级编号',
+            dataIndex: 'class_code',
+            key: 'class_code',
+        },
+        {
+            title: '操作',
+            key: 'action',
+            render: (_: any, record: Class) => (
+                <Space>
+                    <Button
+                        type="link"
+                        icon={<TeamOutlined />}
+                        onClick={() => handleViewStudents(record)}
+                    >
+                        学生列表
+                    </Button>
+                    <Button
+                        type="link"
+                        icon={<EditOutlined />}
+                        onClick={() => openEditModal(record)}
+                    >
+                        编辑
+                    </Button>
+                    <Button
+                        type="link"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => handleDeleteClass(record)}
+                    >
+                        删除
+                    </Button>
+                </Space>
+            ),
+        },
+    ];
+
+    // Student table columns
+    const studentColumns = [
+        {
+            title: '学号',
+            dataIndex: 'username',
+            key: 'username',
+        },
+        {
+            title: '姓名',
+            dataIndex: 'full_name',
+            key: 'full_name',
+        },
+        {
+            title: '邮箱',
+            dataIndex: 'email',
+            key: 'email',
+        },
+    ];
+
+    if (isLoading) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+                <Spin size="large">
+                    <div style={{ padding: 50, textAlign: 'center' }}>加载中...</div>
+                </Spin>
+            </div>
+        );
+    }
+
+    if (error) {
+        return <Alert title="加载失败" description={error} type="error" showIcon />;
+    }
+
+    return (
+        <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <Title level={3} style={{ marginBottom: 0 }}>班级管理</Title>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+                    新增班级
+                </Button>
+            </div>
+
+            <Card>
+                <Table
+                    dataSource={classes}
+                    columns={columns}
+                    rowKey="class_id"
+                    pagination={{ pageSize: 10 }}
+                    locale={{ emptyText: '暂无班级' }}
+                />
+            </Card>
+
+            {/* Create Class Modal */}
+            <Modal
+                title="新增班级"
+                open={createModalOpen}
+                onCancel={() => {
+                    setCreateModalOpen(false);
+                    createForm.resetFields();
+                    setFileList([]);
+                }}
+                onOk={() => createForm.submit()}
+                confirmLoading={isSaving}
+                okText="创建"
+                cancelText="取消"
+                width={600}
+            >
+                <Form form={createForm} layout="vertical" onFinish={handleCreateClass}>
+                    <Form.Item
+                        label="班级名称"
+                        name="class_name"
+                        rules={[
+                            { required: true, message: '请输入班级名称', whitespace: true },
+                            { min: 2, message: '班级名称至少2个字符' },
+                        ]}
+                    >
+                        <Input placeholder="请输入班级名称" />
+                    </Form.Item>
+                    <Form.Item
+                        label="班级编号"
+                        name="class_code"
+                        rules={[
+                            { required: true, message: '请输入班级编号', whitespace: true },
+                        ]}
+                    >
+                        <Input placeholder="请输入班级编号" />
+                    </Form.Item>
+                    <Form.Item label="学生名单（可选）" extra="上传 Excel 文件批量导入学生">
+                        <Upload {...uploadProps}>
+                            <Button icon={<UploadOutlined />}>选择文件</Button>
+                        </Upload>
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            {/* Edit Class Modal */}
+            <Modal
+                title="编辑班级"
+                open={editModalOpen}
+                onCancel={() => {
+                    setEditModalOpen(false);
+                    setSelectedClass(null);
+                    editForm.resetFields();
+                }}
+                onOk={() => editForm.submit()}
+                confirmLoading={isSaving}
+                okText="保存"
+                cancelText="取消"
+            >
+                <Form form={editForm} layout="vertical" onFinish={handleEditClass}>
+                    <Form.Item
+                        label="班级名称"
+                        name="class_name"
+                        rules={[
+                            { required: true, message: '请输入班级名称', whitespace: true },
+                            { min: 2, message: '班级名称至少2个字符' },
+                        ]}
+                    >
+                        <Input placeholder="请输入班级名称" />
+                    </Form.Item>
+                    <Form.Item
+                        label="班级编号"
+                        name="class_code"
+                        rules={[
+                            { required: true, message: '请输入班级编号', whitespace: true },
+                        ]}
+                    >
+                        <Input placeholder="请输入班级编号" />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            {/* View Students Modal */}
+            <Modal
+                title={`学生列表 - ${selectedClass?.class_name || ''}`}
+                open={studentsModalOpen}
+                onCancel={() => {
+                    setStudentsModalOpen(false);
+                    setSelectedClass(null);
+                    setStudents([]);
+                }}
+                footer={[
+                    <Button key="close" onClick={() => setStudentsModalOpen(false)}>
+                        关闭
+                    </Button>
+                ]}
+                width={700}
+            >
+                {isStudentsLoading ? (
+                    <div style={{ textAlign: 'center', padding: 24 }}>
+                        <Spin />
+                    </div>
+                ) : (
+                    <Table
+                        dataSource={students}
+                        columns={studentColumns}
+                        rowKey="user_id"
+                        pagination={{ pageSize: 5 }}
+                        size="small"
+                        locale={{ emptyText: '暂无学生' }}
+                    />
+                )}
+            </Modal>
+
+            {/* Create Result Modal */}
+            <Modal
+                title="创建结果"
+                open={resultModalOpen}
+                onCancel={() => {
+                    setResultModalOpen(false);
+                    setCreateResult(null);
+                }}
+                footer={[
+                    <Button key="close" type="primary" onClick={() => {
+                        setResultModalOpen(false);
+                        setCreateResult(null);
+                    }}>
+                        确定
+                    </Button>
+                ]}
+                width={600}
+            >
+                {createResult && (
+                    <Result
+                        status="success"
+                        title="班级创建成功"
+                        subTitle={`班级 "${createResult.class.class_name}" 已成功创建`}
+                    >
+                        <div style={{ textAlign: 'left' }}>
+                            <p><Text strong>新建学生数：</Text>{createResult.students_created}</p>
+                            <p><Text strong>注册学生数：</Text>{createResult.students_enrolled}</p>
+                            {createResult.errors?.length > 0 && (
+                                <>
+                                    <Text type="warning" strong>导入错误：</Text>
+                                    <List
+                                        size="small"
+                                        dataSource={createResult.errors}
+                                        renderItem={(item) => (
+                                            <List.Item>
+                                                <Text type="danger">{item}</Text>
+                                            </List.Item>
+                                        )}
+                                    />
+                                </>
+                            )}
+                        </div>
+                    </Result>
+                )}
+            </Modal>
+        </div>
+    );
+};
+
+export default ClassManagement;
