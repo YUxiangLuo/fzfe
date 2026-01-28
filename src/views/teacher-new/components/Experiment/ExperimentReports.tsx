@@ -26,6 +26,7 @@ import {
     SyncOutlined,
     DownloadOutlined,
     ExportOutlined,
+    FileZipOutlined,
     EditOutlined,
     CloseCircleOutlined,
     ExclamationCircleOutlined
@@ -65,6 +66,10 @@ const ExperimentReports: React.FC = () => {
     // CSV export state
     const [isExportingCsv, setIsExportingCsv] = useState(false);
     const [exportedCsvUrl, setExportedCsvUrl] = useState<string | null>(null);
+
+    // Reports archive export state
+    const [isExportingReports, setIsExportingReports] = useState(false);
+    const [exportedFileUrl, setExportedFileUrl] = useState<string | null>(null);
 
     // Fetch classes
     useEffect(() => {
@@ -165,6 +170,29 @@ const ExperimentReports: React.FC = () => {
             setIsExportingCsv(false);
         }
     }, [selectedClassId, reports.length, isExportingCsv]);
+
+    // Export all reports as ZIP
+    const handleExportReports = useCallback(async () => {
+        if (!selectedClassId || reports.length === 0 || isExportingReports) return;
+        setIsExportingReports(true);
+        setExportedFileUrl(null);
+        try {
+            const response = await apiClient.get<{ file_path: string }>(`/classes/${selectedClassId}/report-archive`);
+
+            if (!response || !response.file_path) {
+                throw new Error("导出失败：服务器未返回文件地址");
+            }
+
+            const filename = response.file_path.split("/").pop();
+            const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/exports/${filename}`;
+            setExportedFileUrl(fullUrl);
+            message.success('报告文件导出成功');
+        } catch (err: any) {
+            message.error(err.message || "导出实验报告失败，请稍后再试。");
+        } finally {
+            setIsExportingReports(false);
+        }
+    }, [selectedClassId, reports.length, isExportingReports]);
 
     // Format datetime
     const formatDateTime = (value: string | null) => {
@@ -422,25 +450,46 @@ const ExperimentReports: React.FC = () => {
                         />
                     </div>
                     <div style={{ marginLeft: 'auto' }}>
-                        {exportedCsvUrl ? (
-                            <Button
-                                type="primary"
-                                icon={<DownloadOutlined />}
-                                href={exportedCsvUrl}
-                                target="_blank"
-                            >
-                                下载 CSV
-                            </Button>
-                        ) : (
-                            <Button
-                                icon={<ExportOutlined />}
-                                onClick={handleExportCsv}
-                                loading={isExportingCsv}
-                                disabled={!selectedClassId || filteredReports.length === 0}
-                            >
-                                导出 CSV
-                            </Button>
-                        )}
+                        <Space>
+                            {exportedFileUrl ? (
+                                <Button
+                                    type="primary"
+                                    icon={<DownloadOutlined />}
+                                    href={exportedFileUrl}
+                                    target="_blank"
+                                >
+                                    下载报告文件
+                                </Button>
+                            ) : (
+                                <Button
+                                    icon={<FileZipOutlined />}
+                                    onClick={handleExportReports}
+                                    loading={isExportingReports}
+                                    disabled={!selectedClassId || filteredReports.length === 0}
+                                >
+                                    导出所有报告
+                                </Button>
+                            )}
+                            {exportedCsvUrl ? (
+                                <Button
+                                    type="primary"
+                                    icon={<DownloadOutlined />}
+                                    href={exportedCsvUrl}
+                                    target="_blank"
+                                >
+                                    下载 CSV
+                                </Button>
+                            ) : (
+                                <Button
+                                    icon={<ExportOutlined />}
+                                    onClick={handleExportCsv}
+                                    loading={isExportingCsv}
+                                    disabled={!selectedClassId || filteredReports.length === 0}
+                                >
+                                    导出 CSV
+                                </Button>
+                            )}
+                        </Space>
                     </div>
                 </Space>
             </Card>
