@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { useExperimentStore, setToastFunction } from "./ExperimentContext.zustand";
-import { useToast } from "../../../shared/contexts/ToastContext";
+import { useToast } from "../shared/contexts/ToastContext";
 
 interface ExperimentStoreProviderProps {
   children: ReactNode;

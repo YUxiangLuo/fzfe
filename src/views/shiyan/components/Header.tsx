@@ -4,7 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import { apiClient } from "../../../utils/apiClient";
 import { getRoleByBackendValue } from "../../../config/roles";
 import { ROUTES, getLogoutRedirectPath } from "../constants/routes";
-import { useConfirm } from "../../../shared/contexts/ConfirmContext";
+import { useConfirm } from "../shared/contexts/ConfirmContext";
 
 interface UserSummary {
   user_id: number;

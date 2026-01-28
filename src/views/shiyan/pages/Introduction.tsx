@@ -21,8 +21,8 @@ import {
   ClipboardList,
   LogOut, // Added LogOut icon
 } from "lucide-react";
-import Button from '../../../shared/components/common/Button';
-import { useConfirm } from "../../../shared/contexts/ConfirmContext";
+import Button from '../shared/components/common/Button';
+import { useConfirm } from "../shared/contexts/ConfirmContext";
 
 interface Manual {
   file_name: string;

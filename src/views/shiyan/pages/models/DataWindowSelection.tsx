@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import { AlertTriangle, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { MonthlySalesRecord } from '../../data/historicalDatasets';
-import { useConfirm } from '../../../../shared/contexts/ConfirmContext';
-import Button from '../../../../shared/components/common/Button';
+import { useConfirm } from '../../shared/contexts/ConfirmContext';
+import Button from '../../shared/components/common/Button';
 
 // 常量配置
 const MIN_TRAINING_POINTS = 2; // 训练集至少需要2个数据点

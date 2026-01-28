@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { TrendingUp, ArrowRight, Calculator, Info, Loader2, Package, AlertCircle } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
-import { useToast } from '@/shared/hooks/useToast';
-import { Toast } from '@/shared/components/common/Toast';
+import { useToast } from '../../../shared/hooks/useToast';
+import { Toast } from '../../../shared/components/common/Toast';
 
 // 模型名称映射
 const MODEL_NAME_MAP: Record<string, string> = {

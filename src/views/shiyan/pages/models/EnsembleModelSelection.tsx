@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
-import Button from "@/shared/components/common/Button";
+import Button from "../../shared/components/common/Button";
 import {
   Scale,
   Sparkles,

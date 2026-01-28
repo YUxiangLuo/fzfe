@@ -1,5 +1,5 @@
 import React from 'react';
-import Button from '../../../../../shared/components/common/Button';
+import Button from '../../../shared/components/common/Button';
 import { Clock, AlertCircle } from 'lucide-react';
 
 interface CalculationStatusProps {

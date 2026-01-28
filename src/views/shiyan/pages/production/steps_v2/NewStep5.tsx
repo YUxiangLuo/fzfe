@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { PlayCircle, ArrowRight, Calculator, Info, Zap } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
-import { useToast } from '@/shared/hooks/useToast';
-import { Toast } from '@/shared/components/common/Toast';
+import { useToast } from '../../../shared/hooks/useToast';
+import { Toast } from '../../../shared/components/common/Toast';
 
 /**
  * Step 5: 投入量

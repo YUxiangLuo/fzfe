@@ -3,7 +3,7 @@ import { CheckCircle } from 'lucide-react';
 import type { AdfStationarityRow } from '../../../contexts/ExperimentContext.zustand';
 import CalculationStatus from '../components/CalculationStatus';
 import type { NavigateFunction } from 'react-router-dom';
-import Button from '../../../../../shared/components/common/Button';
+import Button from '../../../shared/components/common/Button';
 
 export interface StationarityTableProps {
   adfResults: AdfStationarityRow[];

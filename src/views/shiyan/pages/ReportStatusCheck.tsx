@@ -4,7 +4,7 @@ import { AlertCircle, FileText, RefreshCw, Loader2, Clock, Hash } from 'lucide-r
 import { apiClient } from '../../../utils/apiClient';
 import { DOWNLOAD_SERVER_BASE_URL } from '../../../config/appConfig';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
-import Button from '../../../shared/components/common/Button';
+import Button from '../shared/components/common/Button';
 
 // 接口定义
 interface ExperimentInfo {

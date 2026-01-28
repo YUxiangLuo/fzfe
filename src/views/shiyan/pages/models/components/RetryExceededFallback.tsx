@@ -1,6 +1,6 @@
 import React from 'react';
 import type { NavigateFunction } from 'react-router-dom';
-import Button from '../../../../../shared/components/common/Button';
+import Button from '../../../shared/components/common/Button';
 
 interface RetryExceededFallbackProps {
   navigate: NavigateFunction;
