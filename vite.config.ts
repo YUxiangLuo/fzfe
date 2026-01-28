@@ -12,9 +12,9 @@ function spaFallbackPlugin(): Plugin {
 
         // 如果是 API 请求或静态资源，跳过
         if (url.startsWith('/api') ||
-            url.includes('.') ||
-            url.startsWith('/@') ||
-            url.startsWith('/node_modules')) {
+          url.includes('.') ||
+          url.startsWith('/@') ||
+          url.startsWith('/node_modules')) {
           return next();
         }
 
@@ -23,6 +23,8 @@ function spaFallbackPlugin(): Plugin {
           req.url = '/exp.html';
         } else if (url.startsWith('/teacher')) {
           req.url = '/teacher.html';
+        } else if (url.startsWith('/admin-old')) {
+          req.url = '/admin_old.html';
         } else if (url.startsWith('/admin')) {
           req.url = '/admin.html';
         } else if (url.startsWith('/login') || url === '/') {
@@ -53,7 +55,9 @@ export default defineConfig({
         login: resolve(__dirname, 'login.html'),
         admin: resolve(__dirname, 'admin.html'),
         teacher: resolve(__dirname, 'teacher.html'),
+
         exp: resolve(__dirname, 'exp.html'),
+        'admin-old': resolve(__dirname, 'admin_old.html'),
       },
     },
   },
