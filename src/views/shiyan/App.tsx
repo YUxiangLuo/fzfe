@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useExperiment } from './contexts/ExperimentContext.zustand';
 import { ExperimentStoreProvider } from './contexts/ExperimentStoreProvider';
-import { ConfirmProvider } from '../../shared/contexts/ConfirmContext';
+import { ConfirmProvider } from './shared/contexts/ConfirmContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import IndustrySelection from './pages/IndustrySelection';
@@ -66,7 +66,7 @@ const MainLayout = () => {
   );
 };
 
-import { ToastProvider } from '../../shared/contexts/ToastContext';
+import { ToastProvider } from './shared/contexts/ToastContext';
 
 function App() {
   return (

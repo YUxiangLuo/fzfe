@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
 import { Package, ArrowRight } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
-import { useConfirm } from '../../../shared/contexts/ConfirmContext';
-import Button from '../../../shared/components/common/Button';
+import { useConfirm } from '../shared/contexts/ConfirmContext';
+import Button from '../shared/components/common/Button';
 
 const ProductSelection: React.FC = () => {
   const navigate = useNavigate();

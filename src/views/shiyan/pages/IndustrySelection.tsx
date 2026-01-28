@@ -15,8 +15,8 @@ import {
     Factory,
 } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
-import { useConfirm } from '../../../shared/contexts/ConfirmContext';
-import Button from '../../../shared/components/common/Button';
+import { useConfirm } from '../shared/contexts/ConfirmContext';
+import Button from '../shared/components/common/Button';
 
 // Create a mapping from industry names to specific icons
 const INDUSTRY_ICON_MAP: { [key: string]: React.ElementType } = {

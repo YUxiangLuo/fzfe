@@ -18,10 +18,10 @@ import {
   Cell,
 } from 'recharts';
 import type { MonthlySalesRecord } from '../data/historicalDatasets';
-import { useToast } from '@/shared/hooks/useToast';
-import { Toast } from '@/shared/components/common/Toast';
+import { useToast } from '../shared/hooks/useToast';
+import { Toast } from '../shared/components/common/Toast';
 import { ROUTES } from '../constants/routes';
-import Button from '../../../shared/components/common/Button';
+import Button from '../shared/components/common/Button';
 
 // 常量配置
 const CURRENT_STEP = 4;

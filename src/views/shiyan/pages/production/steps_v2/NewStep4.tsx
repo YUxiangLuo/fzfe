@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Target, ArrowRight, Calculator, Info, BarChart2, Shield } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
-import { useToast } from '@/shared/hooks/useToast';
-import { Toast } from '@/shared/components/common/Toast';
+import { useToast } from '../../../shared/hooks/useToast';
+import { Toast } from '../../../shared/components/common/Toast';
 import { validateAndFixStdDev } from '../utils/predictionValidator';
 import { STD_DEV_ESTIMATION } from '../config/mpsConstants';
 
