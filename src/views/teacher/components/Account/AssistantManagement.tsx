@@ -104,7 +104,12 @@ const AssistantManagement: React.FC = () => {
   }, [showToast]);
 
   if (isLoading) return <div className="flex justify-center"><Loader className="animate-spin" /></div>;
-  if (error) return <div className="text-destructive"><AlertTriangle /> {error}</div>;
+  if (error) return (
+    <div className="text-destructive flex items-center gap-2">
+      <AlertTriangle />
+      <span>{error}</span>
+    </div>
+  );
 
   return (
     <>

@@ -117,14 +117,14 @@ const Header: React.FC<HeaderProps> = ({ getLogoutRedirectPath }) => {
           </div>
 
           <div className="flex items-center space-x-4">
-            {!loading && user?.must_change_password && (
-              <Link
-                to="/account-personal"
-                className="flex items-center space-x-2 px-3 py-2 bg-warning/10 border border-warning/20 rounded-lg hover:bg-warning/10 transition-colors"
-              >
-                <AlertTriangle size={16} className="text-warning flex-shrink-0" />
-                <span className="text-sm font-medium text-warning">
-                  请尽快修改初始密码
+              {!loading && user?.must_change_password && (
+                <Link
+                  to="/account-personal"
+                  className="flex items-center space-x-2 px-3 py-2 bg-warning/10 border border-warning/20 rounded-lg hover:bg-warning/20 transition-colors"
+                >
+                  <AlertTriangle size={16} className="text-warning flex-shrink-0" />
+                  <span className="text-sm font-medium text-warning">
+                    请尽快修改初始密码
                 </span>
               </Link>
             )}

@@ -1064,7 +1064,7 @@ const GradesOverview: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleSort('username')}
-                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   >
                     <span>学号</span>
                     {renderSortIcon('username')}
@@ -1074,7 +1074,7 @@ const GradesOverview: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleSort('exp_flow_score')}
-                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   >
                     <span>实验流程</span>
                     {renderSortIcon('exp_flow_score')}
@@ -1084,7 +1084,7 @@ const GradesOverview: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleSort('knowledge_test')}
-                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   >
                     <span>知识测试</span>
                     {renderSortIcon('knowledge_test')}
@@ -1094,7 +1094,7 @@ const GradesOverview: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleSort('model_quality')}
-                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   >
                     <span>模型选择</span>
                     {renderSortIcon('model_quality')}
@@ -1104,7 +1104,7 @@ const GradesOverview: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleSort('report_quality')}
-                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   >
                     <span>实验报告</span>
                     {renderSortIcon('report_quality')}
@@ -1114,7 +1114,7 @@ const GradesOverview: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleSort('final_score')}
-                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   >
                     <span>最终得分</span>
                     {renderSortIcon('final_score')}
@@ -1124,7 +1124,7 @@ const GradesOverview: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleSort('evaluation')}
-                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus:outline-none"
+                    className="inline-flex items-center space-x-1 text-muted-foreground hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                   >
                     <span>状态</span>
                     {renderSortIcon('evaluation')}

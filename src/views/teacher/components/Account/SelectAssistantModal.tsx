@@ -118,7 +118,7 @@ export const SelectAssistantModal: React.FC<SelectAssistantModalProps> = ({
                   onChange={() => setSelectedAssistantId(assistant.user_id)}
                   className="h-4 w-4 text-primary border-input focus:ring-ring"
                 />
-                <Label className="ml-3 text-sm font-medium text-foreground">{assistant.full_name}</Label>
+                <span className="ml-3 text-sm font-medium text-foreground">{assistant.full_name}</span>
               </label>
             ))}
           </div>
@@ -134,7 +134,7 @@ export const SelectAssistantModal: React.FC<SelectAssistantModalProps> = ({
                   onChange={() => handleClassSelection(cls.class_id)}
                   className="h-4 w-4 rounded border-input text-primary focus:ring-ring"
                 />
-                <Label className="ml-3 text-sm text-foreground">{cls.class_name}</Label>
+                <span className="ml-3 text-sm text-foreground">{cls.class_name}</span>
               </label>
             ))}
           </div>

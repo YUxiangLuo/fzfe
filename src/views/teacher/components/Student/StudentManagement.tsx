@@ -343,7 +343,7 @@ const StudentManagement: React.FC = () => {
     if (!selectedClassId) {
       return (
         <TableRow>
-          <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+          <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
             请先选择一个班级查看学生列表。
           </TableCell>
         </TableRow>

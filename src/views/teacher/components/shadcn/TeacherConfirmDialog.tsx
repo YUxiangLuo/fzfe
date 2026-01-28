@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { AlertTriangle } from "lucide-react";
 import {
   AlertDialog,
@@ -46,8 +46,21 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onCancel,
   variant = "warning",
 }) => {
+  const confirmInitiatedRef = useRef(false);
   return (
-    <AlertDialog open={isOpen} onOpenChange={(open) => (!open ? onCancel() : undefined)}>
+    <AlertDialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (open) {
+          confirmInitiatedRef.current = false;
+          return;
+        }
+        if (!confirmInitiatedRef.current) {
+          onCancel();
+        }
+        confirmInitiatedRef.current = false;
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogMedia className={cn(mediaClasses[variant])}>
@@ -58,7 +71,13 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onCancel}>{cancelText}</AlertDialogCancel>
-          <AlertDialogAction variant={actionVariant[variant]} onClick={onConfirm}>
+          <AlertDialogAction
+            variant={actionVariant[variant]}
+            onClick={() => {
+              confirmInitiatedRef.current = true;
+              onConfirm();
+            }}
+          >
             {confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>
