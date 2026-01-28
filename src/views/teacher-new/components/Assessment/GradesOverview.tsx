@@ -21,8 +21,23 @@ import {
     TrophyOutlined,
     DownloadOutlined,
     RiseOutlined,
-    FallOutlined
+    FallOutlined,
+    BarChartOutlined,
+    PieChartOutlined
 } from '@ant-design/icons';
+import {
+    ResponsiveContainer,
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip as RechartsTooltip,
+    Legend,
+    PieChart,
+    Pie,
+    Cell
+} from 'recharts';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, StudentGradeOverview } from '../../types';
@@ -31,6 +46,18 @@ const { Title, Text } = Typography;
 
 const ALL_CLASSES = 'all';
 
+// Class summary interface
+interface ClassSummary {
+    class_id: number;
+    class_name: string;
+    total_students: number;
+    graded_count: number;
+    submitted_count: number;
+    rejected_count: number;
+    not_submitted_count: number;
+    average_score: number | null;
+}
+
 const SCORE_COLORS: Record<string, { color: string; label: string }> = {
     excellent: { color: '#52c41a', label: '≥90 优秀' },
     good: { color: '#1890ff', label: '80-89 良好' },
@@ -38,6 +65,9 @@ const SCORE_COLORS: Record<string, { color: string; label: string }> = {
     pass: { color: '#eb2f96', label: '60-69 及格' },
     fail: { color: '#ff4d4f', label: '<60 不及格' },
 };
+
+// Chart colors
+const CHART_COLORS = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#eb2f96'];
 
 const getScoreLevel = (score: number | null): string => {
     if (score === null) return 'none';
@@ -51,6 +81,7 @@ const getScoreLevel = (score: number | null): string => {
 const GradesOverview: React.FC = () => {
     const [classes, setClasses] = useState<Class[]>([]);
     const [grades, setGrades] = useState<StudentGradeOverview[]>([]);
+    const [classSummaries, setClassSummaries] = useState<ClassSummary[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>(ALL_CLASSES);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoadingClasses, setIsLoadingClasses] = useState(true);
@@ -84,17 +115,57 @@ const GradesOverview: React.FC = () => {
         setIsLoadingGrades(true);
         setError(null);
         try {
-            let data: StudentGradeOverview[] = [];
             if (classId === ALL_CLASSES) {
-                // Fetch grades for all classes
-                const results = await Promise.all(
-                    classes.map(c => apiClient.get(`/classes/${c.class_id}/grade-summaries`))
+                // Fetch grades for all classes and calculate summaries
+                const summaries = await Promise.all(
+                    classes.map(async (cls) => {
+                        try {
+                            const response = await apiClient.get<StudentGradeOverview[]>(`/classes/${cls.class_id}/grade-summaries`);
+                            const gradesArray = Array.isArray(response) ? response : [];
+
+                            // Calculate stats
+                            const graded = gradesArray.filter(g => g.report_status === 'graded');
+                            const submitted = gradesArray.filter(g => g.report_status === 'submitted');
+                            const rejected = gradesArray.filter(g => g.report_status === 'rejected');
+                            const notSubmitted = gradesArray.filter(g => !g.report_status);
+
+                            const validScores = graded.filter(g => g.final_score !== null).map(g => g.final_score as number);
+                            const avgScore = validScores.length > 0
+                                ? validScores.reduce((a, b) => a + b, 0) / validScores.length
+                                : null;
+
+                            return {
+                                class_id: cls.class_id,
+                                class_name: cls.class_name,
+                                total_students: gradesArray.length,
+                                graded_count: graded.length,
+                                submitted_count: submitted.length,
+                                rejected_count: rejected.length,
+                                not_submitted_count: notSubmitted.length,
+                                average_score: avgScore
+                            } as ClassSummary;
+                        } catch (e) {
+                            return {
+                                class_id: cls.class_id,
+                                class_name: cls.class_name,
+                                total_students: 0,
+                                graded_count: 0,
+                                submitted_count: 0,
+                                rejected_count: 0,
+                                not_submitted_count: 0,
+                                average_score: null
+                            } as ClassSummary;
+                        }
+                    })
                 );
-                data = results.flat();
+                setClassSummaries(summaries);
+                setGrades([]); // Clear individual grades when showing all
             } else {
-                data = await apiClient.get(`/classes/${classId}/grade-summaries`);
+                // Single class view
+                const data = await apiClient.get<StudentGradeOverview[]>(`/classes/${classId}/grade-summaries`);
+                setGrades(data || []);
+                setClassSummaries([]);
             }
-            setGrades(data || []);
         } catch (err: any) {
             setError(err.message || '获取成绩数据失败');
             setGrades([]);
@@ -109,7 +180,7 @@ const GradesOverview: React.FC = () => {
         }
     }, [selectedClassId, classes, fetchGrades]);
 
-    // Filter by search
+    // Filter by search (only for single class view)
     const filteredGrades = useMemo(() => {
         if (!searchTerm.trim()) return grades;
         const query = searchTerm.toLowerCase();
@@ -119,8 +190,8 @@ const GradesOverview: React.FC = () => {
         );
     }, [grades, searchTerm]);
 
-    // Statistics
-    const stats = useMemo(() => {
+    // Statistics for single class
+    const singleClassStats = useMemo(() => {
         const validGrades = grades.filter(g => g.final_score !== null);
         const total = grades.length;
         const graded = validGrades.length;
@@ -137,7 +208,7 @@ const GradesOverview: React.FC = () => {
         return { total, graded, avgScore, maxScore, minScore };
     }, [grades]);
 
-    // Score distribution
+    // Score distribution for single class
     const distribution = useMemo(() => {
         const result = { excellent: 0, good: 0, average: 0, pass: 0, fail: 0 };
         grades.forEach(g => {
@@ -157,6 +228,8 @@ const GradesOverview: React.FC = () => {
 
     // Export grades
     const handleExport = () => {
+        if (selectedClassId === ALL_CLASSES) return;
+
         const headers = ['学号', '姓名', '实验流程', '模型质量', '知识测试', '报告质量', '最终成绩'];
         const rows = filteredGrades.map(g => [
             g.username,
@@ -176,6 +249,99 @@ const GradesOverview: React.FC = () => {
         link.download = `成绩导出_${new Date().toLocaleDateString()}.csv`;
         link.click();
         window.URL.revokeObjectURL(url);
+    };
+
+    // Render "All Classes" View
+    const renderAllClassesView = () => {
+        const barData = classSummaries.map(s => ({
+            name: s.class_name,
+            avg: s.average_score ? parseFloat(s.average_score.toFixed(1)) : 0
+        }));
+
+        const stackData = classSummaries.map(s => ({
+            name: s.class_name,
+            已评阅: s.graded_count,
+            已提交: s.submitted_count,
+            未提交: s.not_submitted_count + s.rejected_count // Simplified for chart
+        }));
+
+        return (
+            <div className="space-y-6">
+                {/* Summary Cards */}
+                <Row gutter={[16, 16]}>
+                    {classSummaries.map((summary, index) => (
+                        <Col xs={24} sm={12} md={8} lg={6} key={summary.class_id}>
+                            <Card hoverable className="h-full border-l-4" style={{ borderLeftColor: CHART_COLORS[index % CHART_COLORS.length] }}>
+                                <Statistic
+                                    title={<Text strong className="text-lg">{summary.class_name}</Text>}
+                                    value={summary.average_score ? summary.average_score.toFixed(1) : '—'}
+                                    precision={1}
+                                    suffix={<span className="text-sm text-gray-400">平均分</span>}
+                                />
+                                <div className="mt-4 flex justify-between text-sm text-gray-500">
+                                    <span>总人数: {summary.total_students}</span>
+                                    <span>已评阅: {summary.graded_count}</span>
+                                </div>
+                                <Progress
+                                    percent={summary.total_students > 0 ? Math.round((summary.graded_count / summary.total_students) * 100) : 0}
+                                    size="small"
+                                    strokeColor={CHART_COLORS[index % CHART_COLORS.length]}
+                                    className="mt-2"
+                                />
+                            </Card>
+                        </Col>
+                    ))}
+                </Row>
+
+                {/* Charts */}
+                <Row gutter={[16, 16]}>
+                    <Col xs={24} lg={12}>
+                        <Card title={<><BarChartOutlined className="mr-2" />各班级平均分对比</>} bordered={false}>
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={barData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.2} />
+                                        <XAxis type="number" domain={[0, 100]} />
+                                        <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
+                                        <RechartsTooltip
+                                            contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                            formatter={(value: number) => [`${value} 分`, '平均分']}
+                                        />
+                                        <Bar dataKey="avg" name="平均分" radius={[0, 4, 4, 0]} barSize={20}>
+                                            {barData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </Card>
+                    </Col>
+                    <Col xs={24} lg={12}>
+                        <Card title={<><PieChartOutlined className="mr-2" />各班级完成情况</>} bordered={false}>
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={stackData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.2} />
+                                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                                        <YAxis />
+                                        <RechartsTooltip
+                                            contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                        />
+                                        <Legend />
+                                        <Bar dataKey="已评阅" stackId="a" fill="#52c41a" barSize={30} />
+                                        <Bar dataKey="已提交" stackId="a" fill="#1890ff" barSize={30} />
+                                        <Bar dataKey="未提交" stackId="a" fill="#ff4d4f" radius={[4, 4, 0, 0]} barSize={30} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </Card>
+                    </Col>
+                </Row>
+            </div>
+        );
     };
 
     // Table columns
@@ -261,8 +427,8 @@ const GradesOverview: React.FC = () => {
     if (isLoadingClasses) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
-                <Spin size="large">
-                    <div style={{ padding: 50, textAlign: 'center' }}>加载中...</div>
+                <Spin size="large" tip="加载班级数据...">
+                    <div style={{ padding: 50 }} />
                 </Spin>
             </div>
         );
@@ -270,101 +436,118 @@ const GradesOverview: React.FC = () => {
 
     return (
         <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div className="flex justify-between items-center mb-6">
                 <Title level={3} style={{ marginBottom: 0 }}>成绩总览</Title>
-                <Button type="primary" icon={<DownloadOutlined />} onClick={handleExport}>
-                    导出成绩
-                </Button>
+                <div className="flex gap-4">
+                    <Select
+                        value={selectedClassId}
+                        onChange={setSelectedClassId}
+                        style={{ width: 220 }}
+                        placeholder="请选择班级"
+                        size="large"
+                    >
+                        <Select.Option value={ALL_CLASSES}>全部班级</Select.Option>
+                        {classes.map(c => (
+                            <Select.Option key={c.class_id} value={String(c.class_id)}>
+                                {c.class_name}
+                            </Select.Option>
+                        ))}
+                    </Select>
+
+                    {selectedClassId !== ALL_CLASSES && (
+                        <Button
+                            type="primary"
+                            icon={<DownloadOutlined />}
+                            onClick={handleExport}
+                            size="large"
+                        >
+                            导出成绩
+                        </Button>
+                    )}
+                </div>
             </div>
 
-            {/* Statistics */}
-            <Row gutter={16} style={{ marginBottom: 24 }}>
-                <Col span={4}>
-                    <Card>
-                        <Statistic title="总人数" value={stats.total} prefix={<TeamOutlined />} />
-                    </Card>
-                </Col>
-                <Col span={4}>
-                    <Card>
-                        <Statistic title="已评分" value={stats.graded} styles={{ content: { color: '#52c41a' } }} />
-                    </Card>
-                </Col>
-                <Col span={4}>
-                    <Card>
-                        <Statistic title="平均分" value={stats.avgScore.toFixed(1)} prefix={<TrophyOutlined />} />
-                    </Card>
-                </Col>
-                <Col span={4}>
-                    <Card>
-                        <Statistic title="最高分" value={stats.maxScore.toFixed(1)} prefix={<RiseOutlined />} styles={{ content: { color: '#52c41a' } }} />
-                    </Card>
-                </Col>
-                <Col span={4}>
-                    <Card>
-                        <Statistic title="最低分" value={stats.minScore.toFixed(1)} prefix={<FallOutlined />} styles={{ content: { color: '#ff4d4f' } }} />
-                    </Card>
-                </Col>
-                <Col span={4}>
-                    <Card>
-                        <Text strong>成绩分布</Text>
-                        <div style={{ marginTop: 8 }}>
-                            {Object.entries(SCORE_COLORS).map(([key, val]) => (
-                                <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                                    <span style={{ color: val.color }}>{val.label}</span>
-                                    <span>{distribution[key as keyof typeof distribution] || 0}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </Card>
-                </Col>
-            </Row>
+            {error && <Alert description={error} type="error" showIcon className="mb-6" />}
 
-            {/* Filters */}
-            <Card style={{ marginBottom: 16 }}>
-                <Space size="large" wrap>
-                    <div>
-                        <Text strong style={{ marginRight: 8 }}>选择班级</Text>
-                        <Select
-                            value={selectedClassId}
-                            onChange={setSelectedClassId}
-                            style={{ width: 200 }}
-                            placeholder="请选择班级"
-                        >
-                            <Select.Option value={ALL_CLASSES}>全部班级</Select.Option>
-                            {classes.map(c => (
-                                <Select.Option key={c.class_id} value={String(c.class_id)}>
-                                    {c.class_name}
-                                </Select.Option>
-                            ))}
-                        </Select>
-                    </div>
-                    <div>
-                        <Text strong style={{ marginRight: 8 }}>搜索学生</Text>
+            {isLoadingGrades ? (
+                <div className="flex justify-center items-center h-64">
+                    <Spin size="large" tip="加载成绩数据..." />
+                </div>
+            ) : selectedClassId === ALL_CLASSES ? (
+                renderAllClassesView()
+            ) : (
+                <>
+                    {/* Single Class Statistics */}
+                    <Row gutter={16} className="mb-6">
+                        <Col span={4}>
+                            <Card bordered={false}>
+                                <Statistic title="总人数" value={singleClassStats.total} prefix={<TeamOutlined />} />
+                            </Card>
+                        </Col>
+                        <Col span={4}>
+                            <Card bordered={false}>
+                                <Statistic title="已评分" value={singleClassStats.graded} valueStyle={{ color: '#52c41a' }} />
+                            </Card>
+                        </Col>
+                        <Col span={4}>
+                            <Card bordered={false}>
+                                <Statistic title="平均分" value={singleClassStats.avgScore.toFixed(1)} prefix={<TrophyOutlined />} />
+                            </Card>
+                        </Col>
+                        <Col span={4}>
+                            <Card bordered={false}>
+                                <Statistic title="最高分" value={singleClassStats.maxScore.toFixed(1)} prefix={<RiseOutlined />} valueStyle={{ color: '#52c41a' }} />
+                            </Card>
+                        </Col>
+                        <Col span={4}>
+                            <Card bordered={false}>
+                                <Statistic title="最低分" value={singleClassStats.minScore.toFixed(1)} prefix={<FallOutlined />} valueStyle={{ color: '#ff4d4f' }} />
+                            </Card>
+                        </Col>
+                        <Col span={4}>
+                            <Card bordered={false} bodyStyle={{ padding: '12px 24px' }}>
+                                <Text strong>成绩分布</Text>
+                                <div className="mt-2 text-xs space-y-1">
+                                    {Object.entries(SCORE_COLORS).map(([key, val]) => (
+                                        <div key={key} className="flex justify-between">
+                                            <span style={{ color: val.color }}>{val.label}</span>
+                                            <span>{distribution[key as keyof typeof distribution] || 0}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
+                        </Col>
+                    </Row>
+
+                    {/* Filter Input */}
+                    <div className="flex justify-end mb-4">
                         <Input
                             prefix={<SearchOutlined />}
-                            placeholder="学号或姓名"
+                            placeholder="搜索学号或姓名"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            style={{ width: 200 }}
+                            style={{ width: 250 }}
                             allowClear
                         />
                     </div>
-                </Space>
-            </Card>
 
-            {error && <Alert description={error} type="error" showIcon style={{ marginBottom: 16 }} />}
-
-            {/* Grades Table */}
-            <Card>
-                <Table
-                    dataSource={filteredGrades}
-                    columns={columns}
-                    rowKey="student_id"
-                    loading={isLoadingGrades}
-                    pagination={{ pageSize: 15, showTotal: (total) => `共 ${total} 名学生` }}
-                    scroll={{ x: 1000 }}
-                />
-            </Card>
+                    {/* Grades Table */}
+                    <Card bordered={false}>
+                        <Table
+                            dataSource={filteredGrades}
+                            columns={columns}
+                            rowKey="student_id"
+                            pagination={{
+                                pageSize: 15,
+                                showTotal: (total) => `共 ${total} 名学生`,
+                                showSizeChanger: true,
+                                pageSizeOptions: ['15', '30', '50']
+                            }}
+                            scroll={{ x: 1000 }}
+                        />
+                    </Card>
+                </>
+            )}
         </div>
     );
 };
