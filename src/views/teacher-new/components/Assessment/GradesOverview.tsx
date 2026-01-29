@@ -13,7 +13,8 @@ import {
     Row,
     Col,
     Button,
-    Progress
+    Progress,
+    message
 } from 'antd';
 import {
     SearchOutlined,
@@ -23,7 +24,9 @@ import {
     RiseOutlined,
     FallOutlined,
     BarChartOutlined,
-    PieChartOutlined
+    PieChartOutlined,
+    DownOutlined,
+    RightOutlined
 } from '@ant-design/icons';
 import {
     ResponsiveContainer,
@@ -36,11 +39,21 @@ import {
     Legend,
     PieChart,
     Pie,
-    Cell
+    Cell,
+    RadarChart,
+    PolarGrid,
+    PolarAngleAxis,
+    PolarRadiusAxis,
+    Radar,
+    LineChart,
+    Line
 } from 'recharts';
 import { apiClient } from '../../../../utils/apiClient';
+import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, StudentGradeOverview } from '../../types';
+import FinalBreakdown from './FinalBreakdown';
+import { getProgressStatus, getEvaluationBadge } from '../../utils/gradeStatus';
 
 const { Title, Text } = Typography;
 
@@ -87,6 +100,7 @@ const GradesOverview: React.FC = () => {
     const [isLoadingClasses, setIsLoadingClasses] = useState(true);
     const [isLoadingGrades, setIsLoadingGrades] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [expandedRowKeys, setExpandedRowKeys] = useState<number[]>([]);
 
     // Fetch classes
     useEffect(() => {
@@ -226,29 +240,212 @@ const GradesOverview: React.FC = () => {
         return score.toFixed(1);
     };
 
-    // Export grades
-    const handleExport = () => {
-        if (selectedClassId === ALL_CLASSES) return;
+    // Toggle row expansion
+    const toggleRow = useCallback((studentId: number) => {
+        setExpandedRowKeys(prev =>
+            prev.includes(studentId)
+                ? prev.filter(id => id !== studentId)
+                : [...prev, studentId]
+        );
+    }, []);
 
-        const headers = ['学号', '姓名', '实验流程', '模型质量', '知识测试', '报告质量', '最终成绩'];
-        const rows = filteredGrades.map(g => [
-            g.username,
-            g.full_name,
-            formatScore(g.exp_flow_score),
-            formatScore(g.model_quality),
-            formatScore(g.knowledge_test),
-            formatScore(g.report_quality),
-            formatScore(g.final_score),
-        ]);
+    // Chart data calculations
+    const chartData = useMemo(() => {
+        const graded = filteredGrades.filter(g => g.final_score !== null);
 
-        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `成绩导出_${new Date().toLocaleDateString()}.csv`;
-        link.click();
-        window.URL.revokeObjectURL(url);
+        // Trend data (sorted by final score)
+        const trendData = [...graded]
+            .sort((a, b) => (b.final_score || 0) - (a.final_score || 0))
+            .map((g, index) => ({
+                rank: index + 1,
+                score: g.final_score || 0,
+                student: g.full_name || g.username,
+            }));
+
+        // Histogram data
+        type HistogramBin = { label: string; min: number; max: number; count: number };
+        const histogramData: HistogramBin[] = Array.from({ length: 10 }, (_, idx) => {
+            const min = idx * 10;
+            const max = idx === 9 ? 100 : (idx + 1) * 10;
+            return {
+                label: `${min}-${max}`,
+                min,
+                max,
+                count: 0,
+            };
+        });
+
+        graded.forEach(g => {
+            const score = g.final_score || 0;
+            const idx = Math.min(Math.floor(score / 10), 9);
+            if (histogramData[idx]) {
+                histogramData[idx].count += 1;
+            }
+        });
+
+        // Average data for radar chart
+        type RadarDatum = { subject: string; A: number; fullMark: number };
+        const avgData: RadarDatum[] = [
+            { subject: '实验流程', A: 0, fullMark: 100 },
+            { subject: '知识测试', A: 0, fullMark: 100 },
+            { subject: '模型选择', A: 0, fullMark: 100 },
+            { subject: '实验报告', A: 0, fullMark: 100 },
+        ];
+
+        const expFlowScores = filteredGrades
+            .map(g => g.exp_flow_score)
+            .filter((s): s is number => s !== null);
+        const knowledgeScores = filteredGrades
+            .map(g => g.knowledge_test)
+            .filter((s): s is number => s !== null);
+        const modelScores = filteredGrades
+            .map(g => g.model_quality)
+            .filter((s): s is number => s !== null);
+        const reportScores = filteredGrades
+            .map(g => g.report_quality)
+            .filter((s): s is number => s !== null);
+
+        if (expFlowScores.length > 0 && avgData[0]) {
+            avgData[0].A = parseFloat((expFlowScores.reduce((a, b) => a + b, 0) / expFlowScores.length).toFixed(2));
+        }
+        if (knowledgeScores.length > 0 && avgData[1]) {
+            avgData[1].A = parseFloat((knowledgeScores.reduce((a, b) => a + b, 0) / knowledgeScores.length).toFixed(2));
+        }
+        if (modelScores.length > 0 && avgData[2]) {
+            avgData[2].A = parseFloat((modelScores.reduce((a, b) => a + b, 0) / modelScores.length).toFixed(2));
+        }
+        if (reportScores.length > 0 && avgData[3]) {
+            avgData[3].A = parseFloat((reportScores.reduce((a, b) => a + b, 0) / reportScores.length).toFixed(2));
+        }
+
+        return { trendData, histogramData, avgData, gradedCount: graded.length };
+    }, [filteredGrades]);
+
+    // Render grade charts
+    const renderGradeCharts = () => {
+        if (chartData.gradedCount === 0) {
+            return (
+                <Alert
+                    message="暂无成绩图表"
+                    description="暂未有评分数据，无法生成图表。"
+                    type="info"
+                    showIcon
+                    className="mb-6"
+                />
+            );
+        }
+
+        return (
+            <Row gutter={[16, 16]} className="mb-6">
+                {/* Trend Chart */}
+                <Col span={24}>
+                    <Card title={<><BarChartOutlined /> 总分排序趋势</>} bordered={false}>
+                        <div style={{ height: 300 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={chartData.trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                                    <XAxis dataKey="rank" tickLine={false} />
+                                    <YAxis domain={[0, 100]} tickLine={false} />
+                                    <RechartsTooltip formatter={(value: number) => value.toFixed(2)} labelFormatter={(label) => `排名 ${label}`} />
+                                    <Legend />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="score"
+                                        stroke="#1890ff"
+                                        strokeWidth={2}
+                                        dot={{ r: 3 }}
+                                        name="总分"
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+                </Col>
+
+                {/* Histogram */}
+                <Col span={12}>
+                    <Card title={<><BarChartOutlined /> 总分区间分布</>} bordered={false}>
+                        <div style={{ height: 300 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={chartData.histogramData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                                    <XAxis dataKey="label" tickLine={false} tick={{ fontSize: 12 }} />
+                                    <YAxis allowDecimals={false} tickLine={false} />
+                                    <RechartsTooltip />
+                                    <Bar dataKey="count" fill="#1890ff" radius={[6, 6, 0, 0]} name="人数" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+                </Col>
+
+                {/* Radar Chart */}
+                <Col span={12}>
+                    <Card title={<><PieChartOutlined /> 评分维度平均分</>} bordered={false}>
+                        <div style={{ height: 300 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData.avgData}>
+                                    <PolarGrid />
+                                    <PolarAngleAxis dataKey="subject" />
+                                    <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                                    <Radar
+                                        name="班级平均"
+                                        dataKey="A"
+                                        stroke="#52c41a"
+                                        fill="#52c41a"
+                                        fillOpacity={0.3}
+                                    />
+                                    <RechartsTooltip formatter={(value: number) => value.toFixed(2)} />
+                                    <Legend />
+                                </RadarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </Card>
+                </Col>
+            </Row>
+        );
+    };
+
+    // Export grades using backend API
+    const [isExporting, setIsExporting] = useState(false);
+    const [exportedFileUrl, setExportedFileUrl] = useState<string | null>(null);
+    const [exportError, setExportError] = useState<string | null>(null);
+
+    const handleExport = async () => {
+        if (!selectedClassId) {
+            setExportError('请先选择一个班级');
+            return;
+        }
+
+        if (selectedClassId === ALL_CLASSES) {
+            setExportError('导出功能暂不支持"全部班级"，请选择单个班级进行导出。');
+            return;
+        }
+
+        setIsExporting(true);
+        setExportError(null);
+        setExportedFileUrl(null);
+        try {
+            const response = await apiClient.get<{ file_path: string }>(`/classes/${selectedClassId}/grade-export.csv`);
+
+            if (!response || !response.file_path) {
+                throw new Error('导出失败：服务器未返回文件地址');
+            }
+
+            const filename = response.file_path.split("/").pop();
+            if (!filename) {
+                throw new Error('导出失败：无效的文件名');
+            }
+            const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/exports/${filename}`;
+            setExportedFileUrl(fullUrl);
+            message.success('导出成功');
+        } catch (err: any) {
+            const errorMessage = err?.message || '导出失败，请稍后重试。';
+            setExportError(errorMessage);
+            message.error(errorMessage);
+        } finally {
+            setIsExporting(false);
+        }
     };
 
     // Render "All Classes" View
@@ -412,14 +609,28 @@ const GradesOverview: React.FC = () => {
             dataIndex: 'report_status',
             key: 'report_status',
             width: 100,
-            render: (status: string | null) => {
-                const statusMap: Record<string, { color: string; label: string }> = {
-                    submitted: { color: 'blue', label: '已提交' },
-                    graded: { color: 'green', label: '已评阅' },
-                    rejected: { color: 'red', label: '已驳回' },
-                };
-                const config = status ? statusMap[status] : null;
-                return config ? <Tag color={config.color}>{config.label}</Tag> : '—';
+            render: (_: any, record: StudentGradeOverview) => {
+                const badge = getEvaluationBadge(record);
+                return <Tag color={badge.color}>{badge.text}</Tag>;
+            },
+        },
+        {
+            title: '操作',
+            key: 'action',
+            width: 100,
+            fixed: 'right' as const,
+            render: (_: any, record: StudentGradeOverview) => {
+                const isExpanded = expandedRowKeys.includes(record.student_id);
+                return (
+                    <Button
+                        type="link"
+                        size="small"
+                        onClick={() => toggleRow(record.student_id)}
+                        icon={isExpanded ? <DownOutlined /> : <RightOutlined />}
+                    >
+                        {isExpanded ? '收起' : '详情'}
+                    </Button>
+                );
             },
         },
     ];
@@ -459,6 +670,7 @@ const GradesOverview: React.FC = () => {
                             type="primary"
                             icon={<DownloadOutlined />}
                             onClick={handleExport}
+                            loading={isExporting}
                             size="large"
                         >
                             导出成绩
@@ -468,6 +680,28 @@ const GradesOverview: React.FC = () => {
             </div>
 
             {error && <Alert description={error} type="error" showIcon className="mb-6" />}
+            {exportError && <Alert description={exportError} type="error" showIcon className="mb-6" closable onClose={() => setExportError(null)} />}
+            {exportedFileUrl && (
+                <Alert
+                    message="导出成功"
+                    description={
+                        <span>
+                            点击 <a href={exportedFileUrl} target="_blank" rel="noopener noreferrer">此处</a> 下载文件。
+                            或者点击右侧按钮下载。
+                        </span>
+                    }
+                    type="success"
+                    showIcon
+                    className="mb-6"
+                    closable
+                    onClose={() => setExportedFileUrl(null)}
+                    action={
+                        <Button type="primary" size="small" href={exportedFileUrl} target="_blank">
+                            下载
+                        </Button>
+                    }
+                />
+            )}
 
             {isLoadingGrades ? (
                 <div className="flex justify-center items-center h-64">
@@ -531,8 +765,11 @@ const GradesOverview: React.FC = () => {
                         />
                     </div>
 
+                    {/* Charts */}
+                    {filteredGrades.length > 0 && renderGradeCharts()}
+
                     {/* Grades Table */}
-                    <Card bordered={false}>
+                    <Card bordered={false} className="mt-6">
                         <Table
                             dataSource={filteredGrades}
                             columns={columns}
@@ -544,6 +781,12 @@ const GradesOverview: React.FC = () => {
                                 pageSizeOptions: ['15', '30', '50']
                             }}
                             scroll={{ x: 1000 }}
+                            expandable={{
+                                expandedRowKeys,
+                                onExpandedRowsChange: (expandedKeys) => setExpandedRowKeys(expandedKeys as number[]),
+                                expandedRowRender: (record) => <FinalBreakdown grade={record} />,
+                                rowExpandable: (record) => record.final_score !== null || record.report_status !== null,
+                            }}
                         />
                     </Card>
                 </>

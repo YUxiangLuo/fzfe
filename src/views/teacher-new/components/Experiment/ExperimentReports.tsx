@@ -14,8 +14,6 @@ import {
     Col,
     Button,
     Modal,
-    Form,
-    InputNumber,
     message,
     Tooltip
 } from 'antd';
@@ -29,16 +27,16 @@ import {
     FileZipOutlined,
     EditOutlined,
     CloseCircleOutlined,
-    ExclamationCircleOutlined
+    ExclamationCircleOutlined,
+    EyeOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import { API_BASE_URL } from '../../../../utils/apiClient';
 import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, ExperimentReport } from '../../types';
+import ReviewReportModal from './ReviewReportModal';
 
-const { Title, Text, Paragraph } = Typography;
-const { TextArea } = Input;
+const { Title, Text } = Typography;
 const { confirm } = Modal;
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
@@ -60,8 +58,6 @@ const ExperimentReports: React.FC = () => {
     // Review modal state
     const [reviewModalOpen, setReviewModalOpen] = useState(false);
     const [selectedReport, setSelectedReport] = useState<ExperimentReport | null>(null);
-    const [reviewForm] = Form.useForm();
-    const [isSaving, setIsSaving] = useState(false);
 
     // CSV export state
     const [isExportingCsv, setIsExportingCsv] = useState(false);
@@ -134,19 +130,37 @@ const ExperimentReports: React.FC = () => {
     const getReportStatus = (report: ExperimentReport): string => {
         if (!report.report_id) return 'draft';
         if (report.status === 'rejected') return 'rejected';
-        if (report.grade !== null) return 'submitted';
+        if (report.status === 'graded') return 'submitted';
         return 'pending';
     };
 
     // Statistics
     const stats = useMemo(() => {
         const total = reports.length;
-        const pending = reports.filter(r => getReportStatus(r) === 'pending').length;
-        const graded = reports.filter(r => getReportStatus(r) === 'submitted').length;
-        const rejected = reports.filter(r => getReportStatus(r) === 'rejected').length;
+        const submittedReports = reports.filter(r => ['submitted', 'graded', 'rejected'].includes(r.status || ''));
+        const pendingReports = reports.filter(r => r.status === 'submitted');
+        const gradedReports = reports.filter(r => r.status === 'graded');
+        const rejectedReports = reports.filter(r => r.status === 'rejected');
 
-        return { total, pending, graded, rejected };
+        const averageGrade = gradedReports.length
+            ? Math.round(gradedReports.reduce((acc, report) => acc + (report.grade ?? 0), 0) / gradedReports.length).toString()
+            : '--';
+
+        return {
+            total,
+            submitted: submittedReports.length,
+            pendingReview: pendingReports.length,
+            reviewed: gradedReports.length,
+            averageGrade,
+            rejectedReportsCount: rejectedReports.length,
+        };
     }, [reports]);
+
+    // Build download URL
+    const buildDownloadUrl = (filePath: string) => {
+        const filename = filePath.split('/').pop();
+        return `${DOWNLOAD_SERVER_BASE_URL}/reports/${filename}`;
+    };
 
     // Export CSV
     const handleExportCsv = useCallback(async () => {
@@ -157,15 +171,15 @@ const ExperimentReports: React.FC = () => {
             const response = await apiClient.get<{ file_path: string }>(`/classes/${selectedClassId}/report-export.csv`);
 
             if (!response || !response.file_path) {
-                throw new Error("导出失败：服务器未返回文件地址");
+                throw new Error('导出失败：服务器未返回文件地址');
             }
 
-            const filename = response.file_path.split("/").pop();
+            const filename = response.file_path.split('/').pop();
             const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/exports/${filename}`;
             setExportedCsvUrl(fullUrl);
             message.success('导出成功');
         } catch (err: any) {
-            message.error(err.message || "导出 CSV 失败，请稍后再试。");
+            message.error(err.message || '导出 CSV 失败，请稍后再试。');
         } finally {
             setIsExportingCsv(false);
         }
@@ -180,15 +194,15 @@ const ExperimentReports: React.FC = () => {
             const response = await apiClient.get<{ file_path: string }>(`/classes/${selectedClassId}/report-archive`);
 
             if (!response || !response.file_path) {
-                throw new Error("导出失败：服务器未返回文件地址");
+                throw new Error('导出失败：服务器未返回文件地址');
             }
 
-            const filename = response.file_path.split("/").pop();
+            const filename = response.file_path.split('/').pop();
             const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/exports/${filename}`;
             setExportedFileUrl(fullUrl);
             message.success('报告文件导出成功');
         } catch (err: any) {
-            message.error(err.message || "导出实验报告失败，请稍后再试。");
+            message.error(err.message || '导出实验报告失败，请稍后再试。');
         } finally {
             setIsExportingReports(false);
         }
@@ -208,98 +222,40 @@ const ExperimentReports: React.FC = () => {
             message.warning('报告文件不存在');
             return;
         }
-        const url = `${API_BASE_URL}${filePath}`;
+        const url = buildDownloadUrl(filePath);
         window.open(url, '_blank', 'noopener,noreferrer');
     };
 
     // Open review modal
     const openReviewModal = (report: ExperimentReport) => {
         setSelectedReport(report);
-        reviewForm.setFieldsValue({
-            grade: report.grade,
-            feedback: report.feedback,
-        });
         setReviewModalOpen(true);
     };
 
-    // Save review
-    const handleSaveReview = async (values: any) => {
-        if (!selectedReport || !selectedReport.report_id) return;
-
-        setIsSaving(true);
-        try {
-            await apiClient.put(`/reports/${selectedReport.report_id}`, {
-                grade: values.grade,
-                feedback: values.feedback || null,
-            });
-
-            // Update local state
-            setReports(prev => prev.map(r =>
-                r.report_id === selectedReport.report_id
-                    ? { ...r, grade: values.grade, feedback: values.feedback, status: 'graded' }
-                    : r
-            ));
-
-            setReviewModalOpen(false);
-            setSelectedReport(null);
-            reviewForm.resetFields();
-            message.success('评阅保存成功');
-        } catch (err: any) {
-            message.error(err.message || '保存失败');
-        } finally {
-            setIsSaving(false);
-        }
+    // Close review modal
+    const closeReviewModal = () => {
+        setReviewModalOpen(false);
+        setSelectedReport(null);
     };
 
-    // Reject report
-    const handleReject = () => {
-        if (!selectedReport || !selectedReport.report_id) return;
-
-        confirm({
-            title: '确认驳回',
-            icon: <ExclamationCircleOutlined />,
-            content: '确定要驳回该报告吗？学生需要重新提交。',
-            okText: '驳回',
-            okType: 'danger',
-            cancelText: '取消',
-            onOk: async () => {
-                try {
-                    const feedback = reviewForm.getFieldValue('feedback');
-                    await apiClient.put(`/reports/${selectedReport.report_id}/reject`, {
-                        feedback: feedback || '请修改后重新提交',
-                    });
-
-                    setReports(prev => prev.map(r =>
-                        r.report_id === selectedReport.report_id
-                            ? { ...r, status: 'rejected', feedback: feedback }
-                            : r
-                    ));
-
-                    setReviewModalOpen(false);
-                    setSelectedReport(null);
-                    reviewForm.resetFields();
-                    message.success('报告已驳回');
-                } catch (err: any) {
-                    message.error(err.message || '驳回失败');
-                }
-            },
-        });
+    // Handle review success
+    const handleReviewSuccess = (updatedReport: ExperimentReport) => {
+        setReports(prev =>
+            prev.map(r =>
+                r.report_id === updatedReport.report_id
+                    ? updatedReport
+                    : r
+            )
+        );
     };
 
     // Table columns
     const columns = [
         {
-            title: '学号',
-            dataIndex: 'username',
-            key: 'username',
-            width: 120,
-            sorter: (a: ExperimentReport, b: ExperimentReport) => a.username.localeCompare(b.username),
-        },
-        {
-            title: '姓名',
-            dataIndex: 'full_name',
-            key: 'full_name',
-            width: 100,
+            title: '序号',
+            key: 'index',
+            width: 70,
+            render: (_: any, __: any, index: number) => index + 1,
         },
         {
             title: '状态',
@@ -314,18 +270,45 @@ const ExperimentReports: React.FC = () => {
                 getReportStatus(a).localeCompare(getReportStatus(b)),
         },
         {
+            title: '姓名',
+            dataIndex: 'full_name',
+            key: 'full_name',
+            width: 100,
+        },
+        {
+            title: '学号',
+            dataIndex: 'username',
+            key: 'username',
+            width: 120,
+            sorter: (a: ExperimentReport, b: ExperimentReport) => a.username.localeCompare(b.username),
+        },
+        {
             title: '提交时间',
             dataIndex: 'submitted_at',
             key: 'submitted_at',
             width: 180,
             render: (value: string | null) => formatDateTime(value),
+            sorter: (a: ExperimentReport, b: ExperimentReport) => {
+                const aTime = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+                const bTime = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
+                return aTime - bTime;
+            },
         },
         {
-            title: '成绩',
+            title: '报告得分',
             dataIndex: 'grade',
             key: 'grade',
-            width: 80,
+            width: 100,
             render: (grade: number | null) => grade !== null ? grade : '—',
+            sorter: (a: ExperimentReport, b: ExperimentReport) => (a.grade || 0) - (b.grade || 0),
+        },
+        {
+            title: '评语',
+            dataIndex: 'feedback',
+            key: 'feedback',
+            width: 200,
+            ellipsis: true,
+            render: (feedback: string | null) => feedback || '—',
         },
         {
             title: '评阅人',
@@ -384,42 +367,52 @@ const ExperimentReports: React.FC = () => {
 
             {/* Statistics */}
             <Row gutter={16} style={{ marginBottom: 24 }}>
-                <Col span={6}>
+                <Col xs={24} sm={12} lg={6}>
                     <Card>
                         <Statistic
-                            title="总报告数"
+                            title="学生总数"
                             value={stats.total}
                             prefix={<FileTextOutlined />}
+                            suffix={<Text type="secondary" style={{ fontSize: 12 }}>当前班级</Text>}
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                        <Statistic
+                            title="已提交"
+                            value={stats.submitted}
+                            valueStyle={{ color: '#52c41a' }}
+                            prefix={<CheckCircleOutlined />}
+                            suffix={
+                                stats.rejectedReportsCount > 0 ? (
+                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                        (含 {stats.rejectedReportsCount} 份已驳回)
+                                    </Text>
+                                ) : null
+                            }
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
                     <Card>
                         <Statistic
                             title="待评阅"
-                            value={stats.pending}
-                            styles={{ content: { color: '#1890ff' } }}
+                            value={stats.pendingReview}
+                            valueStyle={{ color: '#1890ff' }}
                             prefix={<SyncOutlined />}
+                            suffix={<Text type="secondary" style={{ fontSize: 12 }}>待老师评分</Text>}
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
+                <Col xs={24} sm={12} lg={6}>
                     <Card>
                         <Statistic
-                            title="已评阅"
-                            value={stats.graded}
-                            styles={{ content: { color: '#52c41a' } }}
-                            prefix={<CheckCircleOutlined />}
-                        />
-                    </Card>
-                </Col>
-                <Col span={6}>
-                    <Card>
-                        <Statistic
-                            title="已驳回"
-                            value={stats.rejected}
-                            styles={{ content: { color: '#ff4d4f' } }}
-                            prefix={<CloseCircleOutlined />}
+                            title="报告平均得分"
+                            value={stats.averageGrade}
+                            valueStyle={{ color: '#722ed1' }}
+                            prefix={<FileTextOutlined />}
+                            suffix={<Text type="secondary" style={{ fontSize: 12 }}>分</Text>}
                         />
                     </Card>
                 </Col>
@@ -435,6 +428,7 @@ const ExperimentReports: React.FC = () => {
                             onChange={setSelectedClassId}
                             style={{ width: 200 }}
                             placeholder="请选择班级"
+                            loading={isLoadingClasses}
                             options={classes.map(c => ({ value: String(c.class_id), label: c.class_name }))}
                         />
                     </div>
@@ -509,43 +503,12 @@ const ExperimentReports: React.FC = () => {
             </Card>
 
             {/* Review Modal */}
-            <Modal
-                title={`评阅报告 - ${selectedReport?.full_name || ''}`}
+            <ReviewReportModal
                 open={reviewModalOpen}
-                onCancel={() => {
-                    setReviewModalOpen(false);
-                    setSelectedReport(null);
-                    reviewForm.resetFields();
-                }}
-                footer={[
-                    <Button key="cancel" onClick={() => setReviewModalOpen(false)}>
-                        取消
-                    </Button>,
-                    <Button key="reject" danger onClick={handleReject}>
-                        驳回
-                    </Button>,
-                    <Button key="save" type="primary" loading={isSaving} onClick={() => reviewForm.submit()}>
-                        保存评阅
-                    </Button>,
-                ]}
-                width={600}
-            >
-                <Form form={reviewForm} layout="vertical" onFinish={handleSaveReview}>
-                    <Form.Item
-                        label="成绩"
-                        name="grade"
-                        rules={[
-                            { required: true, message: '请输入成绩' },
-                            { type: 'number', min: 0, max: 100, message: '成绩范围 0-100' },
-                        ]}
-                    >
-                        <InputNumber min={0} max={100} style={{ width: '100%' }} placeholder="0-100" />
-                    </Form.Item>
-                    <Form.Item label="评语（可选）" name="feedback">
-                        <TextArea rows={4} placeholder="请输入评语或反馈" />
-                    </Form.Item>
-                </Form>
-            </Modal>
+                report={selectedReport}
+                onClose={closeReviewModal}
+                onSuccess={handleReviewSuccess}
+            />
         </div>
     );
 };
