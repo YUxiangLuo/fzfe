@@ -19,6 +19,7 @@ import {
 } from '@ant-design/icons';
 import { decodeToken, type DecodedToken } from '../../../../utils/auth';
 import { getRoleByBackendValue } from '../../../../config/roles';
+import { useRole } from '../../contexts/RoleContext';
 
 // Import page components (will be created in later phases)
 // Phase 2: Account
@@ -59,6 +60,7 @@ const TeacherLayout: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
     const navigate = useNavigate();
     const location = useLocation();
+    const { role } = useRole();
 
     useEffect(() => {
         try {
@@ -93,8 +95,9 @@ const TeacherLayout: React.FC = () => {
         ? getRoleByBackendValue(currentUser.role)?.displayName ?? currentUser.role
         : null;
 
-    // Menu items with nested structure
-    const menuItems: MenuItemType[] = [
+    // Menu items with nested structure - filtered by role
+    const menuItems = React.useMemo<MenuItemType[]>(() => {
+        const items: MenuItemType[] = [
         {
             key: 'experiment',
             icon: <ExperimentOutlined />,
@@ -159,14 +162,18 @@ const TeacherLayout: React.FC = () => {
                     icon: <UserOutlined />,
                     label: '个人信息',
                 },
-                {
+                // 助教不显示"助教管理"菜单
+                ...(role?.id !== 'assistant' ? [{
                     key: '/account-assistant',
                     icon: <TeamOutlined />,
                     label: '助教管理',
-                },
+                } as MenuItemType] : []),
             ],
         },
-    ];
+        ];
+
+        return items;
+    }, [role]);
 
     const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
         if (key.startsWith('/')) {
