@@ -78,6 +78,6 @@ class ToastEventBus {
 
 /**
  * 单例 Toast 事件总线实例
- * Store 通过此实例发送 Toast，UI 层通过 useToastSubscription Hook 订阅
+ * Store 通过此实例发送 Toast，UI 层通过订阅 toastEventBus.subscribe() 在 useEffect 中响应
  */
 export const toastEventBus = new ToastEventBus();
