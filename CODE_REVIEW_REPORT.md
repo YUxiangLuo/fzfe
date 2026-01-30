@@ -8,6 +8,28 @@
 
 ---
 
+## ✅ 已修复的问题
+
+### 问题1: Toast 函数注入模式 ✅ 已修复
+**原问题**: 使用模块级别的可变变量 `addToastFn` 存储Toast函数，不够React规范
+
+**解决方案**: 
+- 创建了 `utils/toastEventBus.ts`，实现 EventEmitter 模式
+- Store 通过 `toastEventBus.emit()` 发送 Toast 事件
+- `ExperimentStoreProvider` 订阅事件并调用 React Context 的 `addToast`
+- 移除了模块级可变变量和 `setToastFunction` 导出
+
+### 问题3: 硬编码步骤编号 ✅ 已修复
+**原问题**: 步骤编号 (1-7) 硬编码在 `store.ts` 的多处
+
+**解决方案**:
+- 创建了 `constants/steps.ts`，定义 `STEPS` 常量
+- 更新了 `store.ts` 中所有硬编码步骤编号
+- 更新了 `routes.ts` 使用 `STEPS` 常量
+- 更新了 `ExperimentStoreProvider.tsx` 使用 `STEPS.PRODUCT`
+
+---
+
 ## Commit 1: `f99ab9b` - refactor(shiyan): split experiment store/services layer
 
 ### 📊 变更统计

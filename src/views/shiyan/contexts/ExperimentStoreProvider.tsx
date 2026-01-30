@@ -1,6 +1,8 @@
 import { useEffect, type ReactNode } from "react";
-import { useExperimentStore, setToastFunction } from "./ExperimentContext.zustand";
+import { useExperimentStore } from "./ExperimentContext.zustand";
 import { useToast } from "../shared/contexts/ToastContext";
+import { toastEventBus } from "../utils/toastEventBus";
+import { STEPS } from "../constants/steps";
 
 interface ExperimentStoreProviderProps {
   children: ReactNode;
@@ -23,9 +25,12 @@ export const ExperimentStoreProvider = ({ children }: ExperimentStoreProviderPro
   const isLoadingFields = useExperimentStore((state) => state.isLoadingFields);
   const productFieldsError = useExperimentStore((state) => state.productFieldsError);
 
-  // Set toast function on mount
+  // Subscribe to toast events from the store using EventEmitter pattern
   useEffect(() => {
-    setToastFunction(addToast);
+    const unsubscribe = toastEventBus.subscribe((event) => {
+      addToast(event.message, event.type, event.duration);
+    });
+    return unsubscribe;
   }, [addToast]);
 
   // Initialize store on mount
@@ -38,7 +43,7 @@ export const ExperimentStoreProvider = ({ children }: ExperimentStoreProviderPro
     state.selected_industry &&
     state.selected_company &&
     state.selected_product &&
-    state.highest_completed_step >= 3;
+    state.highest_completed_step >= STEPS.PRODUCT;
 
   useEffect(() => {
     if (
