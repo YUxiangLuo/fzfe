@@ -17,11 +17,12 @@ import {
   Legend,
   Cell,
 } from 'recharts';
-import type { MonthlySalesRecord } from '../data/historicalDatasets';
 import { useToast } from '../shared/hooks/useToast';
 import { Toast } from '../shared/components/common/Toast';
 import { ROUTES } from '../constants/routes';
 import Button from '../shared/components/common/Button';
+import { fillMissingMonths, isBlankValue } from '../utils/dataProcessing';
+import { useStepStartRecorder } from '../hooks/useStepStartRecorder';
 
 // 常量配置
 const CURRENT_STEP = 4;
@@ -95,10 +96,9 @@ const HistoricalData: React.FC = () => {
   const columnSelectorRef = useRef<HTMLDivElement>(null);
 
   const { selected_industry, selected_company, selected_product } = state;
-  const hasRecordedStartRef = useRef(false);
-  const prevHighestStepRef = useRef(state.highest_completed_step);
   const hasCheckedBlankData = useRef(false);
   const [processedSalesData, setProcessedSalesData] = useState<typeof productSalesData>(null);
+  useStepStartRecorder(CURRENT_STEP, state.highest_completed_step, recordStepEvent);
 
   // 加载产品销售数据
   useEffect(() => {
@@ -123,58 +123,6 @@ const HistoricalData: React.FC = () => {
     selected_product,
   ]);
 
-  // 填充缺失月份的函数
-  const fillMissingMonths = (data: MonthlySalesRecord[]): MonthlySalesRecord[] => {
-    if (data.length <= 1) return data;
-
-    const result: MonthlySalesRecord[] = [];
-
-    // 解析月份字符串为 Date 对象
-    const parseMonth = (monthStr: string): Date => {
-      const [year, month] = monthStr.split('-').map(Number);
-      return new Date(year!, month! - 1, 1);
-    };
-
-    // 格式化日期为 YYYY-MM 字符串
-    const formatMonth = (date: Date): string => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      return `${year}-${month}`;
-    };
-
-    // 获取下一个月
-    const getNextMonth = (date: Date): Date => {
-      const nextMonth = new Date(date);
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
-      return nextMonth;
-    };
-
-    result.push(data[0]!);
-
-    for (let i = 1; i < data.length; i++) {
-      const prevRecord = data[i - 1]!;
-      const currentRecord = data[i]!;
-
-      const prevDate = parseMonth(prevRecord.month);
-      const currentDate = parseMonth(currentRecord.month);
-
-      // 检查是否需要填充月份
-      let checkDate = getNextMonth(prevDate);
-      while (checkDate < currentDate) {
-        // 插入缺失的月份
-        result.push({
-          month: formatMonth(checkDate),
-          sales: null as any, // 缺失月份的销量设为 null
-        });
-        checkDate = getNextMonth(checkDate);
-      }
-
-      result.push(currentRecord);
-    }
-
-    return result;
-  };
-
   // 处理销售数据：填充缺失月份
   useEffect(() => {
     if (productSalesData) {
@@ -194,19 +142,6 @@ const HistoricalData: React.FC = () => {
       hasCheckedBlankData.current = false;
     }
   }, [productSalesData]);
-
-  // 记录步骤开始事件
-  useEffect(() => {
-    if (state.highest_completed_step < prevHighestStepRef.current) {
-      hasRecordedStartRef.current = false;
-    }
-    prevHighestStepRef.current = state.highest_completed_step;
-
-    if (CURRENT_STEP > state.highest_completed_step && !hasRecordedStartRef.current) {
-      recordStepEvent(CURRENT_STEP, 'STARTED');
-      hasRecordedStartRef.current = true;
-    }
-  }, [state.highest_completed_step, recordStepEvent]);
 
   // 初始化可见列（默认显示所有列）
   useEffect(() => {
@@ -249,16 +184,9 @@ const HistoricalData: React.FC = () => {
         }
 
         // 检查月份是否为空白
-        const isMonthBlank =
-          record.month == null ||
-          record.month === '' ||
-          record.month.trim() === ''; // 处理空格字符串
+        const isMonthBlank = isBlankValue(record.month);
 
-        // 检查销量是否为空白或无效
-        const isSalesBlank =
-          record.sales == null ||
-          isNaN(record.sales) ||
-          !isFinite(record.sales); // 检测 Infinity/-Infinity
+        const isSalesBlank = isBlankValue(record.sales);
 
         if (isMonthBlank || isSalesBlank) {
           blanks.push(record.month?.trim() || '未知月份');

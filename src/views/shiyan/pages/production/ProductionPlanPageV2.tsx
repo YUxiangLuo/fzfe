@@ -1,9 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import ProductionScenarioIntroduction from './ProductionScenarioIntroduction';
 import ProductionRoleIntroduction from './ProductionRoleIntroduction';
 import ProductionPlanSteps from './ProductionPlanSteps';
+import { useStepStartRecorder } from '../../hooks/useStepStartRecorder';
 
 // 常量配置
 const CURRENT_STEP = 7;
@@ -25,22 +26,7 @@ const ProductionPlanPageV2: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { state, recordStepEvent } = useExperiment();
-  const hasRecordedStartRef = useRef(false);
-  const prevHighestStepRef = useRef(state.highest_completed_step);
-
-  // Record STARTED event only when entering a new step (step > highest_completed_step)
-  // Reset ref when state is rolled back (highest_completed_step decreases)
-  useEffect(() => {
-    if (state.highest_completed_step < prevHighestStepRef.current) {
-      hasRecordedStartRef.current = false;
-    }
-    prevHighestStepRef.current = state.highest_completed_step;
-
-    if (CURRENT_STEP > state.highest_completed_step && !hasRecordedStartRef.current) {
-      recordStepEvent(CURRENT_STEP, 'STARTED');
-      hasRecordedStartRef.current = true;
-    }
-  }, [state.highest_completed_step, recordStepEvent]);
+  useStepStartRecorder(CURRENT_STEP, state.highest_completed_step, recordStepEvent);
 
   // 默认重定向到第一个子步骤
   useEffect(() => {

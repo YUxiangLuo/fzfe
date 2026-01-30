@@ -1,78 +1,9 @@
-import React, { useMemo } from 'react';
-import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
+import React from 'react';
 import ModelMetricsTable from '../components/ModelMetricsTable';
+import { useAllModelMetrics } from '../hooks/useAllModelMetrics';
 
 const ModelComparison: React.FC = () => {
-const { state } = useExperiment();
-
-const modelData = useMemo(() => {
-  const data = [];
-  if (state.moving_average_completed) {
-    data.push({
-      model: '移动平均法',
-      rmse: state.moving_average_metrics_rmse,
-      mae: state.moving_average_metrics_mae,
-      r2: state.moving_average_metrics_r2,
-    });
-  }
-  if (state.exponential_smoothing_completed) {
-    data.push({
-      model: '指数平滑法',
-      rmse: state.exponential_smoothing_metrics_rmse,
-      mae: state.exponential_smoothing_metrics_mae,
-      r2: state.exponential_smoothing_metrics_r2,
-    });
-  }
-  if (state.arima_completed) {
-    data.push({
-      model: 'ARIMA模型',
-      rmse: state.arima_metrics_rmse,
-      mae: state.arima_metrics_mae,
-      r2: state.arima_metrics_r2,
-    });
-  }
-  if (state.lstm_completed) {
-    data.push({
-      model: 'LSTM模型',
-      rmse: state.lstm_metrics_rmse,
-      mae: state.lstm_metrics_mae,
-      r2: state.lstm_metrics_r2,
-    });
-  }
-  if (state.ensemble_weighted_completed) {
-    data.push({
-      model: '加权融合模型',
-      rmse: state.ensemble_weighted_metrics_rmse,
-      mae: state.ensemble_weighted_metrics_mae,
-      r2: state.ensemble_weighted_metrics_r2,
-    });
-  }
-  if (state.ensemble_boosting_completed) {
-    data.push({
-      model: 'Boosting融合模型',
-      rmse: state.ensemble_boosting_metrics_rmse,
-      mae: state.ensemble_boosting_metrics_mae,
-      r2: state.ensemble_boosting_metrics_r2,
-    });
-  }
-  if (state.ensemble_stacking_completed) {
-    data.push({
-      model: 'Stacking融合模型',
-      rmse: state.ensemble_stacking_metrics_rmse,
-      mae: state.ensemble_stacking_metrics_mae,
-      r2: state.ensemble_stacking_metrics_r2,
-    });
-  }
-  return data;
-}, [
-  state.moving_average_completed, state.moving_average_metrics_rmse, state.moving_average_metrics_mae, state.moving_average_metrics_r2,
-  state.exponential_smoothing_completed, state.exponential_smoothing_metrics_rmse, state.exponential_smoothing_metrics_mae, state.exponential_smoothing_metrics_r2,
-  state.arima_completed, state.arima_metrics_rmse, state.arima_metrics_mae, state.arima_metrics_r2,
-  state.lstm_completed, state.lstm_metrics_rmse, state.lstm_metrics_mae, state.lstm_metrics_r2,
-  state.ensemble_weighted_completed, state.ensemble_weighted_metrics_rmse, state.ensemble_weighted_metrics_mae, state.ensemble_weighted_metrics_r2,
-  state.ensemble_boosting_completed, state.ensemble_boosting_metrics_rmse, state.ensemble_boosting_metrics_mae, state.ensemble_boosting_metrics_r2,
-  state.ensemble_stacking_completed, state.ensemble_stacking_metrics_rmse, state.ensemble_stacking_metrics_mae, state.ensemble_stacking_metrics_r2,
-]);
+  const modelData = useAllModelMetrics();
 
   const footer = (
     <>

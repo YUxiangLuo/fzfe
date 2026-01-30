@@ -342,17 +342,6 @@ const ARIMAStepper: React.FC = () => {
   };
 
   const handlePrevious = () => {
-
-    if (currentStep?.id === 'stationarity-table') {
-      // 在adf检验结果页面返回上一步，清除错误
-      setError(null);
-      const prevStep = STEPS[currentStepIndex - 1];
-      if (prevStep) {
-        navigate(prevStep.path);
-      } 
-      return;
-    }
-
     if (isAutoregressionInfoPage) {
       // From autoregression info, go back to stationarity
       const prevStep = STEPS[STATIONARITY_STEP_INDEX];
@@ -364,6 +353,7 @@ const ARIMAStepper: React.FC = () => {
 
     if (isStationarityTablePage) {
       // From stationarity table, go back to stationarity
+      setError(null);
       const prevStep = STEPS[STATIONARITY_STEP_INDEX];
       if (prevStep) {
         navigate(prevStep.path);

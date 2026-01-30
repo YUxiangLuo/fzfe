@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
-import { Check } from 'lucide-react';
+import { useStepStartRecorder } from '../hooks/useStepStartRecorder';
 import ScenarioIntroduction from './models/ScenarioIntroduction';
 import RoleIntroduction from './models/RoleIntroduction';
 import DataWindowSelection from './models/DataWindowSelection';
@@ -44,24 +44,19 @@ const modelRoutes = [
   { path: 'stacking-ensemble/*', element: <StackingEnsembleModelRoutes /> },
 ];
 
+const MODEL_ROUTE_PREFIXES = modelRoutes.map(route => `/model/${route.path.replace('/*', '')}`);
+const ENSEMBLE_ROUTE_PREFIXES = [
+  '/model/weighted-ensemble',
+  '/model/boosting-ensemble',
+  '/model/stacking-ensemble',
+];
+
 const ModelBuilding: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { state, recordStepEvent } = useExperiment();
-  const hasRecordedStartRef = useRef(false);
-  const prevHighestStepRef = useRef(state.highest_completed_step);
 
-  useEffect(() => {
-    if (state.highest_completed_step < prevHighestStepRef.current) {
-      hasRecordedStartRef.current = false;
-    }
-    prevHighestStepRef.current = state.highest_completed_step;
-
-    if (CURRENT_STEP > state.highest_completed_step && !hasRecordedStartRef.current) {
-      recordStepEvent(CURRENT_STEP, 'STARTED');
-      hasRecordedStartRef.current = true;
-    }
-  }, [state.highest_completed_step, recordStepEvent]);
+  useStepStartRecorder(CURRENT_STEP, state.highest_completed_step, recordStepEvent);
 
   useEffect(() => {
     // This effect should only redirect if the user lands on the base path,
@@ -71,31 +66,39 @@ const ModelBuilding: React.FC = () => {
     }
   }, [location.pathname, navigate]);
 
+  const isModelRoute = useMemo(
+    () => MODEL_ROUTE_PREFIXES.some(prefix => location.pathname.startsWith(prefix)),
+    [location.pathname]
+  );
+  const isEnsembleRoute = useMemo(
+    () => ENSEMBLE_ROUTE_PREFIXES.some(prefix => location.pathname.startsWith(prefix)),
+    [location.pathname]
+  );
+
+  const includeDynamicSteps =
+    state.selected_base_models.length > 0 ||
+    isModelRoute ||
+    location.pathname.startsWith('/model/model-select') ||
+    location.pathname.startsWith('/model/ensemble');
+
   const subSteps = useMemo(() => {
     const { STATIC_PREFIX, DYNAMIC_SUFFIX } = SUB_STEPS_CONFIG;
-    if (state.selected_base_models.length > 0) {
-      return [...STATIC_PREFIX, ...DYNAMIC_SUFFIX];
-    }
-    return STATIC_PREFIX;
-  }, [state.selected_base_models]);
+    return includeDynamicSteps ? [...STATIC_PREFIX, ...DYNAMIC_SUFFIX] : STATIC_PREFIX;
+  }, [includeDynamicSteps]);
 
-  const getCurrentSubStepIndex = (): number => {
-    const currentPath = location.pathname;
-    const isInModelDetails = modelRoutes.some(route =>
-      currentPath.startsWith(`/model/${route.path.replace('/*', '')}`)
-    );
-
-    if (isInModelDetails) {
-      const isEnsemble = ['weighted-ensemble', 'boosting-ensemble', 'stacking-ensemble'].some(p => currentPath.includes(p));
-      if (isEnsemble) return subSteps.findIndex(s => s.id === 'ensemble-select');
-      return subSteps.findIndex(s => s.id === 'model-select');
+  const currentSubStepIndex = useMemo(() => {
+    if (isModelRoute) {
+      if (isEnsembleRoute) {
+        const ensembleIndex = subSteps.findIndex(step => step.id === 'ensemble-select');
+        return ensembleIndex >= 0 ? ensembleIndex : 0;
+      }
+      const baseIndex = subSteps.findIndex(step => step.id === 'model-select');
+      return baseIndex >= 0 ? baseIndex : 0;
     }
 
-    const index = subSteps.findIndex(step => currentPath.startsWith(step.path));
+    const index = subSteps.findIndex(step => location.pathname.startsWith(step.path));
     return index >= 0 ? index : 0;
-  };
-
-  const currentSubStepIndex = getCurrentSubStepIndex();
+  }, [isModelRoute, isEnsembleRoute, location.pathname, subSteps]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">

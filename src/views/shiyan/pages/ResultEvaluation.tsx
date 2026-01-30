@@ -1,30 +1,18 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext.zustand';
+import { useStepStartRecorder } from '../hooks/useStepStartRecorder';
 
 const ResultEvaluation: React.FC = () => {
   const navigate = useNavigate();
   const { state, updateState, recordStepEvent } = useExperiment();
   const [selectedBestModel, setSelectedBestModel] = useState<SelectedBestModel | null>(null);
-  const hasRecordedStartRef = useRef(false);
-  const prevHighestStepRef = useRef(state.highest_completed_step);
+  useStepStartRecorder(6, state.highest_completed_step, recordStepEvent);
 
   // Sync local selection with global state, especially after a page refresh
   useEffect(() => {
     setSelectedBestModel(state.selected_best_model);
   }, [state.selected_best_model]);
-
-  useEffect(() => {
-    if (state.highest_completed_step < prevHighestStepRef.current) {
-      hasRecordedStartRef.current = false;
-    }
-    prevHighestStepRef.current = state.highest_completed_step;
-
-    if (6 > state.highest_completed_step && !hasRecordedStartRef.current) {
-      recordStepEvent(6, 'STARTED');
-      hasRecordedStartRef.current = true;
-    }
-  }, [state.highest_completed_step, recordStepEvent]);
 
   const handleNext = () => {
     if (!selectedBestModel) return;

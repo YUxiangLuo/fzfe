@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
 import {
@@ -17,6 +17,7 @@ import {
 import { getIndustries } from '../services/datasets';
 import { useConfirm } from '../shared/contexts/ConfirmContext';
 import Button from '../shared/components/common/Button';
+import { useStepStartRecorder } from '../hooks/useStepStartRecorder';
 
 // Create a mapping from industry names to specific icons
 const INDUSTRY_ICON_MAP: { [key: string]: React.ElementType } = {
@@ -57,8 +58,7 @@ const IndustrySelection: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [localIndustry, setLocalIndustry] = useState<string | null>(state.selected_industry);
     const { confirm } = useConfirm();
-    const hasRecordedStartRef = useRef(false);
-    const prevHighestStepRef = useRef(state.highest_completed_step);
+    useStepStartRecorder(1, state.highest_completed_step, recordStepEvent);
 
     useEffect(() => {
         let isActive = true;
@@ -92,20 +92,6 @@ const IndustrySelection: React.FC = () => {
             isActive = false;
         };
     }, []);
-
-    // Record STARTED event only when entering a new step (step > highest_completed_step)
-    // Reset ref when state is rolled back (highest_completed_step decreases)
-    useEffect(() => {
-        if (state.highest_completed_step < prevHighestStepRef.current) {
-            hasRecordedStartRef.current = false;
-        }
-        prevHighestStepRef.current = state.highest_completed_step;
-
-        if (1 > state.highest_completed_step && !hasRecordedStartRef.current) {
-            recordStepEvent(1, 'STARTED');
-            hasRecordedStartRef.current = true;
-        }
-    }, [state.highest_completed_step, recordStepEvent]);
 
     const handleSelectIndustry = (industryId: string) => {
         // Only update the local state on selection.

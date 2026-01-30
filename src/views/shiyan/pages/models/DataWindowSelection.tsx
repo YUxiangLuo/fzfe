@@ -5,6 +5,7 @@ import { AlertTriangle, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight }
 import type { MonthlySalesRecord } from '../../data/historicalDatasets';
 import { useConfirm } from '../../shared/contexts/ConfirmContext';
 import Button from '../../shared/components/common/Button';
+import { fillMissingMonths, hasBlankInRange, isBlankValue } from '../../utils/dataProcessing';
 
 // 常量配置
 const MIN_TRAINING_POINTS = 2; // 训练集至少需要2个数据点
@@ -25,83 +26,6 @@ interface ValidationError {
   type: 'training' | 'evaluation' | 'separation' | 'blank_data' | 'size';
   message: string;
 }
-
-// 检测数据是否为空白值
-const isBlankValue = (value: any): boolean => {
-  return (
-    value == null ||
-    (typeof value === 'number' && (isNaN(value) || !isFinite(value))) ||
-    (typeof value === 'string' && value.trim() === '')
-  );
-};
-
-// 填充缺失月份
-const fillMissingMonths = (data: MonthlySalesRecord[]): MonthlySalesRecord[] => {
-  if (data.length <= 1) return data;
-
-  const result: MonthlySalesRecord[] = [];
-
-  const parseMonth = (monthStr: string): Date => {
-    const [year, month] = monthStr.split('-').map(Number);
-    return new Date(year!, month! - 1, 1);
-  };
-
-  const formatMonth = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    return `${year}-${month}`;
-  };
-
-  const getNextMonth = (date: Date): Date => {
-    const nextMonth = new Date(date);
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    return nextMonth;
-  };
-
-  result.push(data[0]!);
-
-  for (let i = 1; i < data.length; i++) {
-    const prevRecord = data[i - 1]!;
-    const currentRecord = data[i]!;
-
-    const prevDate = parseMonth(prevRecord.month);
-    const currentDate = parseMonth(currentRecord.month);
-
-    let checkDate = getNextMonth(prevDate);
-    while (checkDate < currentDate) {
-      result.push({
-        month: formatMonth(checkDate),
-        sales: null as any,
-      });
-      checkDate = getNextMonth(checkDate);
-    }
-
-    result.push(currentRecord);
-  }
-
-  return result;
-};
-
-// 检测区间内是否包含空白值
-const hasBlankInRange = (
-  data: MonthlySalesRecord[],
-  startIndex: number,
-  endIndex: number
-): { hasBlank: boolean; blankMonths: string[] } => {
-  const blankMonths: string[] = [];
-
-  for (let i = startIndex; i <= endIndex && i < data.length; i++) {
-    const record = data[i];
-    if (!record || isBlankValue(record.month) || isBlankValue(record.sales)) {
-      blankMonths.push(record?.month || '未知月份');
-    }
-  }
-
-  return {
-    hasBlank: blankMonths.length > 0,
-    blankMonths,
-  };
-};
 
 // 验证区间是否有效
 const isValidRange = (range: RangeSelection, requireStrictGreater: boolean = false): boolean => {

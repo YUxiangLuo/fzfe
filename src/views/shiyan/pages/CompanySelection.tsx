@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
 import { Building, ArrowRight } from 'lucide-react';
 import { getCompanies } from '../services/datasets';
 import { useConfirm } from '../shared/contexts/ConfirmContext';
 import Button from '../shared/components/common/Button';
+import { useStepStartRecorder } from '../hooks/useStepStartRecorder';
 
 const CompanySelection: React.FC = () => {
   const navigate = useNavigate();
@@ -14,8 +15,7 @@ const CompanySelection: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [localCompany, setLocalCompany] = useState<string | null>(state.selected_company);
   const { confirm } = useConfirm();
-  const hasRecordedStartRef = useRef(false);
-  const prevHighestStepRef = useRef(state.highest_completed_step);
+  useStepStartRecorder(2, state.highest_completed_step, recordStepEvent);
 
   useEffect(() => {
     let isActive = true;
@@ -56,18 +56,6 @@ const CompanySelection: React.FC = () => {
       isActive = false;
     };
   }, [state.selected_industry]);
-
-  useEffect(() => {
-    if (state.highest_completed_step < prevHighestStepRef.current) {
-      hasRecordedStartRef.current = false;
-    }
-    prevHighestStepRef.current = state.highest_completed_step;
-
-    if (2 > state.highest_completed_step && !hasRecordedStartRef.current) {
-      recordStepEvent(2, 'STARTED');
-      hasRecordedStartRef.current = true;
-    }
-  }, [state.highest_completed_step, recordStepEvent]);
 
   const handleSelectCompany = (companyId: string) => {
     setLocalCompany(companyId);
