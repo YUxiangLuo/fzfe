@@ -1,7 +1,6 @@
 export {
   useExperiment,
   useExperimentStore,
-  setToastFunction,
   type ExperimentStore,
 } from "./store";
 export {
