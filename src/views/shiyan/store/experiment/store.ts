@@ -19,7 +19,10 @@ import {
   recordStepEvent as recordExperimentStepEvent,
   updateExperimentState as apiUpdateExperimentState,
 } from "../../services/experiment";
-import { apiClient } from "@/utils/apiClient";
+import {
+  getProductFieldOptions,
+  getProductSalesData,
+} from "../../services/datasets";
 import {
   buildInitialState,
   resetModelingFields,
@@ -393,8 +396,7 @@ export const useExperimentStore = create<ExperimentStore>()(
       loadProductSalesData: async (industry, company, product) => {
         set({ isLoadingSales: true, salesDataError: null });
         try {
-          const endpoint = `/datasets/industries/${industry}/companies/${company}/products/${product}/sales`;
-          const data = await apiClient.get<ProductSalesData>(endpoint);
+          const data = await getProductSalesData(industry, company, product);
           set({ productSalesData: data, isLoadingSales: false });
           return true;
         } catch (err: any) {
@@ -410,9 +412,7 @@ export const useExperimentStore = create<ExperimentStore>()(
       loadProductFieldOptions: async (industry, company, product) => {
         set({ isLoadingFields: true, productFieldsError: null });
         try {
-          const endpoint = `/datasets/industries/${industry}/companies/${company}/products/${product}/fields`;
-          const response = await apiClient.get<{ fields: string[] }>(endpoint);
-          const fields = Array.isArray(response?.fields) ? response.fields : [];
+          const fields = await getProductFieldOptions(industry, company, product);
           set({ productFieldOptions: fields, isLoadingFields: false });
           return true;
         } catch (err: any) {

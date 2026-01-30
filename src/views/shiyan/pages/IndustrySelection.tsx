@@ -14,7 +14,7 @@ import {
     Boxes,
     Factory,
 } from 'lucide-react';
-import { apiClient } from '../../../utils/apiClient';
+import { getIndustries } from '../services/datasets';
 import { useConfirm } from '../shared/contexts/ConfirmContext';
 import Button from '../shared/components/common/Button';
 
@@ -67,7 +67,7 @@ const IndustrySelection: React.FC = () => {
             setError(null);
             try {
         const start = performance.now();
-        const result = await apiClient.get<string[]>('/datasets/industries');
+        const result = await getIndustries();
         const end = performance.now();
         const elapsed = end - start;
         const remaining = Math.max(0, 600 - elapsed);

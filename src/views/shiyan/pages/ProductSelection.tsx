@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
 import { Package, ArrowRight } from 'lucide-react';
-import { apiClient } from '../../../utils/apiClient';
+import { getProducts } from '../services/datasets';
 import { useConfirm } from '../shared/contexts/ConfirmContext';
 import Button from '../shared/components/common/Button';
 
@@ -31,9 +31,7 @@ const ProductSelection: React.FC = () => {
       setError(null);
       try {
         const start = performance.now();
-        const response = await apiClient.get<string[]>(
-          `/datasets/industries/${state.selected_industry}/companies/${state.selected_company}/products`,
-        );
+        const response = await getProducts(state.selected_industry, state.selected_company);
         const end = performance.now();
         const elapsed = end - start;
         const remaining = Math.max(0, 600 - elapsed);
