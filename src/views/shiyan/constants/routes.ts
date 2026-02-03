@@ -3,6 +3,8 @@
  * 集中管理所有路由路径，避免硬编码
  */
 
+import { STEPS } from './steps';
+
 export const ROUTES = {
   LOGIN: '/login',
   INTRODUCTION: '/introduction',
@@ -33,17 +35,22 @@ export const getLogoutRedirectPath = (): string => {
 };
 
 /**
+ * 步骤编号到路由路径的映射
+ */
+const STEP_TO_PATH: Record<number, string> = {
+  [STEPS.INDUSTRY]: ROUTES.INDUSTRY,
+  [STEPS.COMPANY]: ROUTES.COMPANY,
+  [STEPS.PRODUCT]: ROUTES.PRODUCT,
+  [STEPS.DATA_WINDOW]: ROUTES.DATA,
+  [STEPS.MODEL]: ROUTES.MODEL,
+  [STEPS.EVALUATION]: ROUTES.EVALUATION,
+  [STEPS.PRODUCTION]: ROUTES.PRODUCTION,
+  [STEPS.RESULT]: ROUTES.REPORT,
+};
+
+/**
  * 获取步骤路由路径
  */
 export const getStepPath = (step: number): string => {
-  const stepPaths: Record<number, string> = {
-    1: ROUTES.INDUSTRY,
-    2: ROUTES.COMPANY,
-    3: ROUTES.PRODUCT,
-    4: ROUTES.DATA,
-    5: ROUTES.MODEL,
-    6: ROUTES.EVALUATION,
-    7: ROUTES.PRODUCTION,
-  };
-  return stepPaths[step] || ROUTES.INDUSTRY;
+  return STEP_TO_PATH[step] || ROUTES.INDUSTRY;
 };

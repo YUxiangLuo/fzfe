@@ -28,6 +28,8 @@ import {
   resetModelingFields,
   resetProductionPlanFields,
 } from "./initialState";
+import { STEPS } from "../../constants/steps";
+import { toastEventBus } from "../../utils/toastEventBus";
 import type { ExperimentState, ProductSalesData, SelectedBestModel } from "./types";
 
 // Debug flag - can be controlled at runtime via window.__EXPERIMENT_DEBUG__
@@ -74,19 +76,9 @@ const logger = {
   },
 };
 
-// Toast function placeholder - will be injected
-let addToastFn: ((message: string, type: "success" | "error" | "info") => void) | null = null;
-
-export const setToastFunction = (
-  fn: (message: string, type: "success" | "error" | "info") => void,
-) => {
-  addToastFn = fn;
-};
-
+// Toast notification - using EventEmitter pattern instead of module-level mutable variable
 const addToast = (message: string, type: "success" | "error" | "info") => {
-  if (addToastFn) {
-    addToastFn(message, type);
-  }
+  toastEventBus.emit({ message, type });
 };
 
 export interface ExperimentStore {
@@ -264,8 +256,8 @@ export const useExperimentStore = create<ExperimentStore>()(
           const newState: ExperimentState = { ...currentState, selected_industry };
           newState.selected_company = null;
           newState.selected_product = null;
-          newState.highest_completed_step = 1;
-          newState.current_step = 2;
+          newState.highest_completed_step = STEPS.INDUSTRY;
+          newState.current_step = STEPS.COMPANY;
           resetModelingFields(newState, { resetQuizzes: true });
 
           set({
@@ -288,8 +280,8 @@ export const useExperimentStore = create<ExperimentStore>()(
           const currentState = get().state;
           const newState: ExperimentState = { ...currentState, selected_company };
           newState.selected_product = null;
-          newState.highest_completed_step = 2;
-          newState.current_step = 3;
+          newState.highest_completed_step = STEPS.COMPANY;
+          newState.current_step = STEPS.PRODUCT;
           resetModelingFields(newState, { resetQuizzes: true });
 
           set({
@@ -311,8 +303,8 @@ export const useExperimentStore = create<ExperimentStore>()(
         try {
           const currentState = get().state;
           const newState: ExperimentState = { ...currentState, selected_product };
-          newState.highest_completed_step = 3;
-          newState.current_step = 4;
+          newState.highest_completed_step = STEPS.PRODUCT;
+          newState.current_step = STEPS.DATA_WINDOW;
           resetModelingFields(newState, { resetQuizzes: true });
 
           set({
@@ -337,8 +329,8 @@ export const useExperimentStore = create<ExperimentStore>()(
             resetQuizzes: true,
             preserveDataWindow: true,
           });
-          newState.highest_completed_step = 4;
-          newState.current_step = 5;
+          newState.highest_completed_step = STEPS.DATA_WINDOW;
+          newState.current_step = STEPS.MODEL;
           await get().updateState(newState, true);
         } finally {
           set({ isSubmitting: false });
@@ -350,8 +342,8 @@ export const useExperimentStore = create<ExperimentStore>()(
         try {
           const currentState = get().state;
           const newState: ExperimentState = { ...currentState };
-          newState.highest_completed_step = 5;
-          newState.current_step = 6;
+          newState.highest_completed_step = STEPS.MODEL;
+          newState.current_step = STEPS.EVALUATION;
           await get().updateState(newState, true);
         } finally {
           set({ isSubmitting: false });
@@ -364,8 +356,8 @@ export const useExperimentStore = create<ExperimentStore>()(
           const currentState = get().state;
           const newState: ExperimentState = { ...currentState, selected_best_model };
           resetProductionPlanFields(newState);
-          newState.highest_completed_step = 6;
-          newState.current_step = 7;
+          newState.highest_completed_step = STEPS.EVALUATION;
+          newState.current_step = STEPS.PRODUCTION;
           await get().updateState(newState, true);
         } finally {
           set({ isSubmitting: false });
