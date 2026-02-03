@@ -456,7 +456,6 @@ const ExperimentProgress: React.FC = () => {
                             title="平均完成度"
                             value={stats.averageCompletion}
                             styles={{ content: { color: '#722ed1' } }}
-                            prefix={<PercentageOutlined />}
                             suffix="%"
                         />
                     </Card>
