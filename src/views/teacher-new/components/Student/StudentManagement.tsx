@@ -503,7 +503,7 @@ const StudentManagement: React.FC = () => {
                         <Input placeholder="13800138000" />
                     </Form.Item>
                     <Alert
-                        message="提示"
+                        title="提示"
                         description={`学生将被添加到班级：${currentClassName}`}
                         type="info"
                         showIcon

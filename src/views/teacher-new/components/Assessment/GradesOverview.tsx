@@ -326,7 +326,7 @@ const GradesOverview: React.FC = () => {
         if (chartData.gradedCount === 0) {
             return (
                 <Alert
-                    message="暂无成绩图表"
+                    title="暂无成绩图表"
                     description="暂未有评分数据，无法生成图表。"
                     type="info"
                     showIcon
@@ -683,7 +683,7 @@ const GradesOverview: React.FC = () => {
             {exportError && <Alert description={exportError} type="error" showIcon className="mb-6" closable onClose={() => setExportError(null)} />}
             {exportedFileUrl && (
                 <Alert
-                    message="导出成功"
+                    title="导出成功"
                     description={
                         <span>
                             点击 <a href={exportedFileUrl} target="_blank" rel="noopener noreferrer">此处</a> 下载文件。

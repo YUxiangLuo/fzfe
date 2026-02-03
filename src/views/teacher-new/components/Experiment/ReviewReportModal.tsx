@@ -310,7 +310,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                             </Text>
                             {report.feedback && (
                                 <Alert
-                                    message="驳回原因"
+                                    title="驳回原因"
                                     description={report.feedback}
                                     type="error"
                                     style={{ marginBottom: 24, textAlign: 'left' }}

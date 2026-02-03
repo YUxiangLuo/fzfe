@@ -461,7 +461,7 @@ const AssistantManagement: React.FC = () => {
                         />
                     </Form.Item>
                     <Alert
-                        message="提示"
+                        title="提示"
                         description="如果不选择任何班级，该助教将从您的助教列表中移除。"
                         type="info"
                         showIcon

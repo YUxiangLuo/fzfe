@@ -67,7 +67,7 @@ const ExperimentManualView: React.FC = () => {
         try {
             const updatedManual = await apiClient.put(
                 `/manuals/${manual.manual_id}`,
-                { is_active: checked ? 1 : 0 }
+                { is_active: checked }
             );
 
             setManuals((prevManuals) => {
