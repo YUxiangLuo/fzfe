@@ -450,89 +450,209 @@ const GradesOverview: React.FC = () => {
 
     // Render "All Classes" View
     const renderAllClassesView = () => {
-        const barData = classSummaries.map(s => ({
-            name: s.class_name,
-            avg: s.average_score ? parseFloat(s.average_score.toFixed(1)) : 0
-        }));
+        const barData = classSummaries
+            .filter(s => s.average_score !== null)
+            .map(s => ({
+                name: s.class_name,
+                avg: parseFloat(s.average_score!.toFixed(1)),
+            }));
 
         const stackData = classSummaries.map(s => ({
             name: s.class_name,
-            已评阅: s.graded_count,
-            已提交: s.submitted_count,
-            未提交: s.not_submitted_count + s.rejected_count // Simplified for chart
+            已评分: s.graded_count,
+            待评分: s.submitted_count,
+            已驳回: s.rejected_count,
+            未提交: s.not_submitted_count,
         }));
+
+        const studentCountPieData = classSummaries.map((s, index) => ({
+            name: s.class_name,
+            value: s.total_students,
+            color: CHART_COLORS[index % CHART_COLORS.length],
+        }));
+
+        const submissionRateData = classSummaries.map(s => {
+            const submitted = s.graded_count + s.submitted_count + s.rejected_count;
+            return { name: s.class_name, submitted, total: s.total_students };
+        });
 
         return (
             <div className="space-y-6">
                 {/* Summary Cards */}
                 <Row gutter={[16, 16]}>
-                    {classSummaries.map((summary, index) => (
-                        <Col xs={24} sm={12} md={8} lg={6} key={summary.class_id}>
-                            <Card hoverable className="h-full border-l-4" style={{ borderLeftColor: CHART_COLORS[index % CHART_COLORS.length] }}>
-                                <Statistic
-                                    title={<Text strong className="text-lg">{summary.class_name}</Text>}
-                                    value={summary.average_score ? summary.average_score.toFixed(1) : '—'}
-                                    precision={1}
-                                    suffix={<span className="text-sm text-gray-400">平均分</span>}
-                                />
-                                <div className="mt-4 flex justify-between text-sm text-gray-500">
-                                    <span>总人数: {summary.total_students}</span>
-                                    <span>已评阅: {summary.graded_count}</span>
-                                </div>
-                                <Progress
-                                    percent={summary.total_students > 0 ? Math.round((summary.graded_count / summary.total_students) * 100) : 0}
-                                    size="small"
-                                    strokeColor={CHART_COLORS[index % CHART_COLORS.length]}
-                                    className="mt-2"
-                                />
-                            </Card>
-                        </Col>
-                    ))}
+                    {classSummaries.map((summary, index) => {
+                        const submittedTotal = summary.graded_count + summary.submitted_count + summary.rejected_count;
+                        const submissionRate = summary.total_students > 0
+                            ? ((submittedTotal / summary.total_students) * 100).toFixed(1)
+                            : '—';
+                        return (
+                            <Col xs={24} sm={12} md={8} lg={6} key={summary.class_id}>
+                                <Card
+                                    hoverable
+                                    className="h-full border-l-4 cursor-pointer"
+                                    style={{ borderLeftColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                                    onClick={() => setSelectedClassId(String(summary.class_id))}
+                                >
+                                    <Statistic
+                                        title={<Text strong className="text-lg">{summary.class_name}</Text>}
+                                        value={summary.average_score !== null ? summary.average_score.toFixed(1) : '—'}
+                                        precision={1}
+                                        suffix={<span className="text-sm text-gray-400">平均分</span>}
+                                    />
+                                    <div className="mt-4 flex justify-between text-sm text-gray-500">
+                                        <span>总人数: {summary.total_students}</span>
+                                        <span>已提交: {submittedTotal}</span>
+                                    </div>
+                                    {summary.rejected_count > 0 && (
+                                        <div className="text-xs text-red-500 mt-1">
+                                            （含 {summary.rejected_count} 份已驳回）
+                                        </div>
+                                    )}
+                                    <div className="mt-2 flex justify-between text-sm text-gray-500">
+                                        <span>提交率</span>
+                                        <span className="font-bold">{submissionRate}%</span>
+                                    </div>
+                                    <Progress
+                                        percent={summary.total_students > 0 ? Math.round((submittedTotal / summary.total_students) * 100) : 0}
+                                        size="small"
+                                        strokeColor={CHART_COLORS[index % CHART_COLORS.length]}
+                                        className="mt-1"
+                                    />
+                                    <div className="text-center mt-3 text-xs text-blue-500 font-medium">
+                                        点击查看详情 →
+                                    </div>
+                                </Card>
+                            </Col>
+                        );
+                    })}
                 </Row>
 
                 {/* Charts */}
                 <Row gutter={[16, 16]}>
+                    {/* Bar Chart - Average Scores */}
                     <Col xs={24} lg={12}>
                         <Card title={<><BarChartOutlined className="mr-2" />各班级平均分对比</>} bordered={false}>
                             <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={barData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.2} />
-                                        <XAxis type="number" domain={[0, 100]} />
-                                        <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
-                                        <RechartsTooltip
-                                            contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                            formatter={(value: number) => [`${value} 分`, '平均分']}
-                                        />
-                                        <Bar dataKey="avg" name="平均分" radius={[0, 4, 4, 0]} barSize={20}>
-                                            {barData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
+                                {barData.length === 0 ? (
+                                    <div className="flex items-center justify-center h-full text-gray-400">暂无数据</div>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={barData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.2} />
+                                            <XAxis type="number" domain={[0, 100]} />
+                                            <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
+                                            <RechartsTooltip
+                                                contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                                formatter={(value: number) => [`${value.toFixed(2)} 分`, '平均分']}
+                                            />
+                                            <Bar dataKey="avg" name="平均分" radius={[0, 4, 4, 0]} barSize={20}>
+                                                {barData.map((_, index) => (
+                                                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                )}
                             </div>
                         </Card>
                     </Col>
+
+                    {/* Stacked Bar Chart - Completion Status */}
                     <Col xs={24} lg={12}>
                         <Card title={<><PieChartOutlined className="mr-2" />各班级完成情况</>} bordered={false}>
                             <div className="h-[300px] w-full">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={stackData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.2} />
-                                        <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                                        <YAxis />
-                                        <RechartsTooltip
-                                            contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                        />
-                                        <Legend />
-                                        <Bar dataKey="已评阅" stackId="a" fill="#52c41a" barSize={30} />
-                                        <Bar dataKey="已提交" stackId="a" fill="#1890ff" barSize={30} />
-                                        <Bar dataKey="未提交" stackId="a" fill="#ff4d4f" radius={[4, 4, 0, 0]} barSize={30} />
-                                    </BarChart>
-                                </ResponsiveContainer>
+                                {stackData.length === 0 ? (
+                                    <div className="flex items-center justify-center h-full text-gray-400">暂无数据</div>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={stackData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.2} />
+                                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                                            <YAxis />
+                                            <RechartsTooltip
+                                                contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                                formatter={(value: number, name: string) => [`${value} 人`, name]}
+                                            />
+                                            <Legend />
+                                            <Bar dataKey="已评分" stackId="a" fill="#52c41a" barSize={30} />
+                                            <Bar dataKey="待评分" stackId="a" fill="#1890ff" barSize={30} />
+                                            <Bar dataKey="已驳回" stackId="a" fill="#faad14" barSize={30} />
+                                            <Bar dataKey="未提交" stackId="a" fill="#d9d9d9" radius={[4, 4, 0, 0]} barSize={30} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </div>
+                        </Card>
+                    </Col>
+
+                    {/* Pie Chart - Student Distribution */}
+                    <Col xs={24} lg={12}>
+                        <Card title={<><TeamOutlined className="mr-2" />各班级人数分布</>} bordered={false}>
+                            <div className="h-[300px] w-full">
+                                {studentCountPieData.length === 0 ? (
+                                    <div className="flex items-center justify-center h-full text-gray-400">暂无数据</div>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <RechartsTooltip
+                                                contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                                formatter={(value: number) => [`${value} 人`]}
+                                            />
+                                            <Pie
+                                                data={studentCountPieData}
+                                                dataKey="value"
+                                                nameKey="name"
+                                                cx="50%"
+                                                cy="50%"
+                                                outerRadius={100}
+                                                label={(entry) => `${entry.name}: ${entry.value}人`}
+                                                labelLine={{ stroke: '#8c8c8c', strokeWidth: 1 }}
+                                            >
+                                                {studentCountPieData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </div>
+                        </Card>
+                    </Col>
+
+                    {/* Submission Rate Bars */}
+                    <Col xs={24} lg={12}>
+                        <Card title={<><RiseOutlined className="mr-2" />各班级提交率对比</>} bordered={false}>
+                            <div className="space-y-4 py-2">
+                                {submissionRateData.length === 0 ? (
+                                    <div className="flex items-center justify-center h-[268px] text-gray-400">暂无数据</div>
+                                ) : (
+                                    submissionRateData.map((data, index) => {
+                                        const rate = data.total > 0 ? (data.submitted / data.total) * 100 : 0;
+                                        return (
+                                            <div key={index} className="space-y-1">
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span className="font-medium">{data.name}</span>
+                                                    <span className="font-bold">{rate.toFixed(1)}%</span>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    <Progress
+                                                        percent={parseFloat(rate.toFixed(1))}
+                                                        showInfo={false}
+                                                        strokeColor={CHART_COLORS[index % CHART_COLORS.length]}
+                                                        trailColor="#f0f0f0"
+                                                        size="small"
+                                                        className="flex-1"
+                                                    />
+                                                    <span className="text-xs text-gray-400 w-16 text-right">
+                                                        {data.submitted}/{data.total}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
                             </div>
                         </Card>
                     </Col>
