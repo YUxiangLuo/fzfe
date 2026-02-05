@@ -93,6 +93,7 @@ const GradeWeights: React.FC = () => {
     const [isLoadingClasses, setIsLoadingClasses] = useState(true);
     const [isLoadingWeights, setIsLoadingWeights] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [hasExistingPlan, setHasExistingPlan] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     // Fetch classes
@@ -130,9 +131,11 @@ const GradeWeights: React.FC = () => {
         try {
             const data = await apiClient.get(`/classes/${classId}/grading-policy`);
             setWeights(data || DEFAULT_WEIGHTS);
+            setHasExistingPlan(true);
         } catch (err: any) {
             // If no weights exist, use defaults
             setWeights(DEFAULT_WEIGHTS);
+            setHasExistingPlan(false);
         } finally {
             setIsLoadingWeights(false);
         }
@@ -142,7 +145,7 @@ const GradeWeights: React.FC = () => {
         if (selectedClassId) {
             fetchWeights(selectedClassId);
         }
-    }, [selectedClassId, fetchWeights]);
+    }, [selectedClassId]);
 
     // Calculate totals
     const topLevelTotal = useMemo(() => {
@@ -187,7 +190,11 @@ const GradeWeights: React.FC = () => {
 
         setIsSaving(true);
         try {
-            await apiClient.put(`/classes/${selectedClassId}/grading-policy`, weights);
+            const endpoint = `/classes/${selectedClassId}/grading-policy`;
+            await (hasExistingPlan
+                ? apiClient.put(endpoint, weights)
+                : apiClient.post(endpoint, weights));
+            setHasExistingPlan(true);
             message.success('权重保存成功');
         } catch (err: any) {
             message.error(err.message || '保存失败');

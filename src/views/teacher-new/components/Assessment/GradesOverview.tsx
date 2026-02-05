@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
     Card,
     Table,
@@ -101,6 +101,7 @@ const GradesOverview: React.FC = () => {
     const [isLoadingGrades, setIsLoadingGrades] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [expandedRowKeys, setExpandedRowKeys] = useState<number[]>([]);
+    const fetchRequestIdRef = useRef(0);
 
     // Fetch classes
     useEffect(() => {
@@ -126,6 +127,7 @@ const GradesOverview: React.FC = () => {
 
     // Fetch grades
     const fetchGrades = useCallback(async (classId: string) => {
+        const requestId = ++fetchRequestIdRef.current;
         setIsLoadingGrades(true);
         setError(null);
         try {
@@ -172,19 +174,24 @@ const GradesOverview: React.FC = () => {
                         }
                     })
                 );
+                if (requestId !== fetchRequestIdRef.current) return;
                 setClassSummaries(summaries);
                 setGrades([]); // Clear individual grades when showing all
             } else {
                 // Single class view
                 const data = await apiClient.get<StudentGradeOverview[]>(`/classes/${classId}/grade-summaries`);
+                if (requestId !== fetchRequestIdRef.current) return;
                 setGrades(data || []);
                 setClassSummaries([]);
             }
         } catch (err: any) {
+            if (requestId !== fetchRequestIdRef.current) return;
             setError(err.message || '获取成绩数据失败');
             setGrades([]);
         } finally {
-            setIsLoadingGrades(false);
+            if (requestId === fetchRequestIdRef.current) {
+                setIsLoadingGrades(false);
+            }
         }
     }, [classes]);
 

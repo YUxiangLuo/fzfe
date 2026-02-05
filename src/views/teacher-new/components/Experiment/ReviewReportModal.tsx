@@ -139,6 +139,10 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
     // Save review
     const handleSaveReview = async () => {
         if (!report || !report.report_id) return;
+        if (!canSubmitReview) {
+            message.error('请检查评分是否在 0-100 之间');
+            return;
+        }
 
         const payload: {
             grade?: number;
@@ -148,12 +152,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
         } = {};
 
         if (tempScore.trim()) {
-            const scoreValue = Number(tempScore);
-            if (isNaN(scoreValue) || scoreValue < 0 || scoreValue > 100) {
-                message.error('实验报告得分需在 0-100 之间');
-                return;
-            }
-            payload.grade = scoreValue;
+            payload.grade = Number(tempScore);
         }
 
         // Build experiment_grade object
@@ -161,24 +160,14 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
         let hasExperimentGrade = false;
 
         if (tempModelQualityScore.trim()) {
-            const modelQualityValue = Number(tempModelQualityScore);
-            if (isNaN(modelQualityValue) || modelQualityValue < 0 || modelQualityValue > 100) {
-                message.error('模型选择得分需在 0-100 之间');
-                return;
-            }
-            experimentGrade.model_quality = modelQualityValue;
+            experimentGrade.model_quality = Number(tempModelQualityScore);
             hasExperimentGrade = true;
         }
 
         // Process experiment flow scores
         for (const [key, value] of Object.entries(expFlowScores)) {
             if (value.trim()) {
-                const scoreValue = Number(value);
-                if (isNaN(scoreValue) || scoreValue < 0 || scoreValue > 100) {
-                    message.error('实验步骤评分需在 0-100 之间');
-                    return;
-                }
-                experimentGrade[key] = scoreValue;
+                experimentGrade[key] = Number(value);
                 hasExperimentGrade = true;
             }
         }
@@ -269,11 +258,20 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                 {/* Left side - PDF Preview */}
                 <Col span={16} style={{ padding: 24, borderRight: '1px solid #f0f0f0' }}>
                     {report.pdf_file_path ? (
-                        <div style={{ height: 700, background: '#f5f5f5', borderRadius: 8, overflow: 'hidden' }}>
+                        <div style={{ height: 700, background: '#f5f5f5', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
                             <iframe
                                 src={buildDownloadUrl(report.pdf_file_path)}
                                 title="report-preview"
                                 style={{ width: '100%', height: '100%', border: 'none' }}
+                                onError={(e) => {
+                                    const target = e.currentTarget;
+                                    target.style.display = 'none';
+                                    target.parentElement!.innerHTML = `
+                                        <div style="height:100%;display:flex;align-items:center;justify-content:center;text-align:center;color:#999">
+                                            <div><p style="font-size:48px;margin-bottom:16px">⚠️</p><p>PDF 加载失败</p>
+                                            <a href="${buildDownloadUrl(report.pdf_file_path)}" target="_blank" rel="noopener noreferrer" style="color:#1890ff">点击下载查看</a></div>
+                                        </div>`;
+                                }}
                             />
                         </div>
                     ) : (

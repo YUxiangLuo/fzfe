@@ -461,6 +461,17 @@ const QuestionBank: React.FC = () => {
                     <Form.Item
                         label="选项（每行一个）"
                         name="options"
+                        rules={[
+                            {
+                                validator: (_, value) => {
+                                    const type = form.getFieldValue('question_type');
+                                    if ((type === 'Single Choice' || type === 'Multiple Choice') && (!value || value.length < 2)) {
+                                        return Promise.reject(new Error('选择题至少需要 2 个选项'));
+                                    }
+                                    return Promise.resolve();
+                                },
+                            },
+                        ]}
                     >
                         <Select mode="tags" placeholder="回车添加选项" />
                     </Form.Item>

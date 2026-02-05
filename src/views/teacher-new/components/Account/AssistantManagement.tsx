@@ -137,10 +137,16 @@ const AssistantManagement: React.FC = () => {
 
             // Assign to selected classes
             if (values.class_ids?.length > 0) {
-                for (const classId of values.class_ids) {
-                    await apiClient.post(`/classes/${classId}/assistants`, {
-                        assistant_id: newAssistant.user_id,
-                    });
+                const results = await Promise.allSettled(
+                    values.class_ids.map((classId: number) =>
+                        apiClient.post(`/classes/${classId}/assistants`, {
+                            assistant_id: newAssistant.user_id,
+                        })
+                    )
+                );
+                const failed = results.filter(r => r.status === 'rejected');
+                if (failed.length > 0) {
+                    message.warning(`助教已创建，但 ${failed.length} 个班级分配失败`);
                 }
             }
 
@@ -164,10 +170,16 @@ const AssistantManagement: React.FC = () => {
 
             // Assign to selected classes
             if (values.class_ids?.length > 0) {
-                for (const classId of values.class_ids) {
-                    await apiClient.post(`/classes/${classId}/assistants`, {
-                        assistant_id: values.assistant_id,
-                    });
+                const results = await Promise.allSettled(
+                    values.class_ids.map((classId: number) =>
+                        apiClient.post(`/classes/${classId}/assistants`, {
+                            assistant_id: values.assistant_id,
+                        })
+                    )
+                );
+                const failed = results.filter(r => r.status === 'rejected');
+                if (failed.length > 0) {
+                    message.warning(`${failed.length} 个班级分配失败`);
                 }
             }
 
@@ -201,25 +213,33 @@ const AssistantManagement: React.FC = () => {
             const newClasses = values.class_ids || [];
 
             // Remove from classes no longer selected
-            for (const classId of currentClasses) {
-                if (!newClasses.includes(classId)) {
-                    await apiClient.delete(`/classes/${classId}/assistants/${assistantToReassign.user_id}`);
-                }
-            }
+            const removeResults = await Promise.allSettled(
+                currentClasses
+                    .filter((classId: number) => !newClasses.includes(classId))
+                    .map((classId: number) =>
+                        apiClient.delete(`/classes/${classId}/assistants/${assistantToReassign.user_id}`)
+                    )
+            );
 
             // Add to newly selected classes
-            for (const classId of newClasses) {
-                if (!currentClasses.includes(classId)) {
-                    await apiClient.post(`/classes/${classId}/assistants`, {
-                        assistant_id: assistantToReassign.user_id,
-                    });
-                }
-            }
+            const addResults = await Promise.allSettled(
+                newClasses
+                    .filter((classId: number) => !currentClasses.includes(classId))
+                    .map((classId: number) =>
+                        apiClient.post(`/classes/${classId}/assistants`, {
+                            assistant_id: assistantToReassign.user_id,
+                        })
+                    )
+            );
+
+            const totalFailed = [...removeResults, ...addResults].filter(r => r.status === 'rejected').length;
 
             // If no classes assigned, remove from list
             if (newClasses.length === 0) {
                 setAssistants(prev => prev.filter(a => a.user_id !== assistantToReassign.user_id));
                 message.info('助教已从所有班级解绑');
+            } else if (totalFailed > 0) {
+                message.warning(`班级分配已更新，但 ${totalFailed} 个操作失败`);
             } else {
                 message.success('班级分配已更新');
             }
