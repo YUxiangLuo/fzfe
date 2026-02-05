@@ -42,7 +42,7 @@ export const fillMissingMonths = (data: MonthlySalesRecord[]): MonthlySalesRecor
     while (checkDate < currentDate) {
       result.push({
         month: formatMonth(checkDate),
-        sales: null as any,
+        sales: null,
       });
       checkDate = getNextMonth(checkDate);
     }

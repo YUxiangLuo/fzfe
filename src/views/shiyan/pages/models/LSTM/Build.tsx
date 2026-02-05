@@ -5,13 +5,14 @@ export interface BuildProps {
   features: string[];
   setFeatures: (features: string[]) => void;
   target: string | null;
+  setTarget: (target: string | null) => void;
   error: string | null;
   isLoading: boolean;
   fieldOptions: string[];
   onShowLSTMMethodInfo: () => void;
 }
 
-const Build: React.FC<BuildProps> = ({ features, setFeatures, target, error, isLoading, fieldOptions, onShowLSTMMethodInfo }) => {
+const Build: React.FC<BuildProps> = ({ features, setFeatures, target, setTarget, error, isLoading, fieldOptions, onShowLSTMMethodInfo }) => {
   const handleFeatureToggle = (field: string) => {
     const newFeatures = features.includes(field)
       ? features.filter(f => f !== field)

@@ -1,6 +1,6 @@
 export interface MonthlySalesRecord {
   month: string;
-  sales: number;
+  sales: number | null;
 }
 
 export interface HistoricalDatasetMeta {

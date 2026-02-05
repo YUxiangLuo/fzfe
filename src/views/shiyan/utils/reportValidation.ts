@@ -54,7 +54,7 @@ export const calculateRepetitionRate = (text: string, n: number = 3): number => 
  * @returns 如果所有字段都非空则返回true，否则返回false。
  */
 export const validateAnalyses = (analyses: { [key: string]: string }): boolean => {
-  for (const key in analyses) {
+  for (const key of Object.keys(analyses)) {
     if (!analyses[key] || analyses[key].trim() === '') {
       return false;
     }

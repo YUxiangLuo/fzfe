@@ -155,8 +155,8 @@ export const useExperimentStore = create<ExperimentStore>()(
               !(error instanceof Error && error.message?.includes("network"))
             ) {
               console.log(`Retrying experiment state fetch in ${1000 * (retryCount + 1)}ms...`);
-              setTimeout(() => fetchState(retryCount + 1), 1000 * (retryCount + 1));
-              return;
+              await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+              return fetchState(retryCount + 1);
             }
 
             const currentState = get().state;

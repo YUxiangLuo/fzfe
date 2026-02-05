@@ -262,14 +262,14 @@ return `| 变量/参数 | 期 1 (参考) | 期 2 (学习) |
 | 需求预测 | ${period1.demand_forecast?.toLocaleString()} | ${period2.demand_forecast?.toLocaleString()} |
 | 期初库存 | ${period1.beginning_inventory?.toLocaleString()} | ${period2.beginning_inventory?.toLocaleString()} |
 | 安全库存 | ${period1.safety_stock?.toLocaleString()} | ${period2.safety_stock?.toLocaleString()} |
-| 预测量 | ${(period1.demand_forecast + period1.safety_stock).toLocaleString()} | ${(period2.demand_forecast + period2.safety_stock).toLocaleString()} |
+| 预测量 | ${((period1.demand_forecast ?? 0) + (period1.safety_stock ?? 0)).toLocaleString()} | ${((period2.demand_forecast ?? 0) + (period2.safety_stock ?? 0)).toLocaleString()} |
 | **生产与产出** | | |
 | 计划生产 (投入量) | ${period1.planned_production?.toLocaleString()} | ${period2.planned_production?.toLocaleString()} |
 | 产出量 | ${period1.production_output?.toLocaleString()} | ${period2.production_output?.toLocaleString()} |
 | **结果与评估** | | |
 | 期末库存 | ${period1.ending_inventory?.toLocaleString()} | ${period2.ending_inventory?.toLocaleString()} |
 | 缺货量 | ${period1.stockout?.toLocaleString()} | ${period2.stockout?.toLocaleString()} |
-| 服务水平 | ${`${(period1.service_level * 100).toFixed(1)}%`} | ${`${(period2.service_level * 100).toFixed(1)}%`} |
+| 服务水平 | ${`${((period1.service_level ?? 0) * 100).toFixed(1)}%`} | ${`${((period2.service_level ?? 0) * 100).toFixed(1)}%`} |
 `;
 })()}
 
@@ -283,7 +283,7 @@ ${planParamsAnalysis}
 ### 5.1 完整生产计划表 (MPS)
 ${state.production_mps_table.length > 0 ? `| 周期 | 预测需求 | 安全库存 | 计划生产 | 期初库存 | 产出量 | 期末库存 | 缺货量 | 服务水平 |
 |------|----------|----------|----------|----------|--------|----------|--------|----------|
-${state.production_mps_table.map(row => `| ${row.period_label} | ${row.demand_forecast} | ${row.safety_stock} | ${row.planned_production} | ${row.beginning_inventory} | ${row.production_output} | ${row.ending_inventory} | ${row.stockout} | ${(row.service_level * 100).toFixed(1)}% |`).join('\n')}` : `**📝 说明：生产计划数据未保存**`}
+${state.production_mps_table.map(row => `| ${row.period_label} | ${row.demand_forecast} | ${row.safety_stock} | ${row.planned_production} | ${row.beginning_inventory} | ${row.production_output} | ${row.ending_inventory} | ${row.stockout} | ${((row.service_level ?? 0) * 100).toFixed(1)}% |`).join('\n')}` : `**📝 说明：生产计划数据未保存**`}
 
 ### 5.2 计划总体评估
 ${planSummary ? `| 指标 | 结果 |

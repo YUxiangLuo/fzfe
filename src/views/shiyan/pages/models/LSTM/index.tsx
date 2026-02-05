@@ -63,10 +63,10 @@ const LSTMStepper: React.FC = () => {
   }, [productSalesData, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
 
   useEffect(() => {
-    if (target && features.includes(target)) {
-      setFeatures(features.filter(f => f !== target));
+    if (target) {
+      setFeatures(prev => prev.includes(target) ? prev.filter(f => f !== target) : prev);
     }
-  }, [target, features]);
+  }, [target]);
 
   const currentStepIndex = useMemo(() => {
     if (isNormalizationInfoPage) {
@@ -299,6 +299,7 @@ const LSTMStepper: React.FC = () => {
       features,
       setFeatures,
       target,
+      setTarget,
       error,
       isLoading,
       fieldOptions: productFieldOptions ?? [],

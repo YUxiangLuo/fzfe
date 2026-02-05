@@ -62,7 +62,7 @@ export const PlanParameters: React.FC<PlanParametersProps> = ({
                 <tr className="border-b"><td className="py-2 px-3">需求预测</td><td className="py-2 px-3 text-right font-mono">{period1.demand_forecast?.toLocaleString()}</td><td className="py-2 px-3 text-right font-mono">{period2.demand_forecast?.toLocaleString()}</td></tr>
                 <tr className="border-b"><td className="py-2 px-3">期初库存</td><td className="py-2 px-3 text-right font-mono">{period1.beginning_inventory?.toLocaleString()}</td><td className="py-2 px-3 text-right font-mono">{period2.beginning_inventory?.toLocaleString()}</td></tr>
                 <tr className="border-b"><td className="py-2 px-3">安全库存</td><td className="py-2 px-3 text-right font-mono">{period1.safety_stock?.toLocaleString()}</td><td className="py-2 px-3 text-right font-mono">{period2.safety_stock?.toLocaleString()}</td></tr>
-                <tr className="border-b"><td className="py-2 px-3">预测量</td><td className="py-2 px-3 text-right font-mono">{(period1.demand_forecast + period1.safety_stock).toLocaleString()}</td><td className="py-2 px-3 text-right font-mono">{(period2.demand_forecast + period2.safety_stock).toLocaleString()}</td></tr>
+                <tr className="border-b"><td className="py-2 px-3">预测量</td><td className="py-2 px-3 text-right font-mono">{((period1.demand_forecast ?? 0) + (period1.safety_stock ?? 0)).toLocaleString()}</td><td className="py-2 px-3 text-right font-mono">{((period2.demand_forecast ?? 0) + (period2.safety_stock ?? 0)).toLocaleString()}</td></tr>
 
                 <tr className="bg-gray-50"><td colSpan={3} className="px-3 py-1 font-medium text-gray-500">生产与产出</td></tr>
                 <tr className="border-b"><td className="py-2 px-3">计划生产 (投入量)</td><td className="py-2 px-3 text-right font-mono">{period1.planned_production?.toLocaleString()}</td><td className="py-2 px-3 text-right font-mono">{period2.planned_production?.toLocaleString()}</td></tr>
@@ -71,7 +71,7 @@ export const PlanParameters: React.FC<PlanParametersProps> = ({
                 <tr className="bg-gray-50"><td colSpan={3} className="px-3 py-1 font-medium text-gray-500">结果与评估</td></tr>
                 <tr className="border-b"><td className="py-2 px-3">期末库存</td><td className="py-2 px-3 text-right font-mono">{period1.ending_inventory?.toLocaleString()}</td><td className="py-2 px-3 text-right font-mono">{period2.ending_inventory?.toLocaleString()}</td></tr>
                 <tr className="border-b"><td className="py-2 px-3">缺货量</td><td className="py-2 px-3 text-right font-mono text-red-600">{period1.stockout?.toLocaleString()}</td><td className="py-2 px-3 text-right font-mono text-red-600">{period2.stockout?.toLocaleString()}</td></tr>
-                <tr><td className="py-2 px-3">服务水平</td><td className="py-2 px-3 text-right font-mono">{`${(period1.service_level * 100).toFixed(1)}%`}</td><td className="py-2 px-3 text-right font-mono">{`${(period2.service_level * 100).toFixed(1)}%`}</td></tr>
+                <tr><td className="py-2 px-3">服务水平</td><td className="py-2 px-3 text-right font-mono">{`${((period1.service_level ?? 0) * 100).toFixed(1)}%`}</td><td className="py-2 px-3 text-right font-mono">{`${((period2.service_level ?? 0) * 100).toFixed(1)}%`}</td></tr>
               </tbody>
             </table>
           </div>
