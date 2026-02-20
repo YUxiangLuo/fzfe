@@ -26,7 +26,7 @@ import type { UploadFile } from 'antd/es/upload/interface';
 import type { User } from "../types";
 import { apiClient } from "../../../utils/apiClient";
 import { decodeToken } from "../../../utils/auth";
-import { validatePassword } from "../../admin/utils/validation"; // Reuse validation logic
+import { validatePassword } from "../utils/validation";
 
 const { Title, Text } = Typography;
 const { Search } = Input;
