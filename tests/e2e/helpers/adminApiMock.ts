@@ -40,13 +40,17 @@ const jsonResponse = async (
   status: number,
   body: unknown,
 ): Promise<void> => {
+  const responseBody = status >= 200 && status < 300
+    ? { data: body }
+    : body;
+
   await route.fulfill({
     status,
     headers: {
       ...corsHeaders,
       "content-type": "application/json",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(responseBody),
   });
 };
 
@@ -351,4 +355,3 @@ export const installAdminApiMock = async (page: Page): Promise<void> => {
     });
   });
 };
-
