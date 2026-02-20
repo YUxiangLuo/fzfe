@@ -31,7 +31,7 @@ import {
     EyeOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
+import { resolveFileUrl } from '../../../../utils/fileUrl';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, ExperimentReport } from '../../types';
 import ReviewReportModal from './ReviewReportModal';
@@ -158,8 +158,7 @@ const ExperimentReports: React.FC = () => {
 
     // Build download URL
     const buildDownloadUrl = (filePath: string) => {
-        const filename = filePath.split('/').pop();
-        return `${DOWNLOAD_SERVER_BASE_URL}/reports/${filename}`;
+        return resolveFileUrl(filePath);
     };
 
     // Export CSV
@@ -174,8 +173,10 @@ const ExperimentReports: React.FC = () => {
                 throw new Error('导出失败：服务器未返回文件地址');
             }
 
-            const filename = response.file_path.split('/').pop();
-            const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/exports/${filename}`;
+            const fullUrl = resolveFileUrl(response.file_path);
+            if (!fullUrl) {
+                throw new Error('导出失败：无效的文件地址');
+            }
             setExportedCsvUrl(fullUrl);
             message.success('导出成功');
         } catch (err: any) {
@@ -197,8 +198,10 @@ const ExperimentReports: React.FC = () => {
                 throw new Error('导出失败：服务器未返回文件地址');
             }
 
-            const filename = response.file_path.split('/').pop();
-            const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/exports/${filename}`;
+            const fullUrl = resolveFileUrl(response.file_path);
+            if (!fullUrl) {
+                throw new Error('导出失败：无效的文件地址');
+            }
             setExportedFileUrl(fullUrl);
             message.success('报告文件导出成功');
         } catch (err: any) {

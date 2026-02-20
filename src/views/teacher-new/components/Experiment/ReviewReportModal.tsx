@@ -21,7 +21,7 @@ import {
     UpOutlined,
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
+import { resolveFileUrl } from '../../../../utils/fileUrl';
 import type { ExperimentReport } from '../../types';
 
 const { Title, Text } = Typography;
@@ -99,8 +99,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
 
     // Build download URL
     const buildDownloadUrl = (filePath: string) => {
-        const filename = filePath.split('/').pop();
-        return `${DOWNLOAD_SERVER_BASE_URL}/uploads/${filename}`;
+        return resolveFileUrl(filePath);
     };
 
     // Format datetime

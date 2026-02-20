@@ -1,0 +1,44 @@
+import { API_BASE_URL } from "./apiClient";
+
+const PUBLIC_FILE_PREFIX_RE = /(manuals|datasets|reports|exports)\/.+$/i;
+
+const normalizeFilePath = (rawPath: string): string => {
+  const normalized = rawPath.trim().replace(/\\/g, "/");
+
+  const legacyUploadsMatch = normalized.match(
+    /(?:^|\/)uploads\/((?:manuals|datasets|reports|exports)\/.+)$/i,
+  );
+  if (legacyUploadsMatch?.[1]) {
+    return legacyUploadsMatch[1];
+  }
+
+  const publicPathMatch = normalized.match(
+    /(?:^|\/)((?:manuals|datasets|reports|exports)\/.+)$/i,
+  );
+  if (publicPathMatch?.[1]) {
+    return publicPathMatch[1];
+  }
+
+  if (PUBLIC_FILE_PREFIX_RE.test(normalized)) {
+    return normalized.replace(/^\/+/, "");
+  }
+
+  return normalized.replace(/^\/+/, "");
+};
+
+export const resolveFileUrl = (filePath: string | null | undefined): string => {
+  if (!filePath) return "";
+
+  const trimmed = filePath.trim();
+  if (!trimmed) return "";
+
+  if (/^https?:\/\//i.test(trimmed) || /^\/\//.test(trimmed)) {
+    return trimmed;
+  }
+
+  const normalizedPath = normalizeFilePath(trimmed);
+  if (!normalizedPath) return "";
+
+  return new URL(normalizedPath, `${API_BASE_URL.replace(/\/+$/, "")}/`).toString();
+};
+

@@ -49,7 +49,7 @@ import {
     Line
 } from 'recharts';
 import { apiClient } from '../../../../utils/apiClient';
-import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
+import { resolveFileUrl } from '../../../../utils/fileUrl';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, StudentGradeOverview } from '../../types';
 import FinalBreakdown from './FinalBreakdown';
@@ -439,11 +439,10 @@ const GradesOverview: React.FC = () => {
                 throw new Error('导出失败：服务器未返回文件地址');
             }
 
-            const filename = response.file_path.split("/").pop();
-            if (!filename) {
-                throw new Error('导出失败：无效的文件名');
+            const fullUrl = resolveFileUrl(response.file_path);
+            if (!fullUrl) {
+                throw new Error('导出失败：无效的文件地址');
             }
-            const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/exports/${filename}`;
             setExportedFileUrl(fullUrl);
             message.success('导出成功');
         } catch (err: any) {

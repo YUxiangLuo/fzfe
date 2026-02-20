@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, FileText, RefreshCw, Loader2, Clock, Hash } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
-import { DOWNLOAD_SERVER_BASE_URL } from '../../../config/appConfig';
+import { resolveFileUrl } from '../../../utils/fileUrl';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
 import Button from '../shared/components/common/Button';
 
@@ -37,8 +37,7 @@ interface ReportStatusResponse {
 
 const buildDownloadUrl = (filePath: string) => {
   if (!filePath) return '';
-  const filename = filePath.split("/").pop();
-  return `${DOWNLOAD_SERVER_BASE_URL}/reports/${filename}`;
+  return resolveFileUrl(filePath);
 };
 
 const formatDate = (dateString: string) => {

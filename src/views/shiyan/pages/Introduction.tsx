@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useExperiment } from "../contexts/ExperimentContext.zustand";
 import { apiClient } from "../../../utils/apiClient";
-import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig";
+import { resolveFileUrl } from "../../../utils/fileUrl";
 import {
   BookOpen,
   Target,
@@ -188,9 +188,7 @@ const Introduction: React.FC = () => {
 
   const getPdfUrl = () => {
     if (!manual || !manual.file_path) return null;
-    const filename = manual.file_path.split("/").pop();
-    if (!filename) return null;
-    return `${DOWNLOAD_SERVER_BASE_URL}/manuals/${filename}`;
+    return resolveFileUrl(manual.file_path) || null;
   };
 
   const renderStepContent = () => {

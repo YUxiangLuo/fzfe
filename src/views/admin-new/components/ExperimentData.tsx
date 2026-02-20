@@ -23,7 +23,7 @@ import {
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { ExperimentData } from "../types";
 import { apiClient } from "../../../utils/apiClient";
-import { DOWNLOAD_SERVER_BASE_URL } from "../../../config/appConfig";
+import { resolveFileUrl } from "../../../utils/fileUrl";
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -85,8 +85,11 @@ const ExperimentDataView: React.FC = () => {
     };
 
     const handleDownload = (filePath: string) => {
-        const filename = filePath.split("/").pop();
-        const fullUrl = `${DOWNLOAD_SERVER_BASE_URL}/datasets/${filename}`;
+        const fullUrl = resolveFileUrl(filePath);
+        if (!fullUrl) {
+            message.error('无效的文件地址');
+            return;
+        }
         const win = window.open(fullUrl, "_blank", "noopener,noreferrer");
         if (win) win.opener = null;
     };
