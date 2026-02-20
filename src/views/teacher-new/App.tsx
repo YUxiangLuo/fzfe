@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter } from 'react-router-dom';
+import { HashRouter } from 'react-router-dom';
 import { RoleProvider, useRole } from './contexts/RoleContext';
 import { getRoleById } from '../../config/roles';
 import TeacherLayout from './components/Layout/TeacherLayout';
@@ -23,9 +23,9 @@ function AppContent() {
 function App() {
     return (
         <RoleProvider>
-            <BrowserRouter basename="/teacher">
+            <HashRouter>
                 <AppContent />
-            </BrowserRouter>
+            </HashRouter>
         </RoleProvider>
     );
 }

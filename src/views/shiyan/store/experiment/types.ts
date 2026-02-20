@@ -26,7 +26,7 @@ export interface ProductSalesData {
   };
   monthlySales: {
     month: string;
-    sales: number;
+    sales: number | null;
   }[];
   csvData?: string[][];
 }

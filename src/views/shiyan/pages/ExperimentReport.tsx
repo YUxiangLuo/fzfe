@@ -19,6 +19,11 @@ interface UserSummary {
   email: string;
 }
 
+const formatSales = (value: number | null | undefined): string => {
+  if (value == null) return 'N/A';
+  return value.toLocaleString();
+};
+
 const ExperimentReport: React.FC = () => {
   const { state, updateState, productSalesData } = useExperiment();
   const navigate = useNavigate();
@@ -47,7 +52,7 @@ const ExperimentReport: React.FC = () => {
         setCountdown(prev => {
           if (prev <= 1) {
             clearInterval(timer);
-            window.location.href = "/login";
+            window.location.href = "/login.html";
             return 0;
           }
           return prev - 1;
@@ -202,12 +207,12 @@ const ExperimentReport: React.FC = () => {
 #### 训练集 (${trainingData.length}条)
 | 月份 | 销量 |
 |---|---|
-${trainingData.map(d => `| ${d.month} | ${d.sales.toLocaleString()} |`).join('\n')}
+${trainingData.map(d => `| ${d.month} | ${formatSales(d.sales)} |`).join('\n')}
 
 #### 评估集 (${evaluationData.length}条)
 | 月份 | 销量 |
 |---|---|
-${evaluationData.map(d => `| ${d.month} | ${d.sales.toLocaleString()} |`).join('\n')}
+${evaluationData.map(d => `| ${d.month} | ${formatSales(d.sales)} |`).join('\n')}
 
 ### 1.3 分析
 ${dataAnalysis}
@@ -312,7 +317,7 @@ ${planDecisionAnalysis}`;
     }
   };
 
-  const handleLogout = () => window.location.href = '/login';
+  const handleLogout = () => window.location.href = '/login.html';
   const renderValue = (value: string | number | null | undefined) => value ?? <span className="text-gray-400">N/A</span>;
 
   return (

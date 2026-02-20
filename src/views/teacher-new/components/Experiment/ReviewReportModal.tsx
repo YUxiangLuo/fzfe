@@ -244,6 +244,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
     };
 
     if (!report) return null;
+    const pdfFilePath = report.pdf_file_path;
 
     return (
         <Modal
@@ -257,10 +258,10 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
             <Row>
                 {/* Left side - PDF Preview */}
                 <Col span={16} style={{ padding: 24, borderRight: '1px solid #f0f0f0' }}>
-                    {report.pdf_file_path ? (
+                    {pdfFilePath ? (
                         <div style={{ height: 700, background: '#f5f5f5', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
                             <iframe
-                                src={buildDownloadUrl(report.pdf_file_path)}
+                                src={buildDownloadUrl(pdfFilePath)}
                                 title="report-preview"
                                 style={{ width: '100%', height: '100%', border: 'none' }}
                                 onError={(e) => {
@@ -269,7 +270,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                                     target.parentElement!.innerHTML = `
                                         <div style="height:100%;display:flex;align-items:center;justify-content:center;text-align:center;color:#999">
                                             <div><p style="font-size:48px;margin-bottom:16px">⚠️</p><p>PDF 加载失败</p>
-                                            <a href="${buildDownloadUrl(report.pdf_file_path)}" target="_blank" rel="noopener noreferrer" style="color:#1890ff">点击下载查看</a></div>
+                                            <a href="${buildDownloadUrl(pdfFilePath)}" target="_blank" rel="noopener noreferrer" style="color:#1890ff">点击下载查看</a></div>
                                         </div>`;
                                 }}
                             />

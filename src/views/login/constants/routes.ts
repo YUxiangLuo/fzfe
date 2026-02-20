@@ -1,9 +1,9 @@
 // 登录后的重定向路径配置
 export const ROLE_REDIRECT_PATHS = {
-  student: "/exp",
-  teacher: "/teacher",
-  assistant: "/teacher",
-  admin: "/admin",
+  student: "/exp.html",
+  teacher: "/teacher.html",
+  assistant: "/teacher.html",
+  admin: "/admin.html",
 } as const;
 
 export type RoleId = keyof typeof ROLE_REDIRECT_PATHS;

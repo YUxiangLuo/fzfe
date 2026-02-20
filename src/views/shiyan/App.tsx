@@ -1,23 +1,23 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { lazy, Suspense } from 'react';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useExperiment } from './contexts/ExperimentContext.zustand';
 import { ExperimentStoreProvider } from './contexts/ExperimentStoreProvider';
 import { ConfirmProvider } from './shared/contexts/ConfirmContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
-import IndustrySelection from './pages/IndustrySelection';
-import CompanySelection from './pages/CompanySelection';
-import ProductSelection from './pages/ProductSelection';
-import HistoricalData from './pages/HistoricalData';
-import ModelBuilding from './pages/ModelBuilding';
-import ResultEvaluation from './pages/ResultEvaluation';
-import ProductionPlan from './pages/production/ProductionPlanPageV2';
-import Introduction from './pages/Introduction';
-import Profile from './pages/Profile';
-import ModelQuiz from './pages/ModelQuiz';
-import PlanQuiz from './pages/PlanQuiz';
-import ExperimentReport from './pages/ExperimentReport';
-import ReportStatusCheck from './pages/ReportStatusCheck';
+const IndustrySelection = lazy(() => import('./pages/IndustrySelection'));
+const CompanySelection = lazy(() => import('./pages/CompanySelection'));
+const ProductSelection = lazy(() => import('./pages/ProductSelection'));
+const HistoricalData = lazy(() => import('./pages/HistoricalData'));
+const ModelBuilding = lazy(() => import('./pages/ModelBuilding'));
+const ResultEvaluation = lazy(() => import('./pages/ResultEvaluation'));
+const ProductionPlan = lazy(() => import('./pages/production/ProductionPlanPageV2'));
+const Introduction = lazy(() => import('./pages/Introduction'));
+const Profile = lazy(() => import('./pages/Profile'));
+const ModelQuiz = lazy(() => import('./pages/ModelQuiz'));
+const PlanQuiz = lazy(() => import('./pages/PlanQuiz'));
+const ExperimentReport = lazy(() => import('./pages/ExperimentReport'));
+const ReportStatusCheck = lazy(() => import('./pages/ReportStatusCheck'));
 
 // A component to protect routes based on experiment step completion
 const ProtectedRoute = ({ step, children }: { step: number, children: React.ReactElement }) => {
@@ -51,15 +51,17 @@ const MainLayout = () => {
       <div className="flex pt-20">
         {!hideSidebar && <Sidebar />}
         <main className="flex-1 overflow-auto" style={{ height: 'calc(100vh - 5rem)' }}>
-          <Routes>
-            <Route path="/industry" element={<IndustrySelection />} />
-            <Route path="/company" element={<ProtectedRoute step={2}><CompanySelection /></ProtectedRoute>} />
-            <Route path="/product" element={<ProtectedRoute step={3}><ProductSelection /></ProtectedRoute>} />
-            <Route path="/data" element={<ProtectedRoute step={4}><HistoricalData /></ProtectedRoute>} />
-            <Route path="/model/*" element={<ProtectedRoute step={5}><ModelBuilding /></ProtectedRoute>} />
-            <Route path="/evaluation" element={<ProtectedRoute step={6}><ResultEvaluation /></ProtectedRoute>} />
-            <Route path="/production/*" element={<ProtectedRoute step={7}><ProductionPlan /></ProtectedRoute>} />
-          </Routes>
+          <Suspense fallback={<RouteLoading />}>
+            <Routes>
+              <Route path="/industry" element={<IndustrySelection />} />
+              <Route path="/company" element={<ProtectedRoute step={2}><CompanySelection /></ProtectedRoute>} />
+              <Route path="/product" element={<ProtectedRoute step={3}><ProductSelection /></ProtectedRoute>} />
+              <Route path="/data" element={<ProtectedRoute step={4}><HistoricalData /></ProtectedRoute>} />
+              <Route path="/model/*" element={<ProtectedRoute step={5}><ModelBuilding /></ProtectedRoute>} />
+              <Route path="/evaluation" element={<ProtectedRoute step={6}><ResultEvaluation /></ProtectedRoute>} />
+              <Route path="/production/*" element={<ProtectedRoute step={7}><ProductionPlan /></ProtectedRoute>} />
+            </Routes>
+          </Suspense>
         </main>
       </div>
     </div>
@@ -68,22 +70,30 @@ const MainLayout = () => {
 
 import { ToastProvider } from './shared/contexts/ToastContext';
 
+const RouteLoading: React.FC = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="text-xl font-medium text-gray-600">页面加载中...</div>
+  </div>
+);
+
 function App() {
   return (
     <ConfirmProvider>
       <ToastProvider>
         <ExperimentStoreProvider>
-          <Router basename="/exp">
-            <Routes>
-              <Route path="/" element={<ReportStatusCheck />} />
-              <Route path="/introduction" element={<Introduction />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/quiz" element={<ModelQuiz />} />
-              <Route path="/quiz-plan" element={<PlanQuiz />} />
-              <Route path="/report" element={<ExperimentReport />} />
-              {/* All main experiment routes are now under the MainLayout */}
-              <Route path="/*" element={<MainLayout />} />
-            </Routes>
+          <Router>
+            <Suspense fallback={<RouteLoading />}>
+              <Routes>
+                <Route path="/" element={<ReportStatusCheck />} />
+                <Route path="/introduction" element={<Introduction />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/quiz" element={<ModelQuiz />} />
+                <Route path="/quiz-plan" element={<PlanQuiz />} />
+                <Route path="/report" element={<ExperimentReport />} />
+                {/* All main experiment routes are now under the MainLayout */}
+                <Route path="/*" element={<MainLayout />} />
+              </Routes>
+            </Suspense>
           </Router>
         </ExperimentStoreProvider>
       </ToastProvider>

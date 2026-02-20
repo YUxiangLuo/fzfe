@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "bunx vite",
-    "build": "bunx vite build"
+    "typecheck": "bunx tsc --noEmit",
+    "build": "npm run typecheck && bunx vite build"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

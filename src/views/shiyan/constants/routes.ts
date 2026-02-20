@@ -6,7 +6,7 @@
 import { STEPS } from './steps';
 
 export const ROUTES = {
-  LOGIN: '/login',
+  LOGIN: '/login.html',
   INTRODUCTION: '/introduction',
   PROFILE: '/profile',
 

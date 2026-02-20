@@ -214,10 +214,19 @@ const ProductionPlanSteps: React.FC = () => {
       return 1050; // 后备默认值
     }
 
-    const totalSales = productSalesData.monthlySales.reduce((sum, item) => sum + item.sales, 0);
-    const average = totalSales / productSalesData.monthlySales.length;
+    const validSales = productSalesData.monthlySales
+      .map((item) => item.sales)
+      .filter((value): value is number => value != null && Number.isFinite(value));
 
-    console.log(`📊 计算真实平均需求: ${average.toFixed(2)} (基于${productSalesData.monthlySales.length}个月的历史数据)`);
+    if (validSales.length === 0) {
+      console.warn('⚠️ 历史销量数据均为空，使用默认平均需求 1050');
+      return 1050;
+    }
+
+    const totalSales = validSales.reduce((sum, sales) => sum + sales, 0);
+    const average = totalSales / validSales.length;
+
+    console.log(`📊 计算真实平均需求: ${average.toFixed(2)} (基于${validSales.length}个月的历史数据)`);
     console.log(`📦 产品信息: ${productSalesData.meta.name} (${productSalesData.meta.unit})`);
     return Math.round(average);
   }, [productSalesData]);

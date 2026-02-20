@@ -100,12 +100,12 @@ const Introduction: React.FC = () => {
 
     try {
       localStorage.removeItem("token");
-      // Redirect to login page, assuming /login is the path to your login SPA
-      window.location.href = "/login";
+      // Redirect to login page
+      window.location.href = "/login.html";
     } catch (error) {
       console.error("Failed to remove token from localStorage:", error);
       // Even if token removal fails, try to redirect
-      window.location.href = "/login";
+      window.location.href = "/login.html";
     }
   };
 
@@ -113,12 +113,12 @@ const Introduction: React.FC = () => {
   const handleLogoutNoConfirm = async () => {
     try {
       localStorage.removeItem("token");
-      // Redirect to login page, assuming /login is the path to your login SPA
-      window.location.href = "/login";
+      // Redirect to login page
+      window.location.href = "/login.html";
     } catch (error) {
       console.error("Failed to remove token from localStorage:", error);
       // Even if token removal fails, try to redirect
-      window.location.href = "/login";
+      window.location.href = "/login.html";
     }
   };
 

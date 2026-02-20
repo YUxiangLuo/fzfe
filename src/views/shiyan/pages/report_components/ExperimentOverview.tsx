@@ -5,7 +5,7 @@ import type { ExperimentState } from '../../contexts/ExperimentContext.zustand';
 
 interface MonthlySale {
   month: string;
-  sales: number;
+  sales: number | null;
 }
 
 interface ExperimentOverviewProps {
@@ -33,7 +33,7 @@ const DataWindowTable = ({ title, data }: { title: string; data: MonthlySale[] }
           {data.map(item => (
             <tr key={item.month}>
               <td className="py-2 px-3 text-gray-700">{item.month}</td>
-              <td className="py-2 px-3 text-right text-gray-800 font-mono">{item.sales.toLocaleString()}</td>
+              <td className="py-2 px-3 text-right text-gray-800 font-mono">{item.sales == null ? 'N/A' : item.sales.toLocaleString()}</td>
             </tr>
           ))}
         </tbody>

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Typography, Avatar, Dropdown, Modal } from 'antd';
+import { Layout, Menu, Button, Typography, Avatar, Dropdown, Modal, Spin } from 'antd';
 import type { MenuProps } from 'antd';
 import {
     ExperimentOutlined,
@@ -21,26 +21,16 @@ import { decodeToken, type DecodedToken } from '../../../../utils/auth';
 import { getRoleByBackendValue } from '../../../../config/roles';
 import { useRole } from '../../contexts/RoleContext';
 
-// Import page components (will be created in later phases)
-// Phase 2: Account
-import PersonalInfo from '../Account/PersonalInfo';
-import AssistantManagement from '../Account/AssistantManagement';
-
-// Phase 3: Class
-import ClassManagement from '../Class/ClassManagement';
-
-// Phase 4: Student
-import StudentManagement from '../Student/StudentManagement';
-
-// Phase 5: Experiment
-import ExperimentProgress from '../Experiment/ExperimentProgress';
-import ExperimentReports from '../Experiment/ExperimentReports';
-import ExperimentLogs from '../Experiment/ExperimentLogs';
-
-// Phase 6: Assessment
-import QuestionBank from '../Assessment/QuestionBank';
-import GradeWeights from '../Assessment/GradeWeights';
-import GradesOverview from '../Assessment/GradesOverview';
+const PersonalInfo = lazy(() => import('../Account/PersonalInfo'));
+const AssistantManagement = lazy(() => import('../Account/AssistantManagement'));
+const ClassManagement = lazy(() => import('../Class/ClassManagement'));
+const StudentManagement = lazy(() => import('../Student/StudentManagement'));
+const ExperimentProgress = lazy(() => import('../Experiment/ExperimentProgress'));
+const ExperimentReports = lazy(() => import('../Experiment/ExperimentReports'));
+const ExperimentLogs = lazy(() => import('../Experiment/ExperimentLogs'));
+const QuestionBank = lazy(() => import('../Assessment/QuestionBank'));
+const GradeWeights = lazy(() => import('../Assessment/GradeWeights'));
+const GradesOverview = lazy(() => import('../Assessment/GradesOverview'));
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -50,6 +40,12 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
     <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
         <Title level={4} type="secondary">{title}</Title>
         <Text type="secondary">该页面正在开发中...</Text>
+    </div>
+);
+
+const RouteLoading: React.FC = () => (
+    <div style={{ minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Spin size="large" />
     </div>
 );
 
@@ -86,7 +82,7 @@ const TeacherLayout: React.FC = () => {
                 } catch (err) {
                     console.error('Failed to remove token from localStorage:', err);
                 }
-                window.location.href = '/login';
+                window.location.href = '/login.html';
             },
         });
     };
@@ -284,30 +280,32 @@ const TeacherLayout: React.FC = () => {
                         overflow: 'auto',
                     }}
                 >
-                    <Routes>
-                        {/* Default redirect */}
-                        <Route path="/" element={<Navigate to="/experiment-progress" replace />} />
+                    <Suspense fallback={<RouteLoading />}>
+                        <Routes>
+                            {/* Default redirect */}
+                            <Route path="/" element={<Navigate to="/experiment-progress" replace />} />
 
-                        {/* Phase 5: Experiment */}
-                        <Route path="/experiment-progress" element={<ExperimentProgress />} />
-                        <Route path="/experiment-reports" element={<ExperimentReports />} />
-                        <Route path="/experiment-logs" element={<ExperimentLogs />} />
+                            {/* Phase 5: Experiment */}
+                            <Route path="/experiment-progress" element={<ExperimentProgress />} />
+                            <Route path="/experiment-reports" element={<ExperimentReports />} />
+                            <Route path="/experiment-logs" element={<ExperimentLogs />} />
 
-                        {/* Phase 3: Class */}
-                        <Route path="/class-management" element={<ClassManagement />} />
+                            {/* Phase 3: Class */}
+                            <Route path="/class-management" element={<ClassManagement />} />
 
-                        {/* Phase 4: Student */}
-                        <Route path="/student-management" element={<StudentManagement />} />
+                            {/* Phase 4: Student */}
+                            <Route path="/student-management" element={<StudentManagement />} />
 
-                        {/* Phase 6: Assessment */}
-                        <Route path="/assessment-questions" element={<QuestionBank />} />
-                        <Route path="/assessment-weights" element={<GradeWeights />} />
-                        <Route path="/assessment-grades" element={<GradesOverview />} />
+                            {/* Phase 6: Assessment */}
+                            <Route path="/assessment-questions" element={<QuestionBank />} />
+                            <Route path="/assessment-weights" element={<GradeWeights />} />
+                            <Route path="/assessment-grades" element={<GradesOverview />} />
 
-                        {/* Phase 2: Account (placeholder for now) */}
-                        <Route path="/account-personal" element={<PersonalInfo />} />
-                        <Route path="/account-assistant" element={<AssistantManagement />} />
-                    </Routes>
+                            {/* Phase 2: Account */}
+                            <Route path="/account-personal" element={<PersonalInfo />} />
+                            <Route path="/account-assistant" element={<AssistantManagement />} />
+                        </Routes>
+                    </Suspense>
                 </Content>
             </Layout>
         </Layout>

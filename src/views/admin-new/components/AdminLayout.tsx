@@ -48,7 +48,7 @@ const AdminLayout: React.FC = () => {
                 } catch (err) {
                     console.error('Failed to remove token from localStorage:', err);
                 }
-                window.location.href = '/login';
+                window.location.href = '/login.html';
             },
         });
     };

@@ -89,7 +89,7 @@ const buildUrl = (endpoint: string): string => {
 const handleResponse = async <T = any>(response: Response, endpoint: string): Promise<T> => {
   if (response.status === 401 && endpoint !== '/users/me/password') {
     localStorage.removeItem("token");
-    window.location.href = "/login";
+    window.location.href = "/login.html";
     throw new Error("会话已过期，请重新登录");
   }
 
@@ -230,4 +230,3 @@ export const apiClient = {
   delete: <T = any>(endpoint: string, options?: RequestInit) =>
     request<T>(endpoint, { ...options, method: "DELETE" }),
 };
-

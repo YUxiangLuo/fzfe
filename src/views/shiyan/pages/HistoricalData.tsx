@@ -228,7 +228,7 @@ const HistoricalData: React.FC = () => {
     // 过滤掉 null 和 NaN 值
     const salesValues = filteredData
       .map((d) => d.sales)
-      .filter((val) => val != null && !isNaN(val));
+      .filter((val): val is number => val != null && !Number.isNaN(val));
 
     if (salesValues.length === 0) return null;
 

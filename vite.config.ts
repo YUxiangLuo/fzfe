@@ -55,7 +55,30 @@ export default defineConfig({
         teacher: resolve(__dirname, 'teacher.html'),
         exp: resolve(__dirname, 'exp.html'),
       },
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+
+          const modulePath = id.split('node_modules/')[1];
+          if (!modulePath) return;
+          const parts = modulePath.split('/');
+          const packageName = parts[0]?.startsWith('@')
+            ? `${parts[0]}/${parts[1]}`
+            : parts[0];
+          if (id.includes('react-router')) return 'vendor-router';
+          if (id.includes('react') || id.includes('scheduler')) return 'vendor-react';
+          if (packageName === '@ant-design/icons') return 'vendor-ant-icons';
+          if (packageName === 'antd') return 'vendor-antd-core';
+          if (packageName.startsWith('rc-') || packageName.startsWith('@rc-component/')) {
+            return 'vendor-antd-rc';
+          }
+          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+          if (id.includes('swiper')) return 'vendor-swiper';
+          return 'vendor';
+        },
+      },
     },
+    chunkSizeWarningLimit: 600,
   },
 
   // 开发服务器配置
