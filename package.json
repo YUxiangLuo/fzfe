@@ -11,7 +11,8 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:admin": "playwright test tests/e2e/admin",
-    "test:e2e:teacher": "playwright test tests/e2e/teacher"
+    "test:e2e:teacher": "playwright test tests/e2e/teacher",
+    "test:e2e:exp": "playwright test tests/e2e/exp"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

@@ -2,7 +2,7 @@
 
 ## 目标
 
-- 为 `admin` 与 `teacher` 端建立统一的端到端测试基础设施。
+- 为 `admin`、`teacher` 与 `exp` 端建立统一的端到端测试基础设施。
 - 当前提供一组可稳定运行的 smoke 用例，覆盖鉴权与核心页面流转。
 
 ## 当前覆盖
@@ -22,6 +22,14 @@
   - 教师端核心模块可切换：实验进度/报告/日志、班级管理、学生管理、题库管理、账户页
   - 班级管理可新增班级并刷新列表
   - 班级管理可上传 CSV 学生名单创建班级（测试中使用临时落盘 CSV 文件）
+- `tests/e2e/exp/guard.spec.ts`
+  - 未登录访问 `/exp` 会跳转到 `/login.html`
+- `tests/e2e/exp/navigation.spec.ts`
+  - 学生端可从实验介绍启动实验流程
+  - 可完成行业/企业/产品选择并进入历史数据页面（步骤 1-4）
+- `tests/e2e/exp/advanced-flow.spec.ts`
+  - 可从结果评估页选择最佳模型并完成模型测验（跳转到生产计划）
+  - 可完成生产计划测验并提交实验报告（出现完成弹窗）
 
 ## 运行方式
 
@@ -31,6 +39,10 @@ npm run test:e2e:admin
 
 ```bash
 npm run test:e2e:teacher
+```
+
+```bash
+npm run test:e2e:exp
 ```
 
 或运行全部 e2e：
