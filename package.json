@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "bunx vite",
     "typecheck": "bunx tsc --noEmit",
-    "build": "npm run typecheck && bunx vite build"
+    "build": "npm run typecheck && bunx vite build",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:admin": "playwright test tests/e2e/admin"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
@@ -23,6 +27,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/lodash.debounce": "^4.0.9",
     "@types/node": "^22.10.2",
