@@ -69,8 +69,12 @@ export const LoginContainer: React.FC = () => {
         throw new Error(errorMessage);
       }
 
-      if (data.token) {
-        localStorage.setItem("token", data.token);
+      const token = typeof data?.data?.token === "string"
+        ? data.data.token
+        : (typeof data?.token === "string" ? data.token : null);
+
+      if (token) {
+        localStorage.setItem("token", token);
         // Only store the role for the main SPA (teacher/assistant)
         if (selectedRole === "teacher" || selectedRole === "assistant") {
           localStorage.setItem("userRole", selectedRole);

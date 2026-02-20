@@ -78,8 +78,10 @@ const UserManagement: React.FC = () => {
             const response = await apiClient.get(endpoint);
             if (requestId !== fetchRequestIdRef.current) return;
 
-            const fetchedUsers = Array.isArray(response?.data) ? response.data : [];
-            const serverPagination = response?.pagination;
+            const fetchedUsers = Array.isArray(response)
+                ? response
+                : (Array.isArray(response?.data) ? response.data : []);
+            const serverPagination = Array.isArray(response) ? undefined : response?.pagination;
 
             setUsers(fetchedUsers);
             setPagination((prev) => ({

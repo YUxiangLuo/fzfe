@@ -17,6 +17,13 @@ interface Answer {
   submitted_answer: string[];
 }
 
+const isBadRequestError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') return false;
+  const maybeError = error as { status?: number; message?: string };
+  if (maybeError.status === 400) return true;
+  return typeof maybeError.message === 'string' && maybeError.message.includes('HTTP 400');
+};
+
 const PlanQuiz: React.FC = () => {
   const navigate = useNavigate();
   const { state, updateState } = useExperiment();
@@ -90,6 +97,10 @@ const PlanQuiz: React.FC = () => {
       // 导航到实验报告页面
       navigate('/report');
     } catch (err: any) {
+      if (isBadRequestError(err)) {
+        setSubmitError('提交失败：答案参数错误，请检查是否已完成全部作答后重试');
+        return;
+      }
       setSubmitError(err.message || '提交失败，请重试');
     } finally {
       setIsSubmitting(false);

@@ -86,6 +86,17 @@ const buildUrl = (endpoint: string): string => {
   return base.toString();
 };
 
+const unwrapSuccessPayload = <T = any>(payload: unknown): T => {
+  if (
+    payload !== null &&
+    typeof payload === "object" &&
+    Object.prototype.hasOwnProperty.call(payload, "data")
+  ) {
+    return (payload as { data: T }).data;
+  }
+  return payload as T;
+};
+
 const handleResponse = async <T = any>(response: Response, endpoint: string): Promise<T> => {
   if (response.status === 401 && endpoint !== '/users/me/password') {
     localStorage.removeItem("token");
@@ -105,19 +116,33 @@ const handleResponse = async <T = any>(response: Response, endpoint: string): Pr
   }
 
   if (!response.ok) {
+    const parsedBodyObject =
+      parsedBody !== null && typeof parsedBody === "object"
+        ? (parsedBody as Record<string, unknown>)
+        : null;
     const detail =
       typeof parsedBody === 'string'
         ? parsedBody
-        : parsedBody !== null && parsedBody !== undefined
+        : typeof parsedBodyObject?.error === "string"
+          ? parsedBodyObject.error
+          : typeof parsedBodyObject?.message === "string"
+            ? parsedBodyObject.message
+            : parsedBody !== null && parsedBody !== undefined
           ? JSON.stringify(parsedBody)
           : rawBody || '无响应内容';
     const statusLabel = response.statusText
       ? `HTTP ${response.status} ${response.statusText}`
       : `HTTP ${response.status}`;
-    throw new Error(detail ? `${statusLabel} - ${detail}` : statusLabel);
+    const requestError = new Error(detail ? `${statusLabel} - ${detail}` : statusLabel) as Error & {
+      status?: number;
+      payload?: unknown;
+    };
+    requestError.status = response.status;
+    requestError.payload = parsedBody;
+    throw requestError;
   }
 
-  return (parsedBody as T) ?? (null as T);
+  return unwrapSuccessPayload<T>(parsedBody) ?? (null as T);
 };
 
 import { decodeToken, type DecodedToken } from './auth';
