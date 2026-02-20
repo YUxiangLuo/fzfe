@@ -77,6 +77,32 @@ const readJsonBody = <T = Record<string, unknown>>(route: Route): T => {
   }
 };
 
+const readMultipartFileContent = (route: Route, fieldName: string): string => {
+  const body = route.request().postData();
+  if (!body) return "";
+
+  const contentWithType = body.match(
+    new RegExp(`name="${fieldName}"[^\\r\\n]*\\r?\\nContent-Type:[^\\r\\n]*\\r?\\n\\r?\\n([\\s\\S]*?)\\r?\\n--`),
+  );
+  if (contentWithType?.[1]) {
+    return contentWithType[1];
+  }
+
+  const contentWithoutType = body.match(
+    new RegExp(`name="${fieldName}"[^\\r\\n]*\\r?\\n\\r?\\n([\\s\\S]*?)\\r?\\n--`),
+  );
+  return contentWithoutType?.[1] || "";
+};
+
+const parseCsvRows = (content: string): string[][] => {
+  const normalized = content.replace(/^\uFEFF/, "").trim();
+  if (!normalized) return [];
+  return normalized
+    .split(/\r?\n/)
+    .map((line) => line.split(",").map((cell) => cell.trim()))
+    .filter((cells) => cells.some((cell) => cell.length > 0));
+};
+
 const paginate = <T>(items: T[], page: number, limit: number) => {
   const start = (page - 1) * limit;
   return {
@@ -319,6 +345,40 @@ export const installAdminApiMock = async (page: Page): Promise<void> => {
       };
       users = [newUser, ...users];
       await jsonResponse(route, 201, newUser);
+      return;
+    }
+
+    if (method === "POST" && (path === "/users/teachers/batch" || path === "/users/assistants/batch")) {
+      const role = path === "/users/teachers/batch" ? "Teacher" : "Assistant";
+      const csvContent = readMultipartFileContent(route, "file");
+      const rows = parseCsvRows(csvContent);
+      const dataRows = rows.slice(1).filter((row) => row.length > 0);
+      const createdUsers: MockUser[] = [];
+
+      dataRows.forEach((row, index) => {
+        const nextId = Math.max(0, ...users.map((u) => u.user_id), ...createdUsers.map((u) => u.user_id)) + 1;
+        const [usernameRaw, fullNameRaw, emailRaw, phoneRaw] = row;
+        const username = usernameRaw || `${role.toLowerCase()}_${nextId}`;
+        const full_name = fullNameRaw || `${role} ${index + 1}`;
+        const email = emailRaw || `${username}@example.com`;
+        const phone_number = phoneRaw || null;
+
+        createdUsers.push({
+          user_id: nextId,
+          username,
+          full_name,
+          email,
+          role,
+          created_at: now,
+          phone_number,
+        });
+      });
+
+      users = [...createdUsers, ...users];
+      await jsonResponse(route, 201, {
+        created_count: createdUsers.length,
+        skipped_count: 0,
+      });
       return;
     }
 
