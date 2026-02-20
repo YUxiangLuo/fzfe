@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Typography, Avatar, Dropdown, Modal } from 'antd';
+import { Layout, Menu, Button, Typography, Avatar, Dropdown, Modal, Spin } from 'antd';
 import {
     BookOutlined,
     DatabaseOutlined,
@@ -23,17 +23,41 @@ const AdminLayout: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [activeView, setActiveView] = useState('experiment-data');
     const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
+    const [isAuthorizing, setIsAuthorizing] = useState(true);
 
     useEffect(() => {
+        const redirectToLogin = () => {
+            window.location.href = '/login.html';
+        };
+
         try {
             const token = localStorage.getItem('token');
-            if (token) {
-                setCurrentUser(decodeToken(token));
+            if (!token) {
+                redirectToLogin();
+                return;
             }
+
+            const decoded = decodeToken(token);
+            if (!decoded || (decoded.role ?? '').toLowerCase() !== 'admin') {
+                redirectToLogin();
+                return;
+            }
+
+            setCurrentUser(decoded);
+            setIsAuthorizing(false);
         } catch (err) {
             console.error('Failed to read token from localStorage:', err);
+            redirectToLogin();
         }
     }, []);
+
+    if (isAuthorizing) {
+        return (
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Spin size="large" />
+            </div>
+        );
+    }
 
     const handleLogout = () => {
         Modal.confirm({

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
     Table,
     Button,
@@ -51,6 +51,7 @@ const UserManagement: React.FC = () => {
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
     const [currentAdminId, setCurrentAdminId] = useState<number | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
+    const fetchRequestIdRef = useRef(0);
 
     const [passwordModalOpen, setPasswordModalOpen] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -68,22 +69,32 @@ const UserManagement: React.FC = () => {
     const [batchLoading, setBatchLoading] = useState(false);
 
     const fetchUsers = useCallback(async (page: number, pageSize: number, query: string) => {
+        const requestId = ++fetchRequestIdRef.current;
         setIsLoading(true);
         try {
             const endpoint = query
                 ? `/users/search?q=${encodeURIComponent(query)}&page=${page}&limit=${pageSize}`
                 : `/users?page=${page}&limit=${pageSize}`;
             const response = await apiClient.get(endpoint);
-            setUsers(response.data || []);
-            setPagination({
-                current: response.pagination.currentPage,
-                pageSize: response.pagination.pageSize,
-                total: response.pagination.totalItems,
-            });
+            if (requestId !== fetchRequestIdRef.current) return;
+
+            const fetchedUsers = Array.isArray(response?.data) ? response.data : [];
+            const serverPagination = response?.pagination;
+
+            setUsers(fetchedUsers);
+            setPagination((prev) => ({
+                ...prev,
+                current: serverPagination?.currentPage ?? page,
+                pageSize: serverPagination?.pageSize ?? pageSize,
+                total: serverPagination?.totalItems ?? fetchedUsers.length,
+            }));
         } catch (err: any) {
+            if (requestId !== fetchRequestIdRef.current) return;
             message.error(err.message || "获取用户数据失败");
         } finally {
-            setIsLoading(false);
+            if (requestId === fetchRequestIdRef.current) {
+                setIsLoading(false);
+            }
         }
     }, []);
 
@@ -123,10 +134,9 @@ const UserManagement: React.FC = () => {
                 try {
                     await apiClient.delete(`/users/${user.user_id}`);
                     message.success('用户删除成功');
-                    // Refresh list if current page becomes empty logic handles by fetchUsers basically, 
-                    // but strictly we might need to adjust page number if it's the last item.
-                    // For simplicity, just refetch current page.
-                    fetchUsers(pagination.current, pagination.pageSize, searchTerm);
+                    const shouldBackPage = users.length === 1 && pagination.current > 1;
+                    const targetPage = shouldBackPage ? pagination.current - 1 : pagination.current;
+                    fetchUsers(targetPage, pagination.pageSize, searchTerm);
                 } catch (err: any) {
                     message.error(`删除失败: ${err.message}`);
                 }
@@ -198,6 +208,19 @@ const UserManagement: React.FC = () => {
         } finally {
             setBatchLoading(false);
         }
+    };
+
+    const validatePasswordRule = (_: unknown, value: string) => {
+        if (!value) {
+            return Promise.resolve();
+        }
+
+        const result = validatePassword(value, { minLength: 6 });
+        if (result.valid) {
+            return Promise.resolve();
+        }
+
+        return Promise.reject(new Error(result.error || '密码格式不正确'));
     };
 
     const columns = [
@@ -290,7 +313,14 @@ const UserManagement: React.FC = () => {
             <Form.Item name="phone" label="手机号" rules={[{ required: true, message: '请输入手机号' }, { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确' }]}>
                 <Input />
             </Form.Item>
-            <Form.Item name="password" label="密码" rules={[{ required: true, message: '请输入密码' }, { min: 6, message: '密码至少需要6位' }]}>
+            <Form.Item
+                name="password"
+                label="密码"
+                rules={[
+                    { required: true, message: '请输入密码' },
+                    { validator: validatePasswordRule },
+                ]}
+            >
                 <Input.Password />
             </Form.Item>
         </>
@@ -343,7 +373,7 @@ const UserManagement: React.FC = () => {
                         label="新密码"
                         rules={[
                             { required: true, message: '请输入新密码' },
-                            { min: 6, message: '密码至少6位' }
+                            { validator: validatePasswordRule }
                         ]}
                     >
                         <Input.Password />
