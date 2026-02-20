@@ -54,20 +54,56 @@ type MenuItemType = Required<MenuProps>['items'][number];
 const TeacherLayout: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
+    const [isAuthorizing, setIsAuthorizing] = useState(true);
     const navigate = useNavigate();
     const location = useLocation();
     const { role } = useRole();
 
+    const currentRoleId = React.useMemo<'teacher' | 'assistant' | null>(() => {
+        const tokenRole = (currentUser?.role ?? '').toLowerCase();
+        if (tokenRole === 'teacher' || tokenRole === 'assistant') {
+            return tokenRole;
+        }
+        if (role?.id === 'teacher' || role?.id === 'assistant') {
+            return role.id;
+        }
+        return null;
+    }, [currentUser?.role, role?.id]);
+
     useEffect(() => {
+        const redirectToLogin = () => {
+            window.location.href = '/login.html';
+        };
+
         try {
             const token = localStorage.getItem('token');
-            if (token) {
-                setCurrentUser(decodeToken(token));
+            if (!token) {
+                redirectToLogin();
+                return;
             }
+
+            const decoded = decodeToken(token);
+            const normalizedRole = (decoded?.role ?? '').toLowerCase();
+            if (!decoded || (normalizedRole !== 'teacher' && normalizedRole !== 'assistant')) {
+                redirectToLogin();
+                return;
+            }
+
+            setCurrentUser(decoded);
+            setIsAuthorizing(false);
         } catch (err) {
             console.error('Failed to read token from localStorage:', err);
+            window.location.href = '/login.html';
         }
     }, []);
+
+    if (isAuthorizing) {
+        return (
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Spin size="large" />
+            </div>
+        );
+    }
 
     const handleLogout = () => {
         Modal.confirm({
@@ -159,7 +195,7 @@ const TeacherLayout: React.FC = () => {
                     label: '个人信息',
                 },
                 // 助教不显示"助教管理"菜单
-                ...(role?.id !== 'assistant' ? [{
+                ...(currentRoleId !== 'assistant' ? [{
                     key: '/account-assistant',
                     icon: <TeamOutlined />,
                     label: '助教管理',
@@ -169,7 +205,7 @@ const TeacherLayout: React.FC = () => {
         ];
 
         return items;
-    }, [role]);
+    }, [currentRoleId]);
 
     const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
         if (key.startsWith('/')) {
@@ -303,7 +339,12 @@ const TeacherLayout: React.FC = () => {
 
                             {/* Phase 2: Account */}
                             <Route path="/account-personal" element={<PersonalInfo />} />
-                            <Route path="/account-assistant" element={<AssistantManagement />} />
+                            <Route
+                                path="/account-assistant"
+                                element={currentRoleId === 'assistant'
+                                    ? <Navigate to="/account-personal" replace />
+                                    : <AssistantManagement />}
+                            />
                         </Routes>
                     </Suspense>
                 </Content>

@@ -32,8 +32,20 @@ export const resolveFileUrl = (filePath: string | null | undefined): string => {
   const trimmed = filePath.trim();
   if (!trimmed) return "";
 
-  if (/^https?:\/\//i.test(trimmed) || /^\/\//.test(trimmed)) {
-    return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      return parsed.protocol === "http:" || parsed.protocol === "https:"
+        ? parsed.toString()
+        : "";
+    } catch {
+      return "";
+    }
+  }
+
+  // Reject protocol-relative URLs and non-http(s) schemes.
+  if (/^\/\//.test(trimmed) || /^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+    return "";
   }
 
   const normalizedPath = normalizeFilePath(trimmed);
@@ -41,4 +53,3 @@ export const resolveFileUrl = (filePath: string | null | undefined): string => {
 
   return new URL(normalizedPath, `${API_BASE_URL.replace(/\/+$/, "")}/`).toString();
 };
-

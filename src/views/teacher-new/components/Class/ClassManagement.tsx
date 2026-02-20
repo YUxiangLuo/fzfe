@@ -120,9 +120,9 @@ const ClassManagement: React.FC = () => {
             const formData = new FormData();
             formData.append('class_name', values.class_name);
             formData.append('class_code', values.class_code);
-            const fileList = createForm.getFieldValue('students_file');
-            if (fileList && fileList.length > 0) {
-                const file = fileList[0];
+            const selectedFiles: UploadFile[] = values.students_file || fileList;
+            if (selectedFiles && selectedFiles.length > 0) {
+                const file = selectedFiles[0];
                 if (file && file.originFileObj) {
                     formData.append('students_file', file.originFileObj);
                 }
@@ -224,20 +224,24 @@ const ClassManagement: React.FC = () => {
     const uploadProps: UploadProps = {
         maxCount: 1,
         beforeUpload: (file) => {
-            const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                || file.type === 'application/vnd.ms-excel'
-                || file.name.endsWith('.xlsx')
-                || file.name.endsWith('.xls');
+            const isCsv = file.name.toLowerCase().endsWith('.csv');
 
-            if (!isExcel) {
-                message.error('只支持 Excel 文件 (.xlsx, .xls)');
+            if (!isCsv) {
+                message.error('只支持 CSV 文件 (.csv)');
                 return Upload.LIST_IGNORE;
             }
             return false; // Don't auto upload
         },
+        accept: '.csv,text/csv',
         fileList,
-        onChange: ({ fileList }) => setFileList(fileList),
-        onRemove: () => setFileList([]),
+        onChange: ({ fileList: nextFileList }) => {
+            setFileList(nextFileList);
+            createForm.setFieldValue('students_file', nextFileList);
+        },
+        onRemove: () => {
+            setFileList([]);
+            createForm.setFieldValue('students_file', []);
+        },
     };
 
     // Format date
@@ -399,7 +403,10 @@ const ClassManagement: React.FC = () => {
                     >
                         <Input placeholder="请输入班级编号" />
                     </Form.Item>
-                    <Form.Item 
+                    <Form.Item
+                        name="students_file"
+                        valuePropName="fileList"
+                        getValueFromEvent={(event) => event?.fileList || []}
                         label="学生名单（可选）" 
                         extra="上传 CSV 文件批量导入学生，CSV 文件需包含学号和姓名字段。"
                     >

@@ -70,6 +70,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
         exp_flow_production_plan_creation: '',
     });
     const [isSaving, setIsSaving] = useState(false);
+    const [isPreviewLoadError, setIsPreviewLoadError] = useState(false);
 
     // Reset state when report changes
     React.useEffect(() => {
@@ -82,6 +83,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
             );
             setTempFeedback(report.feedback || '');
             setRejectReason('');
+            setIsPreviewLoadError(false);
 
             const eg = report.experiment_grade;
             setExpFlowScores({
@@ -95,7 +97,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                 exp_flow_production_plan_creation: eg?.exp_flow_production_plan_creation != null ? String(eg.exp_flow_production_plan_creation) : '',
             });
         }
-    }, [report]);
+    }, [open, report]);
 
     // Build download URL
     const buildDownloadUrl = (filePath: string) => {
@@ -244,6 +246,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
 
     if (!report) return null;
     const pdfFilePath = report.pdf_file_path;
+    const pdfPreviewUrl = pdfFilePath ? buildDownloadUrl(pdfFilePath) : '';
 
     return (
         <Modal
@@ -257,22 +260,29 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
             <Row>
                 {/* Left side - PDF Preview */}
                 <Col span={16} style={{ padding: 24, borderRight: '1px solid #f0f0f0' }}>
-                    {pdfFilePath ? (
+                    {pdfFilePath && !isPreviewLoadError ? (
                         <div style={{ height: 700, background: '#f5f5f5', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
                             <iframe
-                                src={buildDownloadUrl(pdfFilePath)}
+                                src={pdfPreviewUrl}
                                 title="report-preview"
                                 style={{ width: '100%', height: '100%', border: 'none' }}
-                                onError={(e) => {
-                                    const target = e.currentTarget;
-                                    target.style.display = 'none';
-                                    target.parentElement!.innerHTML = `
-                                        <div style="height:100%;display:flex;align-items:center;justify-content:center;text-align:center;color:#999">
-                                            <div><p style="font-size:48px;margin-bottom:16px">⚠️</p><p>PDF 加载失败</p>
-                                            <a href="${buildDownloadUrl(pdfFilePath)}" target="_blank" rel="noopener noreferrer" style="color:#1890ff">点击下载查看</a></div>
-                                        </div>`;
-                                }}
+                                onError={() => setIsPreviewLoadError(true)}
                             />
+                        </div>
+                    ) : pdfFilePath ? (
+                        <div style={{ height: 700, background: '#f5f5f5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div style={{ textAlign: 'center', color: '#999' }}>
+                                <FileTextOutlined style={{ fontSize: 48, marginBottom: 16 }} />
+                                <p>PDF 加载失败</p>
+                                <Button
+                                    type="link"
+                                    href={pdfPreviewUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    点击下载查看
+                                </Button>
+                            </div>
                         </div>
                     ) : (
                         <div style={{ height: 700, background: '#f5f5f5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
