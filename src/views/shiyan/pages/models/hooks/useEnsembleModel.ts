@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 import { MODEL_ID_MAP, ENSEMBLE_CONSTANTS } from '../constants';
@@ -39,7 +40,8 @@ interface EnsembleResults {
  * Eliminates 85% code duplication across ensemble models
  */
 export function useEnsembleModel(config: EnsembleModelConfig) {
-  const { state, updateState, productSalesData } = useExperiment();
+  const { state, updateState, productSalesData, setTrainingLock } = useExperiment();
+  const location = useLocation();
   const { executeRequest } = useAbortableRequest();
 
   const [selectedModels, setSelectedModels] = useState<string[]>(
@@ -49,6 +51,17 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+
+  // Release training lock on unmount if still loading (e.g. component torn down unexpectedly)
+  const isLoadingRef = useRef(false);
+  isLoadingRef.current = isLoading;
+  useEffect(() => {
+    return () => {
+      if (isLoadingRef.current) {
+        setTrainingLock(false, null);
+      }
+    };
+  }, [setTrainingLock]);
 
   // Calculate evaluate months
   const evaluateMonths = useMemo(() => {
@@ -81,6 +94,8 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
 
   // Handle model training
   const handleCalculate = useCallback(async () => {
+    const currentPath = location.pathname;
+    setTrainingLock(true, currentPath);
     setIsLoading(true);
 
     try {
@@ -157,6 +172,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       setRetryCount(prev => prev + 1);
     } finally {
       setIsLoading(false);
+      setTrainingLock(false, null);
     }
   }, [
     selectedModels,
@@ -178,6 +194,8 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     config.type,
     config.stateKey,
     executeRequest,
+    location.pathname,
+    setTrainingLock,
     updateState,
   ]);
 

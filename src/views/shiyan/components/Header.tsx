@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { LogOut, AlertTriangle } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { apiClient } from "../../../utils/apiClient";
 import { getRoleByBackendValue } from "../../../config/roles";
-import { ROUTES, getLogoutRedirectPath } from "../constants/routes";
+import { ROUTES, getLogoutRedirectPath, TRAINING_LOCK_MESSAGE } from "../constants/routes";
 import { useConfirm } from "../shared/contexts/ConfirmContext";
+import { useExperiment } from "../contexts/ExperimentContext.zustand";
 
 interface UserSummary {
   user_id: number;
@@ -19,6 +20,7 @@ interface UserSummary {
 
 const Header: React.FC = () => {
   const location = useLocation();
+  const { isTrainingLocked } = useExperiment();
   const currentPath =
     location.pathname + (location.search || "") + (location.hash || "");
   const introductionState =
@@ -57,6 +59,8 @@ const Header: React.FC = () => {
   }, []);
 
   const handleLogout = async () => {
+    if (isTrainingLocked) return;
+
     const isConfirmed = await confirm({
       title: "确认退出",
       message: "您确定要退出系统吗？未保存的实验进度可能会丢失。",
@@ -93,6 +97,23 @@ const Header: React.FC = () => {
     return "?";
   };
 
+  const handleGuardedClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (isTrainingLocked) e.preventDefault();
+    },
+    [isTrainingLocked],
+  );
+
+  const guardedProps = {
+    onClick: handleGuardedClick,
+    title: isTrainingLocked ? TRAINING_LOCK_MESSAGE : undefined,
+    'aria-disabled': isTrainingLocked || undefined,
+  } as const;
+
+  const navLinkClass = isTrainingLocked
+    ? "px-4 py-2 rounded-lg transition-colors font-medium text-gray-400 bg-gray-100 cursor-not-allowed"
+    : "px-4 py-2 rounded-lg transition-colors font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100";
+
   return (
     <header className="w-full bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50">
       <div className="flex items-center justify-between px-6 py-4">
@@ -106,7 +127,8 @@ const Header: React.FC = () => {
           <Link
             to={ROUTES.INTRODUCTION}
             state={introductionState}
-            className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+            {...guardedProps}
+            className={navLinkClass}
           >
             实验介绍
           </Link>
@@ -114,7 +136,8 @@ const Header: React.FC = () => {
           <Link
             to={ROUTES.PROFILE}
             state={profileState}
-            className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+            {...guardedProps}
+            className={navLinkClass}
           >
             个人信息
           </Link>
@@ -123,10 +146,18 @@ const Header: React.FC = () => {
             <Link
               to={ROUTES.PROFILE}
               state={profileState}
-              className="flex items-center space-x-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+              {...guardedProps}
+              className={`flex items-center space-x-2 px-3 py-2 border rounded-lg transition-colors ${
+                isTrainingLocked
+                  ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-amber-50 border-amber-200 hover:bg-amber-100"
+              }`}
             >
-              <AlertTriangle size={16} className="text-amber-600 flex-shrink-0" />
-              <span className="text-sm font-medium text-amber-800">
+              <AlertTriangle
+                size={16}
+                className={`flex-shrink-0 ${isTrainingLocked ? "text-gray-400" : "text-amber-600"}`}
+              />
+              <span className={`text-sm font-medium ${isTrainingLocked ? "text-gray-400" : "text-amber-800"}`}>
                 请尽快修改初始密码
               </span>
             </Link>
@@ -154,7 +185,13 @@ const Header: React.FC = () => {
 
             <button
               onClick={handleLogout}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              disabled={isTrainingLocked}
+              title={isTrainingLocked ? TRAINING_LOCK_MESSAGE : undefined}
+              className={`p-2 rounded-lg transition-colors ${
+                isTrainingLocked
+                  ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`}
             >
               <LogOut className="w-4 h-4" />
             </button>

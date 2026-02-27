@@ -12,6 +12,7 @@ import {
   Lock
 } from 'lucide-react';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
+import { TRAINING_LOCK_MESSAGE } from '../constants/routes';
 
 const steps = [
   { id: 1, title: '选择行业', path: '/industry', icon: Building },
@@ -25,7 +26,7 @@ const steps = [
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
-  const { state, isStepCompleted, isStepUnlocked } = useExperiment();
+  const { state, isStepCompleted, isStepUnlocked, isTrainingLocked } = useExperiment();
   const { current_step } = state;
 
   const getStepStatus = (stepId: number) => {
@@ -77,7 +78,7 @@ const Sidebar: React.FC = () => {
           <div className="space-y-2">
             {steps.map((step) => {
               const status = getStepStatus(step.id);
-              const isLocked = !isStepUnlocked(step.id);
+              const isLocked = !isStepUnlocked(step.id) || isTrainingLocked;
               
               const content = (
                 <div className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-all ${getStepStyles(step.id)}`}>
@@ -104,7 +105,11 @@ const Sidebar: React.FC = () => {
               );
 
               return (
-                <div key={step.id}>
+                <div
+                  key={step.id}
+                  title={isTrainingLocked ? TRAINING_LOCK_MESSAGE : undefined}
+                  className={isTrainingLocked ? 'opacity-70 cursor-not-allowed' : ''}
+                >
                   {isLocked ? (
                     content
                   ) : (

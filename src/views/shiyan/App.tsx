@@ -128,24 +128,54 @@ const RouteLoading: React.FC = () => (
   </div>
 );
 
+const stripTrailingSlash = (p: string) =>
+  p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p;
+
+const TrainingNavigationGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isTrainingLocked, trainingLockPath } = useExperiment();
+  const location = useLocation();
+
+  React.useEffect(() => {
+    if (!isTrainingLocked) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isTrainingLocked]);
+
+  if (
+    isTrainingLocked &&
+    trainingLockPath &&
+    stripTrailingSlash(location.pathname) !== stripTrailingSlash(trainingLockPath)
+  ) {
+    return <Navigate to={trainingLockPath} replace />;
+  }
+
+  return <>{children}</>;
+};
+
 function App() {
   return (
     <ConfirmProvider>
       <ToastProvider>
         <ExperimentStoreProvider>
           <Router>
-            <Suspense fallback={<RouteLoading />}>
-              <Routes>
-                <Route path="/" element={<ReportStatusCheck />} />
-                <Route path="/introduction" element={<Introduction />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/quiz" element={<GuardedModelQuizRoute />} />
-                <Route path="/quiz-plan" element={<GuardedPlanQuizRoute />} />
-                <Route path="/report" element={<GuardedReportRoute />} />
-                {/* All main experiment routes are now under the MainLayout */}
-                <Route path="/*" element={<MainLayout />} />
-              </Routes>
-            </Suspense>
+            <TrainingNavigationGuard>
+              <Suspense fallback={<RouteLoading />}>
+                <Routes>
+                  <Route path="/" element={<ReportStatusCheck />} />
+                  <Route path="/introduction" element={<Introduction />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/quiz" element={<GuardedModelQuizRoute />} />
+                  <Route path="/quiz-plan" element={<GuardedPlanQuizRoute />} />
+                  <Route path="/report" element={<GuardedReportRoute />} />
+                  {/* All main experiment routes are now under the MainLayout */}
+                  <Route path="/*" element={<MainLayout />} />
+                </Routes>
+              </Suspense>
+            </TrainingNavigationGuard>
           </Router>
         </ExperimentStoreProvider>
       </ToastProvider>

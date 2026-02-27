@@ -54,3 +54,6 @@ const STEP_TO_PATH: Record<number, string> = {
 export const getStepPath = (step: number): string => {
   return STEP_TO_PATH[step] || ROUTES.INDUSTRY;
 };
+
+export const TRAINING_LOCK_MESSAGE =
+  '融合模型训练进行中，请等待当前训练完成后再离开此页面';

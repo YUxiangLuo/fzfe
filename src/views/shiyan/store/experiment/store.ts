@@ -91,9 +91,12 @@ export interface ExperimentStore {
   isLoadingFields: boolean;
   productFieldsError: string | null;
   isSubmitting: boolean;
+  isTrainingLocked: boolean;
+  trainingLockPath: string | null;
 
   initialize: () => Promise<void>;
   setIsSubmitting: (isSubmitting: boolean) => void;
+  setTrainingLock: (isLocked: boolean, lockPath?: string | null) => void;
   updateState: (
     updates: Partial<ExperimentState>,
     forceSync?: boolean,
@@ -121,6 +124,8 @@ export interface ExperimentStore {
   createNewExperiment: () => Promise<void>;
 }
 
+let trainingLockCount = 0;
+
 export const useExperimentStore = create<ExperimentStore>()(
   devtools(
     (set, get) => ({
@@ -133,9 +138,26 @@ export const useExperimentStore = create<ExperimentStore>()(
       isLoadingFields: false,
       productFieldsError: null,
       isSubmitting: false,
+      isTrainingLocked: false,
+      trainingLockPath: null,
 
       setIsSubmitting: (isSubmitting) => {
         set({ isSubmitting });
+      },
+      setTrainingLock: (isLocked, lockPath = null) => {
+        if (isLocked) {
+          trainingLockCount++;
+          set({
+            isTrainingLocked: true,
+            trainingLockPath: get().trainingLockPath ?? lockPath ?? null,
+          });
+        } else {
+          trainingLockCount = Math.max(0, trainingLockCount - 1);
+          set({
+            isTrainingLocked: trainingLockCount > 0,
+            trainingLockPath: trainingLockCount > 0 ? get().trainingLockPath : null,
+          });
+        }
       },
 
       initialize: async () => {
