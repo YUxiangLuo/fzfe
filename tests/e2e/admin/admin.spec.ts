@@ -72,7 +72,25 @@ async function openMenu(page: Page, menuLabel: string, headingText: string) {
 async function searchUsers(page: Page, keyword: string) {
   const searchInput = page.getByPlaceholder("输入关键字搜索");
   await searchInput.fill(keyword);
-  await searchInput.press("Enter");
+
+  const trimmedKeyword = keyword.trim();
+  const encodedKeyword = encodeURIComponent(trimmedKeyword);
+
+  const [response] = await Promise.all([
+    page.waitForResponse((resp) => {
+      if (resp.request().method() !== "GET" || !resp.ok()) return false;
+      const url = resp.url();
+
+      if (trimmedKeyword.length > 0) {
+        return url.includes("/api/v1/users/search") && url.includes(`q=${encodedKeyword}`);
+      }
+
+      return url.includes("/api/v1/users?") && !url.includes("/api/v1/users/search");
+    }),
+    searchInput.press("Enter"),
+  ]);
+
+  expect(response.ok()).toBeTruthy();
 }
 
 function tableRowByText(page: Page, text: string): Locator {
