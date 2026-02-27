@@ -11,7 +11,8 @@ import {
     Card,
     Typography,
     Tag,
-    Tooltip
+    Tooltip,
+    Alert,
 } from "antd";
 import {
     UserOutlined,
@@ -20,7 +21,8 @@ import {
     UploadOutlined,
     PlusOutlined,
     KeyOutlined,
-    SearchOutlined
+    SearchOutlined,
+    DownloadOutlined,
 } from "@ant-design/icons";
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { User } from "../types";
@@ -79,6 +81,24 @@ const UserFormFields = (
         </Form.Item>
     </>
 );
+
+const buildBatchTemplate = (type: 'teacher' | 'assistant') => {
+    const headers = ['姓名', '手机号'];
+    const examples = type === 'teacher'
+        ? [
+            ['张老师', '13800000001'],
+            ['李老师', '13800000002'],
+        ]
+        : [
+            ['王助教', '13900000001'],
+            ['赵助教', '13900000002'],
+        ];
+
+    return {
+        csv: [headers.join(','), ...examples.map((row) => row.join(','))].join('\n'),
+        fileName: type === 'teacher' ? '教师批量导入模板.csv' : '助教批量导入模板.csv',
+    };
+};
 
 const UserManagement: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
@@ -246,6 +266,19 @@ const UserManagement: React.FC = () => {
         } finally {
             setBatchLoading(false);
         }
+    };
+
+    const handleDownloadBatchTemplate = () => {
+        const { csv, fileName } = buildBatchTemplate(batchType);
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     const columns = [
@@ -429,12 +462,49 @@ const UserManagement: React.FC = () => {
                 onOk={handleBatchUpload}
                 confirmLoading={batchLoading}
             >
-                <div style={{ marginBottom: 16 }}>
-                    <Text type="secondary">请上传包含用户信息的CSV文件，仅支持.csv格式</Text>
-                </div>
+                <Alert
+                    message="CSV 字段说明"
+                    description={
+                        <Space direction="vertical" size={8} style={{ width: '100%', lineHeight: 1.6 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                                <Text>
+                                    必填列：<Text code>姓名</Text>、<Text code>手机号</Text>
+                                </Text>
+                                <Button size="small" icon={<DownloadOutlined />} onClick={handleDownloadBatchTemplate}>
+                                    下载模板
+                                </Button>
+                            </div>
+                            <div>
+                                <Text strong>字段要求</Text>
+                                <div><Text type="secondary">姓名：至少 2 个字符。</Text></div>
+                                <div><Text type="secondary">手机号：6-15 位数字，且 CSV 内不能重复。</Text></div>
+                                <div><Text type="secondary">单次最多导入 1000 行。</Text></div>
+                            </div>
+                            <div>
+                                <Text strong>系统自动处理</Text>
+                                <div>
+                                    <Text type="secondary">
+                                        账号自动生成：
+                                        {batchType === 'teacher'
+                                            ? ' 用户名 = prof_手机号，邮箱 = prof_手机号@teacher.edu'
+                                            : ' 用户名 = ta_手机号，邮箱 = ta_手机号@assistant.edu'}
+                                        。
+                                    </Text>
+                                </div>
+                                <div><Text type="secondary">初始密码默认使用手机号（当前页面未设置统一密码）。</Text></div>
+                            </div>
+                        </Space>
+                    }
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                />
                 <Upload {...uploadProps} maxCount={1} accept=".csv">
                     <Button icon={<UploadOutlined />}>选择CSV文件</Button>
                 </Upload>
+                <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+                    仅支持 CSV 格式文件
+                </Text>
             </Modal>
         </div>
     );
