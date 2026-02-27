@@ -133,51 +133,22 @@ const GradesOverview: React.FC = () => {
         setError(null);
         try {
             if (classId === ALL_CLASSES) {
-                // Fetch grades for all classes and calculate summaries
-                const summaries = await Promise.all(
-                    classes.map(async (cls) => {
-                        try {
-                            const response = await apiClient.get<StudentGradeOverview[]>(`/classes/${cls.class_id}/grade-summaries`);
-                            const gradesArray = Array.isArray(response) ? response : [];
+                const token = localStorage.getItem('token');
+                if (!token) throw new Error('未找到登录凭据');
+                const decoded = decodeToken(token);
+                if (!decoded) throw new Error('登录信息已失效');
+                let endpoint: string | null = null;
+                if (decoded.role === 'Teacher') endpoint = `/teachers/${decoded.sub}/grade-summaries`;
+                if (decoded.role === 'Assistant') endpoint = `/assistants/${decoded.sub}/grade-summaries`;
 
-                            // Calculate stats
-                            const graded = gradesArray.filter(g => g.report_status === 'graded');
-                            const submitted = gradesArray.filter(g => g.report_status === 'submitted');
-                            const rejected = gradesArray.filter(g => g.report_status === 'rejected');
-                            const notSubmitted = gradesArray.filter(g => !g.report_status);
+                if (!endpoint) {
+                    throw new Error('当前角色不支持查看全部班级成绩总览');
+                }
 
-                            const validScores = graded.filter(g => g.final_score !== null).map(g => g.final_score as number);
-                            const avgScore = validScores.length > 0
-                                ? validScores.reduce((a, b) => a + b, 0) / validScores.length
-                                : null;
-
-                            return {
-                                class_id: cls.class_id,
-                                class_name: cls.class_name,
-                                total_students: gradesArray.length,
-                                graded_count: graded.length,
-                                submitted_count: submitted.length,
-                                rejected_count: rejected.length,
-                                not_submitted_count: notSubmitted.length,
-                                average_score: avgScore
-                            } as ClassSummary;
-                        } catch (e) {
-                            return {
-                                class_id: cls.class_id,
-                                class_name: cls.class_name,
-                                total_students: 0,
-                                graded_count: 0,
-                                submitted_count: 0,
-                                rejected_count: 0,
-                                not_submitted_count: 0,
-                                average_score: null
-                            } as ClassSummary;
-                        }
-                    })
-                );
+                const summaries = await apiClient.get<ClassSummary[]>(endpoint);
                 if (requestId !== fetchRequestIdRef.current) return;
-                setClassSummaries(summaries);
-                setGrades([]); // Clear individual grades when showing all
+                setClassSummaries(Array.isArray(summaries) ? summaries : []);
+                setGrades([]);
             } else {
                 // Single class view
                 const data = await apiClient.get<StudentGradeOverview[]>(`/classes/${classId}/grade-summaries`);
@@ -194,7 +165,7 @@ const GradesOverview: React.FC = () => {
                 setIsLoadingGrades(false);
             }
         }
-    }, [classes]);
+    }, []);
 
     useEffect(() => {
         if (classes.length > 0) {
@@ -820,7 +791,14 @@ const GradesOverview: React.FC = () => {
                     closable
                     onClose={clearExportedFileUrl}
                     action={
-                        <Button type="primary" size="small" href={exportedFileUrl} target="_blank">
+                        <Button
+                            type="primary"
+                            size="small"
+                            href={exportedFileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="下载导出的成绩文件"
+                        >
                             下载
                         </Button>
                     }

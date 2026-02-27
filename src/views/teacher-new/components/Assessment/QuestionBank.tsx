@@ -13,8 +13,6 @@ import {
     Spin,
     Alert,
     Typography,
-    Radio,
-    Checkbox,
     Tooltip,
     Popconfirm
 } from 'antd';
@@ -27,7 +25,6 @@ import {
     ReloadOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import { decodeToken } from '../../../../utils/auth';
 import type { Question, QuestionTypeApi } from '../../types';
 
 const { Title, Text, Paragraph } = Typography;
@@ -63,6 +60,53 @@ const QUESTION_TYPES: Record<string, { label: string; color: string }> = {
     'Multiple Choice': { label: '多选题', color: 'purple' },
     'True/False': { label: '判断题', color: 'green' },
 };
+
+const CANONICAL_KNOWLEDGE_POINTS = new Set(
+    Object.values(KNOWLEDGE_POINT_GROUPS).flat()
+);
+
+type QuestionOptions = Record<string, string> | string[] | null | undefined;
+
+function normalizeKnowledgePoint(value: string | null | undefined): string | null {
+    if (!value) return null;
+    const trimmed = value.trim();
+    if (CANONICAL_KNOWLEDGE_POINTS.has(trimmed)) return trimmed;
+
+    const tail = trimmed.split('-').pop()?.trim() ?? trimmed;
+    if (CANONICAL_KNOWLEDGE_POINTS.has(tail)) return tail;
+
+    return trimmed;
+}
+
+function toOptionMap(options: QuestionOptions): Record<string, string> | null {
+    if (!options || Array.isArray(options)) return null;
+    return Object.entries(options).reduce<Record<string, string>>((acc, [key, val]) => {
+        acc[String(key)] = String(val);
+        return acc;
+    }, {});
+}
+
+function normalizeOptionsForForm(options: QuestionOptions): string[] {
+    if (!options) return [];
+    if (Array.isArray(options)) {
+        return options.map(String).map(v => v.trim()).filter(Boolean);
+    }
+    return Object.values(options).map(String).map(v => v.trim()).filter(Boolean);
+}
+
+function normalizeAnswersForForm(correctAnswers: unknown, options: QuestionOptions): string[] {
+    const answers = Array.isArray(correctAnswers)
+        ? correctAnswers.map(String).map(v => v.trim()).filter(Boolean)
+        : [];
+    const optionMap = toOptionMap(options);
+    if (!optionMap) return answers;
+
+    return answers.map((ans) => optionMap[ans] ?? ans);
+}
+
+function uniqValues(values: string[]): string[] {
+    return Array.from(new Set(values));
+}
 
 const QuestionBank: React.FC = () => {
     const [questions, setQuestions] = useState<Question[]>([]);
@@ -109,6 +153,15 @@ const QuestionBank: React.FC = () => {
     }, [fetchQuestions]);
 
     // Filter questions (using debounced search and knowledge point groups)
+    const knowledgePointOptions = useMemo(() => {
+        const points = new Set<string>(Object.values(KNOWLEDGE_POINT_GROUPS).flat());
+        questions.forEach((q) => {
+            const normalized = normalizeKnowledgePoint(q.knowledge_point);
+            if (normalized) points.add(normalized);
+        });
+        return Array.from(points);
+    }, [questions]);
+
     const filteredQuestions = useMemo(() => {
         let result = questions;
         
@@ -124,22 +177,11 @@ const QuestionBank: React.FC = () => {
         
         // Knowledge point filter (using groups)
         if (selectedKnowledgePoint) {
-            result = result.filter(q => q.knowledge_point === selectedKnowledgePoint);
+            result = result.filter(q => normalizeKnowledgePoint(q.knowledge_point) === selectedKnowledgePoint);
         }
         
         return result;
     }, [questions, debouncedSearchTerm, filterType, selectedKnowledgePoint]);
-
-    // Get all knowledge points from groups for the filter
-    const allKnowledgePoints = useMemo(() => {
-        const points: { group: string; point: string }[] = [];
-        Object.entries(KNOWLEDGE_POINT_GROUPS).forEach(([group, groupPoints]) => {
-            groupPoints.forEach(point => {
-                points.push({ group, point });
-            });
-        });
-        return points;
-    }, []);
 
     // Preview question
     const openPreview = (question: Question) => {
@@ -155,9 +197,9 @@ const QuestionBank: React.FC = () => {
             form.setFieldsValue({
                 question_text: question.question_text,
                 question_type: question.question_type,
-                knowledge_point: question.knowledge_point,
-                options: question.options,
-                correct_answers: question.correct_answers,
+                knowledge_point: normalizeKnowledgePoint(question.knowledge_point),
+                options: normalizeOptionsForForm(question.options),
+                correct_answers: normalizeAnswersForForm(question.correct_answers, question.options),
             });
         } else {
             form.resetFields();
@@ -169,14 +211,56 @@ const QuestionBank: React.FC = () => {
     const handleSave = async (values: any) => {
         setIsSaving(true);
         try {
+            const questionType = values.question_type as QuestionTypeApi;
+            const optionMap = toOptionMap(selectedQuestion?.options);
+            const rawOptions: unknown[] = Array.isArray(values.options) ? values.options : [];
+            const normalizedOptions = uniqValues(
+                rawOptions
+                    .map(String)
+                    .map((v: string) => v.trim())
+                    .filter(Boolean)
+            );
+            const rawAnswers: unknown[] = Array.isArray(values.correct_answers) ? values.correct_answers : [];
+            const normalizedAnswersRaw = uniqValues(
+                rawAnswers
+                    .map(String)
+                    .map((v: string) => v.trim())
+                    .filter(Boolean)
+            );
+            const normalizedAnswers =
+                optionMap && normalizedAnswersRaw.every((ans) => optionMap[ans])
+                    ? normalizedAnswersRaw.map((ans) => optionMap[ans]!)
+                    : normalizedAnswersRaw;
+
+            const payload: {
+                question_text: string;
+                question_type: QuestionTypeApi;
+                knowledge_point?: string;
+                options?: string[];
+                correct_answers: string[];
+            } = {
+                question_text: String(values.question_text ?? '').trim(),
+                question_type: questionType,
+                knowledge_point: normalizeKnowledgePoint(values.knowledge_point) ?? undefined,
+                options: questionType === 'True/False' ? undefined : normalizedOptions,
+                correct_answers: normalizedAnswers,
+            };
+
             if (isEditing && selectedQuestion) {
-                await apiClient.put(`/question-bank/questions/${selectedQuestion.question_id}`, values);
+                await apiClient.put(`/question-bank/questions/${selectedQuestion.question_id}`, payload);
                 setQuestions(prev => prev.map(q =>
-                    q.question_id === selectedQuestion.question_id ? { ...q, ...values } : q
+                    q.question_id === selectedQuestion.question_id
+                        ? {
+                            ...q,
+                            ...payload,
+                            knowledge_point: payload.knowledge_point ?? null,
+                            options: payload.options ?? ['正确', '错误'],
+                        }
+                        : q
                 ));
                 message.success('题目更新成功');
             } else {
-                const newQuestion = await apiClient.post<Question>('/question-bank/questions', values);
+                const newQuestion = await apiClient.post<Question>('/question-bank/questions', payload);
                 setQuestions(prev => [...prev, newQuestion]);
                 message.success('题目创建成功');
             }
@@ -241,7 +325,7 @@ const QuestionBank: React.FC = () => {
             dataIndex: 'knowledge_point',
             key: 'knowledge_point',
             width: 150,
-            render: (text: string | null) => text || '—',
+            render: (text: string | null) => normalizeKnowledgePoint(text) || '—',
         },
         {
             title: '正确答案',
@@ -258,6 +342,7 @@ const QuestionBank: React.FC = () => {
                     <Tooltip title="预览">
                         <Button
                             type="text"
+                            aria-label="预览题目"
                             icon={<EyeOutlined />}
                             onClick={() => openPreview(record)}
                         />
@@ -265,6 +350,7 @@ const QuestionBank: React.FC = () => {
                     <Tooltip title="编辑">
                         <Button
                             type="text"
+                            aria-label="编辑题目"
                             icon={<EditOutlined />}
                             onClick={() => openEditor(record)}
                         />
@@ -276,7 +362,7 @@ const QuestionBank: React.FC = () => {
                         cancelText="取消"
                     >
                         <Tooltip title="删除">
-                            <Button type="text" danger icon={<DeleteOutlined />} />
+                            <Button type="text" danger aria-label="删除题目" icon={<DeleteOutlined />} />
                         </Tooltip>
                     </Popconfirm>
                 </Space>
@@ -343,12 +429,8 @@ const QuestionBank: React.FC = () => {
                             placeholder="全部"
                             allowClear
                         >
-                            {Object.entries(KNOWLEDGE_POINT_GROUPS).map(([group, points]) => (
-                                <Select.OptGroup key={group} label={group}>
-                                    {points.map(point => (
-                                        <Option key={point} value={point}>{point}</Option>
-                                    ))}
-                                </Select.OptGroup>
+                            {knowledgePointOptions.map((point) => (
+                                <Option key={point} value={point}>{point}</Option>
                             ))}
                         </Select>
                     </div>
@@ -449,12 +531,8 @@ const QuestionBank: React.FC = () => {
                         rules={[{ required: true, message: '请选择知识点' }]}
                     >
                         <Select placeholder="请选择">
-                            {Object.entries(KNOWLEDGE_POINT_GROUPS).map(([group, points]) => (
-                                <Select.OptGroup key={group} label={group}>
-                                    {points.map(point => (
-                                        <Option key={point} value={point}>{point}</Option>
-                                    ))}
-                                </Select.OptGroup>
+                            {knowledgePointOptions.map((point) => (
+                                <Option key={point} value={point}>{point}</Option>
                             ))}
                         </Select>
                     </Form.Item>

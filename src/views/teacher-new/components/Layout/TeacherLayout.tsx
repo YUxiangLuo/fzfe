@@ -51,10 +51,18 @@ const RouteLoading: React.FC = () => (
 
 type MenuItemType = Required<MenuProps>['items'][number];
 
+function getOpenKeysByPath(pathname: string): string[] {
+    if (pathname.startsWith('/experiment')) return ['experiment'];
+    if (pathname.startsWith('/assessment')) return ['assessment'];
+    if (pathname.startsWith('/account')) return ['account'];
+    return [];
+}
+
 const TeacherLayout: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
     const [isAuthorizing, setIsAuthorizing] = useState(true);
+    const [openKeys, setOpenKeys] = useState<string[]>([]);
     const navigate = useNavigate();
     const location = useLocation();
     const { role } = useRole();
@@ -96,32 +104,6 @@ const TeacherLayout: React.FC = () => {
             window.location.href = '/login.html';
         }
     }, []);
-
-    if (isAuthorizing) {
-        return (
-            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Spin size="large" />
-            </div>
-        );
-    }
-
-    const handleLogout = () => {
-        Modal.confirm({
-            title: '确认退出',
-            content: '确定要退出登录吗？退出后需要重新登录才能继续操作。',
-            okText: '退出',
-            okType: 'danger',
-            cancelText: '取消',
-            onOk: () => {
-                try {
-                    localStorage.removeItem('token');
-                } catch (err) {
-                    console.error('Failed to remove token from localStorage:', err);
-                }
-                window.location.href = '/login.html';
-            },
-        });
-    };
 
     const roleDisplay = currentUser
         ? getRoleByBackendValue(currentUser.role)?.displayName ?? currentUser.role
@@ -207,6 +189,36 @@ const TeacherLayout: React.FC = () => {
         return items;
     }, [currentRoleId]);
 
+    useEffect(() => {
+        setOpenKeys(getOpenKeysByPath(location.pathname));
+    }, [location.pathname]);
+
+    if (isAuthorizing) {
+        return (
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Spin size="large" />
+            </div>
+        );
+    }
+
+    const handleLogout = () => {
+        Modal.confirm({
+            title: '确认退出',
+            content: '确定要退出登录吗？退出后需要重新登录才能继续操作。',
+            okText: '退出',
+            okType: 'danger',
+            cancelText: '取消',
+            onOk: () => {
+                try {
+                    localStorage.removeItem('token');
+                } catch (err) {
+                    console.error('Failed to remove token from localStorage:', err);
+                }
+                window.location.href = '/login.html';
+            },
+        });
+    };
+
     const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
         if (key.startsWith('/')) {
             navigate(key);
@@ -216,14 +228,6 @@ const TeacherLayout: React.FC = () => {
     // Get selected keys and open keys from current path
     const getSelectedKeys = () => {
         return [location.pathname];
-    };
-
-    const getOpenKeys = () => {
-        const path = location.pathname;
-        if (path.startsWith('/experiment')) return ['experiment'];
-        if (path.startsWith('/assessment')) return ['assessment'];
-        if (path.startsWith('/account')) return ['account'];
-        return [];
     };
 
     const userMenu: MenuProps = {
@@ -265,7 +269,8 @@ const TeacherLayout: React.FC = () => {
                     theme="light"
                     mode="inline"
                     selectedKeys={getSelectedKeys()}
-                    defaultOpenKeys={getOpenKeys()}
+                    openKeys={openKeys}
+                    onOpenChange={(nextKeys) => setOpenKeys(nextKeys as string[])}
                     onClick={handleMenuClick}
                     items={menuItems}
                     style={{ borderRight: 0 }}

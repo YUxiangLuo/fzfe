@@ -122,33 +122,14 @@ const AssistantManagement: React.FC = () => {
     const handleCreateAssistant = async (values: any) => {
         setIsSaving(true);
         try {
-            const token = localStorage.getItem('token');
-            if (!token) throw new Error('Authentication token not found.');
-            const decoded = decodeToken(token);
-            if (!decoded) throw new Error('Invalid token.');
-
             const newAssistant = await apiClient.post('/assistants', {
                 username: values.username,
                 full_name: values.full_name,
                 email: values.email,
                 phone_number: values.phone_number || null,
                 password: values.password,
+                class_ids: values.class_ids,
             });
-
-            // Assign to selected classes
-            if (values.class_ids?.length > 0) {
-                const results = await Promise.allSettled(
-                    values.class_ids.map((classId: number) =>
-                        apiClient.post(`/classes/${classId}/assistants`, {
-                            assistant_id: newAssistant.user_id,
-                        })
-                    )
-                );
-                const failed = results.filter(r => r.status === 'rejected');
-                if (failed.length > 0) {
-                    message.warning(`助教已创建，但 ${failed.length} 个班级分配失败`);
-                }
-            }
 
             setAssistants(prev => [newAssistant, ...prev]);
             setCreateModalOpen(false);
@@ -406,7 +387,11 @@ const AssistantManagement: React.FC = () => {
                     >
                         <Input.Password placeholder="至少6个字符" />
                     </Form.Item>
-                    <Form.Item label="分配到班级（可选）" name="class_ids">
+                    <Form.Item
+                        label="分配到班级"
+                        name="class_ids"
+                        rules={[{ required: true, message: '请选择至少一个班级' }]}
+                    >
                         <Select
                             mode="multiple"
                             placeholder="选择要分配的班级"
