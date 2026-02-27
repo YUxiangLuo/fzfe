@@ -87,12 +87,15 @@ const buildUrl = (endpoint: string): string => {
 };
 
 const unwrapSuccessPayload = <T = any>(payload: unknown): T => {
-  if (
-    payload !== null &&
-    typeof payload === "object" &&
-    Object.prototype.hasOwnProperty.call(payload, "data")
-  ) {
-    return (payload as { data: T }).data;
+  if (payload !== null && typeof payload === "object") {
+    const payloadRecord = payload as Record<string, unknown>;
+    const keys = Object.keys(payloadRecord);
+
+    // Only auto-unwrap when the payload is exactly { data: ... }.
+    // Preserve envelopes like { data, pagination } to avoid losing metadata.
+    if (keys.length === 1 && keys[0] === "data") {
+      return payloadRecord.data as T;
+    }
   }
   return payload as T;
 };
@@ -161,10 +164,13 @@ const rewriteEndpointForRole = (endpoint: string): string => {
     return endpoint;
   }
 
-  // Rule: If the user is an Assistant, rewrite /teachers/{id} paths to /assistants/{id}
-  const teacherPattern = /^\/teachers\/\d+/;
-  if (teacherPattern.test(endpoint)) {
-    return endpoint.replace(/^\/teachers\/\d+/, `/assistants/${userInfo.sub}`);
+  // Only rewrite teacher-class listing to the assistant equivalent route.
+  // Keep this as a strict whitelist to avoid rewriting unrelated teacher endpoints.
+  const teacherClassesPattern = /^\/teachers\/\d+\/classes\/?(\?.*)?$/;
+  const match = endpoint.match(teacherClassesPattern);
+  if (match) {
+    const query = match[1] ?? "";
+    return `/assistants/${userInfo.sub}/classes${query}`;
   }
 
   return endpoint;

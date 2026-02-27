@@ -49,7 +49,7 @@ import {
     Line
 } from 'recharts';
 import { apiClient } from '../../../../utils/apiClient';
-import { resolveFileUrl } from '../../../../utils/fileUrl';
+import { createAuthObjectUrl } from '../../../../utils/authFile';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, StudentGradeOverview } from '../../types';
 import FinalBreakdown from './FinalBreakdown';
@@ -102,6 +102,7 @@ const GradesOverview: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [expandedRowKeys, setExpandedRowKeys] = useState<number[]>([]);
     const fetchRequestIdRef = useRef(0);
+    const exportedFileUrlRef = useRef<string | null>(null);
 
     // Fetch classes
     useEffect(() => {
@@ -418,6 +419,15 @@ const GradesOverview: React.FC = () => {
     const [exportedFileUrl, setExportedFileUrl] = useState<string | null>(null);
     const [exportError, setExportError] = useState<string | null>(null);
 
+    useEffect(() => {
+        return () => {
+            if (exportedFileUrlRef.current) {
+                URL.revokeObjectURL(exportedFileUrlRef.current);
+                exportedFileUrlRef.current = null;
+            }
+        };
+    }, []);
+
     const handleExport = async () => {
         if (!selectedClassId) {
             setExportError('请先选择一个班级');
@@ -431,7 +441,11 @@ const GradesOverview: React.FC = () => {
 
         setIsExporting(true);
         setExportError(null);
-        setExportedFileUrl(null);
+        setExportedFileUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+        });
+        exportedFileUrlRef.current = null;
         try {
             const response = await apiClient.get<{ file_path: string }>(`/classes/${selectedClassId}/grade-export.csv`);
 
@@ -439,11 +453,12 @@ const GradesOverview: React.FC = () => {
                 throw new Error('导出失败：服务器未返回文件地址');
             }
 
-            const fullUrl = resolveFileUrl(response.file_path);
-            if (!fullUrl) {
-                throw new Error('导出失败：无效的文件地址');
-            }
-            setExportedFileUrl(fullUrl);
+            const objectUrl = await createAuthObjectUrl(response.file_path);
+            setExportedFileUrl((prev) => {
+                if (prev) URL.revokeObjectURL(prev);
+                return objectUrl;
+            });
+            exportedFileUrlRef.current = objectUrl;
             message.success('导出成功');
         } catch (err: any) {
             const errorMessage = err?.message || '导出失败，请稍后重试。';
@@ -820,7 +835,13 @@ const GradesOverview: React.FC = () => {
                     showIcon
                     className="mb-6"
                     closable
-                    onClose={() => setExportedFileUrl(null)}
+                    onClose={() => {
+                        setExportedFileUrl((prev) => {
+                            if (prev) URL.revokeObjectURL(prev);
+                            return null;
+                        });
+                        exportedFileUrlRef.current = null;
+                    }}
                     action={
                         <Button type="primary" size="small" href={exportedFileUrl} target="_blank">
                             下载

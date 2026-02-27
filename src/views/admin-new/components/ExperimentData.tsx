@@ -23,7 +23,7 @@ import {
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { ExperimentData } from "../types";
 import { apiClient } from "../../../utils/apiClient";
-import { resolveFileUrl } from "../../../utils/fileUrl";
+import { openFileWithAuth } from "../../../utils/authFile";
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -84,14 +84,12 @@ const ExperimentDataView: React.FC = () => {
         });
     };
 
-    const handleDownload = (filePath: string) => {
-        const fullUrl = resolveFileUrl(filePath);
-        if (!fullUrl) {
-            message.error('无效的文件地址');
-            return;
+    const handleDownload = async (filePath: string) => {
+        try {
+            await openFileWithAuth(filePath);
+        } catch (err: any) {
+            message.error(err.message || '下载失败');
         }
-        const win = window.open(fullUrl, "_blank", "noopener,noreferrer");
-        if (win) win.opener = null;
     };
 
     const handleDownloadTemplate = () => {

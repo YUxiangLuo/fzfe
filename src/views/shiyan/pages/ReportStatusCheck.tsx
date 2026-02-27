@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, FileText, RefreshCw, Loader2, Clock, Hash } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
-import { resolveFileUrl } from '../../../utils/fileUrl';
+import { createAuthObjectUrl } from '../../../utils/authFile';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
 import Button from '../shared/components/common/Button';
 
@@ -35,11 +35,6 @@ interface ReportStatusResponse {
   report?: ReportInfo;
 }
 
-const buildDownloadUrl = (filePath: string) => {
-  if (!filePath) return '';
-  return resolveFileUrl(filePath);
-};
-
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleString('zh-CN', {
     year: 'numeric',
@@ -58,6 +53,8 @@ const ReportStatusCheck: React.FC = () => {
   const [statusData, setStatusData] = useState<ReportStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     const checkStatus = async () => {
@@ -83,6 +80,47 @@ const ReportStatusCheck: React.FC = () => {
 
     checkStatus();
   }, [navigate]);
+
+  useEffect(() => {
+    const loadPreview = async () => {
+      const filePath = statusData?.report?.pdf_file_path;
+      if (!filePath) {
+        setPdfPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+        previewUrlRef.current = null;
+        return;
+      }
+
+      try {
+        const objectUrl = await createAuthObjectUrl(filePath);
+        setPdfPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return objectUrl;
+        });
+        previewUrlRef.current = objectUrl;
+      } catch (err) {
+        console.error("Failed to load report preview:", err);
+        setPdfPreviewUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+        previewUrlRef.current = null;
+      }
+    };
+
+    loadPreview();
+  }, [statusData?.report?.pdf_file_path]);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+    };
+  }, []);
 
   const handleRestartExperiment = async () => {
     try {
@@ -144,7 +182,7 @@ const ReportStatusCheck: React.FC = () => {
               <h2 className="font-bold text-gray-800">原始报告预览</h2>
               {report.pdf_file_path && (
                 <a
-                  href={buildDownloadUrl(report.pdf_file_path)}
+                  href={pdfPreviewUrl || '#'}
                   target="_blank"
                   rel="noreferrer"
                   className="text-blue-600 hover:text-blue-700 text-sm font-medium hover:underline"
@@ -156,7 +194,7 @@ const ReportStatusCheck: React.FC = () => {
             <div className="flex-1 bg-gray-100 rounded-b-lg overflow-hidden relative">
               {report.pdf_file_path ? (
                 <iframe
-                  src={buildDownloadUrl(report.pdf_file_path)}
+                  src={pdfPreviewUrl || ''}
                   className="w-full h-full border-none"
                   title="Report PDF"
                 />

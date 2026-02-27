@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useExperiment } from "../contexts/ExperimentContext.zustand";
 import { apiClient } from "../../../utils/apiClient";
-import { resolveFileUrl } from "../../../utils/fileUrl";
+import { createAuthObjectUrl } from "../../../utils/authFile";
 import {
   BookOpen,
   Target,
@@ -67,7 +67,9 @@ const Introduction: React.FC = () => {
   const { state: experimentState, createNewExperiment, isSubmitting, setIsSubmitting } = useExperiment();
   const [currentStep, setCurrentStep] = useState(0);
   const [manual, setManual] = useState<Manual | null>(null);
+  const [manualPdfUrl, setManualPdfUrl] = useState<string | null>(null);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const manualPdfUrlRef = useRef<string | null>(null);
   const { confirm } = useConfirm();
 
   useEffect(() => {
@@ -84,6 +86,46 @@ const Introduction: React.FC = () => {
       }
     };
     fetchManual();
+  }, []);
+
+  useEffect(() => {
+    const loadManualPdf = async () => {
+      if (!manual?.file_path) {
+        setManualPdfUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+        manualPdfUrlRef.current = null;
+        return;
+      }
+
+      try {
+        const objectUrl = await createAuthObjectUrl(manual.file_path);
+        setManualPdfUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return objectUrl;
+        });
+        manualPdfUrlRef.current = objectUrl;
+      } catch (error) {
+        console.error("Failed to load manual PDF:", error);
+        setManualPdfUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+        manualPdfUrlRef.current = null;
+      }
+    };
+
+    loadManualPdf();
+  }, [manual?.file_path]);
+
+  useEffect(() => {
+    return () => {
+      if (manualPdfUrlRef.current) {
+        URL.revokeObjectURL(manualPdfUrlRef.current);
+        manualPdfUrlRef.current = null;
+      }
+    };
   }, []);
 
   // Logout function
@@ -186,11 +228,6 @@ const Introduction: React.FC = () => {
     return "开始实验";
   };
 
-  const getPdfUrl = () => {
-    if (!manual || !manual.file_path) return null;
-    return resolveFileUrl(manual.file_path) || null;
-  };
-
   const renderStepContent = () => {
     switch (currentStep) {
       case 0:
@@ -247,10 +284,9 @@ const Introduction: React.FC = () => {
         );
 
       case 2:
-        const pdfUrl = getPdfUrl();
-        return pdfUrl ? (
+        return manualPdfUrl ? (
           <iframe
-            src={pdfUrl}
+            src={manualPdfUrl}
             className="w-full h-full border-0"
             title="实验手册 PDF 预览"
           />

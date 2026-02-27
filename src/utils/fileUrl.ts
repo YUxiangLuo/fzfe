@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "./apiClient";
+import { DOWNLOAD_SERVER_BASE_URL } from "../config/appConfig";
 
 const PUBLIC_FILE_PREFIX_RE = /(manuals|datasets|reports|exports)\/.+$/i;
 
@@ -51,5 +51,8 @@ export const resolveFileUrl = (filePath: string | null | undefined): string => {
   const normalizedPath = normalizeFilePath(trimmed);
   if (!normalizedPath) return "";
 
-  return new URL(normalizedPath, `${API_BASE_URL.replace(/\/+$/, "")}/`).toString();
+  return new URL(
+    normalizedPath,
+    `${DOWNLOAD_SERVER_BASE_URL.replace(/\/+$/, "")}/`,
+  ).toString();
 };

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
     Modal,
     Row,
@@ -21,7 +21,7 @@ import {
     UpOutlined,
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import { resolveFileUrl } from '../../../../utils/fileUrl';
+import { createAuthObjectUrl, openFileWithAuth } from '../../../../utils/authFile';
 import type { ExperimentReport } from '../../types';
 
 const { Title, Text } = Typography;
@@ -71,6 +71,9 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
     });
     const [isSaving, setIsSaving] = useState(false);
     const [isPreviewLoadError, setIsPreviewLoadError] = useState(false);
+    const [pdfPreviewUrl, setPdfPreviewUrl] = useState('');
+    const previewUrlRef = useRef<string | null>(null);
+    const previewRequestIdRef = useRef(0);
 
     // Reset state when report changes
     React.useEffect(() => {
@@ -99,10 +102,60 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
         }
     }, [open, report]);
 
-    // Build download URL
-    const buildDownloadUrl = (filePath: string) => {
-        return resolveFileUrl(filePath);
-    };
+    React.useEffect(() => {
+        const loadPreview = async () => {
+            const requestId = ++previewRequestIdRef.current;
+
+            if (!open || !report?.pdf_file_path) {
+                setPdfPreviewUrl((prev) => {
+                    if (prev) URL.revokeObjectURL(prev);
+                    return '';
+                });
+                previewUrlRef.current = null;
+                setIsPreviewLoadError(false);
+                return;
+            }
+
+            setIsPreviewLoadError(false);
+
+            try {
+                const objectUrl = await createAuthObjectUrl(report.pdf_file_path);
+
+                if (requestId !== previewRequestIdRef.current) {
+                    URL.revokeObjectURL(objectUrl);
+                    return;
+                }
+
+                setPdfPreviewUrl((prev) => {
+                    if (prev) URL.revokeObjectURL(prev);
+                    return objectUrl;
+                });
+                previewUrlRef.current = objectUrl;
+            } catch (error) {
+                if (requestId !== previewRequestIdRef.current) {
+                    return;
+                }
+                console.error("Failed to load report preview:", error);
+                setPdfPreviewUrl((prev) => {
+                    if (prev) URL.revokeObjectURL(prev);
+                    return '';
+                });
+                previewUrlRef.current = null;
+                setIsPreviewLoadError(true);
+            }
+        };
+
+        loadPreview();
+    }, [open, report?.pdf_file_path]);
+
+    React.useEffect(() => {
+        return () => {
+            if (previewUrlRef.current) {
+                URL.revokeObjectURL(previewUrlRef.current);
+                previewUrlRef.current = null;
+            }
+        };
+    }, []);
 
     // Format datetime
     const formatDateTime = (value: string | null) => {
@@ -246,7 +299,6 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
 
     if (!report) return null;
     const pdfFilePath = report.pdf_file_path;
-    const pdfPreviewUrl = pdfFilePath ? buildDownloadUrl(pdfFilePath) : '';
 
     return (
         <Modal
@@ -276,9 +328,12 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                                 <p>PDF 加载失败</p>
                                 <Button
                                     type="link"
-                                    href={pdfPreviewUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                    onClick={() => {
+                                        if (!pdfFilePath) return;
+                                        openFileWithAuth(pdfFilePath).catch((err: any) => {
+                                            message.error(err.message || '下载失败');
+                                        });
+                                    }}
                                 >
                                     点击下载查看
                                 </Button>
