@@ -326,6 +326,8 @@ const UserManagement: React.FC = () => {
                                 icon={<KeyOutlined />}
                                 size="small"
                                 disabled={isCurrentUser}
+                                aria-label={`重置密码 ${record.username}`}
+                                title={`重置密码 ${record.username}`}
                                 onClick={() => { setSelectedUser(record); setPasswordModalOpen(true); }}
                             />
                         </Tooltip>
@@ -335,6 +337,8 @@ const UserManagement: React.FC = () => {
                                 danger
                                 size="small"
                                 disabled={isCurrentUser}
+                                aria-label={`删除用户 ${record.username}`}
+                                title={`删除用户 ${record.username}`}
                                 onClick={() => handleDelete(record)}
                             />
                         </Tooltip>
