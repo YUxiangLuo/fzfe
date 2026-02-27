@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
     Card,
     Table,
@@ -32,6 +32,7 @@ import {
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
 import { createAuthObjectUrl, openFileWithAuth } from '../../../../utils/authFile';
+import { useObjectUrl } from '../../../../hooks/useObjectUrl';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, ExperimentReport } from '../../types';
 import ReviewReportModal from './ReviewReportModal';
@@ -61,26 +62,11 @@ const ExperimentReports: React.FC = () => {
 
     // CSV export state
     const [isExportingCsv, setIsExportingCsv] = useState(false);
-    const [exportedCsvUrl, setExportedCsvUrl] = useState<string | null>(null);
-    const exportedCsvUrlRef = useRef<string | null>(null);
+    const { url: exportedCsvUrl, setUrl: setExportedCsvUrl, clearUrl: clearExportedCsvUrl } = useObjectUrl();
 
     // Reports archive export state
     const [isExportingReports, setIsExportingReports] = useState(false);
-    const [exportedFileUrl, setExportedFileUrl] = useState<string | null>(null);
-    const exportedFileUrlRef = useRef<string | null>(null);
-
-    useEffect(() => {
-        return () => {
-            if (exportedCsvUrlRef.current) {
-                URL.revokeObjectURL(exportedCsvUrlRef.current);
-                exportedCsvUrlRef.current = null;
-            }
-            if (exportedFileUrlRef.current) {
-                URL.revokeObjectURL(exportedFileUrlRef.current);
-                exportedFileUrlRef.current = null;
-            }
-        };
-    }, []);
+    const { url: exportedFileUrl, setUrl: setExportedFileUrl, clearUrl: clearExportedFileUrl } = useObjectUrl();
 
     // Fetch classes
     useEffect(() => {
@@ -175,11 +161,7 @@ const ExperimentReports: React.FC = () => {
     const handleExportCsv = useCallback(async () => {
         if (!selectedClassId || reports.length === 0 || isExportingCsv) return;
         setIsExportingCsv(true);
-        setExportedCsvUrl((prev) => {
-            if (prev) URL.revokeObjectURL(prev);
-            return null;
-        });
-        exportedCsvUrlRef.current = null;
+        clearExportedCsvUrl();
         try {
             const response = await apiClient.get<{ file_path: string }>(`/classes/${selectedClassId}/report-export.csv`);
 
@@ -188,28 +170,20 @@ const ExperimentReports: React.FC = () => {
             }
 
             const objectUrl = await createAuthObjectUrl(response.file_path);
-            setExportedCsvUrl((prev) => {
-                if (prev) URL.revokeObjectURL(prev);
-                return objectUrl;
-            });
-            exportedCsvUrlRef.current = objectUrl;
+            setExportedCsvUrl(objectUrl);
             message.success('导出成功');
         } catch (err: any) {
             message.error(err.message || '导出 CSV 失败，请稍后再试。');
         } finally {
             setIsExportingCsv(false);
         }
-    }, [selectedClassId, reports.length, isExportingCsv]);
+    }, [selectedClassId, reports.length, isExportingCsv, clearExportedCsvUrl, setExportedCsvUrl]);
 
     // Export all reports as ZIP
     const handleExportReports = useCallback(async () => {
         if (!selectedClassId || reports.length === 0 || isExportingReports) return;
         setIsExportingReports(true);
-        setExportedFileUrl((prev) => {
-            if (prev) URL.revokeObjectURL(prev);
-            return null;
-        });
-        exportedFileUrlRef.current = null;
+        clearExportedFileUrl();
         try {
             const response = await apiClient.get<{ file_path: string }>(`/classes/${selectedClassId}/report-archive`);
 
@@ -218,18 +192,14 @@ const ExperimentReports: React.FC = () => {
             }
 
             const objectUrl = await createAuthObjectUrl(response.file_path);
-            setExportedFileUrl((prev) => {
-                if (prev) URL.revokeObjectURL(prev);
-                return objectUrl;
-            });
-            exportedFileUrlRef.current = objectUrl;
+            setExportedFileUrl(objectUrl);
             message.success('报告文件导出成功');
         } catch (err: any) {
             message.error(err.message || '导出实验报告失败，请稍后再试。');
         } finally {
             setIsExportingReports(false);
         }
-    }, [selectedClassId, reports.length, isExportingReports]);
+    }, [selectedClassId, reports.length, isExportingReports, clearExportedFileUrl, setExportedFileUrl]);
 
     // Format datetime
     const formatDateTime = (value: string | null) => {

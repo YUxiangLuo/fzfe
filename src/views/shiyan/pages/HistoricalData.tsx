@@ -271,7 +271,7 @@ const HistoricalData: React.FC = () => {
     // 全部销量相同时，直方图退化为单个桶，避免除以0导致索引异常。
     if (range === 0) {
       return [{
-        range: `${Math.round(min)}-${Math.round(max)}`,
+        range: `${Math.round(min)}`,
         count: validSalesValues.length,
         minValue: min,
       }];

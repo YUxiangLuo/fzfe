@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useExperiment } from "../contexts/ExperimentContext.zustand";
 import { apiClient } from "../../../utils/apiClient";
-import { createAuthObjectUrl } from "../../../utils/authFile";
+import { useAuthObjectUrl } from "../../../hooks/useAuthObjectUrl";
 import {
   BookOpen,
   Target,
@@ -67,9 +67,8 @@ const Introduction: React.FC = () => {
   const { state: experimentState, createNewExperiment, isSubmitting, setIsSubmitting } = useExperiment();
   const [currentStep, setCurrentStep] = useState(0);
   const [manual, setManual] = useState<Manual | null>(null);
-  const [manualPdfUrl, setManualPdfUrl] = useState<string | null>(null);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
-  const manualPdfUrlRef = useRef<string | null>(null);
+  const manualPdfUrl = useAuthObjectUrl(manual?.file_path);
   const { confirm } = useConfirm();
 
   useEffect(() => {
@@ -86,46 +85,6 @@ const Introduction: React.FC = () => {
       }
     };
     fetchManual();
-  }, []);
-
-  useEffect(() => {
-    const loadManualPdf = async () => {
-      if (!manual?.file_path) {
-        setManualPdfUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return null;
-        });
-        manualPdfUrlRef.current = null;
-        return;
-      }
-
-      try {
-        const objectUrl = await createAuthObjectUrl(manual.file_path);
-        setManualPdfUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return objectUrl;
-        });
-        manualPdfUrlRef.current = objectUrl;
-      } catch (error) {
-        console.error("Failed to load manual PDF:", error);
-        setManualPdfUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return null;
-        });
-        manualPdfUrlRef.current = null;
-      }
-    };
-
-    loadManualPdf();
-  }, [manual?.file_path]);
-
-  useEffect(() => {
-    return () => {
-      if (manualPdfUrlRef.current) {
-        URL.revokeObjectURL(manualPdfUrlRef.current);
-        manualPdfUrlRef.current = null;
-      }
-    };
   }, []);
 
   // Logout function

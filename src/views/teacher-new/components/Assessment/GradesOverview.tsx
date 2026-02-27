@@ -50,6 +50,7 @@ import {
 } from 'recharts';
 import { apiClient } from '../../../../utils/apiClient';
 import { createAuthObjectUrl } from '../../../../utils/authFile';
+import { useObjectUrl } from '../../../../hooks/useObjectUrl';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, StudentGradeOverview } from '../../types';
 import FinalBreakdown from './FinalBreakdown';
@@ -102,7 +103,6 @@ const GradesOverview: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [expandedRowKeys, setExpandedRowKeys] = useState<number[]>([]);
     const fetchRequestIdRef = useRef(0);
-    const exportedFileUrlRef = useRef<string | null>(null);
 
     // Fetch classes
     useEffect(() => {
@@ -416,17 +416,8 @@ const GradesOverview: React.FC = () => {
 
     // Export grades using backend API
     const [isExporting, setIsExporting] = useState(false);
-    const [exportedFileUrl, setExportedFileUrl] = useState<string | null>(null);
+    const { url: exportedFileUrl, setUrl: setExportedFileUrl, clearUrl: clearExportedFileUrl } = useObjectUrl();
     const [exportError, setExportError] = useState<string | null>(null);
-
-    useEffect(() => {
-        return () => {
-            if (exportedFileUrlRef.current) {
-                URL.revokeObjectURL(exportedFileUrlRef.current);
-                exportedFileUrlRef.current = null;
-            }
-        };
-    }, []);
 
     const handleExport = async () => {
         if (!selectedClassId) {
@@ -441,11 +432,7 @@ const GradesOverview: React.FC = () => {
 
         setIsExporting(true);
         setExportError(null);
-        setExportedFileUrl((prev) => {
-            if (prev) URL.revokeObjectURL(prev);
-            return null;
-        });
-        exportedFileUrlRef.current = null;
+        clearExportedFileUrl();
         try {
             const response = await apiClient.get<{ file_path: string }>(`/classes/${selectedClassId}/grade-export.csv`);
 
@@ -454,11 +441,7 @@ const GradesOverview: React.FC = () => {
             }
 
             const objectUrl = await createAuthObjectUrl(response.file_path);
-            setExportedFileUrl((prev) => {
-                if (prev) URL.revokeObjectURL(prev);
-                return objectUrl;
-            });
-            exportedFileUrlRef.current = objectUrl;
+            setExportedFileUrl(objectUrl);
             message.success('导出成功');
         } catch (err: any) {
             const errorMessage = err?.message || '导出失败，请稍后重试。';
@@ -835,13 +818,7 @@ const GradesOverview: React.FC = () => {
                     showIcon
                     className="mb-6"
                     closable
-                    onClose={() => {
-                        setExportedFileUrl((prev) => {
-                            if (prev) URL.revokeObjectURL(prev);
-                            return null;
-                        });
-                        exportedFileUrlRef.current = null;
-                    }}
+                    onClose={clearExportedFileUrl}
                     action={
                         <Button type="primary" size="small" href={exportedFileUrl} target="_blank">
                             下载

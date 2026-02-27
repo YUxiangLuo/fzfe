@@ -3,6 +3,8 @@ import { CheckCircle, Circle, Lock, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ProductionPlanProvider, useProductionPlan } from './ProductionPlanContextV2';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
+import { useToast } from '../../shared/hooks/useToast';
+import { Toast } from '../../shared/components/common/Toast';
 import MPSTableViewV2 from './components/MPSTableViewV2';
 import NewStep1 from './steps_v2/NewStep1';
 import NewStep2 from './steps_v2/NewStep2';
@@ -15,6 +17,7 @@ const ProductionPlanContent: React.FC = () => {
   const navigate = useNavigate();
   const { state, resetAll, saveMPSDataToGlobal } = useProductionPlan();
   const { state: experimentState, updateState } = useExperiment();
+  const { toast, showToast, hideToast } = useToast();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -76,6 +79,7 @@ const ProductionPlanContent: React.FC = () => {
           console.log('✅ MPS保存成功');
         } catch (retryErr) {
           console.error('⚠️ 保存失败，但将继续进入测验:', retryErr);
+          showToast('生产计划数据保存失败，但您可以继续进入测验', 'error');
           // 继续执行，不阻止用户进入测验
         }
       }
@@ -208,6 +212,13 @@ const ProductionPlanContent: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     Modal,
     Row,
@@ -21,7 +21,8 @@ import {
     UpOutlined,
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import { createAuthObjectUrl, openFileWithAuth } from '../../../../utils/authFile';
+import { openFileWithAuth } from '../../../../utils/authFile';
+import { useAuthObjectUrl } from '../../../../hooks/useAuthObjectUrl';
 import type { ExperimentReport } from '../../types';
 
 const { Title, Text } = Typography;
@@ -71,9 +72,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
     });
     const [isSaving, setIsSaving] = useState(false);
     const [isPreviewLoadError, setIsPreviewLoadError] = useState(false);
-    const [pdfPreviewUrl, setPdfPreviewUrl] = useState('');
-    const previewUrlRef = useRef<string | null>(null);
-    const previewRequestIdRef = useRef(0);
+    const pdfPreviewUrl = useAuthObjectUrl(open ? report?.pdf_file_path : null);
 
     // Reset state when report changes
     React.useEffect(() => {
@@ -101,61 +100,6 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
             });
         }
     }, [open, report]);
-
-    React.useEffect(() => {
-        const loadPreview = async () => {
-            const requestId = ++previewRequestIdRef.current;
-
-            if (!open || !report?.pdf_file_path) {
-                setPdfPreviewUrl((prev) => {
-                    if (prev) URL.revokeObjectURL(prev);
-                    return '';
-                });
-                previewUrlRef.current = null;
-                setIsPreviewLoadError(false);
-                return;
-            }
-
-            setIsPreviewLoadError(false);
-
-            try {
-                const objectUrl = await createAuthObjectUrl(report.pdf_file_path);
-
-                if (requestId !== previewRequestIdRef.current) {
-                    URL.revokeObjectURL(objectUrl);
-                    return;
-                }
-
-                setPdfPreviewUrl((prev) => {
-                    if (prev) URL.revokeObjectURL(prev);
-                    return objectUrl;
-                });
-                previewUrlRef.current = objectUrl;
-            } catch (error) {
-                if (requestId !== previewRequestIdRef.current) {
-                    return;
-                }
-                console.error("Failed to load report preview:", error);
-                setPdfPreviewUrl((prev) => {
-                    if (prev) URL.revokeObjectURL(prev);
-                    return '';
-                });
-                previewUrlRef.current = null;
-                setIsPreviewLoadError(true);
-            }
-        };
-
-        loadPreview();
-    }, [open, report?.pdf_file_path]);
-
-    React.useEffect(() => {
-        return () => {
-            if (previewUrlRef.current) {
-                URL.revokeObjectURL(previewUrlRef.current);
-                previewUrlRef.current = null;
-            }
-        };
-    }, []);
 
     // Format datetime
     const formatDateTime = (value: string | null) => {
@@ -315,7 +259,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                     {pdfFilePath && !isPreviewLoadError ? (
                         <div style={{ height: 700, background: '#f5f5f5', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
                             <iframe
-                                src={pdfPreviewUrl}
+                                src={pdfPreviewUrl ?? undefined}
                                 title="report-preview"
                                 style={{ width: '100%', height: '100%', border: 'none' }}
                                 onError={() => setIsPreviewLoadError(true)}
