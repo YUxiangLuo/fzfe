@@ -153,7 +153,7 @@ const getDefaultState = (
   avgDemand?: number
 ): ProductionPlanState => {
   // 使用真实的平均需求（基于历史数据）或默认值
-  const defaultAvgDemand = avgDemand || 1050;
+  const defaultAvgDemand = avgDemand ?? 1050;
 
   // 计算默认产能（基于真实需求，使用 normal 场景的倍数 1.3）
   const defaultCapacity = Math.round(defaultAvgDemand * 1.3);
@@ -524,7 +524,7 @@ export const ProductionPlanProvider: React.FC<{
             production_mps_table: globalMPSTable,
             production_capacity_scenario: currentState.capacityScenario,
             production_capacity: currentState.productionCapacity,
-          });
+          }, true, false, true);
         },
         3, // 最多重试3次
         1000 // 初始延迟1秒

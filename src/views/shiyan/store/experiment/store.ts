@@ -98,6 +98,7 @@ export interface ExperimentStore {
     updates: Partial<ExperimentState>,
     forceSync?: boolean,
     skipSync?: boolean,
+    throwOnSyncError?: boolean,
   ) => Promise<void>;
   handleIndustryChange: (selected_industry: string) => Promise<void>;
   handleCompanyChange: (selected_company: string) => Promise<void>;
@@ -173,8 +174,8 @@ export const useExperimentStore = create<ExperimentStore>()(
         await fetchState();
       },
 
-      updateState: async (updates, forceSync = false, skipSync = false) => {
-        logger.action("updateState", { updates, forceSync, skipSync });
+      updateState: async (updates, forceSync = false, skipSync = false, throwOnSyncError = false) => {
+        logger.action("updateState", { updates, forceSync, skipSync, throwOnSyncError });
         const previousState = get().state;
         let nextState: ExperimentState = { ...previousState, ...updates };
 
@@ -244,6 +245,9 @@ export const useExperimentStore = create<ExperimentStore>()(
           } catch (error) {
             addToast("同步失败，请检查网络连接或联系管理员", "error");
             console.error("Failed to persist experiment state.", error);
+            if (throwOnSyncError) {
+              throw error;
+            }
           }
         }
       },

@@ -93,6 +93,12 @@ const ModelQuiz: React.FC = () => {
       };
 
       await apiClient.post('/quizzes/answers', submitData);
+      await updateState(
+        {
+          quiz_about_model_completed: true,
+        },
+        true,
+      );
 
       // 导航到生产计划页面
       navigate('/production');

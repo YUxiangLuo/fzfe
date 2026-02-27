@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Loader2, AlertCircle, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
-import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../../../../../utils/apiClient';
 
 // 模型类型映射：前端模型ID -> 后端API参数
@@ -28,13 +27,11 @@ const MODEL_TYPE_MAP: Record<string, string> = {
  * - (5) 总结
  */
 const NewStep6: React.FC = () => {
-  const navigate = useNavigate();
   const { state, generateFullMPS, hideStep6Teaching, saveMPSDataToGlobal, completeCurrentStep } = useProductionPlan();
   const { updateState } = useExperiment();
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasGenerated, setHasGenerated] = useState(false);
 
   const generationTriggeredRef = useRef(false);
 
@@ -60,7 +57,6 @@ const NewStep6: React.FC = () => {
         // 添加1秒虚拟loading
         await new Promise(resolve => setTimeout(resolve, 1000));
         const generatedTable = generateFullMPS(state.predictions);
-        setHasGenerated(true);
 
         // 立即保存生成的表格到全局状态
         console.log('📤 立即保存生成的MPS表到全局状态...');
@@ -93,7 +89,6 @@ const NewStep6: React.FC = () => {
           await new Promise(resolve => setTimeout(resolve, 1000));
           // 生成完整MPS表
           const generatedTable = generateFullMPS(response.results.predictions);
-          setHasGenerated(true);
 
           // 立即保存生成的表格到全局状态
           console.log('📤 立即保存生成的MPS表到全局状态...');
@@ -109,26 +104,6 @@ const NewStep6: React.FC = () => {
       setError(err instanceof Error ? err.message : '生成失败，请重试');
     } finally {
       setIsGenerating(false);
-    }
-  };
-
-  // 计算汇总统计
-  const handleComplete = async () => {
-    try {
-      // 📊 更新步骤进度：完成步骤7
-      console.log('📊 更新步骤进度：完成步骤7');
-      await updateState({
-        highest_completed_step: 7,
-        current_step: 7,
-      });
-      console.log('✅ 步骤进度已更新');
-
-      // 导航到生产计划测验
-      navigate('/quiz-plan');
-    } catch (err) {
-      console.error('更新步骤进度失败:', err);
-      // 即使失败也继续导航
-      navigate('/quiz-plan');
     }
   };
 

@@ -264,6 +264,18 @@ const HistoricalData: React.FC = () => {
     const { min, max } = statistics;
     const range = max - min;
     const binWidth = range / HISTOGRAM_BINS;
+    const validSalesValues = filteredData
+      .map((record) => record.sales)
+      .filter((sales): sales is number => sales != null && !Number.isNaN(sales));
+
+    // 全部销量相同时，直方图退化为单个桶，避免除以0导致索引异常。
+    if (range === 0) {
+      return [{
+        range: `${Math.round(min)}-${Math.round(max)}`,
+        count: validSalesValues.length,
+        minValue: min,
+      }];
+    }
 
     // 初始化bins
     const bins: HistogramBin[] = [];
@@ -278,14 +290,12 @@ const HistoricalData: React.FC = () => {
     }
 
     // 填充数据到bins（过滤空白值）
-    filteredData.forEach((record) => {
-      if (record.sales != null && !isNaN(record.sales)) {
-        const binIndex = Math.min(
-          Math.floor((record.sales - min) / binWidth),
-          HISTOGRAM_BINS - 1
-        );
-        bins[binIndex]!.count++;
-      }
+    validSalesValues.forEach((sales) => {
+      const binIndex = Math.min(
+        Math.floor((sales - min) / binWidth),
+        HISTOGRAM_BINS - 1
+      );
+      bins[binIndex]!.count++;
     });
 
     return bins;
@@ -302,15 +312,21 @@ const HistoricalData: React.FC = () => {
 
   const handleNext = async () => {
     setIsSubmitting(true);
-    // A small delay is kept to ensure the UI has a chance to show the loading state
-    // before the synchronous state updates and navigation potentially block the main thread.
-    await new Promise(resolve => setTimeout(resolve, 50));
-    await updateState({
-      highest_completed_step: CURRENT_STEP,
-      current_step: NEXT_STEP,
-    });
-    setIsSubmitting(false);
-    navigate(PATHS.NEXT);
+    try {
+      // A small delay is kept to ensure the UI has a chance to show the loading state
+      // before the synchronous state updates and navigation potentially block the main thread.
+      await new Promise(resolve => setTimeout(resolve, 50));
+      await updateState({
+        highest_completed_step: CURRENT_STEP,
+        current_step: NEXT_STEP,
+      });
+      navigate(PATHS.NEXT);
+    } catch (error) {
+      console.error('Failed to update step state:', error);
+      showToast('保存进度失败，请重试', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // 切换列的可见性

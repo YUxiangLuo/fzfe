@@ -93,6 +93,12 @@ const PlanQuiz: React.FC = () => {
       };
 
       await apiClient.post('/quizzes/answers', submitData);
+      await updateState(
+        {
+          quiz_about_plan_completed: true,
+        },
+        true,
+      );
 
       // 导航到实验报告页面
       navigate('/report');

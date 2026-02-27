@@ -3,6 +3,8 @@ import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'reac
 import { useExperiment } from './contexts/ExperimentContext.zustand';
 import { ExperimentStoreProvider } from './contexts/ExperimentStoreProvider';
 import { ConfirmProvider } from './shared/contexts/ConfirmContext';
+import { ROUTES, getStepPath } from './constants/routes';
+import { STEPS } from './constants/steps';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 const IndustrySelection = lazy(() => import('./pages/IndustrySelection'));
@@ -27,6 +29,56 @@ const ProtectedRoute = ({ step, children }: { step: number, children: React.Reac
     return <Navigate to="/industry" replace />;
   }
   return children;
+};
+
+const GuardedModelQuizRoute: React.FC = () => {
+  const { loading, state, isStepUnlocked } = useExperiment();
+
+  if (loading) return <RouteLoading />;
+
+  if (!isStepUnlocked(STEPS.PRODUCTION)) {
+    return <Navigate to={getStepPath(state.current_step)} replace />;
+  }
+
+  return <ModelQuiz />;
+};
+
+const GuardedPlanQuizRoute: React.FC = () => {
+  const { loading, state, isStepCompleted } = useExperiment();
+
+  if (loading) return <RouteLoading />;
+
+  const canAccessPlanQuiz =
+    isStepCompleted(STEPS.PRODUCTION) ||
+    state.quiz_about_plan_completed ||
+    state.current_step >= STEPS.RESULT ||
+    state.status === 'Completed';
+
+  if (!canAccessPlanQuiz) {
+    return <Navigate to={getStepPath(state.current_step)} replace />;
+  }
+
+  return <PlanQuiz />;
+};
+
+const GuardedReportRoute: React.FC = () => {
+  const { loading, state, isStepCompleted } = useExperiment();
+
+  if (loading) return <RouteLoading />;
+
+  const canAccessReport =
+    state.quiz_about_plan_completed ||
+    state.current_step >= STEPS.RESULT ||
+    state.status === 'Completed';
+
+  if (!canAccessReport) {
+    const fallback = isStepCompleted(STEPS.PRODUCTION)
+      ? ROUTES.QUIZ_PLAN
+      : getStepPath(state.current_step);
+    return <Navigate to={fallback} replace />;
+  }
+
+  return <ExperimentReport />;
 };
 
 // The main layout with Header and Sidebar
@@ -87,9 +139,9 @@ function App() {
                 <Route path="/" element={<ReportStatusCheck />} />
                 <Route path="/introduction" element={<Introduction />} />
                 <Route path="/profile" element={<Profile />} />
-                <Route path="/quiz" element={<ModelQuiz />} />
-                <Route path="/quiz-plan" element={<PlanQuiz />} />
-                <Route path="/report" element={<ExperimentReport />} />
+                <Route path="/quiz" element={<GuardedModelQuizRoute />} />
+                <Route path="/quiz-plan" element={<GuardedPlanQuizRoute />} />
+                <Route path="/report" element={<GuardedReportRoute />} />
                 {/* All main experiment routes are now under the MainLayout */}
                 <Route path="/*" element={<MainLayout />} />
               </Routes>

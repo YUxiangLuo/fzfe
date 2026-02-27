@@ -179,10 +179,11 @@ const Introduction: React.FC = () => {
     try {
       setIsSubmitting(true);
       await createNewExperiment();
-      setIsSubmitting(false);
       navigate("/industry");
     } catch (error) {
       console.error("Failed to create experiment:", error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

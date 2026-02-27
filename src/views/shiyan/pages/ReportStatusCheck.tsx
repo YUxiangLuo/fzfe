@@ -130,7 +130,6 @@ const ReportStatusCheck: React.FC = () => {
       // 创建新实验
       await createNewExperiment();
       
-      setIsSubmitting(false);
       // 跳转到行业选择（步骤1）
       navigate('/industry');
     } catch (err) {
@@ -138,6 +137,7 @@ const ReportStatusCheck: React.FC = () => {
       // 即使失败也允许用户进入，可能在 introduction 页处理
       navigate('/introduction');
     } finally {
+      setIsSubmitting(false);
       setIsRestarting(false);
     }
   };

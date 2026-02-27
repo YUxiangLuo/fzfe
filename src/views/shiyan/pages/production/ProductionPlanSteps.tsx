@@ -14,7 +14,7 @@ import NewStep6 from './steps_v2/NewStep6';
 const ProductionPlanContent: React.FC = () => {
   const navigate = useNavigate();
   const { state, resetAll, saveMPSDataToGlobal } = useProductionPlan();
-  const { updateState } = useExperiment();
+  const { state: experimentState, updateState } = useExperiment();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,15 +59,23 @@ const ProductionPlanContent: React.FC = () => {
 
   // 完成生产计划并进入测验
   const handleComplete = async () => {
+    const nextRoute = experimentState.quiz_about_plan_completed ? '/report' : '/quiz-plan';
+
     try {
-      // 🔄 如果之前保存失败，先尝试重新保存MPS数据
-      if (state.savingError && !state.hasSavedToGlobal) {
-        console.log('🔄 检测到之前的保存失败，正在重试保存MPS数据...');
+      // 避免在保存进行中提前进入测验，防止出现“未保存即跳转”的竞态。
+      if (state.isSaving) {
+        console.log('⏳ MPS数据仍在保存中，请稍后重试进入测验');
+        return;
+      }
+
+      // 如果尚未确认保存成功，进入测验前再尝试一次保存
+      if (!state.hasSavedToGlobal) {
+        console.log('🔄 检测到MPS尚未确认保存，正在尝试保存...');
         try {
           await saveMPSDataToGlobal(updateState);
-          console.log('✅ 重试保存成功');
+          console.log('✅ MPS保存成功');
         } catch (retryErr) {
-          console.error('⚠️ 重试保存失败，但将继续进入测验:', retryErr);
+          console.error('⚠️ 保存失败，但将继续进入测验:', retryErr);
           // 继续执行，不阻止用户进入测验
         }
       }
@@ -78,11 +86,11 @@ const ProductionPlanContent: React.FC = () => {
         current_step: 7,
       });
       console.log('✅ 步骤进度已更新');
-      navigate('/quiz-plan');
+      navigate(nextRoute);
     } catch (err) {
       console.error('更新步骤进度失败:', err);
       // 即使失败也继续导航
-      navigate('/quiz-plan');
+      navigate(nextRoute);
     }
   };
 
@@ -160,10 +168,15 @@ const ProductionPlanContent: React.FC = () => {
               <button
                 type="button"
                 onClick={handleComplete}
-                className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors shadow-lg"
+                disabled={state.isSaving}
+                className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-colors shadow-lg ${
+                  state.isSaving
+                    ? 'bg-gray-400 text-white cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
               >
                 <CheckCircle className="w-5 h-5" />
-                <span>完成生产计划，进入测验</span>
+                <span>{state.isSaving ? '正在保存数据，请稍候...' : '完成生产计划，进入测验'}</span>
               </button>
             </div>
           </div>
