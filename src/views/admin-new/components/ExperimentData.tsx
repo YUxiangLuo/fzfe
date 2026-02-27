@@ -244,8 +244,7 @@ const ExperimentDataView: React.FC = () => {
                 message.error('仅支持上传CSV文件');
                 return Upload.LIST_IGNORE;
             }
-            const isLt50M = file.size / 1024 / 1024 < 50;
-            if (!isLt50M) {
+            if (file.size > MAX_DATASET_FILE_SIZE) {
                 message.error('文件大小不能超过50MB');
                 return Upload.LIST_IGNORE;
             }
@@ -306,7 +305,7 @@ const ExperimentDataView: React.FC = () => {
                     </Form.Item>
 
                     <Alert
-                        title="数据格式要求"
+                        message="数据格式要求"
                         description={
                             <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>

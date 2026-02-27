@@ -43,6 +43,11 @@ const AdminLayout: React.FC = () => {
                 return;
             }
 
+            if (decoded.exp && decoded.exp * 1000 < Date.now()) {
+                redirectToLogin();
+                return;
+            }
+
             setCurrentUser(decoded);
             setIsAuthorizing(false);
         } catch (err) {

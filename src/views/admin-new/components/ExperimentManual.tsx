@@ -65,25 +65,14 @@ const ExperimentManualView: React.FC = () => {
 
     const handleStatusToggle = async (manual: ExperimentManual, checked: boolean) => {
         try {
-            const updatedManual = await apiClient.put(
+            await apiClient.put(
                 `/manuals/${manual.manual_id}`,
                 { is_active: checked }
             );
-
-            setManuals((prevManuals) => {
-                if (updatedManual.is_active === 1) {
-                    return prevManuals.map((m) =>
-                        m.manual_id === updatedManual.manual_id
-                            ? updatedManual
-                            : { ...m, is_active: 0 },
-                    );
-                } else {
-                    return prevManuals.map((m) =>
-                        m.manual_id === updatedManual.manual_id ? updatedManual : m,
-                    );
-                }
-            });
             message.success('状态更新成功');
+            // Refetch to get accurate state for all manuals (server may
+            // deactivate others when one is activated).
+            await fetchManuals();
         } catch (err: any) {
             message.error(`状态更新失败: ${err.message}`);
         }
@@ -264,8 +253,7 @@ const ExperimentManualView: React.FC = () => {
                 message.error('仅支持上传PDF格式文件');
                 return Upload.LIST_IGNORE;
             }
-            const isLt20M = file.size / 1024 / 1024 < 20;
-            if (!isLt20M) {
+            if (file.size > MAX_MANUAL_FILE_SIZE) {
                 message.error('文件大小不能超过20MB');
                 return Upload.LIST_IGNORE;
             }

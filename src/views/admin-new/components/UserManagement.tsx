@@ -45,6 +45,41 @@ const roleLabels: Record<string, string> = {
     admin: "管理员",
 };
 
+const validatePasswordRule = (_: unknown, value: string) => {
+    if (!value) return Promise.resolve();
+    const result = validatePassword(value, { minLength: 6 });
+    return result.valid
+        ? Promise.resolve()
+        : Promise.reject(new Error(result.error || '密码格式不正确'));
+};
+
+const UserFormFields = (
+    <>
+        <Form.Item name="username" label="用户名" rules={[{ required: true, message: '请输入用户名' }]}>
+            <Input />
+        </Form.Item>
+        <Form.Item name="full_name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]}>
+            <Input />
+        </Form.Item>
+        <Form.Item name="email" label="邮箱" rules={[{ required: true, message: '请输入邮箱' }, { type: 'email', message: '邮箱格式不正确' }]}>
+            <Input />
+        </Form.Item>
+        <Form.Item name="phone" label="手机号" rules={[{ required: true, message: '请输入手机号' }, { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确' }]}>
+            <Input />
+        </Form.Item>
+        <Form.Item
+            name="password"
+            label="密码"
+            rules={[
+                { required: true, message: '请输入密码' },
+                { validator: validatePasswordRule },
+            ]}
+        >
+            <Input.Password />
+        </Form.Item>
+    </>
+);
+
 const UserManagement: React.FC = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -86,8 +121,6 @@ const UserManagement: React.FC = () => {
             setUsers(fetchedUsers);
             setPagination((prev) => ({
                 ...prev,
-                current: serverPagination?.currentPage ?? page,
-                pageSize: serverPagination?.pageSize ?? pageSize,
                 total: serverPagination?.totalItems ?? fetchedUsers.length,
             }));
         } catch (err: any) {
@@ -190,8 +223,11 @@ const UserManagement: React.FC = () => {
             message.error('请上传CSV文件');
             return;
         }
-        const file = fileList[0]?.originFileObj;
-        if (!file) return;
+        const file = (fileList[0]?.originFileObj || fileList[0]) as File | undefined;
+        if (!file) {
+            message.error('无法获取文件对象');
+            return;
+        }
 
         setBatchLoading(true);
         const formData = new FormData();
@@ -210,19 +246,6 @@ const UserManagement: React.FC = () => {
         } finally {
             setBatchLoading(false);
         }
-    };
-
-    const validatePasswordRule = (_: unknown, value: string) => {
-        if (!value) {
-            return Promise.resolve();
-        }
-
-        const result = validatePassword(value, { minLength: 6 });
-        if (result.valid) {
-            return Promise.resolve();
-        }
-
-        return Promise.reject(new Error(result.error || '密码格式不正确'));
     };
 
     const columns = [
@@ -300,33 +323,6 @@ const UserManagement: React.FC = () => {
         },
         fileList
     };
-
-    const UserFormFields = (
-        <>
-            <Form.Item name="username" label="用户名" rules={[{ required: true, message: '请输入用户名' }]}>
-                <Input />
-            </Form.Item>
-            <Form.Item name="full_name" label="姓名" rules={[{ required: true, message: '请输入姓名' }]}>
-                <Input />
-            </Form.Item>
-            <Form.Item name="email" label="邮箱" rules={[{ required: true, message: '请输入邮箱' }, { type: 'email', message: '邮箱格式不正确' }]}>
-                <Input />
-            </Form.Item>
-            <Form.Item name="phone" label="手机号" rules={[{ required: true, message: '请输入手机号' }, { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确' }]}>
-                <Input />
-            </Form.Item>
-            <Form.Item
-                name="password"
-                label="密码"
-                rules={[
-                    { required: true, message: '请输入密码' },
-                    { validator: validatePasswordRule },
-                ]}
-            >
-                <Input.Password />
-            </Form.Item>
-        </>
-    );
 
     return (
         <div>
