@@ -7,11 +7,18 @@ const FE_DIR = __dirname;
 const BE_DIR = path.resolve(__dirname, "../be");
 const E2E_BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? "3101");
 const E2E_BACKEND_ORIGIN = process.env.E2E_BACKEND_ORIGIN ?? `http://127.0.0.1:${E2E_BACKEND_PORT}`;
+const RUNNING_SHIYAN_SUITE = process.argv.slice(2).some(
+  (arg) =>
+    arg.includes("@shiyan") ||
+    arg.includes("tests/e2e/shiyan") ||
+    arg.includes("/shiyan/"),
+);
 
 export default defineConfig({
   testDir: path.resolve(FE_DIR, "tests/e2e"),
   testMatch: "**/*.spec.ts",
   fullyParallel: false,
+  workers: RUNNING_SHIYAN_SUITE ? 1 : undefined,
   retries: process.env.CI ? 1 : 0,
   timeout: 90_000,
   expect: {

@@ -5,6 +5,7 @@ screenshots
 COMMIT_EDITMSG
 # dependencies (bun install)
 node_modules
+package-lock.json
 
 # output
 out

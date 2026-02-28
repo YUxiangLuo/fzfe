@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext.zustand';
 import { useStepStartRecorder } from '../hooks/useStepStartRecorder';
+import { STEPS } from '../constants/steps';
 
 const ResultEvaluation: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState, recordStepEvent } = useExperiment();
+  const { state, handleBestModelChange, recordStepEvent, isSubmitting } = useExperiment();
   const [selectedBestModel, setSelectedBestModel] = useState<SelectedBestModel | null>(null);
   useStepStartRecorder(6, state.highest_completed_step, recordStepEvent);
 
@@ -14,17 +15,19 @@ const ResultEvaluation: React.FC = () => {
     setSelectedBestModel(state.selected_best_model);
   }, [state.selected_best_model]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!selectedBestModel) return;
+
+    const hasChanged = selectedBestModel !== state.selected_best_model;
+    const needsProgressUpdate = hasChanged || state.current_step < STEPS.PRODUCTION;
+
+    if (needsProgressUpdate) {
+      await handleBestModelChange(selectedBestModel);
+    }
 
     if (state.quiz_about_model_completed) {
       navigate('/production');
     } else {
-      updateState({
-        highest_completed_step: 6,
-        current_step: 7,
-        selected_best_model: selectedBestModel,
-      });
       navigate('/quiz');
     }
   };
@@ -184,14 +187,14 @@ const ResultEvaluation: React.FC = () => {
           <div className="flex justify-center">
             <button
               onClick={handleNext}
-              disabled={!selectedBestModel}
+              disabled={!selectedBestModel || isSubmitting}
               className={`w-full py-4 rounded-lg text-lg font-semibold transition-all ${
-                selectedBestModel
+                selectedBestModel && !isSubmitting
                   ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-md'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
-              下一步
+              {isSubmitting ? '处理中...' : '下一步'}
             </button>
           </div>
         </div>

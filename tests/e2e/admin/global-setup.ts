@@ -13,6 +13,7 @@ const E2E_REPORT_FIXTURE_STUDENT_ID = 20241002;
 const E2E_REPORT_FIXTURE_TEACHER_ID = 101;
 const E2E_ASSISTANT_FIXTURE_ID = 202;
 const E2E_ASSISTANT_FIXTURE_CLASS_ID = 1;
+const E2E_SHIYAN_DEFAULT_STUDENT_USERNAME = "20240002";
 const MINIMAL_PDF_CONTENT = `%PDF-1.1
 1 0 obj
 << /Type /Catalog /Pages 2 0 R >>
@@ -244,6 +245,13 @@ console.log("Seeded teacher e2e fixture data.");
   });
 }
 
+async function seedShiyanDatasetFixtures(studentUsername: string) {
+  runCommand("bun", ["run", "scripts/e2e-seed-shiyan-fixtures.ts"], BE_DIR, {
+    ...process.env,
+    E2E_SHIYAN_STUDENT_USERNAME: studentUsername,
+  });
+}
+
 export default async function globalSetup(_: FullConfig) {
   const skipDbSetup = process.env.E2E_SKIP_DB_SETUP === "1";
   const adminPassword = process.env.E2E_ADMIN_PASSWORD ?? "AdminE2E!234";
@@ -251,6 +259,9 @@ export default async function globalSetup(_: FullConfig) {
   const teacherPassword = process.env.E2E_TEACHER_PASSWORD ?? "TeacherE2E!234";
   const assistantUsername = process.env.E2E_ASSISTANT_USERNAME ?? "assistant2";
   const assistantPassword = process.env.E2E_ASSISTANT_PASSWORD ?? "AssistantE2E!234";
+  const studentUsername =
+    process.env.E2E_STUDENT_USERNAME ?? E2E_SHIYAN_DEFAULT_STUDENT_USERNAME;
+  const studentPassword = process.env.E2E_STUDENT_PASSWORD ?? "StudentE2E!234";
 
   if (!skipDbSetup) {
     const dbName =
@@ -269,5 +280,7 @@ export default async function globalSetup(_: FullConfig) {
   await resetUserPassword("admin", adminPassword);
   await resetUserPassword(teacherUsername, teacherPassword);
   await resetUserPassword(assistantUsername, assistantPassword);
+  await resetUserPassword(studentUsername, studentPassword);
   await seedTeacherCoreFixtures();
+  await seedShiyanDatasetFixtures(studentUsername);
 }

@@ -12,11 +12,6 @@ interface Question {
   options: Record<string, string> | string[];
 }
 
-interface Answer {
-  question_id: number;
-  submitted_answer: string[];
-}
-
 const isBadRequestError = (error: unknown): boolean => {
   if (!error || typeof error !== 'object') return false;
   const maybeError = error as { status?: number; message?: string };

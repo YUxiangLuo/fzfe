@@ -126,7 +126,6 @@ const Introduction: React.FC = () => {
   // 计算返回路径
   const fromState = location.state as { from?: string } | null;
   const fromPath = fromState?.from;
-  console.log(fromPath, experimentState);
   const isFromIntroduction = fromPath?.startsWith("/introduction");
 
   // 判断实验状态

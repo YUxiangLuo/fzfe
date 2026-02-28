@@ -6,13 +6,15 @@
   "scripts": {
     "dev": "bunx vite",
     "typecheck": "bunx tsc --noEmit",
-    "build": "npm run typecheck && bunx vite build",
+    "build": "bun run typecheck && bunx vite build",
     "e2e-test:admin": "bunx playwright test --config=playwright.config.ts --grep @admin",
     "e2e-test:admin:headed": "bunx playwright test --config=playwright.config.ts --grep @admin --headed",
     "e2e-test:teacher": "bunx playwright test --config=playwright.config.ts --grep @teacher",
     "e2e-test:teacher:headed": "bunx playwright test --config=playwright.config.ts --grep @teacher --headed",
     "e2e-test:assistant": "bunx playwright test --config=playwright.config.ts --grep @assistant",
-    "e2e-test:assistant:headed": "bunx playwright test --config=playwright.config.ts --grep @assistant --headed"
+    "e2e-test:assistant:headed": "bunx playwright test --config=playwright.config.ts --grep @assistant --headed",
+    "e2e-test:shiyan": "bunx playwright test --config=playwright.config.ts --grep @shiyan --workers=1",
+    "e2e-test:shiyan:headed": "bunx playwright test --config=playwright.config.ts --grep @shiyan --headed --workers=1"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
