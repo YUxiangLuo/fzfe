@@ -33,14 +33,16 @@ const CompletePlanView: React.FC = () => {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasAttempted, setHasAttempted] = useState(false);
 
-  // 自动生成完整计划（未生成且不在错误状态时自动执行）
+  // 自动生成完整计划（仅在首次进入且未生成时自动执行一次）
   useEffect(() => {
-    if (!state.isFullPlanGenerated && !isGenerating && !error) {
+    if (!state.isFullPlanGenerated && !hasAttempted) {
+      setHasAttempted(true);
       handleGenerate();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.isFullPlanGenerated]);
+  }, [state.isFullPlanGenerated, hasAttempted]);
 
   // 💾 保存逻辑已移至 handleGenerate 中，在生成表格后立即保存
   // 不再需要这个 useEffect
