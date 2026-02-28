@@ -24,14 +24,15 @@ import {
     DownloadOutlined,
     ExportOutlined,
     FileZipOutlined,
-    EditOutlined,
-    CloseCircleOutlined
+    EditOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
 import { createAuthObjectUrl, openFileWithAuth } from '../../../../utils/authFile';
 import { useObjectUrl } from '../../../../hooks/useObjectUrl';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, ExperimentReport } from '../../types';
+import { formatDateTime } from '../../utils/format';
+import { isAbortError, getErrorMessage } from '../../utils/error';
 import ReviewReportModal from './ReviewReportModal';
 
 const { Title, Text } = Typography;
@@ -52,6 +53,10 @@ const ExperimentReports: React.FC = () => {
     const [isLoadingReports, setIsLoadingReports] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
+
     // Review modal state
     const [reviewModalOpen, setReviewModalOpen] = useState(false);
     const [selectedReport, setSelectedReport] = useState<ExperimentReport | null>(null);
@@ -66,6 +71,8 @@ const ExperimentReports: React.FC = () => {
 
     // Fetch classes
     useEffect(() => {
+        const controller = new AbortController();
+
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
@@ -74,44 +81,58 @@ const ExperimentReports: React.FC = () => {
                 const decoded = decodeToken(token);
                 if (!decoded) throw new Error('登录信息已失效');
 
-                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`);
+                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
                 const classList = data || [];
                 setClasses(classList);
                 if (classList.length > 0) {
                     setSelectedClassId(String(classList[0].class_id));
                 }
-            } catch (err: any) {
-                setError(err.message || '获取班级列表失败');
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
+                if (!controller.signal.aborted) {
+                    setError(getErrorMessage(err, '获取班级列表失败'));
+                }
             } finally {
-                setIsLoadingClasses(false);
+                if (!controller.signal.aborted) {
+                    setIsLoadingClasses(false);
+                }
             }
         };
 
         fetchClasses();
+        return () => { controller.abort(); };
     }, []);
 
     // Fetch reports
-    const fetchReports = useCallback(async (classId: string) => {
-        if (!classId) return;
-
-        setIsLoadingReports(true);
-        setError(null);
-        try {
-            const data = await apiClient.get(`/classes/${classId}/reports`);
-            setReports(data || []);
-        } catch (err: any) {
-            setError(err.message || '获取报告数据失败');
-            setReports([]);
-        } finally {
-            setIsLoadingReports(false);
-        }
-    }, []);
-
     useEffect(() => {
-        if (selectedClassId) {
-            fetchReports(selectedClassId);
-        }
-    }, [selectedClassId, fetchReports]);
+        if (!selectedClassId) return;
+
+        const controller = new AbortController();
+
+        const fetchReports = async () => {
+            setIsLoadingReports(true);
+            setError(null);
+            try {
+                const data = await apiClient.get(`/classes/${selectedClassId}/reports`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
+                setReports(data || []);
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
+                if (!controller.signal.aborted) {
+                    setError(getErrorMessage(err, '获取报告数据失败'));
+                    setReports([]);
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsLoadingReports(false);
+                }
+            }
+        };
+
+        fetchReports();
+        return () => { controller.abort(); };
+    }, [selectedClassId]);
 
     // Filter reports
     const filteredReports = useMemo(() => {
@@ -122,6 +143,17 @@ const ExperimentReports: React.FC = () => {
             r.full_name.toLowerCase().includes(query)
         );
     }, [reports, searchTerm]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedClassId, searchTerm]);
+
+    useEffect(() => {
+        const maxPage = Math.max(1, Math.ceil(filteredReports.length / pageSize));
+        if (currentPage > maxPage) {
+            setCurrentPage(maxPage);
+        }
+    }, [filteredReports.length, currentPage]);
 
     // Get report status
     const getReportStatus = (report: ExperimentReport): string => {
@@ -169,8 +201,8 @@ const ExperimentReports: React.FC = () => {
             const objectUrl = await createAuthObjectUrl(response.file_path);
             setExportedCsvUrl(objectUrl);
             message.success('导出成功');
-        } catch (err: any) {
-            message.error(err.message || '导出 CSV 失败，请稍后再试。');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '导出 CSV 失败，请稍后再试。'));
         } finally {
             setIsExportingCsv(false);
         }
@@ -191,20 +223,12 @@ const ExperimentReports: React.FC = () => {
             const objectUrl = await createAuthObjectUrl(response.file_path);
             setExportedFileUrl(objectUrl);
             message.success('报告文件导出成功');
-        } catch (err: any) {
-            message.error(err.message || '导出实验报告失败，请稍后再试。');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '导出实验报告失败，请稍后再试。'));
         } finally {
             setIsExportingReports(false);
         }
     }, [selectedClassId, reports.length, isExportingReports, clearExportedFileUrl, setExportedFileUrl]);
-
-    // Format datetime
-    const formatDateTime = (value: string | null) => {
-        if (!value) return '—';
-        const date = new Date(value);
-        if (isNaN(date.getTime())) return '—';
-        return date.toLocaleString('zh-CN');
-    };
 
     // Download report
     const handleDownload = (filePath: string | null) => {
@@ -212,8 +236,8 @@ const ExperimentReports: React.FC = () => {
             message.warning('报告文件不存在');
             return;
         }
-        openFileWithAuth(filePath).catch((err: any) => {
-            message.error(err.message || '下载失败');
+        openFileWithAuth(filePath).catch((err: unknown) => {
+            message.error(getErrorMessage(err, '下载失败'));
         });
     };
 
@@ -246,13 +270,13 @@ const ExperimentReports: React.FC = () => {
             title: '序号',
             key: 'index',
             width: 70,
-            render: (_: any, __: any, index: number) => index + 1,
+            render: (_: unknown, __: unknown, index: number) => (currentPage - 1) * pageSize + index + 1,
         },
         {
             title: '状态',
             key: 'status',
             width: 100,
-            render: (_: any, record: ExperimentReport) => {
+            render: (_: unknown, record: ExperimentReport) => {
                 const status = getReportStatus(record);
                 const meta = STATUS_META[status] || { label: status, color: 'default' };
                 return <Tag color={meta.color}>{meta.label}</Tag>;
@@ -312,7 +336,7 @@ const ExperimentReports: React.FC = () => {
             title: '操作',
             key: 'action',
             width: 180,
-            render: (_: any, record: ExperimentReport) => (
+            render: (_: unknown, record: ExperimentReport) => (
                 <Space>
                     {record.pdf_file_path && (
                         <Tooltip title="下载报告">
@@ -488,7 +512,7 @@ const ExperimentReports: React.FC = () => {
                     columns={columns}
                     rowKey={(record) => `${record.user_id}-${record.report_id || 'no-report'}`}
                     loading={isLoadingReports}
-                    pagination={{ pageSize: 10, showTotal: (total) => `共 ${total} 份报告` }}
+                    pagination={{ current: currentPage, pageSize, onChange: (page) => setCurrentPage(page), showTotal: (total) => `共 ${total} 份报告` }}
                     locale={{ emptyText: selectedClassId ? '暂无数据' : '请先选择班级' }}
                 />
             </Card>

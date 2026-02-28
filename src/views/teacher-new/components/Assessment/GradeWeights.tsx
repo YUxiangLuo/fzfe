@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     Card,
     Form,
@@ -24,6 +24,7 @@ import {
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, GradeWeights as GradeWeightsApi } from '../../types';
+import { isAbortError, getErrorMessage } from '../../utils/error';
 
 const { Title, Text } = Typography;
 
@@ -97,6 +98,8 @@ const GradeWeights: React.FC = () => {
 
     // Fetch classes
     useEffect(() => {
+        const controller = new AbortController();
+
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
@@ -105,43 +108,56 @@ const GradeWeights: React.FC = () => {
                 const decoded = decodeToken(token);
                 if (!decoded) throw new Error('登录信息已失效');
 
-                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`);
+                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
                 const classList = data || [];
                 setClasses(classList);
                 if (classList.length > 0) {
                     setSelectedClassId(String(classList[0].class_id));
                 }
-            } catch (err: any) {
-                setError(err.message || '获取班级列表失败');
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
+                if (!controller.signal.aborted) {
+                    setError(getErrorMessage(err, '获取班级列表失败'));
+                }
             } finally {
-                setIsLoadingClasses(false);
+                if (!controller.signal.aborted) {
+                    setIsLoadingClasses(false);
+                }
             }
         };
 
         fetchClasses();
+        return () => { controller.abort(); };
     }, []);
 
     // Fetch weights
-    const fetchWeights = useCallback(async (classId: string) => {
-        if (!classId) return;
-
-        setIsLoadingWeights(true);
-        setError(null);
-        try {
-            const data = await apiClient.get(`/classes/${classId}/grading-policy`);
-            setWeights(data || DEFAULT_WEIGHTS);
-        } catch (err: any) {
-            // If no weights exist, use defaults
-            setWeights(DEFAULT_WEIGHTS);
-        } finally {
-            setIsLoadingWeights(false);
-        }
-    }, []);
-
     useEffect(() => {
-        if (selectedClassId) {
-            fetchWeights(selectedClassId);
-        }
+        if (!selectedClassId) return;
+
+        const controller = new AbortController();
+
+        const fetchWeights = async () => {
+            setIsLoadingWeights(true);
+            setError(null);
+            try {
+                const data = await apiClient.get(`/classes/${selectedClassId}/grading-policy`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
+                setWeights(data || DEFAULT_WEIGHTS);
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
+                if (!controller.signal.aborted) {
+                    setWeights(DEFAULT_WEIGHTS);
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsLoadingWeights(false);
+                }
+            }
+        };
+
+        fetchWeights();
+        return () => { controller.abort(); };
     }, [selectedClassId]);
 
     // Calculate totals
@@ -190,8 +206,8 @@ const GradeWeights: React.FC = () => {
             const endpoint = `/classes/${selectedClassId}/grading-policy`;
             await apiClient.put(endpoint, weights);
             message.success('权重保存成功');
-        } catch (err: any) {
-            message.error(err.message || '保存失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '保存失败'));
         } finally {
             setIsSaving(false);
         }

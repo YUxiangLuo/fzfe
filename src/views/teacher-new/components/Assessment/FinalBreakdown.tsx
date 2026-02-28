@@ -1,6 +1,6 @@
 import React from 'react';
 import { Table, Tag } from 'antd';
-import type { StudentGradeOverview } from '../../types';
+import type { StudentGradeOverview, FinalScoreBreakdownNode } from '../../types';
 import { getProgressStatus } from '../../utils/gradeStatus';
 
 const FINAL_BREAKDOWN_LABELS: Record<'exp_flow' | 'knowledge_test' | 'model_quality' | 'report_quality', string> = {
@@ -29,7 +29,7 @@ interface FinalBreakdownProps {
 const FinalBreakdown: React.FC<FinalBreakdownProps> = ({ grade }) => {
     const breakdown = grade.final_score_breakdown;
     const entries = Object.entries(FINAL_BREAKDOWN_LABELS).map(([key, label]) => {
-        const data = breakdown?.[key as keyof typeof breakdown];
+        const data = breakdown?.[key as keyof typeof breakdown] ?? null;
         return { key, label, data };
     });
 
@@ -53,6 +53,8 @@ const FinalBreakdown: React.FC<FinalBreakdownProps> = ({ grade }) => {
     const hasTopLevelData = entries.some((entry) => entry.data);
     const hasExpFlowDetails = expFlowDetails.length > 0;
 
+    type TopLevelEntry = { key: string; label: string; data: FinalScoreBreakdownNode | null };
+
     // Top level breakdown columns
     const topLevelColumns = [
         {
@@ -65,21 +67,21 @@ const FinalBreakdown: React.FC<FinalBreakdownProps> = ({ grade }) => {
             dataIndex: 'score',
             key: 'score',
             align: 'right' as const,
-            render: (_: any, record: any) => renderValue(record.data?.score),
+            render: (_: unknown, record: TopLevelEntry) => renderValue(record.data?.score),
         },
         {
             title: '权重',
             dataIndex: 'weight',
             key: 'weight',
             align: 'right' as const,
-            render: (_: any, record: any) => renderWeight(record.data?.weight),
+            render: (_: unknown, record: TopLevelEntry) => renderWeight(record.data?.weight),
         },
         {
             title: '加权得分',
             dataIndex: 'weighted_score',
             key: 'weighted_score',
             align: 'right' as const,
-            render: (_: any, record: any) => (
+            render: (_: unknown, record: TopLevelEntry) => (
                 <strong>{renderValue(record.data?.weighted_score)}</strong>
             ),
         },

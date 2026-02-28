@@ -54,7 +54,8 @@ import { useObjectUrl } from '../../../../hooks/useObjectUrl';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, StudentGradeOverview } from '../../types';
 import FinalBreakdown from './FinalBreakdown';
-import { getProgressStatus, getEvaluationBadge } from '../../utils/gradeStatus';
+import { getProgressStatus, getEvaluationBadge, getScoreLevel, SCORE_COLORS } from '../../utils/gradeStatus';
+import { isAbortError, getErrorMessage } from '../../utils/error';
 
 const { Title, Text } = Typography;
 
@@ -72,7 +73,8 @@ interface ClassSummary {
     average_score: number | null;
 }
 
-const SCORE_COLORS: Record<string, { color: string; label: string }> = {
+// Override label format for the overview chart legend
+const SCORE_COLORS_DISPLAY: Record<string, { color: string; label: string }> = {
     excellent: { color: '#52c41a', label: '≥90 优秀' },
     good: { color: '#1890ff', label: '80-89 良好' },
     average: { color: '#faad14', label: '70-79 中等' },
@@ -82,15 +84,6 @@ const SCORE_COLORS: Record<string, { color: string; label: string }> = {
 
 // Chart colors
 const CHART_COLORS = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#eb2f96'];
-
-const getScoreLevel = (score: number | null): string => {
-    if (score === null) return 'none';
-    if (score >= 90) return 'excellent';
-    if (score >= 80) return 'good';
-    if (score >= 70) return 'average';
-    if (score >= 60) return 'pass';
-    return 'fail';
-};
 
 const GradesOverview: React.FC = () => {
     const [classes, setClasses] = useState<Class[]>([]);
@@ -106,6 +99,8 @@ const GradesOverview: React.FC = () => {
 
     // Fetch classes
     useEffect(() => {
+        const controller = new AbortController();
+
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
@@ -114,64 +109,74 @@ const GradesOverview: React.FC = () => {
                 const decoded = decodeToken(token);
                 if (!decoded) throw new Error('登录信息已失效');
 
-                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`);
+                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
                 setClasses(data || []);
-            } catch (err: any) {
-                setError(err.message || '获取班级列表失败');
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
+                if (!controller.signal.aborted) {
+                    setError(getErrorMessage(err, '获取班级列表失败'));
+                }
             } finally {
-                setIsLoadingClasses(false);
+                if (!controller.signal.aborted) {
+                    setIsLoadingClasses(false);
+                }
             }
         };
 
         fetchClasses();
+        return () => { controller.abort(); };
     }, []);
 
     // Fetch grades
-    const fetchGrades = useCallback(async (classId: string) => {
-        const requestId = ++fetchRequestIdRef.current;
-        setIsLoadingGrades(true);
-        setError(null);
-        try {
-            if (classId === ALL_CLASSES) {
-                const token = localStorage.getItem('token');
-                if (!token) throw new Error('未找到登录凭据');
-                const decoded = decodeToken(token);
-                if (!decoded) throw new Error('登录信息已失效');
-                let endpoint: string | null = null;
-                if (decoded.role === 'Teacher') endpoint = `/teachers/${decoded.sub}/grade-summaries`;
-                if (decoded.role === 'Assistant') endpoint = `/assistants/${decoded.sub}/grade-summaries`;
-
-                if (!endpoint) {
-                    throw new Error('当前角色不支持查看全部班级成绩总览');
-                }
-
-                const summaries = await apiClient.get<ClassSummary[]>(endpoint);
-                if (requestId !== fetchRequestIdRef.current) return;
-                setClassSummaries(Array.isArray(summaries) ? summaries : []);
-                setGrades([]);
-            } else {
-                // Single class view
-                const data = await apiClient.get<StudentGradeOverview[]>(`/classes/${classId}/grade-summaries`);
-                if (requestId !== fetchRequestIdRef.current) return;
-                setGrades(data || []);
-                setClassSummaries([]);
-            }
-        } catch (err: any) {
-            if (requestId !== fetchRequestIdRef.current) return;
-            setError(err.message || '获取成绩数据失败');
-            setGrades([]);
-        } finally {
-            if (requestId === fetchRequestIdRef.current) {
-                setIsLoadingGrades(false);
-            }
-        }
-    }, []);
-
     useEffect(() => {
-        if (classes.length > 0) {
-            fetchGrades(selectedClassId);
-        }
-    }, [selectedClassId, classes, fetchGrades]);
+        if (classes.length === 0) return;
+
+        const controller = new AbortController();
+        const requestId = ++fetchRequestIdRef.current;
+
+        const fetchGrades = async () => {
+            setIsLoadingGrades(true);
+            setError(null);
+            try {
+                if (selectedClassId === ALL_CLASSES) {
+                    const token = localStorage.getItem('token');
+                    if (!token) throw new Error('未找到登录凭据');
+                    const decoded = decodeToken(token);
+                    if (!decoded) throw new Error('登录信息已失效');
+                    let endpoint: string | null = null;
+                    if (decoded.role === 'Teacher') endpoint = `/teachers/${decoded.sub}/grade-summaries`;
+                    if (decoded.role === 'Assistant') endpoint = `/assistants/${decoded.sub}/grade-summaries`;
+
+                    if (!endpoint) {
+                        throw new Error('当前角色不支持查看全部班级成绩总览');
+                    }
+
+                    const summaries = await apiClient.get<ClassSummary[]>(endpoint, { signal: controller.signal });
+                    if (requestId !== fetchRequestIdRef.current) return;
+                    setClassSummaries(Array.isArray(summaries) ? summaries : []);
+                    setGrades([]);
+                } else {
+                    const data = await apiClient.get<StudentGradeOverview[]>(`/classes/${selectedClassId}/grade-summaries`, { signal: controller.signal });
+                    if (requestId !== fetchRequestIdRef.current) return;
+                    setGrades(data || []);
+                    setClassSummaries([]);
+                }
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
+                if (requestId !== fetchRequestIdRef.current) return;
+                setError(getErrorMessage(err, '获取成绩数据失败'));
+                setGrades([]);
+            } finally {
+                if (requestId === fetchRequestIdRef.current && !controller.signal.aborted) {
+                    setIsLoadingGrades(false);
+                }
+            }
+        };
+
+        fetchGrades();
+        return () => { controller.abort(); };
+    }, [selectedClassId, classes]);
 
     // Filter by search (only for single class view)
     const filteredGrades = useMemo(() => {
@@ -314,7 +319,7 @@ const GradesOverview: React.FC = () => {
         if (chartData.gradedCount === 0) {
             return (
                 <Alert
-                    title="暂无成绩图表"
+                    message="暂无成绩图表"
                     description="暂未有评分数据，无法生成图表。"
                     type="info"
                     showIcon
@@ -423,8 +428,8 @@ const GradesOverview: React.FC = () => {
             const objectUrl = await createAuthObjectUrl(response.file_path);
             setExportedFileUrl(objectUrl);
             message.success('导出成功');
-        } catch (err: any) {
-            const errorMessage = err?.message || '导出失败，请稍后重试。';
+        } catch (err: unknown) {
+            const errorMessage = getErrorMessage(err, '导出失败，请稍后重试。');
             setExportError(errorMessage);
             message.error(errorMessage);
         } finally {
@@ -713,7 +718,7 @@ const GradesOverview: React.FC = () => {
             dataIndex: 'report_status',
             key: 'report_status',
             width: 100,
-            render: (_: any, record: StudentGradeOverview) => {
+            render: (_: unknown, record: StudentGradeOverview) => {
                 const badge = getEvaluationBadge(record);
                 return <Tag color={badge.color}>{badge.text}</Tag>;
             },
@@ -723,7 +728,7 @@ const GradesOverview: React.FC = () => {
             key: 'action',
             width: 100,
             fixed: 'right' as const,
-            render: (_: any, record: StudentGradeOverview) => {
+            render: (_: unknown, record: StudentGradeOverview) => {
                 const isExpanded = expandedRowKeys.includes(record.student_id);
                 return (
                     <Button
@@ -787,7 +792,7 @@ const GradesOverview: React.FC = () => {
             {exportError && <Alert description={exportError} type="error" showIcon className="mb-6" closable onClose={() => setExportError(null)} />}
             {exportedFileUrl && (
                 <Alert
-                    title="导出成功"
+                    message="导出成功"
                     description={
                         <span>
                             点击 <a href={exportedFileUrl} target="_blank" rel="noopener noreferrer">此处</a> 下载文件。
@@ -816,7 +821,9 @@ const GradesOverview: React.FC = () => {
 
             {isLoadingGrades ? (
                 <div className="flex justify-center items-center h-64">
-                    <Spin size="large" tip="加载成绩数据..." />
+                    <Spin size="large" tip="加载成绩数据...">
+                        <div style={{ padding: 50 }} />
+                    </Spin>
                 </div>
             ) : selectedClassId === ALL_CLASSES ? (
                 renderAllClassesView()
@@ -850,10 +857,10 @@ const GradesOverview: React.FC = () => {
                             </Card>
                         </Col>
                         <Col span={4}>
-                            <Card bordered={false} bodyStyle={{ padding: '12px 24px' }}>
+                            <Card bordered={false} styles={{ body: { padding: '12px 24px' } }}>
                                 <Text strong>成绩分布</Text>
                                 <div className="mt-2 text-xs space-y-1">
-                                    {Object.entries(SCORE_COLORS).map(([key, val]) => (
+                                    {Object.entries(SCORE_COLORS_DISPLAY).map(([key, val]) => (
                                         <div key={key} className="flex justify-between">
                                             <span style={{ color: val.color }}>{val.label}</span>
                                             <span>{distribution[key as keyof typeof distribution] || 0}</span>

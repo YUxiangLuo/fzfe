@@ -25,6 +25,8 @@ import {
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
 import type { User, Class } from '../../types';
+import { formatDate } from '../../utils/format';
+import { isAbortError, getErrorMessage, isFormValidationError } from '../../utils/error';
 
 const { Title, Text } = Typography;
 
@@ -43,34 +45,24 @@ const PersonalInfo: React.FC = () => {
     const [editForm] = Form.useForm();
     const [passwordForm] = Form.useForm();
 
-    const formatDate = (value: string | null) => {
-        if (!value) return '—';
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return '—';
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
     useEffect(() => {
         const controller = new AbortController();
 
         const fetchInitialData = async () => {
-            let userData: any;
+            let userData: User | null = null;
             try {
                 setIsUserLoading(true);
                 setUserError(null);
-                userData = await apiClient.get('/users/me', { signal: controller.signal });
+                userData = await apiClient.get<User>('/users/me', { signal: controller.signal });
 
                 if (!controller.signal.aborted) {
                     setUser(userData);
                     setIsUserLoading(false);
                 }
-            } catch (err: any) {
-                if (err.name === 'AbortError') return;
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
                 if (!controller.signal.aborted) {
-                    setUserError(err.message || '获取用户信息失败');
+                    setUserError(getErrorMessage(err, '获取用户信息失败'));
                     setIsUserLoading(false);
                 }
                 return;
@@ -86,10 +78,10 @@ const PersonalInfo: React.FC = () => {
                         setManagedClasses(classesData || []);
                         setIsClassesLoading(false);
                     }
-                } catch (err: any) {
-                    if (err.name === 'AbortError') return;
+                } catch (err: unknown) {
+                    if (isAbortError(err)) return;
                     if (!controller.signal.aborted) {
-                        setClassesError(err.message || '获取班级信息失败');
+                        setClassesError(getErrorMessage(err, '获取班级信息失败'));
                         setIsClassesLoading(false);
                     }
                 }
@@ -128,18 +120,18 @@ const PersonalInfo: React.FC = () => {
             setUser(updatedUser);
             setIsEditModalOpen(false);
             message.success('个人信息保存成功');
-        } catch (err: any) {
-            if (err.errorFields) {
+        } catch (err: unknown) {
+            if (isFormValidationError(err)) {
                 // Form validation error, don't show message
                 return;
             }
-            message.error(err.message || '保存失败，请稍后重试');
+            message.error(getErrorMessage(err, '保存失败，请稍后重试'));
         } finally {
             setIsSaving(false);
         }
     };
 
-    const handlePasswordSubmit = async (values: any) => {
+    const handlePasswordSubmit = async (values: { currentPassword: string; newPassword: string }) => {
         try {
             await apiClient.put('/users/me/password', {
                 currentPassword: values.currentPassword,
@@ -147,11 +139,12 @@ const PersonalInfo: React.FC = () => {
             });
             message.success('密码修改成功！');
             passwordForm.resetFields();
-        } catch (err: any) {
-            if (err?.message?.includes('Invalid current password')) {
+        } catch (err: unknown) {
+            const msg = getErrorMessage(err, '密码修改失败，请稍后重试。');
+            if (msg.includes('Invalid current password')) {
                 message.error('当前密码不正确，请重新输入。');
             } else {
-                message.error(err.message || '密码修改失败，请稍后重试。');
+                message.error(msg);
             }
         }
     };
@@ -167,7 +160,7 @@ const PersonalInfo: React.FC = () => {
     }
 
     if (userError) {
-        return <Alert title="加载失败" description={userError} type="error" showIcon />;
+        return <Alert message="加载失败" description={userError} type="error" showIcon />;
     }
 
     return (

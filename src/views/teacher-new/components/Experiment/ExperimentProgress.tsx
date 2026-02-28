@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     Card,
     Table,
@@ -13,8 +13,6 @@ import {
     Statistic,
     Row,
     Col,
-    Badge,
-    Collapse,
     Timeline
 } from 'antd';
 import {
@@ -23,15 +21,15 @@ import {
     CheckCircleOutlined,
     SyncOutlined,
     ClockCircleOutlined,
-    PercentageOutlined,
     PlayCircleOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
-import type { Class, StudentExperimentProgress as ProgressType, ExperimentStep, ExperimentTimelineEvent } from '../../types';
+import type { Class, StudentExperimentProgress as ProgressType } from '../../types';
+import { formatDateTime } from '../../utils/format';
+import { isAbortError, getErrorMessage } from '../../utils/error';
 
 const { Title, Text } = Typography;
-const { Panel } = Collapse;
 
 // Search debounce delay (ms)
 const SEARCH_DEBOUNCE_DELAY = 300;
@@ -76,6 +74,8 @@ const ExperimentProgress: React.FC = () => {
 
     // Fetch classes
     useEffect(() => {
+        const controller = new AbortController();
+
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
@@ -84,44 +84,58 @@ const ExperimentProgress: React.FC = () => {
                 const decoded = decodeToken(token);
                 if (!decoded) throw new Error('登录信息已失效');
 
-                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`);
+                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
                 const classList = data || [];
                 setClasses(classList);
                 if (classList.length > 0) {
                     setSelectedClassId(String(classList[0].class_id));
                 }
-            } catch (err: any) {
-                setError(err.message || '获取班级列表失败');
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
+                if (!controller.signal.aborted) {
+                    setError(getErrorMessage(err, '获取班级列表失败'));
+                }
             } finally {
-                setIsLoadingClasses(false);
+                if (!controller.signal.aborted) {
+                    setIsLoadingClasses(false);
+                }
             }
         };
 
         fetchClasses();
+        return () => { controller.abort(); };
     }, []);
 
     // Fetch progress data
-    const fetchProgress = useCallback(async (classId: string) => {
-        if (!classId) return;
-
-        setIsLoadingProgress(true);
-        setError(null);
-        try {
-            const data = await apiClient.get(`/classes/${classId}/experiment-events`);
-            setProgressData(data || []);
-        } catch (err: any) {
-            setError(err.message || '获取进度数据失败');
-            setProgressData([]);
-        } finally {
-            setIsLoadingProgress(false);
-        }
-    }, []);
-
     useEffect(() => {
-        if (selectedClassId) {
-            fetchProgress(selectedClassId);
-        }
-    }, [selectedClassId, fetchProgress]);
+        if (!selectedClassId) return;
+
+        const controller = new AbortController();
+
+        const fetchProgress = async () => {
+            setIsLoadingProgress(true);
+            setError(null);
+            try {
+                const data = await apiClient.get(`/classes/${selectedClassId}/experiment-events`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
+                setProgressData(data || []);
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
+                if (!controller.signal.aborted) {
+                    setError(getErrorMessage(err, '获取进度数据失败'));
+                    setProgressData([]);
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsLoadingProgress(false);
+                }
+            }
+        };
+
+        fetchProgress();
+        return () => { controller.abort(); };
+    }, [selectedClassId]);
 
     // Filter students by search (using debounced value)
     const filteredProgress = useMemo(() => {
@@ -157,32 +171,20 @@ const ExperimentProgress: React.FC = () => {
     }, [progressData]);
 
     // Get completion metadata for a student (for sorting and display)
-    const getCompletionMeta = useCallback((student: ProgressType) => {
+    const getCompletionMeta = (student: ProgressType) => {
         const steps = student.steps ?? [];
         const completedSteps = steps.filter((step) => step?.completed_at).length;
         const totalSteps = STEP_LABELS.length;
         const completionPercent = Math.round((completedSteps / totalSteps) * 100);
         return { completedSteps, totalSteps, completionPercent };
-    }, []);
+    };
 
     // Get status config
     const getStatusConfig = (status: string) => {
         return STATUS_CONFIG[status] || STATUS_CONFIG['Not Started'];
     };
 
-    // Format time
-    const formatTime = (value: string | null) => {
-        if (!value) return '—';
-        const date = new Date(value);
-        if (isNaN(date.getTime())) return '—';
-        return date.toLocaleString('zh-CN');
-    };
-
-    // Calculate step progress
-    const getStepProgress = (highestStep: number | null) => {
-        if (!highestStep) return 0;
-        return Math.round((highestStep / STEP_LABELS.length) * 100);
-    };
+    const formatTime = formatDateTime;
 
     // Table columns
     const columns = [
@@ -221,7 +223,7 @@ const ExperimentProgress: React.FC = () => {
             title: '完成进度',
             key: 'progress',
             width: 200,
-            render: (_: any, record: ProgressType) => {
+            render: (_: unknown, record: ProgressType) => {
                 const { completionPercent } = getCompletionMeta(record);
                 return (
                     <Progress
@@ -241,7 +243,7 @@ const ExperimentProgress: React.FC = () => {
             title: '完成步数',
             key: 'steps',
             width: 100,
-            render: (_: any, record: ProgressType) => {
+            render: (_: unknown, record: ProgressType) => {
                 const { completedSteps, totalSteps } = getCompletionMeta(record);
                 return `${completedSteps}/${totalSteps} 步`;
             },

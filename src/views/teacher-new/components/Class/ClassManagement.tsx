@@ -29,6 +29,8 @@ import {
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, Student } from '../../types';
+import { formatDate } from '../../utils/format';
+import { getErrorMessage } from '../../utils/error';
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
@@ -95,15 +97,15 @@ const ClassManagement: React.FC = () => {
         setError(null);
         try {
             const token = localStorage.getItem('token');
-            if (!token) throw new Error('Authentication token not found.');
+            if (!token) throw new Error('未找到登录凭据');
             const decoded = decodeToken(token);
-            if (!decoded) throw new Error('Invalid token.');
+            if (!decoded) throw new Error('登录信息已失效');
 
             const teacherId = decoded.sub;
             const data = await apiClient.get(`/teachers/${teacherId}/classes`);
             setClasses(data || []);
-        } catch (err: any) {
-            setError(err.message || 'Failed to fetch classes.');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, '获取班级列表失败'));
         } finally {
             setIsLoading(false);
         }
@@ -114,7 +116,7 @@ const ClassManagement: React.FC = () => {
     }, [fetchClasses]);
 
     // Create class handler
-    const handleCreateClass = async (values: any) => {
+    const handleCreateClass = async (values: { class_name: string; class_code: string; students_file?: UploadFile[] }) => {
         setIsSaving(true);
         try {
             const formData = new FormData();
@@ -137,15 +139,15 @@ const ClassManagement: React.FC = () => {
             createForm.resetFields();
             setFileList([]);
             message.success('班级创建成功');
-        } catch (err: any) {
-            message.error(err.message || '创建失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '创建失败'));
         } finally {
             setIsSaving(false);
         }
     };
 
     // Edit class handler
-    const handleEditClass = async (values: any) => {
+    const handleEditClass = async (values: { class_name: string; class_code: string }) => {
         if (!selectedClass) return;
 
         setIsSaving(true);
@@ -165,8 +167,8 @@ const ClassManagement: React.FC = () => {
             setSelectedClass(null);
             editForm.resetFields();
             message.success('班级信息更新成功');
-        } catch (err: any) {
-            message.error(err.message || '更新失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '更新失败'));
         } finally {
             setIsSaving(false);
         }
@@ -186,8 +188,8 @@ const ClassManagement: React.FC = () => {
                     await apiClient.delete(`/classes/${classItem.class_id}`);
                     setClasses(prev => prev.filter(c => c.class_id !== classItem.class_id));
                     message.success('班级删除成功');
-                } catch (err: any) {
-                    message.error(err.message || '删除失败');
+                } catch (err: unknown) {
+                    message.error(getErrorMessage(err, '删除失败'));
                 }
             },
         });
@@ -203,8 +205,8 @@ const ClassManagement: React.FC = () => {
         try {
             const response = await apiClient.get(`/classes/${classItem.class_id}`);
             setStudents(response.students || []);
-        } catch (err: any) {
-            message.error(err.message || '获取学生列表失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '获取学生列表失败'));
         } finally {
             setIsStudentsLoading(false);
         }
@@ -244,17 +246,6 @@ const ClassManagement: React.FC = () => {
         },
     };
 
-    // Format date
-    const formatDate = (value: string | null | undefined): string => {
-        if (!value) return '—';
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return '—';
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
     // Table columns
     const columns = [
         {
@@ -271,7 +262,7 @@ const ClassManagement: React.FC = () => {
         {
             title: '助教',
             key: 'assistants',
-            render: (_: any, record: Class) => {
+            render: (_: unknown, record: Class) => {
                 const assistantNames = (record.assistants || []).map(a => a.full_name).join('、');
                 return assistantNames || '—';
             },
@@ -287,7 +278,7 @@ const ClassManagement: React.FC = () => {
         {
             title: '操作',
             key: 'action',
-            render: (_: any, record: Class) => (
+            render: (_: unknown, record: Class) => (
                 <Space>
                     <Button
                         type="link"
@@ -346,7 +337,7 @@ const ClassManagement: React.FC = () => {
     }
 
     if (error) {
-        return <Alert title="加载失败" description={error} type="error" showIcon />;
+        return <Alert message="加载失败" description={error} type="error" showIcon />;
     }
 
     return (

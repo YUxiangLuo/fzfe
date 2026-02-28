@@ -3,6 +3,7 @@ import { HashRouter } from 'react-router-dom';
 import { RoleProvider, useRole } from './contexts/RoleContext';
 import { getRoleById } from '../../config/roles';
 import TeacherLayout from './components/Layout/TeacherLayout';
+import ErrorBoundary from './components/ErrorBoundary';
 
 function AppContent() {
     const { setRole } = useRole();
@@ -22,11 +23,13 @@ function AppContent() {
 
 function App() {
     return (
-        <RoleProvider>
-            <HashRouter>
-                <AppContent />
-            </HashRouter>
-        </RoleProvider>
+        <ErrorBoundary>
+            <RoleProvider>
+                <HashRouter>
+                    <AppContent />
+                </HashRouter>
+            </RoleProvider>
+        </ErrorBoundary>
     );
 }
 

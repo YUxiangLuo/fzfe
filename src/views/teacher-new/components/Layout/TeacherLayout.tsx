@@ -35,14 +35,6 @@ const GradesOverview = lazy(() => import('../Assessment/GradesOverview'));
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
 
-// Placeholder component for pages not yet implemented
-const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
-    <div style={{ padding: 24, textAlign: 'center', color: '#999' }}>
-        <Title level={4} type="secondary">{title}</Title>
-        <Text type="secondary">该页面正在开发中...</Text>
-    </div>
-);
-
 const RouteLoading: React.FC = () => (
     <div style={{ minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Spin size="large" />

@@ -22,6 +22,7 @@ import {
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import type { User, Class } from '../../types';
+import { isAbortError, getErrorMessage } from '../../utils/error';
 
 const { Title } = Typography;
 
@@ -56,9 +57,9 @@ const AssistantManagement: React.FC = () => {
             setError(null);
             try {
                 const token = localStorage.getItem('token');
-                if (!token) throw new Error('Authentication token not found.');
+                if (!token) throw new Error('未找到登录凭据');
                 const decoded = decodeToken(token);
-                if (!decoded) throw new Error('Invalid token.');
+                if (!decoded) throw new Error('登录信息已失效');
 
                 const teacherId = decoded.sub;
 
@@ -71,10 +72,10 @@ const AssistantManagement: React.FC = () => {
                     setAssistants(assistantsData || []);
                     setManagedClasses(classesData || []);
                 }
-            } catch (err: any) {
-                if (err.name === 'AbortError') return;
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
                 if (!controller.signal.aborted) {
-                    setError(err.message || 'Failed to fetch data.');
+                    setError(getErrorMessage(err, '获取数据失败'));
                 }
             } finally {
                 if (!controller.signal.aborted) {
@@ -95,8 +96,8 @@ const AssistantManagement: React.FC = () => {
         try {
             const data = await apiClient.get('/assistants');
             setAllAssistants(data || []);
-        } catch (err: any) {
-            message.error('获取助教列表失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '获取助教列表失败'));
         }
     }, []);
 
@@ -112,14 +113,14 @@ const AssistantManagement: React.FC = () => {
             const data = await apiClient.get(`/teachers/${teacherId}/assistants/${assistantId}/classes`);
             setClassAssignments(prev => ({ ...prev, [assistantId]: data?.map((c: Class) => c.class_id) || [] }));
             return data?.map((c: Class) => c.class_id) || [];
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Failed to fetch class assignments:', err);
             return [];
         }
     }, []);
 
     // Create assistant handler
-    const handleCreateAssistant = async (values: any) => {
+    const handleCreateAssistant = async (values: { username: string; full_name: string; email: string; phone_number?: string; password: string; class_ids: number[] }) => {
         setIsSaving(true);
         try {
             const newAssistant = await apiClient.post('/assistants', {
@@ -135,15 +136,15 @@ const AssistantManagement: React.FC = () => {
             setCreateModalOpen(false);
             createForm.resetFields();
             message.success('助教创建成功');
-        } catch (err: any) {
-            message.error(err.message || '创建失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '创建失败'));
         } finally {
             setIsSaving(false);
         }
     };
 
     // Select existing assistant handler
-    const handleSelectAssistant = async (values: any) => {
+    const handleSelectAssistant = async (values: { assistant_id: number; class_ids: number[] }) => {
         setIsSaving(true);
         try {
             const selectedAssistant = allAssistants.find(a => a.user_id === values.assistant_id);
@@ -171,23 +172,23 @@ const AssistantManagement: React.FC = () => {
             setSelectModalOpen(false);
             selectForm.resetFields();
             message.success('助教分配成功');
-        } catch (err: any) {
-            message.error(err.message || '分配失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '分配失败'));
         } finally {
             setIsSaving(false);
         }
     };
 
     // Reassign assistant handler
-    const handleReassignAssistant = async (values: any) => {
+    const handleReassignAssistant = async (values: { class_ids?: number[] }) => {
         if (!assistantToReassign) return;
 
         setIsSaving(true);
         try {
             const token = localStorage.getItem('token');
-            if (!token) throw new Error('Authentication token not found.');
+            if (!token) throw new Error('未找到登录凭据');
             const decoded = decodeToken(token);
-            if (!decoded) throw new Error('Invalid token.');
+            if (!decoded) throw new Error('登录信息已失效');
 
             const teacherId = decoded.sub;
             const currentClasses = classAssignments[assistantToReassign.user_id] || [];
@@ -228,8 +229,8 @@ const AssistantManagement: React.FC = () => {
             setReassignModalOpen(false);
             setAssistantToReassign(null);
             reassignForm.resetFields();
-        } catch (err: any) {
-            message.error(err.message || '更新失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '更新失败'));
         } finally {
             setIsSaving(false);
         }
@@ -269,7 +270,7 @@ const AssistantManagement: React.FC = () => {
         {
             title: '操作',
             key: 'action',
-            render: (_: any, record: Assistant) => (
+            render: (_: unknown, record: Assistant) => (
                 <Button
                     type="primary"
                     ghost
@@ -293,7 +294,7 @@ const AssistantManagement: React.FC = () => {
     }
 
     if (error) {
-        return <Alert title="加载失败" description={error} type="error" showIcon />;
+        return <Alert message="加载失败" description={error} type="error" showIcon />;
     }
 
     return (
@@ -466,7 +467,7 @@ const AssistantManagement: React.FC = () => {
                         />
                     </Form.Item>
                     <Alert
-                        title="提示"
+                        message="提示"
                         description="如果不选择任何班级，该助教将从您的助教列表中移除。"
                         type="info"
                         showIcon

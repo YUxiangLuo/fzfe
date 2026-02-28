@@ -26,6 +26,7 @@ import {
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import type { Student, Class } from '../../types';
+import { isAbortError, getErrorMessage } from '../../utils/error';
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
@@ -54,6 +55,8 @@ const StudentManagement: React.FC = () => {
     const [addForm] = Form.useForm();
     const [passwordForm] = Form.useForm();
     const [isSaving, setIsSaving] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
 
     // Get teacher ID from token
     useEffect(() => {
@@ -70,23 +73,32 @@ const StudentManagement: React.FC = () => {
     useEffect(() => {
         if (!teacherId) return;
 
+        const controller = new AbortController();
+
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
-                const data = await apiClient.get(`/teachers/${teacherId}/classes`);
+                const data = await apiClient.get(`/teachers/${teacherId}/classes`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
                 const classList = data || [];
                 setClasses(classList);
                 if (classList.length > 0) {
                     setSelectedClassId(classList[0].class_id);
                 }
-            } catch (err: any) {
-                setError(err.message || '获取班级列表失败');
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
+                if (!controller.signal.aborted) {
+                    setError(getErrorMessage(err, '获取班级列表失败'));
+                }
             } finally {
-                setIsLoadingClasses(false);
+                if (!controller.signal.aborted) {
+                    setIsLoadingClasses(false);
+                }
             }
         };
 
         fetchClasses();
+        return () => { controller.abort(); };
     }, [teacherId]);
 
     // Fetch students when class changes
@@ -96,8 +108,7 @@ const StudentManagement: React.FC = () => {
         try {
             const data = await apiClient.get(`/classes/${classId}/students`);
             const list = data || [];
-            // Sort by username (student ID)
-            const sorted = [...list].sort((a, b) => {
+            const sorted = [...list].sort((a: Student, b: Student) => {
                 const numA = Number(a.username);
                 const numB = Number(b.username);
                 if (Number.isNaN(numA) || Number.isNaN(numB)) {
@@ -106,8 +117,8 @@ const StudentManagement: React.FC = () => {
                 return numA - numB;
             });
             setStudents(sorted);
-        } catch (err: any) {
-            setError(err.message || '获取学生列表失败');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, '获取学生列表失败'));
             setStudents([]);
         } finally {
             setIsLoadingStudents(false);
@@ -130,18 +141,29 @@ const StudentManagement: React.FC = () => {
         );
     }, [students, searchTerm]);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedClassId, searchTerm]);
+
+    useEffect(() => {
+        const maxPage = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
+        if (currentPage > maxPage) {
+            setCurrentPage(maxPage);
+        }
+    }, [filteredStudents.length, currentPage]);
+
     // Current class name
     const currentClassName = useMemo(() => {
         return classes.find(c => c.class_id === selectedClassId)?.class_name || '—';
     }, [classes, selectedClassId]);
 
     // Add student handler
-    const handleAddStudent = async (values: any) => {
+    const handleAddStudent = async (values: { username: string; full_name: string; password: string; email?: string; phone_number?: string }) => {
         if (!selectedClassId) return;
 
         setIsSaving(true);
         try {
-            const payload: any = {
+            const payload: { username: string; full_name: string; password: string; email?: string; phone_number?: string } = {
                 username: values.username.trim(),
                 full_name: values.full_name.trim(),
                 password: values.password,
@@ -159,11 +181,12 @@ const StudentManagement: React.FC = () => {
             setAddModalOpen(false);
             addForm.resetFields();
             message.success('学生添加成功');
-        } catch (err: any) {
-            if (err.message?.includes('409') || err.message?.includes('已存在')) {
+        } catch (err: unknown) {
+            const msg = getErrorMessage(err, '添加失败');
+            if (msg.includes('409') || msg.includes('已存在')) {
                 message.error('学号或邮箱已存在');
             } else {
-                message.error(err.message || '添加失败');
+                message.error(msg);
             }
         } finally {
             setIsSaving(false);
@@ -191,15 +214,15 @@ const StudentManagement: React.FC = () => {
                     await apiClient.delete(`/classes/${selectedClassId}/students/${student.user_id}`);
                     setStudents(prev => prev.filter(s => s.user_id !== student.user_id));
                     message.success('学生已移除');
-                } catch (err: any) {
-                    message.error(err.message || '移除失败');
+                } catch (err: unknown) {
+                    message.error(getErrorMessage(err, '移除失败'));
                 }
             },
         });
     };
 
     // Reset password handler
-    const handleResetPassword = async (values: any) => {
+    const handleResetPassword = async (values: { newPassword: string }) => {
         if (!studentToResetPassword) return;
 
         setIsSaving(true);
@@ -211,8 +234,8 @@ const StudentManagement: React.FC = () => {
             setStudentToResetPassword(null);
             passwordForm.resetFields();
             message.success('密码重置成功');
-        } catch (err: any) {
-            message.error(err.message || '重置失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '重置失败'));
         } finally {
             setIsSaving(false);
         }
@@ -228,8 +251,8 @@ const StudentManagement: React.FC = () => {
             setAllUnassignedStudents(data || []);
             setEnrolledStudentIds(new Set());
             setSearchInModal('');
-        } catch (err: any) {
-            message.error('获取可选学生列表失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '获取可选学生列表失败'));
         }
     }, [selectedClassId]);
 
@@ -244,8 +267,8 @@ const StudentManagement: React.FC = () => {
             });
             setEnrolledStudentIds(prev => new Set(prev).add(student.user_id));
             message.success(`学生 ${student.full_name} 添加成功`);
-        } catch (err: any) {
-            message.error(err.message || '添加失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '添加失败'));
         } finally {
             setEnrollingStudentId(null);
         }
@@ -286,7 +309,7 @@ const StudentManagement: React.FC = () => {
             title: '序号',
             key: 'index',
             width: 70,
-            render: (_: any, __: any, index: number) => index + 1,
+            render: (_: unknown, __: unknown, index: number) => (currentPage - 1) * pageSize + index + 1,
         },
         {
             title: '学号',
@@ -297,7 +320,7 @@ const StudentManagement: React.FC = () => {
         {
             title: '学生姓名',
             key: 'name',
-            render: (_: any, record: Student, index: number) => (
+            render: (_: unknown, record: Student, index: number) => (
                 <Space>
                     <Avatar style={{ backgroundColor: getAvatarColor(index) }}>
                         {record.full_name.charAt(0)}
@@ -322,7 +345,7 @@ const StudentManagement: React.FC = () => {
             title: '操作',
             key: 'action',
             width: 200,
-            render: (_: any, record: Student) => (
+            render: (_: unknown, record: Student) => (
                 <Space>
                     <Tooltip title="重置密码">
                         <Button
@@ -362,7 +385,7 @@ const StudentManagement: React.FC = () => {
     }
 
     if (error && !students.length) {
-        return <Alert title="加载失败" description={error} type="error" showIcon />;
+        return <Alert message="加载失败" description={error} type="error" showIcon />;
     }
 
     return (
@@ -439,7 +462,7 @@ const StudentManagement: React.FC = () => {
                     columns={columns}
                     rowKey="user_id"
                     loading={isLoadingStudents}
-                    pagination={{ pageSize: 10, showTotal: (total) => `共 ${total} 名学生` }}
+                    pagination={{ current: currentPage, pageSize, onChange: (page) => setCurrentPage(page), showTotal: (total) => `共 ${total} 名学生` }}
                     locale={{ emptyText: selectedClassId ? '暂无学生' : '请先选择班级' }}
                 />
             </Card>
@@ -503,7 +526,7 @@ const StudentManagement: React.FC = () => {
                         <Input placeholder="13800138000" />
                     </Form.Item>
                     <Alert
-                        title="提示"
+                        message="提示"
                         description={`学生将被添加到班级：${currentClassName}`}
                         type="info"
                         showIcon

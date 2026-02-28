@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     Card,
     Table,
@@ -11,8 +11,7 @@ import {
     Space,
     Statistic,
     Row,
-    Col,
-    Badge
+    Col
 } from 'antd';
 import {
     SearchOutlined,
@@ -24,6 +23,8 @@ import {
 import { apiClient } from '../../../../utils/apiClient';
 import { decodeToken } from '../../../../utils/auth';
 import type { Class, StudentExperimentLog } from '../../types';
+import { formatDateTime, formatDuration } from '../../utils/format';
+import { isAbortError, getErrorMessage } from '../../utils/error';
 
 const { Title, Text } = Typography;
 
@@ -78,6 +79,8 @@ const ExperimentLogs: React.FC = () => {
 
     // Fetch classes
     useEffect(() => {
+        const controller = new AbortController();
+
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
@@ -86,44 +89,58 @@ const ExperimentLogs: React.FC = () => {
                 const decoded = decodeToken(token);
                 if (!decoded) throw new Error('登录信息已失效');
 
-                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`);
+                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
                 const classList = data || [];
                 setClasses(classList);
                 if (classList.length > 0) {
                     setSelectedClassId(String(classList[0].class_id));
                 }
-            } catch (err: any) {
-                setError(err.message || '获取班级列表失败');
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
+                if (!controller.signal.aborted) {
+                    setError(getErrorMessage(err, '获取班级列表失败'));
+                }
             } finally {
-                setIsLoadingClasses(false);
+                if (!controller.signal.aborted) {
+                    setIsLoadingClasses(false);
+                }
             }
         };
 
         fetchClasses();
+        return () => { controller.abort(); };
     }, []);
 
     // Fetch logs
-    const fetchLogs = useCallback(async (classId: string) => {
-        if (!classId) return;
-
-        setIsLoadingLogs(true);
-        setError(null);
-        try {
-            const data = await apiClient.get(`/classes/${classId}/experiment-runs`);
-            setLogs(data || []);
-        } catch (err: any) {
-            setError(err.message || '获取日志数据失败');
-            setLogs([]);
-        } finally {
-            setIsLoadingLogs(false);
-        }
-    }, []);
-
     useEffect(() => {
-        if (selectedClassId) {
-            fetchLogs(selectedClassId);
-        }
-    }, [selectedClassId, fetchLogs]);
+        if (!selectedClassId) return;
+
+        const controller = new AbortController();
+
+        const fetchLogs = async () => {
+            setIsLoadingLogs(true);
+            setError(null);
+            try {
+                const data = await apiClient.get(`/classes/${selectedClassId}/experiment-runs`, { signal: controller.signal });
+                if (controller.signal.aborted) return;
+                setLogs(data || []);
+            } catch (err: unknown) {
+                if (isAbortError(err)) return;
+                if (!controller.signal.aborted) {
+                    setError(getErrorMessage(err, '获取日志数据失败'));
+                    setLogs([]);
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsLoadingLogs(false);
+                }
+            }
+        };
+
+        fetchLogs();
+        return () => { controller.abort(); };
+    }, [selectedClassId]);
 
     // Transform logs to summary format
     const summaries = useMemo((): StudentExperimentSummary[] => {
@@ -180,31 +197,6 @@ const ExperimentLogs: React.FC = () => {
     const totalDurationSeconds = summaries.reduce((sum, s) => sum + s.totalDurationSeconds, 0);
     const averageDurationPerStudent = totalStudents > 0 ? Math.round(totalDurationSeconds / totalStudents) : 0;
 
-    // Format duration (with proper rounding)
-    const formatDuration = (seconds: number): string => {
-        if (!seconds || seconds <= 0) return '—';
-        const rounded = Math.max(1, Math.round(seconds));
-        const hours = Math.floor(rounded / 3600);
-        const minutes = Math.floor((rounded % 3600) / 60);
-        const secs = rounded % 60;
-
-        if (hours > 0) {
-            return minutes > 0 ? `${hours}小时${minutes}分钟` : `${hours}小时`;
-        }
-        if (minutes > 0) {
-            return secs > 0 ? `${minutes}分钟${secs}秒` : `${minutes}分钟`;
-        }
-        return `${secs}秒`;
-    };
-
-    // Format datetime
-    const formatDateTime = (value: string | null) => {
-        if (!value) return '—';
-        const date = new Date(value);
-        if (isNaN(date.getTime())) return '—';
-        return date.toLocaleString('zh-CN');
-    };
-
     // Map status
     const mapStatus = (status: string) => {
         const statusMap: Record<string, { label: string; color: string }> = {
@@ -243,7 +235,7 @@ const ExperimentLogs: React.FC = () => {
             title: '总时长',
             key: 'totalDuration',
             width: 120,
-            render: (_: any, record: StudentExperimentSummary) => formatDuration(record.totalDurationSeconds),
+            render: (_: unknown, record: StudentExperimentSummary) => formatDuration(record.totalDurationSeconds),
             sorter: (a: StudentExperimentSummary, b: StudentExperimentSummary) =>
                 a.totalDurationSeconds - b.totalDurationSeconds,
         },
@@ -251,7 +243,7 @@ const ExperimentLogs: React.FC = () => {
             title: '平均时长',
             key: 'averageDuration',
             width: 120,
-            render: (_: any, record: StudentExperimentSummary) => formatDuration(record.averageDurationSeconds),
+            render: (_: unknown, record: StudentExperimentSummary) => formatDuration(record.averageDurationSeconds),
         },
         {
             title: '最后活动时间',
@@ -311,7 +303,7 @@ const ExperimentLogs: React.FC = () => {
                 title: '时长',
                 key: 'duration',
                 width: 100,
-                render: (_: any, detail: StudentExperimentDetailSummary) => formatDuration(detail.durationSeconds),
+                render: (_: unknown, detail: StudentExperimentDetailSummary) => formatDuration(detail.durationSeconds),
             },
             {
                 title: '开始时间',

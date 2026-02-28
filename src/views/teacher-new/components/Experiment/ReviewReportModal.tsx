@@ -24,6 +24,8 @@ import { apiClient } from '../../../../utils/apiClient';
 import { openFileWithAuth } from '../../../../utils/authFile';
 import { useAuthObjectUrl } from '../../../../hooks/useAuthObjectUrl';
 import type { ExperimentReport } from '../../types';
+import { formatDateTime } from '../../utils/format';
+import { getErrorMessage } from '../../utils/error';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -101,32 +103,24 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
         }
     }, [open, report]);
 
-    // Format datetime
-    const formatDateTime = (value: string | null) => {
-        if (!value) return '—';
-        const date = new Date(value);
-        if (isNaN(date.getTime())) return '—';
-        return date.toLocaleString('zh-CN');
-    };
-
     // Validation
     const isScoreValid = useMemo(() => {
         if (!tempScore.trim()) return true;
         const val = Number(tempScore);
-        return !isNaN(val) && val >= 0 && val <= 100;
+        return !Number.isNaN(val) && val >= 0 && val <= 100;
     }, [tempScore]);
 
     const isModelQualityScoreValid = useMemo(() => {
         if (!tempModelQualityScore.trim()) return true;
         const val = Number(tempModelQualityScore);
-        return !isNaN(val) && val >= 0 && val <= 100;
+        return !Number.isNaN(val) && val >= 0 && val <= 100;
     }, [tempModelQualityScore]);
 
     const areExpFlowScoresValid = useMemo(() => {
         return Object.values(expFlowScores).every((value) => {
             if (!value.trim()) return true;
             const val = Number(value);
-            return !isNaN(val) && val >= 0 && val <= 100;
+            return !Number.isNaN(val) && val >= 0 && val <= 100;
         });
     }, [expFlowScores]);
 
@@ -145,7 +139,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
         const payload: {
             grade?: number;
             feedback?: string;
-            experiment_grade?: any;
+            experiment_grade?: Record<string, number>;
             status?: string;
         } = {};
 
@@ -154,7 +148,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
         }
 
         // Build experiment_grade object
-        const experimentGrade: any = {};
+        const experimentGrade: Record<string, number> = {};
         let hasExperimentGrade = false;
 
         if (tempModelQualityScore.trim()) {
@@ -194,8 +188,8 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
             message.success('评阅结果保存成功');
             onSuccess(updatedReport as ExperimentReport);
             onClose();
-        } catch (err: any) {
-            message.error(err.message || '保存评阅结果失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '保存评阅结果失败'));
         } finally {
             setIsSaving(false);
         }
@@ -234,8 +228,8 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
             message.success('报告已驳回');
             onSuccess(updatedReport as ExperimentReport);
             onClose();
-        } catch (err: any) {
-            message.error(err.message || '驳回失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '驳回失败'));
         } finally {
             setIsSaving(false);
         }
@@ -251,7 +245,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
             onCancel={onClose}
             width={1000}
             footer={null}
-            bodyStyle={{ padding: 0 }}
+            styles={{ body: { padding: 0 } }}
         >
             <Row>
                 {/* Left side - PDF Preview */}
@@ -274,8 +268,8 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                                     type="link"
                                     onClick={() => {
                                         if (!pdfFilePath) return;
-                                        openFileWithAuth(pdfFilePath).catch((err: any) => {
-                                            message.error(err.message || '下载失败');
+                                        openFileWithAuth(pdfFilePath).catch((err: unknown) => {
+                                            message.error(getErrorMessage(err, '下载失败'));
                                         });
                                     }}
                                 >
@@ -317,7 +311,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                             </Text>
                             {report.feedback && (
                                 <Alert
-                                    title="驳回原因"
+                                    message="驳回原因"
                                     description={report.feedback}
                                     type="error"
                                     style={{ marginBottom: 24, textAlign: 'left' }}

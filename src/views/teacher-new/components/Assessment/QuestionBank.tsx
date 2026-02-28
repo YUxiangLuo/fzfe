@@ -26,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
 import type { Question, QuestionTypeApi } from '../../types';
+import { getErrorMessage } from '../../utils/error';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -141,8 +142,8 @@ const QuestionBank: React.FC = () => {
         try {
             const data = await apiClient.get('/question-bank/questions');
             setQuestions(data || []);
-        } catch (err: any) {
-            setError(err.message || '获取题目失败');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, '获取题目失败'));
         } finally {
             setIsLoading(false);
         }
@@ -208,7 +209,15 @@ const QuestionBank: React.FC = () => {
     };
 
     // Save question
-    const handleSave = async (values: any) => {
+    interface QuestionFormValues {
+        question_text: string;
+        question_type: QuestionTypeApi;
+        knowledge_point: string;
+        options?: string[];
+        correct_answers: string[];
+    }
+
+    const handleSave = async (values: QuestionFormValues) => {
         setIsSaving(true);
         try {
             const questionType = values.question_type as QuestionTypeApi;
@@ -267,8 +276,8 @@ const QuestionBank: React.FC = () => {
             setEditorModalOpen(false);
             form.resetFields();
             setSelectedQuestion(null);
-        } catch (err: any) {
-            message.error(err.message || '保存失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '保存失败'));
         } finally {
             setIsSaving(false);
         }
@@ -280,8 +289,8 @@ const QuestionBank: React.FC = () => {
             await apiClient.delete(`/question-bank/questions/${questionId}`);
             setQuestions(prev => prev.filter(q => q.question_id !== questionId));
             message.success('题目已删除');
-        } catch (err: any) {
-            message.error(err.message || '删除失败');
+        } catch (err: unknown) {
+            message.error(getErrorMessage(err, '删除失败'));
         }
     };
 
@@ -331,13 +340,13 @@ const QuestionBank: React.FC = () => {
             title: '正确答案',
             key: 'correct_answer',
             width: 100,
-            render: (_: any, record: Question) => formatCorrectAnswers(record),
+            render: (_: unknown, record: Question) => formatCorrectAnswers(record),
         },
         {
             title: '操作',
             key: 'action',
             width: 150,
-            render: (_: any, record: Question) => (
+            render: (_: unknown, record: Question) => (
                 <Space>
                     <Tooltip title="预览">
                         <Button
