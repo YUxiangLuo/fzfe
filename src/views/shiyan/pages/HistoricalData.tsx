@@ -319,7 +319,7 @@ const HistoricalData: React.FC = () => {
       await updateState({
         highest_completed_step: CURRENT_STEP,
         current_step: NEXT_STEP,
-      });
+      }, false, false, true);
       navigate(PATHS.NEXT);
     } catch (error) {
       console.error('Failed to update step state:', error);
@@ -591,11 +591,26 @@ const HistoricalData: React.FC = () => {
   }
 
   if (salesDataError) {
+    const canRetryLoadSales = !!selected_industry && !!selected_company && !!selected_product;
+    const handleRetryLoadSales = () => {
+      if (!selected_industry || !selected_company || !selected_product) {
+        return;
+      }
+      void loadProductSalesData(selected_industry, selected_company, selected_product);
+    };
+
     return (
       <div className="p-8 max-w-2xl mx-auto">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-center">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-center space-y-3">
           <h3 className="font-bold">数据加载失败</h3>
           <p>{salesDataError}</p>
+          <Button
+            onClick={handleRetryLoadSales}
+            variant="outline"
+            disabled={!canRetryLoadSales || isLoadingSales}
+          >
+            重试加载
+          </Button>
         </div>
       </div>
     );

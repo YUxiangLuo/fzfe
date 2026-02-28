@@ -80,7 +80,12 @@ const ProductSelection: React.FC = () => {
     }
 
     if (hasChanged) {
-      await handleProductChange(localProduct);
+      try {
+        await handleProductChange(localProduct);
+      } catch (error) {
+        console.error('更新产品选择失败:', error);
+        return;
+      }
     }
     navigate('/data');
   };

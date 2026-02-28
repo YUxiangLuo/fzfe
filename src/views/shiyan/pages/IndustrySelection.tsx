@@ -122,7 +122,12 @@ const IndustrySelection: React.FC = () => {
         // 2. The user confirmed the change.
         // 3. The selection hasn't changed (user just clicked next).
         if (hasChanged) {
-            await handleIndustryChange(localIndustry);
+            try {
+                await handleIndustryChange(localIndustry);
+            } catch (error) {
+                console.error('更新行业选择失败:', error);
+                return;
+            }
         }
         navigate('/company');
     };

@@ -11,28 +11,46 @@ async function mockModelStageExperiment(
   page: Page,
   overrides: Record<string, unknown>,
 ) {
+  const state = {
+    experiment_id: 880101,
+    student_id: 20240002,
+    status: "In Progress",
+    highest_completed_step: 4,
+    current_step: 5,
+    selected_industry: "E2E智能制造业",
+    selected_company: "E2E样本企业A",
+    selected_product: "智能传感器A型",
+    data_window_train_start_index: 0,
+    data_window_train_end_index: 27,
+    data_window_evaluate_start_index: 28,
+    data_window_evaluate_end_index: 35,
+    start_time: "2026-02-01T00:00:00.000Z",
+    last_activity_at: "2026-02-01T00:00:00.000Z",
+    completion_time: null,
+    ...overrides,
+  } as Record<string, unknown>;
+
   await page.route("**/api/v1/students/me/experiment-runs/active", (route) => {
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({
-        experiment_id: 880101,
-        student_id: 20240002,
-        status: "In Progress",
-        highest_completed_step: 4,
-        current_step: 5,
-        selected_industry: "E2E智能制造业",
-        selected_company: "E2E样本企业A",
-        selected_product: "智能传感器A型",
-        data_window_train_start_index: 0,
-        data_window_train_end_index: 27,
-        data_window_evaluate_start_index: 28,
-        data_window_evaluate_end_index: 35,
-        start_time: "2026-02-01T00:00:00.000Z",
-        last_activity_at: "2026-02-01T00:00:00.000Z",
-        completion_time: null,
-        ...overrides,
-      }),
+      body: JSON.stringify(state),
+    });
+  });
+
+  await page.route(/\/api\/v1\/experiment-runs\/\d+$/, async (route) => {
+    if (route.request().method() !== "PUT") {
+      await route.continue();
+      return;
+    }
+
+    const payload = route.request().postDataJSON() as Record<string, unknown>;
+    Object.assign(state, payload);
+
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(state),
     });
   });
 }

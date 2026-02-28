@@ -68,7 +68,12 @@ const EnsembleModelSelection: React.FC = () => {
 
   const handleNext = async () => {
     if (allSelectedCompleted) {
-      await handleEnterEvaluation();
+      try {
+        await handleEnterEvaluation();
+      } catch (error) {
+        console.error('更新评估步骤失败:', error);
+        return;
+      }
       navigate('/evaluation');
     }
   };

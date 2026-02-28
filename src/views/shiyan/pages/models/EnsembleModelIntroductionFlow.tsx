@@ -301,8 +301,12 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
       }
     } else if (view === 'selection') {
       if (selectedModels.length >= 1) {
-        await updateState({ selected_ensemble_models: selectedModels });
-        navigate('/model/ensemble-select');
+        try {
+          await updateState({ selected_ensemble_models: selectedModels }, true, false, true);
+          navigate('/model/ensemble-select');
+        } catch (error) {
+          console.error('保存融合模型选择失败:', error);
+        }
       }
     }
   };

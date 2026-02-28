@@ -22,7 +22,12 @@ const ResultEvaluation: React.FC = () => {
     const needsProgressUpdate = hasChanged || state.current_step < STEPS.PRODUCTION;
 
     if (needsProgressUpdate) {
-      await handleBestModelChange(selectedBestModel);
+      try {
+        await handleBestModelChange(selectedBestModel);
+      } catch (error) {
+        console.error('保存最优模型失败:', error);
+        return;
+      }
     }
 
     if (state.quiz_about_model_completed) {

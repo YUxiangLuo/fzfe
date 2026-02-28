@@ -315,7 +315,12 @@ const DataWindowSelection: React.FC = () => {
 
     // Only call the global state update if something has actually changed.
     if (hasChanged) {
-        await handleDataWindowChange(dataWindowPayload);
+        try {
+          await handleDataWindowChange(dataWindowPayload);
+        } catch (error) {
+          console.error('更新数据窗口失败:', error);
+          return;
+        }
     }
     
     navigate(PATHS.MODEL_INTRO);

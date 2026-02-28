@@ -360,8 +360,12 @@ const ModelIntroductionFlow: React.FC = () => {
       }
     } else if (view === 'selection') {
       if (selectedModels.length >= 2) {
-        await updateState({ selected_base_models: selectedModels });
-        navigate('/model/model-select');
+        try {
+          await updateState({ selected_base_models: selectedModels }, true, false, true);
+          navigate('/model/model-select');
+        } catch (error) {
+          console.error('保存基础模型选择失败:', error);
+        }
       }
     }
   };

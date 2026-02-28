@@ -80,7 +80,12 @@ const CompanySelection: React.FC = () => {
     }
 
     if (hasChanged) {
-      await handleCompanyChange(localCompany);
+      try {
+        await handleCompanyChange(localCompany);
+      } catch (error) {
+        console.error('更新企业选择失败:', error);
+        return;
+      }
     }
     navigate('/product');
   };

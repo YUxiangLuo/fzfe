@@ -112,8 +112,16 @@ export interface ExperimentStore {
   recordStepEvent: (stepOrder: number, eventType: "STARTED" | "COMPLETED") => Promise<void>;
   isStepCompleted: (step: number) => boolean;
   isStepUnlocked: (step: number) => boolean;
-  loadProductSalesData: (industry: string, company: string, product: string) => Promise<boolean>;
-  loadProductFieldOptions: (industry: string, company: string, product: string) => Promise<boolean>;
+  loadProductSalesData: (
+    industry: string,
+    company: string,
+    product: string,
+  ) => Promise<"success" | "failed" | "ignored">;
+  loadProductFieldOptions: (
+    industry: string,
+    company: string,
+    product: string,
+  ) => Promise<"success" | "failed" | "ignored">;
   resetMovingAverageModel: () => Promise<void>;
   resetExponentialSmoothingModel: () => Promise<void>;
   resetARIMAModel: () => Promise<void>;
@@ -125,6 +133,27 @@ export interface ExperimentStore {
 }
 
 let trainingLockCount = 0;
+let stateUpdateVersion = 0;
+let salesDataRequestVersion = 0;
+let fieldOptionsRequestVersion = 0;
+
+const isMatchingProductSelection = (
+  state: ExperimentState,
+  industry: string,
+  company: string,
+  product: string,
+) => {
+  return (
+    state.selected_industry === industry &&
+    state.selected_company === company &&
+    state.selected_product === product
+  );
+};
+
+const invalidateProductDataRequests = () => {
+  salesDataRequestVersion++;
+  fieldOptionsRequestVersion++;
+};
 
 export const useExperimentStore = create<ExperimentStore>()(
   devtools(
@@ -199,6 +228,7 @@ export const useExperimentStore = create<ExperimentStore>()(
       updateState: async (updates, forceSync = false, skipSync = false, throwOnSyncError = false) => {
         logger.action("updateState", { updates, forceSync, skipSync, throwOnSyncError });
         const previousState = get().state;
+        const currentUpdateVersion = ++stateUpdateVersion;
         let nextState: ExperimentState = { ...previousState, ...updates };
 
         if (nextState.status === "Not Started" && Object.keys(updates).length > 0) {
@@ -243,6 +273,14 @@ export const useExperimentStore = create<ExperimentStore>()(
 
             addToast("实验进度已同步至云端", "success");
             if (serverState && typeof serverState === "object") {
+              if (currentUpdateVersion !== stateUpdateVersion) {
+                logger.action("updateState:ignoreStaleServerResponse", {
+                  responseVersion: currentUpdateVersion,
+                  latestVersion: stateUpdateVersion,
+                });
+                return;
+              }
+
               const mergedState = {
                 ...serverState,
                 selected_base_models: nextState.selected_base_models,
@@ -256,10 +294,13 @@ export const useExperimentStore = create<ExperimentStore>()(
                 mergedState.selected_product !== previousState.selected_product;
 
               if (productChangedRemote) {
+                invalidateProductDataRequests();
                 set({
                   productSalesData: null,
+                  isLoadingSales: false,
                   salesDataError: null,
                   productFieldOptions: null,
+                  isLoadingFields: false,
                   productFieldsError: null,
                 });
               }
@@ -286,14 +327,17 @@ export const useExperimentStore = create<ExperimentStore>()(
           newState.current_step = STEPS.COMPANY;
           resetModelingFields(newState, { resetQuizzes: true });
 
+          invalidateProductDataRequests();
           set({
             productSalesData: null,
+            isLoadingSales: false,
             salesDataError: null,
             productFieldOptions: null,
+            isLoadingFields: false,
             productFieldsError: null,
           });
 
-          await get().updateState(newState, true);
+          await get().updateState(newState, true, false, true);
         } finally {
           set({ isSubmitting: false });
         }
@@ -310,14 +354,17 @@ export const useExperimentStore = create<ExperimentStore>()(
           newState.current_step = STEPS.PRODUCT;
           resetModelingFields(newState, { resetQuizzes: true });
 
+          invalidateProductDataRequests();
           set({
             productSalesData: null,
+            isLoadingSales: false,
             salesDataError: null,
             productFieldOptions: null,
+            isLoadingFields: false,
             productFieldsError: null,
           });
 
-          await get().updateState(newState, true);
+          await get().updateState(newState, true, false, true);
         } finally {
           set({ isSubmitting: false });
         }
@@ -333,14 +380,17 @@ export const useExperimentStore = create<ExperimentStore>()(
           newState.current_step = STEPS.DATA_WINDOW;
           resetModelingFields(newState, { resetQuizzes: true });
 
+          invalidateProductDataRequests();
           set({
             productSalesData: null,
+            isLoadingSales: false,
             salesDataError: null,
             productFieldOptions: null,
+            isLoadingFields: false,
             productFieldsError: null,
           });
 
-          await get().updateState(newState, true);
+          await get().updateState(newState, true, false, true);
         } finally {
           set({ isSubmitting: false });
         }
@@ -357,7 +407,7 @@ export const useExperimentStore = create<ExperimentStore>()(
           });
           newState.highest_completed_step = STEPS.DATA_WINDOW;
           newState.current_step = STEPS.MODEL;
-          await get().updateState(newState, true);
+          await get().updateState(newState, true, false, true);
         } finally {
           set({ isSubmitting: false });
         }
@@ -370,7 +420,7 @@ export const useExperimentStore = create<ExperimentStore>()(
           const newState: ExperimentState = { ...currentState };
           newState.highest_completed_step = STEPS.MODEL;
           newState.current_step = STEPS.EVALUATION;
-          await get().updateState(newState, true);
+          await get().updateState(newState, true, false, true);
         } finally {
           set({ isSubmitting: false });
         }
@@ -384,7 +434,7 @@ export const useExperimentStore = create<ExperimentStore>()(
           resetProductionPlanFields(newState);
           newState.highest_completed_step = STEPS.EVALUATION;
           newState.current_step = STEPS.PRODUCTION;
-          await get().updateState(newState, true);
+          await get().updateState(newState, true, false, true);
         } finally {
           set({ isSubmitting: false });
         }
@@ -412,34 +462,108 @@ export const useExperimentStore = create<ExperimentStore>()(
       },
 
       loadProductSalesData: async (industry, company, product) => {
+        const requestVersion = ++salesDataRequestVersion;
         set({ isLoadingSales: true, salesDataError: null });
         try {
           const data = await getProductSalesData(industry, company, product);
-          set({ productSalesData: data, isLoadingSales: false });
-          return true;
+          const currentState = get().state;
+          const isLatestRequest = requestVersion === salesDataRequestVersion;
+          const isCurrentSelection = isMatchingProductSelection(
+            currentState,
+            industry,
+            company,
+            product,
+          );
+
+          if (!isLatestRequest || !isCurrentSelection) {
+            if (isLatestRequest) {
+              set({ isLoadingSales: false });
+            }
+            return "ignored";
+          }
+
+          set({
+            productSalesData: data,
+            isLoadingSales: false,
+            salesDataError: null,
+          });
+          return "success";
         } catch (err: any) {
+          const currentState = get().state;
+          const isLatestRequest = requestVersion === salesDataRequestVersion;
+          const isCurrentSelection = isMatchingProductSelection(
+            currentState,
+            industry,
+            company,
+            product,
+          );
+
+          if (!isLatestRequest || !isCurrentSelection) {
+            if (isLatestRequest) {
+              set({ isLoadingSales: false });
+            }
+            return "ignored";
+          }
+
           set({
             salesDataError: err.message || "获取产品销量数据失败",
             productSalesData: null,
             isLoadingSales: false,
           });
-          return false;
+          return "failed";
         }
       },
 
       loadProductFieldOptions: async (industry, company, product) => {
+        const requestVersion = ++fieldOptionsRequestVersion;
         set({ isLoadingFields: true, productFieldsError: null });
         try {
           const fields = await getProductFieldOptions(industry, company, product);
-          set({ productFieldOptions: fields, isLoadingFields: false });
-          return true;
+          const currentState = get().state;
+          const isLatestRequest = requestVersion === fieldOptionsRequestVersion;
+          const isCurrentSelection = isMatchingProductSelection(
+            currentState,
+            industry,
+            company,
+            product,
+          );
+
+          if (!isLatestRequest || !isCurrentSelection) {
+            if (isLatestRequest) {
+              set({ isLoadingFields: false });
+            }
+            return "ignored";
+          }
+
+          set({
+            productFieldOptions: fields,
+            isLoadingFields: false,
+            productFieldsError: null,
+          });
+          return "success";
         } catch (err: any) {
+          const currentState = get().state;
+          const isLatestRequest = requestVersion === fieldOptionsRequestVersion;
+          const isCurrentSelection = isMatchingProductSelection(
+            currentState,
+            industry,
+            company,
+            product,
+          );
+
+          if (!isLatestRequest || !isCurrentSelection) {
+            if (isLatestRequest) {
+              set({ isLoadingFields: false });
+            }
+            return "ignored";
+          }
+
           set({
             productFieldsError: err.message || "获取产品字段信息失败",
             productFieldOptions: null,
             isLoadingFields: false,
           });
-          return false;
+          return "failed";
         }
       },
 

@@ -93,6 +93,8 @@ const PlanQuiz: React.FC = () => {
           quiz_about_plan_completed: true,
         },
         true,
+        false,
+        true,
       );
 
       // 导航到实验报告页面
