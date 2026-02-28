@@ -647,7 +647,7 @@ export async function completeProductionAndPlanQuiz(page: Page) {
   await expect(page.getByText("完整生产计划已生成")).toBeVisible({
     timeout: 120_000,
   });
-  await clickLastEnabledButton(page, /下一步：查看最终MPS表/);
+  await clickLastEnabledButton(page, /(查看最终MPS表|下一步：查看最终MPS表)/);
 
   await clickLastEnabledButton(page, /完成生产计划，进入测验/);
   await expectHashPath(page, "/quiz-plan");

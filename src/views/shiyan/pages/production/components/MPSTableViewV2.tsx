@@ -232,8 +232,8 @@ const MPSTableViewV2: React.FC = () => {
           </tr>
 
           {/* 第3期及以后 */}
-          {state.currentStep >= 6 && state.isFullPlanGenerated ? (
-            // Step 6: 显示完整生成的计划
+          {state.isFullPlanGenerated ? (
+            // 结果视图：显示完整生成的计划
             state.fullMPSTable.slice(2).map((row) => (
               <tr key={row.period} className="border-b border-gray-100 hover:bg-gray-50">
                 {isColumnVisible('period') && (

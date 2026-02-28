@@ -2,9 +2,12 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import type { ReactNode } from 'react';
 import type { CapacityMode, CapacityScenario } from './utils/productionCapacityHelper';
 import { validateAndFixStdDev } from './utils/predictionValidator';
-import { MPS_CALCULATION, DEFAULT_PARAMETERS } from './config/mpsConstants';
+import { DEFAULT_PARAMETERS } from './config/mpsConstants';
 import { retryAsync } from '../../../../utils/retryAsync';
-import type { MPSTableRow as GlobalMPSTableRow } from '../../contexts/ExperimentContext.zustand';
+import type {
+  ExperimentState,
+  MPSTableRow as GlobalMPSTableRow,
+} from '../../contexts/ExperimentContext.zustand';
 
 // MPS表格行接口
 export interface MPSTableRow {
@@ -35,9 +38,16 @@ export interface PeriodData {
 // 为了兼容性，保留Period2Data别名
 export type Period2Data = PeriodData;
 
+type PersistExperimentState = (
+  updates: Partial<ExperimentState>,
+  forceSync?: boolean,
+  skipSync?: boolean,
+  throwOnSyncError?: boolean,
+) => Promise<void>;
+
 // 生产计划状态接口
 export interface ProductionPlanState {
-  // 学习进度 (1-6)
+  // 学习进度 (1-5)
   currentStep: number;
   completedSteps: number[];
 
@@ -70,8 +80,8 @@ export interface ProductionPlanState {
   fullMPSTable: MPSTableRow[];
   isFullPlanGenerated: boolean;
 
-  // Step6教学内容是否已隐藏（用于全屏显示MPS表）
-  isStep6TeachingHidden: boolean;
+  // 完整计划表教学内容是否已隐藏（用于全屏显示MPS表）
+  isCompletePlanTeachingHidden: boolean;
 
   // 保存状态
   isSaving: boolean;
@@ -119,11 +129,15 @@ interface ProductionPlanContextValue {
   // 生成完整MPS表
   generateFullMPS: (predictions: Array<{ prediction: number; std_dev: number }>) => MPSTableRow[];
 
-  // Step6教学内容控制
-  hideStep6Teaching: () => void;
+  // 完整计划表教学内容控制
+  hideCompletePlanTeaching: () => void;
 
   // 保存MPS数据到全局状态（带重试机制）
-  saveMPSDataToGlobal: (updateStateFunc: Function, mpsTableOverride?: MPSTableRow[]) => Promise<void>;
+  saveMPSDataToGlobal: (
+    updateStateFunc: PersistExperimentState,
+    mpsTableOverride?: MPSTableRow[],
+    predictionsOverride?: Array<{ prediction: number; std_dev: number }>,
+  ) => Promise<void>;
 
   // 重置
   resetAll: () => void;
@@ -207,7 +221,7 @@ const getDefaultState = (
     fullMPSTable: [],
     isFullPlanGenerated: false,
 
-    isStep6TeachingHidden: false,
+    isCompletePlanTeachingHidden: false,
 
     // 保存状态
     isSaving: false,
@@ -241,7 +255,7 @@ export const ProductionPlanProvider: React.FC<{
   }, [initialModel, avgDemand]);
 
   const goToStep = (step: number) => {
-    if (step >= 1 && step <= 6) {
+    if (step >= 1 && step <= 5) {
       setState((prev) => ({ ...prev, currentStep: step }));
     }
   };
@@ -255,7 +269,7 @@ export const ProductionPlanProvider: React.FC<{
       return {
         ...prev,
         completedSteps: newCompletedSteps,
-        currentStep: Math.min(prev.currentStep + 1, 6),
+        currentStep: Math.min(prev.currentStep + 1, 5),
       };
     });
   };
@@ -355,8 +369,44 @@ export const ProductionPlanProvider: React.FC<{
   };
 
   const generateFullMPS = (predictions: Array<{ prediction: number; std_dev: number }>) => {
+    if (predictions.length < 2) {
+      throw new Error('预测数据不足，至少需要2期数据');
+    }
+
+    const requiredPeriod1Fields: Array<keyof PeriodData> = [
+      'demandForecast',
+      'plannedProduction',
+      'beginningInventory',
+      'productionOutput',
+      'endingInventory',
+      'stockout',
+      'serviceLevel',
+    ];
+    const requiredPeriod2Fields: Array<keyof Period2Data> = [
+      'demandForecast',
+      'safetyStock',
+      'plannedProduction',
+      'beginningInventory',
+      'productionOutput',
+      'endingInventory',
+      'stockout',
+      'serviceLevel',
+    ];
+
+    const missingPeriod1Fields = requiredPeriod1Fields.filter((field) => state.period1Data[field] == null);
+    const missingPeriod2Fields = requiredPeriod2Fields.filter((field) => state.period2Data[field] == null);
+
+    if (missingPeriod1Fields.length > 0) {
+      throw new Error(`期1数据不完整：缺少 ${missingPeriod1Fields.join(', ')}`);
+    }
+    if (missingPeriod2Fields.length > 0) {
+      throw new Error(`期2数据不完整：缺少 ${missingPeriod2Fields.join(', ')}`);
+    }
+
+    const totalPeriods = Math.min(state.forecastPeriods, predictions.length);
+
     console.log('🏭 ===== 开始生成完整MPS表 =====');
-    console.log(`📊 参数: 预测期数=${predictions.length}, 初始库存=${state.initialInventory}, 产能=${state.productionCapacity}, 服务水平目标=${state.targetServiceLevel}, Z值=${state.safetyStockZScore}`);
+    console.log(`📊 参数: 预测期数=${totalPeriods}, 初始库存=${state.initialInventory}, 产能=${state.productionCapacity}, 服务水平目标=${state.targetServiceLevel}, Z值=${state.safetyStockZScore}`);
     console.log('📋 Period1 数据:', state.period1Data);
     console.log('📋 Period2 数据:', state.period2Data);
 
@@ -398,7 +448,7 @@ export const ProductionPlanProvider: React.FC<{
     console.log(`📌 期2结束状态: 计划投入=${previousPlannedProduction}, 期末库存=${previousEndingInventory}, 缺货=${previousStockout}`);
 
     // 从期3开始循环（i=2对应期3）
-    for (let i = 2; i < predictions.length; i++) {
+    for (let i = 2; i < totalPeriods; i++) {
       const prediction = predictions[i];
       if (!prediction) continue;
 
@@ -409,8 +459,12 @@ export const ProductionPlanProvider: React.FC<{
       // 2. 计算本期库存、缺货、服务水平
       const beginningInventory = previousEndingInventory;
       const availableInventory = beginningInventory + productionOutput;
-      const demandForecast = Math.round(prediction.prediction);
-      const totalDemand = previousStockout + demandForecast; // 补上期缺货 + 本期需求
+      let demandForecast = Math.round(prediction.prediction);
+      if (!Number.isFinite(demandForecast) || demandForecast < 0) {
+        console.warn(`⚠️ 期 ${i + 1} 需求预测值异常(${prediction.prediction})，已修正为0`);
+        demandForecast = 0;
+      }
+      const totalDemand = previousStockout + demandForecast; // 期末累计需求 = 补上期缺货 + 本期需求
 
       let endingInventory = availableInventory - totalDemand;
       let stockout = 0;
@@ -418,9 +472,8 @@ export const ProductionPlanProvider: React.FC<{
         stockout = Math.abs(endingInventory);
         endingInventory = 0;
       }
-      // Corrected Service Level: Based on current period's demand and what was available for it.
-      const unmetCurrentDemand = Math.max(0, demandForecast - (beginningInventory + productionOutput));
-      const serviceLevel = demandForecast > 0 ? 1 - (unmetCurrentDemand / demandForecast) : 1.0;
+      // 服务水平口径与缺货口径一致：以“当期累计需求（含补上期缺货）”为分母，避免被高估
+      const serviceLevel = totalDemand > 0 ? Math.max(0, 1 - (stockout / totalDemand)) : 1.0;
 
 
       // 3. 计算本期投入量 (供下一期使用)
@@ -481,15 +534,19 @@ export const ProductionPlanProvider: React.FC<{
     return generatedTable;
   };
 
-  const hideStep6Teaching = () => {
+  const hideCompletePlanTeaching = () => {
     setState((prev) => ({
       ...prev,
-      isStep6TeachingHidden: true,
+      isCompletePlanTeachingHidden: true,
     }));
   };
 
   // 💾 保存MPS数据到全局状态（带重试机制）
-  const saveMPSDataToGlobal = async (updateStateFunc: Function, mpsTableOverride?: MPSTableRow[]) => {
+  const saveMPSDataToGlobal = async (
+    updateStateFunc: PersistExperimentState,
+    mpsTableOverride?: MPSTableRow[],
+    predictionsOverride?: Array<{ prediction: number; std_dev: number }>,
+  ) => {
     setState((prev) => ({
       ...prev,
       isSaving: true,
@@ -504,12 +561,16 @@ export const ProductionPlanProvider: React.FC<{
 
       // 如果提供了 mpsTableOverride，使用它；否则使用 currentState.fullMPSTable
       const mpsTableToSave = mpsTableOverride || currentState.fullMPSTable;
+      if (mpsTableToSave.length === 0) {
+        throw new Error('MPS表为空，无法保存');
+      }
 
       console.log('📊 使用的MPS表数据来源:', mpsTableOverride ? '直接传入' : 'stateRef');
       console.log('📊 完整MPS表数据（期1-' + mpsTableToSave.length + '）:', mpsTableToSave);
 
       // 转换MPS表格数据类型
       const globalMPSTable = convertToGlobalMPSTable(mpsTableToSave);
+      const predictionsToSave = predictionsOverride ?? currentState.predictions;
 
       // 使用重试机制保存数据（最多重试3次，指数退避）
       await retryAsync(
@@ -520,10 +581,14 @@ export const ProductionPlanProvider: React.FC<{
             production_initial_inventory: currentState.initialInventory,
             production_target_service_level: currentState.targetServiceLevel,
             production_safety_stock_z_score: currentState.safetyStockZScore,
-            production_forecast_results: currentState.predictions,
+            production_forecast_results: predictionsToSave && predictionsToSave.length > 0
+              ? predictionsToSave
+              : null,
             production_mps_table: globalMPSTable,
+            production_capacity_mode: currentState.capacityMode,
             production_capacity_scenario: currentState.capacityScenario,
             production_capacity: currentState.productionCapacity,
+            production_custom_capacity: currentState.customCapacity,
           }, true, false, true);
         },
         3, // 最多重试3次
@@ -545,7 +610,7 @@ export const ProductionPlanProvider: React.FC<{
       setState((prev) => ({
         ...prev,
         isSaving: false,
-        savingError: `保存失败: ${errorMessage}。数据将在您进入测验前再次尝试保存。`,
+        savingError: `保存失败: ${errorMessage}。请重试保存，成功后再进入测验。`,
         hasSavedToGlobal: false,
       }));
 
@@ -572,7 +637,7 @@ export const ProductionPlanProvider: React.FC<{
         updatePeriod2Data,
         savePredictions,
         generateFullMPS,
-        hideStep6Teaching,
+        hideCompletePlanTeaching,
         saveMPSDataToGlobal,
         resetAll,
       }}

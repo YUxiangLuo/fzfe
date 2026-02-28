@@ -72,7 +72,19 @@ export const validatePredictions = (
   let hasModifications = false;
 
   const validatedData = predictions.map((pred, index) => {
-    const demandForecast = Math.round(pred.prediction);
+    let normalizedPrediction = pred.prediction;
+
+    if (!isFinite(normalizedPrediction) || isNaN(normalizedPrediction)) {
+      allWarnings.push(`期 ${index + 1} 的prediction非法: ${pred.prediction}，使用0作为替代`);
+      normalizedPrediction = 0;
+      hasModifications = true;
+    } else if (normalizedPrediction < 0) {
+      allWarnings.push(`期 ${index + 1} 的prediction为负数: ${normalizedPrediction}，已修正为0`);
+      normalizedPrediction = 0;
+      hasModifications = true;
+    }
+
+    const demandForecast = Math.round(normalizedPrediction);
     const validationResult = validateAndFixStdDev(pred.std_dev, demandForecast, index);
 
     if (validationResult.warnings.length > 0) {
@@ -84,7 +96,7 @@ export const validatePredictions = (
     }
 
     return {
-      prediction: pred.prediction,
+      prediction: normalizedPrediction,
       std_dev: validationResult.value,
     };
   });

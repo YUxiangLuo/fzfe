@@ -69,27 +69,11 @@ const NewStep4: React.FC = () => {
       safetyStock: calculatedSafetyStock,
     });
 
-    // 同时填充第1期的安全库存（使用predictions[0]的标准差）
-    const period1Prediction = state.predictions?.[0];
-    if (period1Prediction) {
-      const period1Demand = state.period1Data.demandForecast ?? 0;
-
-      // 🛡️ 使用验证函数确保标准差有效
-      const validationResult = validateAndFixStdDev(
-        period1Prediction.std_dev,
-        period1Demand,
-        0 // 第1期索引为0
-      );
-
-      // 输出警告信息（如有）
-      validationResult.warnings.forEach(warning => {
-        console.warn(`⚠️ ${warning}`);
-      });
-
-      const period1SafetyStock = Math.round(state.safetyStockZScore * validationResult.value);
+    // 第1期是标准化参考期，安全库存固定为0，避免与“第一期预测量=需求量”的教学口径冲突。
+    if (state.period1Data.safetyStock !== 0) {
       fillPeriod1Data({
         ...state.period1Data,
-        safetyStock: period1SafetyStock,
+        safetyStock: 0,
       });
     }
   };

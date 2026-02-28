@@ -3,6 +3,7 @@ import { Factory, ArrowRight, Info, Loader2, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { apiClient } from '../../../../../utils/apiClient';
 import { MPS_CALCULATION, SERVICE_LEVELS, CAPACITY_CONFIG } from '../config/mpsConstants';
+import { validatePredictions } from '../utils/predictionValidator';
 
 // 固定预测期数为6期（不在UI显示）
 const FIXED_FORECAST_PERIODS = 6;
@@ -82,7 +83,13 @@ const NewStep1: React.FC = () => {
         throw new Error('预测API返回数据格式错误');
       }
 
-      const predictions = response.results.predictions;
+      const validation = validatePredictions(response.results.predictions);
+      validation.allWarnings.forEach(warning => console.warn(`⚠️ ${warning}`));
+
+      const predictions = validation.validatedData.slice(0, FIXED_FORECAST_PERIODS);
+      if (predictions.length < FIXED_FORECAST_PERIODS) {
+        throw new Error(`预测数据不足：期望 ${FIXED_FORECAST_PERIODS} 期，实际 ${predictions.length} 期`);
+      }
       if (predictions.length === 0) {
         throw new Error('预测API未返回任何数据');
       }
@@ -96,7 +103,7 @@ const NewStep1: React.FC = () => {
       savePredictions(predictions);
 
       // 🆕 使用预测值填充第一期的标准化参考数据
-      const period1Demand = Math.round(firstPrediction.prediction);
+      const period1Demand = Math.max(0, Math.round(firstPrediction.prediction));
 
       // 保存Period1数据到本地状态（用于显示）
       setPeriod1Data({
@@ -107,7 +114,7 @@ const NewStep1: React.FC = () => {
       // 填充到Context（按客户文档：第一月标准化处理）
       fillPeriod1Data({
         demandForecast: period1Demand, // 实际需求 = 预测值
-        safetyStock: null, // 安全库存在Step4才计算
+        safetyStock: 0, // 第1期标准化处理：安全库存固定为0
         plannedProduction: period1Demand, // 投入量 = 预测量（第一月预测量=需求预测，不含安全库存）
         beginningInventory: INITIAL_INVENTORY, // 期初库存 = 0（标准化基准）
         productionOutput: period1Demand, // 产出量 = 需求量（假设生产完全满足需求）

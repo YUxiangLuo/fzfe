@@ -87,7 +87,7 @@ const NewStep5: React.FC = () => {
       {/* 承上启下 */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-indigo-500 rounded-lg p-5">
         <p className="text-sm text-gray-700 leading-relaxed">
-          欢迎来到生产计划制定的<strong>最后一步</strong>。在之前的步骤中，我们已经详细讨论了<strong>需求量、产出量、库存量、缺货量、服务水平和预测量</strong>，并逐步构建了生产计划的核心框架。现在，我们将探讨<strong>投入量的计算方法</strong>，这是最终确定生产计划的重要一步。投入量直接决定了未来的产出量和整体生产安排。
+          欢迎来到生产计划制定的<strong>最后一个学习步骤</strong>。在之前的步骤中，我们已经详细讨论了<strong>需求量、产出量、库存量、缺货量、服务水平和预测量</strong>，并逐步构建了生产计划的核心框架。现在，我们将探讨<strong>投入量的计算方法</strong>，这是最终确定生产计划的重要一步。投入量直接决定了未来的产出量和整体生产安排。
         </p>
       </div>
 

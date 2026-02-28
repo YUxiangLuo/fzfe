@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, Loader2, AlertCircle, TrendingUp } from 'lucide-react';
+import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
+import { validatePredictions } from '../utils/predictionValidator';
 
 // 模型类型映射：前端模型ID -> 后端API参数
 const MODEL_TYPE_MAP: Record<string, string> = {
@@ -16,7 +17,7 @@ const MODEL_TYPE_MAP: Record<string, string> = {
 };
 
 /**
- * Step 6: 完整计划表
+ * 完整计划表（结果视图）
  *
  * 按照客户文档重构，教学结构：
  * - 目的与重要性
@@ -26,8 +27,8 @@ const MODEL_TYPE_MAP: Record<string, string> = {
  * - (4) 观察与分析完整生产计划表
  * - (5) 总结
  */
-const NewStep6: React.FC = () => {
-  const { state, generateFullMPS, hideStep6Teaching, saveMPSDataToGlobal, completeCurrentStep } = useProductionPlan();
+const CompletePlanView: React.FC = () => {
+  const { state, generateFullMPS, hideCompletePlanTeaching, saveMPSDataToGlobal } = useProductionPlan();
   const { updateState } = useExperiment();
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -53,16 +54,21 @@ const NewStep6: React.FC = () => {
     try {
       // 🆕 优先使用Step1中已保存的预测数据
       if (state.predictions && state.predictions.length > 0) {
-        console.log('✅ 使用Step1中已保存的预测数据:', state.predictions);
+        const validation = validatePredictions(state.predictions);
+        validation.allWarnings.forEach(warning => console.warn(`⚠️ ${warning}`));
+        const predictionsToUse = validation.validatedData.slice(0, state.forecastPeriods);
+        if (predictionsToUse.length < state.forecastPeriods) {
+          throw new Error(`预测数据不足：期望 ${state.forecastPeriods} 期，实际 ${predictionsToUse.length} 期`);
+        }
+
+        console.log('✅ 使用Step1中已保存的预测数据:', predictionsToUse);
         // 添加1秒虚拟loading
         await new Promise(resolve => setTimeout(resolve, 1000));
-        const generatedTable = generateFullMPS(state.predictions);
+        const generatedTable = generateFullMPS(predictionsToUse);
 
         // 立即保存生成的表格到全局状态
         console.log('📤 立即保存生成的MPS表到全局状态...');
-        saveMPSDataToGlobal(updateState, generatedTable).catch((err) => {
-          console.error('保存MPS数据失败:', err);
-        });
+        await saveMPSDataToGlobal(updateState, generatedTable, predictionsToUse);
       } else {
         // 如果没有保存的预测数据，则调用API获取
         console.log('📌 使用的最佳模型:', state.selectedBestModel);
@@ -83,18 +89,22 @@ const NewStep6: React.FC = () => {
         });
 
         if (response.status === 'success' && response.results?.predictions) {
-          console.log('🔍 API返回的预测数据:', response.results.predictions);
+          const validation = validatePredictions(response.results.predictions);
+          validation.allWarnings.forEach(warning => console.warn(`⚠️ ${warning}`));
+          const predictionsToUse = validation.validatedData.slice(0, state.forecastPeriods);
+          if (predictionsToUse.length < state.forecastPeriods) {
+            throw new Error(`预测数据不足：期望 ${state.forecastPeriods} 期，实际 ${predictionsToUse.length} 期`);
+          }
+          console.log('🔍 API返回的预测数据:', predictionsToUse);
 
           // 添加1秒虚拟loading
           await new Promise(resolve => setTimeout(resolve, 1000));
           // 生成完整MPS表
-          const generatedTable = generateFullMPS(response.results.predictions);
+          const generatedTable = generateFullMPS(predictionsToUse);
 
           // 立即保存生成的表格到全局状态
           console.log('📤 立即保存生成的MPS表到全局状态...');
-          saveMPSDataToGlobal(updateState, generatedTable).catch((err) => {
-            console.error('保存MPS数据失败:', err);
-          });
+          await saveMPSDataToGlobal(updateState, generatedTable, predictionsToUse);
         } else {
           throw new Error('预测API返回数据格式错误');
         }
@@ -143,8 +153,8 @@ const NewStep6: React.FC = () => {
           <CheckCircle className="w-6 h-6 text-white" />
         </div>
         <div>
-          <h3 className="text-xl font-bold text-gray-900">第6步：完整计划表</h3>
-          <p className="text-sm text-green-600">Complete Plan</p>
+          <h3 className="text-xl font-bold text-gray-900">完整计划表与分析</h3>
+          <p className="text-sm text-green-600">Complete Plan View</p>
         </div>
       </div>
 
@@ -297,7 +307,7 @@ const NewStep6: React.FC = () => {
           <div className="bg-white border-2 border-indigo-200 rounded-lg p-5">
             <h4 className="font-semibold text-gray-800 mb-3">(3) 生成完整生产计划表的步骤</h4>
             <p className="text-sm text-gray-700 mb-3">
-              点击下一步后，你将看到一张完整的生产计划表，其中展示了整个预测时段内的各项关键数据。这张表格将包括：
+              点击下方“查看最终MPS表”后，你将看到一张完整的生产计划表，其中展示了整个预测时段内的各项关键数据。这张表格将包括：
             </p>
             <div className="grid md:grid-cols-2 gap-3">
               <div className="bg-indigo-50 border border-indigo-200 rounded p-3">
@@ -380,7 +390,7 @@ const NewStep6: React.FC = () => {
               ) : summary.avgServiceLevel >= 0.95 ? (
                 <li>⚠️ <strong>接近目标但有提升空间</strong>：服务水平{(summary.avgServiceLevel * 100).toFixed(1)}%，离目标99%还有差距，考虑提高产能</li>
               ) : (
-                <li>❌ <strong>服务水平较低</strong>：建议增加产能约束或优化生产计划</li>
+                <li>❌ <strong>服务水平较低</strong>：建议提升产能上限或优化投入策略</li>
               )}
               {summary.periodsWithStockout > 0 ? (
                 <li>• <strong>{summary.periodsWithStockout}期发生缺货</strong>：这些时期的需求超过了可用库存</li>
@@ -396,7 +406,7 @@ const NewStep6: React.FC = () => {
             <h4 className="font-semibold text-green-900 mb-3">🎓 恭喜！您已完成生产计划学习</h4>
             <div className="text-sm text-green-800 space-y-3">
               <p>
-                接下来，请点击下方"下一步"按钮，<strong>全屏查看完整的生产计划表</strong>，并通过观察和分析这张表格，进一步巩固所学的知识。
+                接下来，请点击下方"查看最终MPS表"按钮，<strong>全屏查看完整的生产计划表</strong>，并通过观察和分析这张表格，进一步巩固所学的知识。
               </p>
               <p className="font-semibold">
                 教学内容将隐藏，MPS表格将全屏显示所有{summary.totalPeriods}期的详细信息。
@@ -404,19 +414,17 @@ const NewStep6: React.FC = () => {
             </div>
           </div>
 
-          {/* 下一步按钮 */}
+          {/* 进入完整视图 */}
           <div className="flex justify-center pt-4">
             <button
               type="button"
               onClick={() => {
-                hideStep6Teaching();
-                // 标记step6为完成（production_plan_completed已在saveMPSDataToGlobal中设置）
-                completeCurrentStep();
+                hideCompletePlanTeaching();
               }}
               className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-lg"
             >
               <CheckCircle className="w-5 h-5" />
-              <span>下一步：查看最终MPS表</span>
+              <span>查看最终MPS表</span>
             </button>
           </div>
         </div>
@@ -437,4 +445,4 @@ const NewStep6: React.FC = () => {
   );
 };
 
-export default NewStep6;
+export default CompletePlanView;

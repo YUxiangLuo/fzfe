@@ -11,7 +11,7 @@ import NewStep2 from './steps_v2/NewStep2';
 import NewStep3 from './steps_v2/NewStep3';
 import NewStep4 from './steps_v2/NewStep4';
 import NewStep5 from './steps_v2/NewStep5';
-import NewStep6 from './steps_v2/NewStep6';
+import CompletePlanView from './steps_v2/CompletePlanView';
 
 const ProductionPlanContent: React.FC = () => {
   const navigate = useNavigate();
@@ -32,12 +32,19 @@ const ProductionPlanContent: React.FC = () => {
     { id: 3, title: '服务水平', component: NewStep3 },
     { id: 4, title: '预测量', component: NewStep4 },
     { id: 5, title: '投入量', component: NewStep5 },
-    { id: 6, title: '完整计划表', component: NewStep6 },
   ];
 
-  const CurrentStepComponent = steps[state.currentStep - 1]?.component || NewStep1;
+  const shouldShowCompletePlanTeaching =
+    state.currentStep === 5 && state.completedSteps.includes(5);
+  const CurrentStepComponent = shouldShowCompletePlanTeaching
+    ? CompletePlanView
+    : steps[state.currentStep - 1]?.component || NewStep1;
+
+  const completedCount = steps.filter((step) => state.completedSteps.includes(step.id)).length;
+  const progressRatio = Math.min(1, completedCount / steps.length);
 
   const getStepStatus = (stepId: number) => {
+    if (shouldShowCompletePlanTeaching && stepId === state.currentStep) return 'current';
     if (state.completedSteps.includes(stepId)) return 'completed';
     if (stepId === state.currentStep) return 'current';
     if (stepId < state.currentStep) return 'available';
@@ -68,6 +75,7 @@ const ProductionPlanContent: React.FC = () => {
       // 避免在保存进行中提前进入测验，防止出现“未保存即跳转”的竞态。
       if (state.isSaving) {
         console.log('⏳ MPS数据仍在保存中，请稍后重试进入测验');
+        showToast('数据仍在保存中，请稍候再进入测验', 'info');
         return;
       }
 
@@ -78,9 +86,9 @@ const ProductionPlanContent: React.FC = () => {
           await saveMPSDataToGlobal(updateState);
           console.log('✅ MPS保存成功');
         } catch (retryErr) {
-          console.error('⚠️ 保存失败，但将继续进入测验:', retryErr);
-          showToast('生产计划数据保存失败，但您可以继续进入测验', 'error');
-          // 继续执行，不阻止用户进入测验
+          console.error('❌ 保存失败，已阻止进入测验:', retryErr);
+          showToast('生产计划数据保存失败，请重试后再进入测验', 'error');
+          return;
         }
       }
 
@@ -88,13 +96,12 @@ const ProductionPlanContent: React.FC = () => {
       await updateState({
         highest_completed_step: 7,
         current_step: 7,
-      });
+      }, true, false, true);
       console.log('✅ 步骤进度已更新');
       navigate(nextRoute);
     } catch (err) {
       console.error('更新步骤进度失败:', err);
-      // 即使失败也继续导航
-      navigate(nextRoute);
+      showToast('步骤进度更新失败，请稍后重试', 'error');
     }
   };
 
@@ -119,13 +126,13 @@ const ProductionPlanContent: React.FC = () => {
           <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
             <span>学习进度</span>
             <span className="font-semibold text-blue-600">
-              {state.completedSteps.length} / {steps.length} 完成
+              {completedCount} / {steps.length} 完成
             </span>
           </div>
           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500 ease-out"
-              style={{ width: `${(state.completedSteps.length / steps.length) * 100}%` }}
+              style={{ width: `${progressRatio * 100}%` }}
             />
           </div>
         </div>
@@ -148,8 +155,8 @@ const ProductionPlanContent: React.FC = () => {
       </div>
 
       {/* 下方：概念学习 + MPS表格 */}
-      {state.currentStep === 6 && state.isStep6TeachingHidden ? (
-        // Step6教学内容已隐藏：全屏显示MPS表格 + 完成按钮
+      {shouldShowCompletePlanTeaching && state.isCompletePlanTeachingHidden ? (
+        // 完整计划表教学内容已隐藏：全屏显示MPS表格 + 完成按钮
         <div className="flex-1 min-h-0 overflow-hidden">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full flex flex-col">
             <div className="mb-4 flex-shrink-0">

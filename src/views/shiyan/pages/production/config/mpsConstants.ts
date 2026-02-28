@@ -100,7 +100,7 @@ export const CAPACITY_CONFIG = {
 
   /**
    * 产能场景倍数
-   * 用于实际MPS计算（Step6及后续）
+   * 用于完整MPS计算（结果视图及后续）
    */
   SCENARIOS: {
     TIGHT: {

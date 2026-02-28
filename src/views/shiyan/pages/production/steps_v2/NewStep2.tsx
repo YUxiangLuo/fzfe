@@ -53,7 +53,11 @@ const NewStep2: React.FC = () => {
     setIsLoadingPrediction(true);
     // 添加1秒虚拟loading
     await new Promise(resolve => setTimeout(resolve, 1000));
-    const demand = Math.round(period2Prediction.prediction);
+    let demand = Math.round(period2Prediction.prediction);
+    if (!Number.isFinite(demand) || demand < 0) {
+      console.warn(`⚠️ 第2期预测需求异常(${period2Prediction.prediction})，已修正为0`);
+      demand = 0;
+    }
     setPeriod2DemandValue(demand);
     setIsPeriod2Loaded(true);
     setIsLoadingPrediction(false);

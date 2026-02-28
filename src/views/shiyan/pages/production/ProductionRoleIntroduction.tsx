@@ -172,9 +172,9 @@ const ProductionRoleIntroduction: React.FC = () => {
                       3
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-purple-900 text-sm mb-1">预测量确定</h4>
+                      <h4 className="font-semibold text-purple-900 text-sm mb-1">服务水平评估</h4>
                       <p className="text-xs text-gray-700 leading-relaxed">
-                        应用需求预测结果，计算安全库存和预测需求量
+                        基于需求与缺货计算服务水平，判断计划是否满足目标
                       </p>
                     </div>
                   </div>
@@ -183,9 +183,9 @@ const ProductionRoleIntroduction: React.FC = () => {
                       4
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-purple-900 text-sm mb-1">投入量决策</h4>
+                      <h4 className="font-semibold text-purple-900 text-sm mb-1">预测量确定</h4>
                       <p className="text-xs text-gray-700 leading-relaxed">
-                        确定实际生产投入量，生成完整的主生产计划
+                        应用需求预测结果，计算安全库存和预测需求量
                       </p>
                     </div>
                   </div>
@@ -194,11 +194,16 @@ const ProductionRoleIntroduction: React.FC = () => {
                       5
                     </div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-purple-900 text-sm mb-1">完整计划表</h4>
+                      <h4 className="font-semibold text-purple-900 text-sm mb-1">投入量决策</h4>
                       <p className="text-xs text-gray-700 leading-relaxed">
-                        查看和分析完整的MPS，评估计划的合理性
+                        确定实际生产投入量，完成学习步骤
                       </p>
                     </div>
+                  </div>
+                  <div className="rounded-lg border border-purple-200 bg-white/60 p-3">
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      完成以上 5 个学习步骤后，系统会自动生成完整 MPS 结果表供您查看与分析。
+                    </p>
                   </div>
                 </div>
               </div>
