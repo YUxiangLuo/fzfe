@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
@@ -34,15 +34,13 @@ const CompletePlanView: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const generationTriggeredRef = useRef(false);
-
-  // 自动生成完整计划（仅执行一次）
+  // 自动生成完整计划（未生成且不在错误状态时自动执行）
   useEffect(() => {
-    if (!generationTriggeredRef.current && !state.isFullPlanGenerated) {
-      generationTriggeredRef.current = true;
+    if (!state.isFullPlanGenerated && !isGenerating && !error) {
       handleGenerate();
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.isFullPlanGenerated]);
 
   // 💾 保存逻辑已移至 handleGenerate 中，在生成表格后立即保存
   // 不再需要这个 useEffect
@@ -210,9 +208,11 @@ const CompletePlanView: React.FC = () => {
           <button
             type="button"
             onClick={handleGenerate}
-            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            disabled={isGenerating}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            重试
+            {isGenerating && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isGenerating ? '重试中...' : '重试'}
           </button>
         </div>
       )}
