@@ -319,7 +319,7 @@ const HistoricalData: React.FC = () => {
       await updateState({
         highest_completed_step: CURRENT_STEP,
         current_step: NEXT_STEP,
-      }, false, false, true);
+      }, { throwOnSyncError: true });
       navigate(PATHS.NEXT);
     } catch (error) {
       console.error('Failed to update step state:', error);

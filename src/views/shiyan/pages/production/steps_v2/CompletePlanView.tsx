@@ -46,6 +46,7 @@ const CompletePlanView: React.FC = () => {
   // 不再需要这个 useEffect
 
   const handleGenerate = async () => {
+    if (isGenerating) return;
     setIsGenerating(true);
     setError(null);
 
@@ -238,7 +239,7 @@ const CompletePlanView: React.FC = () => {
               <div className="text-sm font-semibold text-amber-900">数据保存遇到问题</div>
               <div className="text-sm text-amber-800 mt-1">{state.savingError}</div>
               <div className="text-xs text-amber-700 mt-2">
-                💡 您仍可以查看和分析生产计划表。点击"完成"按钮时会自动重试保存。
+                💡 您仍可以查看和分析生产计划表。请重试保存，成功后再进入测验。
               </div>
             </div>
           </div>

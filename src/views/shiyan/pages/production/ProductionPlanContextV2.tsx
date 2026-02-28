@@ -40,9 +40,7 @@ export type Period2Data = PeriodData;
 
 type PersistExperimentState = (
   updates: Partial<ExperimentState>,
-  forceSync?: boolean,
-  skipSync?: boolean,
-  throwOnSyncError?: boolean,
+  options?: { forceSync?: boolean; skipSync?: boolean; throwOnSyncError?: boolean },
 ) => Promise<void>;
 
 // 生产计划状态接口
@@ -373,6 +371,7 @@ export const ProductionPlanProvider: React.FC<{
       throw new Error('预测数据不足，至少需要2期数据');
     }
 
+    // Period1 是标准化基准期，安全库存固定为 0，因此不校验 safetyStock
     const requiredPeriod1Fields: Array<keyof PeriodData> = [
       'demandForecast',
       'plannedProduction',
@@ -589,7 +588,7 @@ export const ProductionPlanProvider: React.FC<{
             production_capacity_scenario: currentState.capacityScenario,
             production_capacity: currentState.productionCapacity,
             production_custom_capacity: currentState.customCapacity,
-          }, true, false, true);
+          }, { forceSync: true, throwOnSyncError: true });
         },
         3, // 最多重试3次
         1000 // 初始延迟1秒

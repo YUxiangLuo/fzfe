@@ -157,7 +157,7 @@ const LSTMStepper: React.FC = () => {
           lstm_metrics_rmse: apiResults.metrics.rmse,
           lstm_metrics_mae: apiResults.metrics.mae,
           lstm_metrics_r2: apiResults.metrics.r2,
-        }, true);
+        }, { forceSync: true });
       } else {
         throw new Error(response.message || "计算失败，请重试...");
       }
@@ -217,7 +217,7 @@ const LSTMStepper: React.FC = () => {
 
   const handleNext = async () => {
     if (currentStep?.id === 'preprocessing') {
-      await updateState({ lstm_normalization: normalization }, true);
+      await updateState({ lstm_normalization: normalization }, { forceSync: true });
       const nextStep = STEPS[BUILD_STEP_INDEX];
       if (nextStep) navigate(nextStep.path);
       return;
@@ -230,7 +230,7 @@ const LSTMStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'results') {
-      await updateState({ lstm_completed: true }, true);
+      await updateState({ lstm_completed: true }, { forceSync: true });
       navigate(COMPARISON_PATH);
       return;
     }

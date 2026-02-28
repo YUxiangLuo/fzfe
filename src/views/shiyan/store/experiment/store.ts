@@ -81,6 +81,12 @@ const addToast = (message: string, type: "success" | "error" | "info") => {
   toastEventBus.emit({ message, type });
 };
 
+export interface UpdateStateOptions {
+  forceSync?: boolean;
+  skipSync?: boolean;
+  throwOnSyncError?: boolean;
+}
+
 export interface ExperimentStore {
   state: ExperimentState;
   loading: boolean;
@@ -99,9 +105,7 @@ export interface ExperimentStore {
   setTrainingLock: (isLocked: boolean, lockPath?: string | null) => void;
   updateState: (
     updates: Partial<ExperimentState>,
-    forceSync?: boolean,
-    skipSync?: boolean,
-    throwOnSyncError?: boolean,
+    options?: UpdateStateOptions,
   ) => Promise<void>;
   handleIndustryChange: (selected_industry: string) => Promise<void>;
   handleCompanyChange: (selected_company: string) => Promise<void>;
@@ -225,7 +229,8 @@ export const useExperimentStore = create<ExperimentStore>()(
         await fetchState();
       },
 
-      updateState: async (updates, forceSync = false, skipSync = false, throwOnSyncError = false) => {
+      updateState: async (updates, options = {}) => {
+        const { forceSync = false, skipSync = false, throwOnSyncError = false } = options;
         logger.action("updateState", { updates, forceSync, skipSync, throwOnSyncError });
         const previousState = get().state;
         const currentUpdateVersion = ++stateUpdateVersion;
@@ -337,7 +342,7 @@ export const useExperimentStore = create<ExperimentStore>()(
             productFieldsError: null,
           });
 
-          await get().updateState(newState, true, false, true);
+          await get().updateState(newState, { forceSync: true, throwOnSyncError: true });
         } finally {
           set({ isSubmitting: false });
         }
@@ -364,7 +369,7 @@ export const useExperimentStore = create<ExperimentStore>()(
             productFieldsError: null,
           });
 
-          await get().updateState(newState, true, false, true);
+          await get().updateState(newState, { forceSync: true, throwOnSyncError: true });
         } finally {
           set({ isSubmitting: false });
         }
@@ -390,7 +395,7 @@ export const useExperimentStore = create<ExperimentStore>()(
             productFieldsError: null,
           });
 
-          await get().updateState(newState, true, false, true);
+          await get().updateState(newState, { forceSync: true, throwOnSyncError: true });
         } finally {
           set({ isSubmitting: false });
         }
@@ -407,7 +412,7 @@ export const useExperimentStore = create<ExperimentStore>()(
           });
           newState.highest_completed_step = STEPS.DATA_WINDOW;
           newState.current_step = STEPS.MODEL;
-          await get().updateState(newState, true, false, true);
+          await get().updateState(newState, { forceSync: true, throwOnSyncError: true });
         } finally {
           set({ isSubmitting: false });
         }
@@ -420,7 +425,7 @@ export const useExperimentStore = create<ExperimentStore>()(
           const newState: ExperimentState = { ...currentState };
           newState.highest_completed_step = STEPS.MODEL;
           newState.current_step = STEPS.EVALUATION;
-          await get().updateState(newState, true, false, true);
+          await get().updateState(newState, { forceSync: true, throwOnSyncError: true });
         } finally {
           set({ isSubmitting: false });
         }
@@ -434,7 +439,7 @@ export const useExperimentStore = create<ExperimentStore>()(
           resetProductionPlanFields(newState);
           newState.highest_completed_step = STEPS.EVALUATION;
           newState.current_step = STEPS.PRODUCTION;
-          await get().updateState(newState, true, false, true);
+          await get().updateState(newState, { forceSync: true, throwOnSyncError: true });
         } finally {
           set({ isSubmitting: false });
         }
@@ -706,7 +711,7 @@ export const useExperimentStore = create<ExperimentStore>()(
         logger.action("createNewExperiment");
         try {
           const newState = await createExperimentState();
-          await get().updateState(newState, false, true);
+          await get().updateState(newState, { skipSync: true });
           logger.stateChange("createNewExperiment", {}, newState);
         } catch (error) {
           logger.error("createNewExperiment", error);

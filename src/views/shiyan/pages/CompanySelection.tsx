@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
+import { toastEventBus } from '../utils/toastEventBus';
 import { Building, ArrowRight } from 'lucide-react';
 import { getCompanies } from '../services/datasets';
 import { useConfirm } from '../shared/contexts/ConfirmContext';
@@ -84,6 +85,7 @@ const CompanySelection: React.FC = () => {
         await handleCompanyChange(localCompany);
       } catch (error) {
         console.error('更新企业选择失败:', error);
+        toastEventBus.error('更新企业选择失败，请稍后重试');
         return;
       }
     }

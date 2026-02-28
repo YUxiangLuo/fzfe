@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext.zustand';
+import { toastEventBus } from '../utils/toastEventBus';
 import { useStepStartRecorder } from '../hooks/useStepStartRecorder';
 import { STEPS } from '../constants/steps';
 
@@ -26,6 +27,7 @@ const ResultEvaluation: React.FC = () => {
         await handleBestModelChange(selectedBestModel);
       } catch (error) {
         console.error('保存最优模型失败:', error);
+        toastEventBus.error('保存最优模型失败，请稍后重试');
         return;
       }
     }

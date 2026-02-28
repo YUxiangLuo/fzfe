@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
+import { toastEventBus } from '../../utils/toastEventBus';
 import { AlertTriangle, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { MonthlySalesRecord } from '../../data/historicalDatasets';
 import { useConfirm } from '../../shared/contexts/ConfirmContext';
@@ -319,6 +320,7 @@ const DataWindowSelection: React.FC = () => {
           await handleDataWindowChange(dataWindowPayload);
         } catch (error) {
           console.error('更新数据窗口失败:', error);
+          toastEventBus.error('更新数据窗口失败，请稍后重试');
           return;
         }
     }

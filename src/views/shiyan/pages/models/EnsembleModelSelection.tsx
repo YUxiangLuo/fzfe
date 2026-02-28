@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
+import { toastEventBus } from '../../utils/toastEventBus';
 import Button from "../../shared/components/common/Button";
 import {
   Scale,
@@ -72,6 +73,7 @@ const EnsembleModelSelection: React.FC = () => {
         await handleEnterEvaluation();
       } catch (error) {
         console.error('更新评估步骤失败:', error);
+        toastEventBus.error('更新评估步骤失败，请稍后重试');
         return;
       }
       navigate('/evaluation');

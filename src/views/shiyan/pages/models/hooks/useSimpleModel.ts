@@ -113,7 +113,7 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
           [config.stateKeys.metricsRmse]: apiResults.metrics.rmse,
           [config.stateKeys.metricsMae]: apiResults.metrics.mae,
           [config.stateKeys.metricsR2]: apiResults.metrics.r2,
-        }, true);
+        }, { forceSync: true });
       } else {
         throw new Error(result.message || "模型计算返回失败状态");
       }
@@ -143,7 +143,7 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
 
   // Mark model as completed
   const markAsCompleted = useCallback(async () => {
-    await updateState({ [config.stateKeys.completed]: true }, true);
+    await updateState({ [config.stateKeys.completed]: true }, { forceSync: true });
   }, [config.stateKeys.completed, updateState]);
 
   const handleRetry = useCallback(() => {

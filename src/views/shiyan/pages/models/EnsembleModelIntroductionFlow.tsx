@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
+import { toastEventBus } from '../../utils/toastEventBus';
 import {
   Scale,
   Sparkles,
@@ -302,10 +303,11 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
     } else if (view === 'selection') {
       if (selectedModels.length >= 1) {
         try {
-          await updateState({ selected_ensemble_models: selectedModels }, true, false, true);
+          await updateState({ selected_ensemble_models: selectedModels }, { forceSync: true, throwOnSyncError: true });
           navigate('/model/ensemble-select');
         } catch (error) {
           console.error('保存融合模型选择失败:', error);
+          toastEventBus.error('保存融合模型选择失败，请稍后重试');
         }
       }
     }

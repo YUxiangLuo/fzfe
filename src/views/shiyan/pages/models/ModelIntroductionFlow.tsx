@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
+import { toastEventBus } from '../../utils/toastEventBus';
 import {
   LineChart,
   ChartSpline,
@@ -361,10 +362,11 @@ const ModelIntroductionFlow: React.FC = () => {
     } else if (view === 'selection') {
       if (selectedModels.length >= 2) {
         try {
-          await updateState({ selected_base_models: selectedModels }, true, false, true);
+          await updateState({ selected_base_models: selectedModels }, { forceSync: true, throwOnSyncError: true });
           navigate('/model/model-select');
         } catch (error) {
           console.error('保存基础模型选择失败:', error);
+          toastEventBus.error('保存基础模型选择失败，请稍后重试');
         }
       }
     }

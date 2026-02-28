@@ -162,7 +162,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
           [config.stateKey.metricsRmse]: apiResults.metrics.rmse,
           [config.stateKey.metricsMae]: apiResults.metrics.mae,
           [config.stateKey.metricsR2]: apiResults.metrics.r2,
-        }, true);
+        }, { forceSync: true });
       } else {
         throw new Error(result.message || "模型训练失败。");
       }
@@ -201,7 +201,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
 
   // Mark model as completed
   const markAsCompleted = useCallback(async () => {
-    await updateState({ [config.stateKey.completed]: true }, true);
+    await updateState({ [config.stateKey.completed]: true }, { forceSync: true });
   }, [config.stateKey.completed, updateState]);
 
   const handleRetry = useCallback(() => {

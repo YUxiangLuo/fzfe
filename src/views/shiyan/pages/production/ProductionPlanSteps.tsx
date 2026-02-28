@@ -96,7 +96,7 @@ const ProductionPlanContent: React.FC = () => {
       await updateState({
         highest_completed_step: 7,
         current_step: 7,
-      }, true, false, true);
+      }, { forceSync: true, throwOnSyncError: true });
       console.log('✅ 步骤进度已更新');
       navigate(nextRoute);
     } catch (err) {
