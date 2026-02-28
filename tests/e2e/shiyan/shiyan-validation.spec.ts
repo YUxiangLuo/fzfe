@@ -70,9 +70,16 @@ test("@shiyan 测验与报告表单校验", async ({ page }) => {
   await expect(page.getByText("内容不完整")).toBeVisible();
 
   // Close the modal
-  const closeBtn = page.getByRole("button", { name: /知道了|关闭|确定/ });
+  const validationModal = page
+    .locator("div.fixed.inset-0")
+    .filter({ hasText: "内容不完整" })
+    .first();
+  const closeBtn = validationModal
+    .getByRole("button", { name: /返回修改|知道了|关闭|确定/ })
+    .first();
   if (await closeBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
     await closeBtn.click();
+    await expect(validationModal).toBeHidden();
   }
 
   // ── Report: fill with valid content and submit ───────────────────

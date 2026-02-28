@@ -5,30 +5,26 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FE_DIR = __dirname;
 const BE_DIR = path.resolve(__dirname, "../be");
-const E2E_BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? "3101");
+const E2E_BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? "54102");
 const E2E_BACKEND_ORIGIN = process.env.E2E_BACKEND_ORIGIN ?? `http://127.0.0.1:${E2E_BACKEND_PORT}`;
-const RUNNING_SHIYAN_SUITE = process.argv.slice(2).some(
-  (arg) =>
-    arg.includes("@shiyan") ||
-    arg.includes("tests/e2e/shiyan") ||
-    arg.includes("/shiyan/"),
-);
+const E2E_FRONTEND_PORT = Number(process.env.E2E_FRONTEND_PORT ?? "55102");
+const E2E_FRONTEND_ORIGIN = process.env.E2E_FRONTEND_ORIGIN ?? `http://127.0.0.1:${E2E_FRONTEND_PORT}`;
 
 export default defineConfig({
-  testDir: path.resolve(FE_DIR, "tests/e2e"),
+  testDir: path.resolve(FE_DIR, "tests/e2e/teacher"),
   testMatch: "**/*.spec.ts",
   fullyParallel: false,
-  workers: RUNNING_SHIYAN_SUITE ? 1 : undefined,
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   timeout: 90_000,
   expect: {
     timeout: 15_000,
   },
-  reporter: [["list"], ["html", { open: "never" }]],
-  outputDir: "test-results",
-  globalSetup: path.resolve(FE_DIR, "tests/e2e/admin/global-setup.ts"),
+  reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report/teacher" }]],
+  outputDir: "test-results/teacher",
+  globalSetup: path.resolve(FE_DIR, "tests/e2e/setup/global-setup.teacher.ts"),
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: E2E_FRONTEND_ORIGIN,
     headless: true,
     trace: "retain-on-failure",
     video: "retain-on-failure",
@@ -36,7 +32,7 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "admin-chromium",
+      name: "teacher-suite-chromium",
       use: {
         browserName: "chromium",
       },
@@ -55,9 +51,9 @@ export default defineConfig({
       },
     },
     {
-      command: "bun run dev -- --host 127.0.0.1 --port 3000",
+      command: `bun run dev -- --host 127.0.0.1 --port ${E2E_FRONTEND_PORT}`,
       cwd: FE_DIR,
-      port: 3000,
+      port: E2E_FRONTEND_PORT,
       timeout: 120_000,
       reuseExistingServer: !process.env.CI,
       env: {

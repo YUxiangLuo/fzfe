@@ -183,35 +183,44 @@ const GradesOverview: React.FC = () => {
         );
     }, [grades, searchTerm]);
 
+    const gradedGrades = useMemo(
+        () => grades.filter(g => g.report_status === 'graded' && g.final_score !== null),
+        [grades],
+    );
+
+    const gradedFilteredGrades = useMemo(
+        () => filteredGrades.filter(g => g.report_status === 'graded' && g.final_score !== null),
+        [filteredGrades],
+    );
+
     // Statistics for single class
     const singleClassStats = useMemo(() => {
-        const validGrades = grades.filter(g => g.final_score !== null);
         const total = grades.length;
-        const graded = validGrades.length;
+        const graded = gradedGrades.length;
         const avgScore = graded > 0
-            ? validGrades.reduce((sum, g) => sum + (g.final_score || 0), 0) / graded
+            ? gradedGrades.reduce((sum, g) => sum + (g.final_score || 0), 0) / graded
             : 0;
         const maxScore = graded > 0
-            ? Math.max(...validGrades.map(g => g.final_score || 0))
+            ? Math.max(...gradedGrades.map(g => g.final_score || 0))
             : 0;
         const minScore = graded > 0
-            ? Math.min(...validGrades.map(g => g.final_score || 0))
+            ? Math.min(...gradedGrades.map(g => g.final_score || 0))
             : 0;
 
         return { total, graded, avgScore, maxScore, minScore };
-    }, [grades]);
+    }, [grades, gradedGrades]);
 
     // Score distribution for single class
     const distribution = useMemo(() => {
         const result = { excellent: 0, good: 0, average: 0, pass: 0, fail: 0 };
-        grades.forEach(g => {
+        gradedGrades.forEach(g => {
             const level = getScoreLevel(g.final_score);
             if (level !== 'none') {
                 result[level as keyof typeof result]++;
             }
         });
         return result;
-    }, [grades]);
+    }, [gradedGrades]);
 
     // Format score
     const formatScore = (score: number | null): string => {
@@ -230,7 +239,7 @@ const GradesOverview: React.FC = () => {
 
     // Chart data calculations
     const chartData = useMemo(() => {
-        const graded = filteredGrades.filter(g => g.final_score !== null);
+        const graded = gradedFilteredGrades;
 
         // Trend data (sorted by final score)
         const trendData = [...graded]
@@ -271,16 +280,16 @@ const GradesOverview: React.FC = () => {
             { subject: '实验报告', A: 0, fullMark: 100 },
         ];
 
-        const expFlowScores = filteredGrades
+        const expFlowScores = gradedFilteredGrades
             .map(g => g.exp_flow_score)
             .filter((s): s is number => s !== null);
-        const knowledgeScores = filteredGrades
+        const knowledgeScores = gradedFilteredGrades
             .map(g => g.knowledge_test)
             .filter((s): s is number => s !== null);
-        const modelScores = filteredGrades
+        const modelScores = gradedFilteredGrades
             .map(g => g.model_quality)
             .filter((s): s is number => s !== null);
-        const reportScores = filteredGrades
+        const reportScores = gradedFilteredGrades
             .map(g => g.report_quality)
             .filter((s): s is number => s !== null);
 
@@ -298,7 +307,7 @@ const GradesOverview: React.FC = () => {
         }
 
         return { trendData, histogramData, avgData, gradedCount: graded.length };
-    }, [filteredGrades]);
+    }, [gradedFilteredGrades]);
 
     // Render grade charts
     const renderGradeCharts = () => {

@@ -16,10 +16,10 @@ test("@shiyan 个人信息页展示与密码修改校验", async ({ page }) => {
 
   // ── Verify info display ──────────────────────────────────────────
 
-  await expect(page.getByText("个人信息")).toBeVisible();
-  await expect(page.getByText(STUDENT_USERNAME)).toBeVisible();
-  await expect(page.getByText("实验进度概览")).toBeVisible();
-  await expect(page.getByText("修改密码")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "个人信息", level: 1 })).toBeVisible();
+  await expect(page.getByText(STUDENT_USERNAME, { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "实验进度概览", level: 3 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "修改密码", level: 3 })).toBeVisible();
 
   // ── Password change: mismatch ────────────────────────────────────
 
@@ -41,7 +41,13 @@ test("@shiyan 个人信息页展示与密码修改校验", async ({ page }) => {
   await confirmPwInput.fill("abc");
   await submitBtn.click();
 
-  await expect(page.getByText("新密码长度不能少于6位")).toBeVisible();
+  await expect
+    .poll(() =>
+      newPwInput.evaluate(
+        (node) => (node as HTMLInputElement).validity.tooShort,
+      ),
+    )
+    .toBeTruthy();
 
   // ── Password change: wrong current password ──────────────────────
 
@@ -50,7 +56,7 @@ test("@shiyan 个人信息页展示与密码修改校验", async ({ page }) => {
   await confirmPwInput.fill("validpass123");
   await submitBtn.click();
 
-  await expect(page.getByText("当前密码不正确")).toBeVisible();
+  await expect(page.getByText(/当前密码(错误|不正确)/)).toBeVisible();
 
   // ── Navigate back ────────────────────────────────────────────────
 

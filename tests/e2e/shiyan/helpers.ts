@@ -74,6 +74,14 @@ export async function clickLastEnabledButton(
   throw new Error(`Cannot find enabled button for: ${String(name)}`);
 }
 
+function buildWhitespaceAgnosticRegex(text: string): RegExp {
+  const compactChars = Array.from(text.replace(/\s+/g, ""));
+  const escaped = compactChars.map((char) =>
+    char.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+  );
+  return new RegExp(escaped.join("\\s*"));
+}
+
 // ── Login ──────────────────────────────────────────────────────────
 
 export async function loginAsStudent(page: Page) {
@@ -351,16 +359,20 @@ export async function completeARIMA(page: Page) {
 
   // Wait for ADF results table to load, find first stationary d value
   await expect(page.getByText("平稳性检验表")).toBeVisible({ timeout: 60_000 });
-  const stationaryCell = page.locator("td").filter({ hasText: "平稳" }).first();
+  const stationaryCell = page
+    .locator("td")
+    .filter({ hasText: /^\s*平稳\s*$/ })
+    .first();
   await expect(stationaryCell).toBeVisible({ timeout: 60_000 });
 
   // Read the d value from the same row as the first "平稳" cell
   const stationaryRow = stationaryCell.locator("xpath=ancestor::tr");
-  const dValue = await stationaryRow.locator("td").first().textContent();
+  const dCellText = (await stationaryRow.locator("td").first().textContent()) ?? "";
+  const dValue = dCellText.match(/\d+/)?.[0] ?? "1";
 
   // → differencing order input
   await clickLastEnabledButton(page, "下一步");
-  await page.locator("#diff-order").fill(dValue?.trim() ?? "1");
+  await page.locator("#diff-order").fill(dValue);
   await clickLastEnabledButton(page, "下一步");
 
   // → differencing validation (should pass)
@@ -406,14 +418,35 @@ export async function completeLSTM(page: Page) {
   await expect(
     page.getByText("请选择需求预测时所使用的特征"),
   ).toBeVisible();
-  // Features are auto-selected; just click next to trigger training
-  await clickLastEnabledButton(page, "下一步");
+
+  const featureCandidates = ["年份", "月份", "促销投入", "价格指数", "产能利用率"];
+  let selectedFeatureCount = 0;
+  for (const name of featureCandidates) {
+    const checkbox = page.getByRole("checkbox", { name });
+    if ((await checkbox.count()) === 0) continue;
+    if (await checkbox.isChecked().catch(() => false)) {
+      selectedFeatureCount += 1;
+    }
+  }
+  if (selectedFeatureCount === 0) {
+    for (const name of ["年份", "月份"]) {
+      const checkbox = page.getByRole("checkbox", { name });
+      if ((await checkbox.count()) === 0) continue;
+      if (!(await checkbox.isChecked().catch(() => false))) {
+        await checkbox.check({ force: true });
+      }
+    }
+  }
+
+  await clickLastEnabledButton(page, "下一步", 30_000);
 
   // → results: wait for training to complete
-  await expect(page.getByText(/LSTM.*计算结果/)).toBeVisible({
+  await expect(
+    page.getByRole("heading", { name: "LSTM 法 - 计算结果" }),
+  ).toBeVisible({
     timeout: 180_000,
   });
-  await clickLastEnabledButton(page, "下一步");
+  await clickLastEnabledButton(page, "下一步", 120_000);
 
   // → comparison
   await expect(page.getByText("模型指标对比")).toBeVisible();
@@ -555,10 +588,12 @@ export async function completeEvaluationAndModelQuiz(
   page: Page,
   bestModelLabel: string,
 ) {
+  const bestModelPattern = buildWhitespaceAgnosticRegex(bestModelLabel);
   const bestModelOption = page
     .locator("label")
-    .filter({ hasText: bestModelLabel })
+    .filter({ hasText: bestModelPattern })
     .first();
+  await expect(bestModelOption).toBeVisible({ timeout: 30_000 });
   await bestModelOption.click();
   await clickLastEnabledButton(page, "下一步");
 

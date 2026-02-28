@@ -13,7 +13,6 @@ import {
     Row,
     Col,
     Button,
-    Modal,
     message,
     Tooltip
 } from 'antd';
@@ -26,9 +25,7 @@ import {
     ExportOutlined,
     FileZipOutlined,
     EditOutlined,
-    CloseCircleOutlined,
-    ExclamationCircleOutlined,
-    EyeOutlined
+    CloseCircleOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
 import { createAuthObjectUrl, openFileWithAuth } from '../../../../utils/authFile';
@@ -38,11 +35,10 @@ import type { Class, ExperimentReport } from '../../types';
 import ReviewReportModal from './ReviewReportModal';
 
 const { Title, Text } = Typography;
-const { confirm } = Modal;
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
-    submitted: { label: '已评阅', color: 'success' },
-    pending: { label: '待评阅', color: 'processing' },
+    submitted: { label: '待评阅', color: 'processing' },
+    graded: { label: '已评阅', color: 'success' },
     rejected: { label: '已驳回', color: 'error' },
     draft: { label: '未提交', color: 'default' },
 };
@@ -131,8 +127,9 @@ const ExperimentReports: React.FC = () => {
     const getReportStatus = (report: ExperimentReport): string => {
         if (!report.report_id) return 'draft';
         if (report.status === 'rejected') return 'rejected';
-        if (report.status === 'graded') return 'submitted';
-        return 'pending';
+        if (report.status === 'graded') return 'graded';
+        if (report.status === 'submitted') return 'submitted';
+        return 'draft';
     };
 
     // Statistics

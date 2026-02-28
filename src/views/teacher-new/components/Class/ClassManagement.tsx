@@ -124,7 +124,7 @@ const ClassManagement: React.FC = () => {
             if (selectedFiles && selectedFiles.length > 0) {
                 const file = selectedFiles[0];
                 if (file && file.originFileObj) {
-                    formData.append('students_file', file.originFileObj);
+                    formData.append('student_list', file.originFileObj);
                 }
             }
 
