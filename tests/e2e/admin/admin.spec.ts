@@ -23,6 +23,20 @@ function buildTinyPdfBuffer(): Buffer {
   return Buffer.from(pdfContent, "utf8");
 }
 
+function buildFakeToken(role: string, expSeconds = 3600): string {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64");
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: 999,
+      username: "fake_user",
+      role,
+      exp: Math.floor(Date.now() / 1000) + expSeconds,
+      iat: Math.floor(Date.now() / 1000),
+    }),
+  ).toString("base64");
+  return `${header}.${payload}.fake_signature`;
+}
+
 async function getVisibleModal(page: Page, title: string): Promise<Locator> {
   const modal = page.getByRole("dialog", { name: new RegExp(title) }).first();
   await expect(modal).toBeVisible();
@@ -407,4 +421,186 @@ test("@admin 班级管理全部操作覆盖", async ({ page }) => {
 
   await search.fill("");
   await expect(tableRowByText(page, "计算机科学与技术2502")).toBeVisible();
+});
+
+test("@admin 认证守卫：无token或非admin角色重定向", async ({ page }) => {
+  // 1. No token → redirect to login (fresh context has empty localStorage)
+  await page.goto("/admin.html");
+  await expect(page).toHaveURL(/\/login\.html$/);
+
+  // 2. Non-admin role token → redirect to login
+  const studentToken = buildFakeToken("Student");
+  await page.evaluate((t) => localStorage.setItem("token", t), studentToken);
+  await page.goto("/admin.html");
+  await expect(page).toHaveURL(/\/login\.html$/);
+});
+
+test("@admin 表单校验：用户管理各类无效输入", async ({ page }) => {
+  await loginAsAdmin(page);
+  await openMenu(page, "用户管理", "用户列表");
+
+  // --- Add teacher: empty form submission ---
+  await page.locator("button").filter({ hasText: /^添加教师$/ }).first().click();
+  const teacherModal = await getVisibleModal(page, "添加教师");
+  await confirmModal(teacherModal);
+  await expect(teacherModal.getByText("请输入用户名")).toBeVisible();
+  await expect(teacherModal.getByText("请输入姓名")).toBeVisible();
+  await expect(teacherModal.getByText("请输入邮箱")).toBeVisible();
+  await expect(teacherModal.getByText("请输入手机号")).toBeVisible();
+  await expect(teacherModal.getByText("请输入密码")).toBeVisible();
+
+  // --- Add teacher: invalid email ---
+  await fillFormField(teacherModal, "邮箱", "bad-email");
+  await confirmModal(teacherModal);
+  await expect(teacherModal.getByText("邮箱格式不正确")).toBeVisible();
+
+  // --- Add teacher: invalid phone ---
+  await fillFormField(teacherModal, "手机号", "12345");
+  await confirmModal(teacherModal);
+  await expect(teacherModal.getByText("手机号格式不正确")).toBeVisible();
+
+  // --- Add teacher: short password ---
+  await fillFormField(teacherModal, "密码", "ab");
+  await confirmModal(teacherModal);
+  await expect(teacherModal.getByText("密码至少需要6个字符")).toBeVisible();
+
+  // --- Cancel add teacher modal ---
+  await cancelModal(teacherModal);
+  await expect(teacherModal).not.toBeVisible();
+
+  // --- Create a temporary teacher for reset password validation ---
+  const tempUsername = `t${Date.now().toString().slice(-8)}`;
+  const tempName = `E2E校验${makeRunId("V")}`;
+  const tempPhone = makePhone(10);
+
+  await page.locator("button").filter({ hasText: /^添加教师$/ }).first().click();
+  const createModal = await getVisibleModal(page, "添加教师");
+  await fillFormField(createModal, "用户名", tempUsername);
+  await fillFormField(createModal, "姓名", tempName);
+  await fillFormField(createModal, "邮箱", `${tempUsername}@e2e.test`);
+  await fillFormField(createModal, "手机号", tempPhone);
+  await fillFormField(createModal, "密码", "Pass1234");
+  await confirmModal(createModal);
+  await expectSuccessMessage(page, "教师添加成功");
+
+  await searchUsers(page, tempName);
+  const tempRow = tableRowByText(page, tempName);
+  await expect(tempRow).toBeVisible();
+
+  // --- Reset password: password mismatch ---
+  await tempRow.getByRole("button", { name: `重置密码 ${tempUsername}` }).click();
+  const passwordModal = await getVisibleModal(page, "修改用户");
+  await fillFormField(passwordModal, "新密码", "Password1");
+  await fillFormField(passwordModal, "确认密码", "Password2");
+  await confirmModal(passwordModal);
+  await expect(passwordModal.getByText("两次输入的密码不一致")).toBeVisible();
+
+  // --- Cancel reset password modal ---
+  await cancelModal(passwordModal);
+  await expect(passwordModal).not.toBeVisible();
+
+  // --- Cleanup: delete temporary teacher ---
+  await tempRow.getByRole("button", { name: `删除用户 ${tempUsername}` }).click();
+  await confirmDelete(page);
+  await expectSuccessMessage(page, "用户删除成功");
+});
+
+test("@admin 取消操作：删除取消与编辑取消", async ({ page }) => {
+  await loginAsAdmin(page);
+
+  // ---- Manual: create, delete-cancel, edit-cancel ----
+  await openMenu(page, "实验手册管理", "实验手册管理");
+  const manualName = makeRunId("E2E取消手册");
+
+  await page.getByRole("button", { name: "新增" }).click();
+  const createManualModal = await getVisibleModal(page, "新增实验手册");
+  await fillFormField(createManualModal, "手册名称", manualName);
+  await fillFormField(createManualModal, "备注", "cancel test");
+  await createManualModal.locator('input[type="file"]').setInputFiles({
+    name: `manual-cancel-${Date.now()}.pdf`,
+    mimeType: "application/pdf",
+    buffer: buildTinyPdfBuffer(),
+  });
+  await confirmModal(createManualModal);
+  await expectSuccessMessage(page, "上传成功");
+
+  const manualRow = tableRowByText(page, manualName);
+  await expect(manualRow).toBeVisible();
+
+  // Delete cancel → manual still exists
+  await manualRow.getByRole("button", { name: `删除 ${manualName}` }).click();
+  const deleteManualModal = await getVisibleModal(page, "确认删除");
+  await cancelModal(deleteManualModal);
+  await expect(manualRow).toBeVisible();
+
+  // Edit cancel → original name unchanged
+  await manualRow.getByRole("button", { name: `编辑 ${manualName}` }).click();
+  const editManualModal = await getVisibleModal(page, "修改实验手册");
+  await fillFormField(editManualModal, "手册名称", `${manualName}-changed`);
+  await cancelModal(editManualModal);
+  await expect(editManualModal).not.toBeVisible();
+  await expect(tableRowByText(page, manualName)).toBeVisible();
+
+  // ---- Dataset: create, delete-cancel ----
+  await openMenu(page, "实验数据管理", "实验数据管理");
+  const datasetName = makeRunId("E2E取消数据集");
+
+  await page.getByRole("button", { name: "新增数据" }).click();
+  const createDatasetModal = await getVisibleModal(page, "新增实验数据");
+  await fillFormField(createDatasetModal, "数据集名称", datasetName);
+  await fillFormField(createDatasetModal, "备注", "cancel test");
+  await createDatasetModal.locator('input[type="file"]').setInputFiles({
+    name: `dataset-cancel-${Date.now()}.csv`,
+    mimeType: "text/csv",
+    buffer: buildCsv([
+      datasetCsvHeaders,
+      ["纺织行业", "鲁泰纺织", "布", "2024", "1", "50", "米"],
+    ]),
+  });
+  await confirmModal(createDatasetModal);
+  await expectSuccessMessage(page, "上传成功");
+
+  const datasetRow = tableRowByText(page, datasetName);
+  await expect(datasetRow).toBeVisible();
+
+  // Delete cancel → dataset still exists
+  await datasetRow.getByRole("button", { name: `Delete ${datasetName}` }).click();
+  const deleteDatasetModal = await getVisibleModal(page, "确认删除");
+  await cancelModal(deleteDatasetModal);
+  await expect(datasetRow).toBeVisible();
+
+  // ---- Cleanup ----
+  await datasetRow.getByRole("button", { name: `Delete ${datasetName}` }).click();
+  await confirmDelete(page);
+  await expectSuccessMessage(page, "删除成功");
+
+  await openMenu(page, "实验手册管理", "实验手册管理");
+  await tableRowByText(page, manualName).getByRole("button", { name: `删除 ${manualName}` }).click();
+  await confirmDelete(page);
+  await expectSuccessMessage(page, "删除成功");
+});
+
+test("@admin 搜索边缘：用户搜索清空与无结果、班级搜索无结果", async ({ page }) => {
+  await loginAsAdmin(page);
+  await openMenu(page, "用户管理", "用户列表");
+
+  // User search: no results
+  await searchUsers(page, "NONEXIST_E2E_xxx");
+  await expect(page.locator(".ant-empty").first()).toBeVisible();
+
+  // User search: clear → admin reappears
+  await searchUsers(page, "");
+  await expect(tableRowByText(page, "系统管理员")).toBeVisible();
+
+  // Class search
+  await openMenu(page, "班级管理", "班级管理");
+  const classSearch = page.getByPlaceholder("请输入班级名称或编号");
+
+  // Class search: no results
+  await classSearch.fill("NONEXIST_E2E_xxx");
+  await expect(page.locator(".ant-empty").first()).toBeVisible();
+
+  // Class search: clear → data reappears
+  await classSearch.fill("");
+  await expect(tableRowByText(page, "计算机科学与技术2501")).toBeVisible();
 });
