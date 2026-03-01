@@ -195,7 +195,7 @@ test.describe("@teacher 班级管理", () => {
     
     await firstRow.getByRole(ClassManagementSelectors.studentListBtn.role, { name: ClassManagementSelectors.studentListBtn.name }).click();
     
-    const studentsModal = await getVisibleModal(page, new RegExp(`学生列表\s*-\s*${className}`));
+    const studentsModal = await getVisibleModal(page, new RegExp(`学生列表\\s*-\\s*${className}`));
     await expect(studentsModal.locator(CommonSelectors.table)).toBeVisible();
     await studentsModal.getByRole("button", { name: /关\s*闭/ }).click();
   });

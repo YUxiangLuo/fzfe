@@ -80,9 +80,9 @@ test.describe("@assistant 布局与导航", () => {
     const classRow = tableRowByText(page, TEST_DATA.defaultClassName);
     await expect(classRow).toBeVisible();
     await classRow.getByRole(ClassManagementSelectors.studentListBtn.role, { name: ClassManagementSelectors.studentListBtn.name }).click();
-    const studentsModal = await getVisibleModal(page, new RegExp(`学生列表\\s*-\\s*${TEST_DATA.defaultClassName}`));
+    const studentsModal = await getVisibleModal(page, `学生列表 - ${TEST_DATA.defaultClassName}`);
     await expect(studentsModal.locator(CommonSelectors.table)).toBeVisible();
-    await studentsModal.getByRole("button", { name: /关\\s*闭/ }).click();
+    await studentsModal.getByRole("button", { name: "关闭" }).click();
 
     await openTopLevelPage(page, "学生管理", "学生管理");
     await openSubMenuPage(page, "账户设置", "个人信息", "个人信息管理");
@@ -322,11 +322,11 @@ test.describe("@assistant 实验进度", () => {
     await loginAsAssistant(page);
     await openSubMenuPage(page, "实验管理", "实验进度", "实验进度");
 
-    // Verify statistics cards
-    await expect(page.getByText(ExperimentProgressSelectors.totalStudentsStat)).toBeVisible();
-    await expect(page.getByText(ExperimentProgressSelectors.completedStat)).toBeVisible();
-    await expect(page.getByText(ExperimentProgressSelectors.inProgressStat)).toBeVisible();
-    await expect(page.getByText(ExperimentProgressSelectors.avgCompletionStat)).toBeVisible();
+    // Verify statistics cards (use Statistic title selector)
+    await expect(page.locator(".ant-statistic-title").filter({ hasText: ExperimentProgressSelectors.totalStudentsStat })).toBeVisible();
+    await expect(page.locator(".ant-statistic-title").filter({ hasText: ExperimentProgressSelectors.completedStat })).toBeVisible();
+    await expect(page.locator(".ant-statistic-title").filter({ hasText: ExperimentProgressSelectors.inProgressStat })).toBeVisible();
+    await expect(page.locator(".ant-statistic-title").filter({ hasText: ExperimentProgressSelectors.avgCompletionStat })).toBeVisible();
 
     // Verify table columns
     await expect(page.getByText("学号")).toBeVisible();
@@ -368,17 +368,18 @@ test.describe("@assistant 实验日志", () => {
     await loginAsAssistant(page);
     await openSubMenuPage(page, "实验管理", "实验日志", "实验日志");
 
-    // Verify statistics cards
-    await expect(page.getByText(ExperimentLogSelectors.totalStudentsStat)).toBeVisible();
-    await expect(page.getByText(ExperimentLogSelectors.totalExperimentsStat)).toBeVisible();
-    await expect(page.getByText(ExperimentLogSelectors.totalDurationStat)).toBeVisible();
-    await expect(page.getByText(ExperimentLogSelectors.avgDurationStat)).toBeVisible();
+    // Verify statistics cards (use Statistic title selector)
+    await expect(page.locator(".ant-statistic-title").filter({ hasText: ExperimentLogSelectors.totalStudentsStat })).toBeVisible();
+    await expect(page.locator(".ant-statistic-title").filter({ hasText: ExperimentLogSelectors.totalExperimentsStat })).toBeVisible();
+    await expect(page.locator(".ant-statistic-title").filter({ hasText: ExperimentLogSelectors.totalDurationStat })).toBeVisible();
+    await expect(page.locator(".ant-statistic-title").filter({ hasText: ExperimentLogSelectors.avgDurationStat })).toBeVisible();
 
-    // Verify table columns
-    await expect(page.getByText("学号")).toBeVisible();
-    await expect(page.getByText("姓名")).toBeVisible();
-    await expect(page.getByText("实验次数")).toBeVisible();
-    await expect(page.getByText("总时长")).toBeVisible();
+    // Verify table columns (use table header locator to avoid matching statistic titles)
+    const table = page.locator(CommonSelectors.table).first();
+    await expect(table.getByText("学号")).toBeVisible();
+    await expect(table.getByText("姓名")).toBeVisible();
+    await expect(table.getByText("实验次数")).toBeVisible();
+    await expect(table.getByText("总时长")).toBeVisible();
 
     // Search for a student
     const searchInput = page.getByPlaceholder(ExperimentLogSelectors.searchInput.placeholder);
