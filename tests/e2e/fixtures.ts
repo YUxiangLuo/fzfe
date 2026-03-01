@@ -4,7 +4,7 @@
  * ⚠️ 此文件由脚本自动生成，请勿手动修改！
  * 运行 `bun run be/scripts/generate-e2e-fixtures.ts` 重新生成
  * 
- * Generated at: 2026-03-01T10:56:50.819Z
+ * Generated at: 2026-03-01T11:35:21.869Z
  */
 
 // ===== Test Accounts =====
@@ -74,6 +74,31 @@ export const STUDENTS = {
     "20240054": { status: "in_progress", tags: ["in_progress"] },
     "20240055": { status: "pending_review", tags: ["pending_shared_with_teacher"] },
   } as const,
+} as const;
+
+// ===== Shiyan Experiment Data =====
+
+export const SHIYAN = {
+  student: {
+    id: "20240002",
+    username: "20240002",
+  },
+  dataset: {
+    name: "E2E-Shiyan-全链路真实训练专用数据集",
+    industry: "E2E智能制造业",
+    company: "E2E样本企业A",
+    products: ["智能传感器A型","智能传感器B型"] as const,
+    primaryProduct: "智能传感器A型",
+    secondaryProduct: "智能传感器B型",
+  },
+  // Common report analyses for copy-paste
+  reportAnalyses: [
+    "训练集与评估集区间划分合理，训练集覆盖完整季节波动，评估集用于检验泛化表现。",
+    "基础模型与融合模型对比显示融合模型在误差指标上更均衡，稳定性更好。",
+    "综合 RMSE、MAE 与 R² 指标，最终选择融合模型以兼顾精度与鲁棒性。",
+    "安全库存与预测量计算遵循服务水平约束，能够在需求波动下保持供给连续性。",
+    "完整 MPS 结果表明服务水平可接受，缺货周期可控，后续可继续优化产能与库存权衡。",
+  ] as const,
 } as const;
 
 // ===== Legacy Test Data (for backward compatibility) =====

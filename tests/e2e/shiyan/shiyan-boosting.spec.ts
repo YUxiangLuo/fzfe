@@ -1,6 +1,11 @@
-import { test } from "@playwright/test";
+/**
+ * Shiyan E2E Test - Boosting Ensemble Flow
+ * 
+ * Boosting 融合模型完整流程测试（使用重构后的架构）
+ */
+
+import { shiyanTest as test, expect } from "../fixtures/index.js";
 import {
-  loginAsStudent,
   completeIntroductionAndStartExperiment,
   completeIndustryCompanyProductAndDataWindow,
   completeBaseModelIntroAndSelectTwo,
@@ -14,24 +19,24 @@ import {
   completeReportAndLogout,
 } from "./helpers";
 
-test("@shiyan Boosting融合全链路（MA + ES + Boosting）", async ({ page }) => {
+test("@shiyan Boosting融合全链路（MA + ES + Boosting）", async ({ studentPage }) => {
   test.setTimeout(15 * 60 * 1000);
 
-  await loginAsStudent(page);
-  await completeIntroductionAndStartExperiment(page);
-  await completeIndustryCompanyProductAndDataWindow(page);
+  // studentPage 已经登录，直接开始实验流程
+  await completeIntroductionAndStartExperiment(studentPage);
+  await completeIndustryCompanyProductAndDataWindow(studentPage);
 
   // Select MA + ES as base models
-  await completeBaseModelIntroAndSelectTwo(page);
-  await completeMovingAverage(page);
-  await completeExponentialSmoothing(page);
+  await completeBaseModelIntroAndSelectTwo(studentPage);
+  await completeMovingAverage(studentPage);
+  await completeExponentialSmoothing(studentPage);
 
-  // Select and train Boosting ensemble (distinct from WeightedAvg / Stacking tests)
-  await completeEnsembleIntroAndSelect(page, "Boosting融合");
-  await completeBoostingEnsemble(page);
-  await enterEvaluation(page);
+  // Select and train Boosting ensemble
+  await completeEnsembleIntroAndSelect(studentPage, "Boosting融合");
+  await completeBoostingEnsemble(studentPage);
+  await enterEvaluation(studentPage);
 
-  await completeEvaluationAndModelQuiz(page, "Boosting融合模型");
-  await completeProductionAndPlanQuiz(page);
-  await completeReportAndLogout(page);
+  await completeEvaluationAndModelQuiz(studentPage, "Boosting融合模型");
+  await completeProductionAndPlanQuiz(studentPage);
+  await completeReportAndLogout(studentPage);
 });
