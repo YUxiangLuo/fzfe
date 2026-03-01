@@ -136,11 +136,6 @@ export interface ExperimentStore {
   createNewExperiment: () => Promise<void>;
 }
 
-let trainingLockCount = 0;
-let stateUpdateVersion = 0;
-let salesDataRequestVersion = 0;
-let fieldOptionsRequestVersion = 0;
-
 const isMatchingProductSelection = (
   state: ExperimentState,
   industry: string,
@@ -154,14 +149,22 @@ const isMatchingProductSelection = (
   );
 };
 
-const invalidateProductDataRequests = () => {
-  salesDataRequestVersion++;
-  fieldOptionsRequestVersion++;
-};
-
 export const useExperimentStore = create<ExperimentStore>()(
   devtools(
-    (set, get) => ({
+    (set, get) => {
+      // Request versioning counters — scoped to the store closure
+      // so they reset together with the store (e.g. in tests).
+      let trainingLockCount = 0;
+      let stateUpdateVersion = 0;
+      let salesDataRequestVersion = 0;
+      let fieldOptionsRequestVersion = 0;
+
+      const invalidateProductDataRequests = () => {
+        salesDataRequestVersion++;
+        fieldOptionsRequestVersion++;
+      };
+
+      return ({
       state: buildInitialState(),
       loading: true,
       productSalesData: null,
@@ -210,17 +213,14 @@ export const useExperimentStore = create<ExperimentStore>()(
               retryCount < maxRetries &&
               !(error instanceof Error && error.message?.includes("network"))
             ) {
-              console.log(`Retrying experiment state fetch in ${1000 * (retryCount + 1)}ms...`);
               await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
               return fetchState(retryCount + 1);
             }
 
             const currentState = get().state;
             if (currentState.experiment_id) {
-              console.log("Keeping existing experiment state despite fetch error");
               addToast("实验状态同步失败，但将继续使用当前状态", "info");
             } else {
-              console.log("No existing experiment found, initializing to default state");
               set({ state: buildInitialState() });
             }
             set({ loading: false });
@@ -312,8 +312,9 @@ export const useExperimentStore = create<ExperimentStore>()(
             }
           } catch (error) {
             addToast("同步失败，请检查网络连接或联系管理员", "error");
-            console.error("Failed to persist experiment state.", error);
+            logger.error("updateState:sync", error);
             if (throwOnSyncError) {
+              set({ state: previousState });
               throw error;
             }
           }
@@ -719,7 +720,8 @@ export const useExperimentStore = create<ExperimentStore>()(
           throw error;
         }
       },
-    }),
+    });
+    },
     {
       name: "ExperimentStore",
       enabled: true,

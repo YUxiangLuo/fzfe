@@ -404,12 +404,7 @@ export const ProductionPlanProvider: React.FC<{
 
     const totalPeriods = Math.min(state.forecastPeriods, predictions.length);
 
-    console.log('🏭 ===== 开始生成完整MPS表 =====');
-    console.log(`📊 参数: 预测期数=${totalPeriods}, 初始库存=${state.initialInventory}, 产能=${state.productionCapacity}, 服务水平目标=${state.targetServiceLevel}, Z值=${state.safetyStockZScore}`);
-    console.log('📋 Period1 数据:', state.period1Data);
-    console.log('📋 Period2 数据:', state.period2Data);
-
-    // 🆕 构建期1和期2的数据（来自用户的实际学习操作）
+    // 构建期1和期2的数据（来自用户的实际学习操作）
     const period1Row: MPSTableRow = {
       period: 1,
       period_label: '期 1',
@@ -438,13 +433,10 @@ export const ProductionPlanProvider: React.FC<{
 
     const generatedTable: MPSTableRow[] = [period1Row, period2Row];
 
-    // 🆕 从期3开始生成，使用期2的结果作为初始状态
+    // 从期3开始生成，使用期2的结果作为初始状态
     let previousPlannedProduction = state.period2Data.plannedProduction ?? 0;
     let previousEndingInventory = state.period2Data.endingInventory ?? 0;
     let previousStockout = state.period2Data.stockout ?? 0;
-
-    console.log(`📌 期1和期2使用用户学习数据，从期3开始生成`);
-    console.log(`📌 期2结束状态: 计划投入=${previousPlannedProduction}, 期末库存=${previousEndingInventory}, 缺货=${previousStockout}`);
 
     // 从期3开始循环（i=2对应期3）
     for (let i = 2; i < totalPeriods; i++) {
@@ -453,7 +445,6 @@ export const ProductionPlanProvider: React.FC<{
 
       // 1. 产出量 = min(上期投入量, 产能)
       const productionOutput = Math.max(0, Math.min(previousPlannedProduction, state.productionCapacity));
-      const isCapacityConstrained = previousPlannedProduction > state.productionCapacity;
 
       // 2. 计算本期库存、缺货、服务水平
       const beginningInventory = previousEndingInventory;
@@ -488,18 +479,6 @@ export const ProductionPlanProvider: React.FC<{
         demandForecast + safetyStock + previousStockout - beginningInventory
       );
 
-      // 🐛 调试日志
-      console.log(`\n📦 期 ${i + 1}:`);
-      console.log(`  需求预测: ${demandForecast}, 标准差: ${stdDev.toFixed(2)}`);
-      console.log(`  安全库存: ${safetyStock}`);
-      console.log(`  期初库存: ${beginningInventory}, 上期缺货: ${previousStockout}`);
-      console.log(`  上期投入: ${previousPlannedProduction}, 产能上限: ${state.productionCapacity}`);
-      console.log(`  ${isCapacityConstrained ? '⚠️ 产能受限！' : '✅ 产能充足'} 实际产出: ${productionOutput}`);
-      console.log(`  可用库存: ${availableInventory} (期初${beginningInventory} + 产出${productionOutput})`);
-      console.log(`  总需求: ${totalDemand} (补上期${previousStockout} + 本期${demandForecast})`);
-      console.log(`  期末库存: ${endingInventory}, 本期缺货: ${stockout}, 服务水平: ${(serviceLevel * 100).toFixed(1)}%`);
-      console.log(`  本期计划投入 (for 期 ${i + 2}): ${plannedProduction}`);
-
       const row: MPSTableRow = {
         period: i + 1,
         period_label: `期 ${i + 1}`,
@@ -520,9 +499,6 @@ export const ProductionPlanProvider: React.FC<{
       previousEndingInventory = endingInventory;
       previousStockout = stockout;
     }
-
-    console.log(`\n✅ MPS表生成完成，共 ${generatedTable.length} 期`);
-    console.log('生成的表格:', generatedTable);
 
     setState((prev) => ({
       ...prev,
@@ -553,19 +529,13 @@ export const ProductionPlanProvider: React.FC<{
     }));
 
     try {
-      console.log('💾 保存生产计划数据到全局状态...');
-
-      // 🔄 使用ref获取最新的state数据，避免闭包问题
+      // 使用ref获取最新的state数据，避免闭包问题
       const currentState = stateRef.current;
 
-      // 如果提供了 mpsTableOverride，使用它；否则使用 currentState.fullMPSTable
       const mpsTableToSave = mpsTableOverride || currentState.fullMPSTable;
       if (mpsTableToSave.length === 0) {
         throw new Error('MPS表为空，无法保存');
       }
-
-      console.log('📊 使用的MPS表数据来源:', mpsTableOverride ? '直接传入' : 'stateRef');
-      console.log('📊 完整MPS表数据（期1-' + mpsTableToSave.length + '）:', mpsTableToSave);
 
       // 转换MPS表格数据类型
       const globalMPSTable = convertToGlobalMPSTable(mpsTableToSave);
@@ -594,8 +564,6 @@ export const ProductionPlanProvider: React.FC<{
         1000 // 初始延迟1秒
       );
 
-      console.log('✅ 生产计划数据已保存到全局状态');
-
       setState((prev) => ({
         ...prev,
         isSaving: false,
@@ -604,7 +572,7 @@ export const ProductionPlanProvider: React.FC<{
       }));
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '未知错误';
-      console.error('❌ 保存生产计划数据失败（已重试3次）:', err);
+      console.error('保存生产计划数据失败:', err);
 
       setState((prev) => ({
         ...prev,

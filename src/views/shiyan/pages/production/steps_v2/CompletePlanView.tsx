@@ -56,30 +56,20 @@ const CompletePlanView: React.FC = () => {
       // 🆕 优先使用Step1中已保存的预测数据
       if (state.predictions && state.predictions.length > 0) {
         const validation = validatePredictions(state.predictions);
-        validation.allWarnings.forEach(warning => console.warn(`⚠️ ${warning}`));
+        validation.allWarnings.forEach(warning => console.warn(warning));
         const predictionsToUse = validation.validatedData.slice(0, state.forecastPeriods);
         if (predictionsToUse.length < state.forecastPeriods) {
           throw new Error(`预测数据不足：期望 ${state.forecastPeriods} 期，实际 ${predictionsToUse.length} 期`);
         }
 
-        console.log('✅ 使用Step1中已保存的预测数据:', predictionsToUse);
-        // 添加1秒虚拟loading
-        await new Promise(resolve => setTimeout(resolve, 1000));
         const generatedTable = generateFullMPS(predictionsToUse);
-
-        // 立即保存生成的表格到全局状态
-        console.log('📤 立即保存生成的MPS表到全局状态...');
         await saveMPSDataToGlobal(updateState, generatedTable, predictionsToUse);
       } else {
         // 如果没有保存的预测数据，则调用API获取
-        console.log('📌 使用的最佳模型:', state.selectedBestModel);
-
         const modelType = MODEL_TYPE_MAP[state.selectedBestModel];
         if (!modelType) {
           throw new Error(`无效的模型类型: ${state.selectedBestModel}`);
         }
-
-        console.log('🚀 调用预测API:', { model_type: modelType, forecast_steps: state.forecastPeriods });
 
         const response = await apiClient.post<{
           status: string;
@@ -91,20 +81,13 @@ const CompletePlanView: React.FC = () => {
 
         if (response.status === 'success' && response.results?.predictions) {
           const validation = validatePredictions(response.results.predictions);
-          validation.allWarnings.forEach(warning => console.warn(`⚠️ ${warning}`));
+          validation.allWarnings.forEach(warning => console.warn(warning));
           const predictionsToUse = validation.validatedData.slice(0, state.forecastPeriods);
           if (predictionsToUse.length < state.forecastPeriods) {
             throw new Error(`预测数据不足：期望 ${state.forecastPeriods} 期，实际 ${predictionsToUse.length} 期`);
           }
-          console.log('🔍 API返回的预测数据:', predictionsToUse);
 
-          // 添加1秒虚拟loading
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          // 生成完整MPS表
           const generatedTable = generateFullMPS(predictionsToUse);
-
-          // 立即保存生成的表格到全局状态
-          console.log('📤 立即保存生成的MPS表到全局状态...');
           await saveMPSDataToGlobal(updateState, generatedTable, predictionsToUse);
         } else {
           throw new Error('预测API返回数据格式错误');
