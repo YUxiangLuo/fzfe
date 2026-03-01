@@ -176,3 +176,16 @@ export async function seedShiyanDatasetFixtures(beDir: string, studentUsername: 
     E2E_SHIYAN_STUDENT_USERNAME: studentUsername,
   });
 }
+
+export async function seedEdgeCaseFixtures(beDir: string, options?: {
+  reportFixtureName?: string;
+}) {
+  const reportFixtureName = options?.reportFixtureName ?? "e2e-edge-case-report.pdf";
+  const reportFixturePath = path.resolve(beDir, "uploads", "reports", reportFixtureName);
+  await fs.writeFile(reportFixturePath, MINIMAL_PDF_CONTENT, "utf8");
+
+  runCommand("bun", ["run", "scripts/e2e-seed-edge-cases.ts"], beDir, {
+    ...process.env,
+    E2E_FIXTURE_REPORT_PATH: reportFixturePath,
+  });
+}

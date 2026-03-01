@@ -44,23 +44,18 @@ export default defineConfig({
       cwd: BE_DIR,
       port: E2E_BACKEND_PORT,
       timeout: 120_000,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       env: {
         ...process.env,
         PORT: String(E2E_BACKEND_PORT),
       },
     },
     {
-      command: `bun run dev -- --host 127.0.0.1 --port ${E2E_FRONTEND_PORT}`,
+      command: `VITE_API_URL=${E2E_BACKEND_ORIGIN}/api/v1 VITE_DOWNLOAD_URL=${E2E_BACKEND_ORIGIN} bunx vite --host 127.0.0.1 --port ${E2E_FRONTEND_PORT}`,
       cwd: FE_DIR,
       port: E2E_FRONTEND_PORT,
       timeout: 120_000,
       reuseExistingServer: !process.env.CI,
-      env: {
-        ...process.env,
-        VITE_API_URL: `${E2E_BACKEND_ORIGIN}/api/v1`,
-        VITE_DOWNLOAD_URL: E2E_BACKEND_ORIGIN,
-      },
     },
   ],
 });

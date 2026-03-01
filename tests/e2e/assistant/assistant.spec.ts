@@ -1,340 +1,460 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+/**
+ * Assistant E2E Tests
+ * 
+ * Tests for assistant role covering:
+ * - Layout and navigation
+ * - Experiment reports (search, review, batch review, export)
+ * - Assessment management (grade weights, grade overview)
+ * - Personal info management
+ */
 
-const ASSISTANT_USERNAME = process.env.E2E_ASSISTANT_USERNAME ?? "assistant2";
-const ASSISTANT_PASSWORD = process.env.E2E_ASSISTANT_PASSWORD ?? "AssistantE2E!234";
-const TEMP_ASSISTANT_PASSWORD = process.env.E2E_ASSISTANT_TEMP_PASSWORD ?? "AssistantE2E!567";
-const DEFAULT_CLASS_NAME = "计算机科学与技术2502";
-const DEFAULT_CLASS_ID = 2;
-const REVIEW_TARGET_USERNAME = "20240052";
+import { expect, test, type Page } from "@playwright/test";
+import {
+  // Generators
+  makePhone,
+  makeLetters,
+  // Navigation
+  openTopLevelPage,
+  openSubMenuPage,
+  openPersonalInfoPage,
+  // Locators
+  tableRowByText,
+  getVisibleModal,
+  fillFormField,
+  // Stats & API
+  getStatisticValue,
+  unwrapDataEnvelope,
+  // Assertions
+  expectSuccessMessage,
+  // Grade Weights
+  setWeightByLabel,
+  // Login
+  loginAs,
+  logout,
+  // Fixtures & Constants
+  ACCOUNTS,
+  TEST_DATA,
+  API,
+  // Types
+  type GradeSummaryRow,
+  // Selectors
+  CommonSelectors,
+  ClassManagementSelectors,
+  ExperimentReportSelectors,
+  ExperimentProgressSelectors,
+  ExperimentLogSelectors,
+  GradeWeightSelectors,
+  GradeOverviewSelectors,
+  PersonalInfoSelectors,
+  SuccessMessages,
+  ModalTitles,
+} from "../helpers";
 
-function makePhone(offset: number): string {
-  const num = (Date.now() + offset) % 1_000_000_000;
-  return `13${num.toString().padStart(9, "0")}`;
+// ===== Setup =====
+
+async function loginAsAssistant(page: Page, password = ACCOUNTS.assistant.password): Promise<void> {
+  await loginAs(page, { username: ACCOUNTS.assistant.username, password, role: "assistant" });
 }
 
-function makeLetters(length: number): string {
-  const chars = "abcdefghijklmnopqrstuvwxyz";
-  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
+// ===== Test Suite =====
 
-function tableRowByText(page: Page, text: string): Locator {
-  return page.locator("tr").filter({ hasText: text }).first();
-}
+test.describe("@assistant 布局与导航", () => {
+  test("菜单与权限限制", async ({ page }) => {
+    await loginAsAssistant(page);
+    
+    // Verify role indicator
+    await expect(page.getByText("助教")).toBeVisible();
+    
+    // Verify no assistant management menu
+    await expect(page.getByRole("menuitem", { name: "助教管理" })).toHaveCount(0);
 
-async function getVisibleModal(page: Page, title: RegExp | string): Promise<Locator> {
-  const modal = page.getByRole("dialog", { name: title }).first();
-  await expect(modal).toBeVisible();
-  return modal;
-}
+    // Toggle menu
+    const menuToggle = page.locator("header button").first();
+    await menuToggle.click();
+    await expect(page.getByRole("heading", { level: 4, name: "T" })).toBeVisible();
+    await menuToggle.click();
 
-async function expectSuccessMessage(page: Page, keyword: string) {
-  const notice = page.locator(".ant-message-notice-content");
-  await expect(notice.filter({ hasText: keyword }).last()).toBeVisible({ timeout: 20_000 });
-}
+    // Navigate allowed pages
+    await openTopLevelPage(page, "班级管理", "班级管理");
+    
+    const classRow = tableRowByText(page, TEST_DATA.defaultClassName);
+    await expect(classRow).toBeVisible();
+    await classRow.getByRole(ClassManagementSelectors.studentListBtn.role, { name: ClassManagementSelectors.studentListBtn.name }).click();
+    const studentsModal = await getVisibleModal(page, new RegExp(`学生列表\\s*-\\s*${TEST_DATA.defaultClassName}`));
+    await expect(studentsModal.locator(CommonSelectors.table)).toBeVisible();
+    await studentsModal.getByRole("button", { name: /关\\s*闭/ }).click();
 
-function parseIntegerText(raw: string): number {
-  const normalized = raw.replace(/,/g, "").trim();
-  const parsed = Number(normalized);
-  if (!Number.isFinite(parsed)) {
-    throw new Error(`Cannot parse integer from statistic value: "${raw}"`);
-  }
-  return parsed;
-}
+    await openTopLevelPage(page, "学生管理", "学生管理");
+    await openSubMenuPage(page, "账户设置", "个人信息", "个人信息管理");
+    await openSubMenuPage(page, "考核管理", "题库管理", "题库管理");
 
-function unwrapDataEnvelope<T>(payload: unknown): T {
-  if (payload !== null && typeof payload === "object" && "data" in payload) {
-    return (payload as { data: T }).data;
-  }
-  return payload as T;
-}
-
-async function getStatisticValue(page: Page, title: string): Promise<number> {
-  const stat = page
-    .locator(".ant-statistic")
-    .filter({ has: page.locator(".ant-statistic-title", { hasText: title }) })
-    .first();
-  await expect(stat).toBeVisible();
-  const valueText = await stat.locator(".ant-statistic-content-value").first().innerText();
-  return parseIntegerText(valueText);
-}
-
-async function fillFormField(modal: Locator, label: string, value: string) {
-  const formItem = modal.locator(".ant-form-item").filter({ hasText: label }).first();
-  await expect(formItem).toBeVisible();
-  await formItem.locator("input, textarea").first().fill(value);
-}
-
-async function setWeightByLabel(page: Page, label: string, value: number) {
-  const flowSection = page
-    .locator(".ant-card")
-    .filter({ has: page.getByText("实验流程细节权重", { exact: false }) })
-    .first();
-  await expect(flowSection).toBeVisible();
-
-  const itemCard = flowSection
-    .locator(".ant-row .ant-col .ant-card")
-    .filter({ has: page.getByText(label, { exact: true }) })
-    .first();
-  await expect(itemCard).toBeVisible();
-
-  const input = itemCard.locator("input.ant-input-number-input").first();
-  await expect(input).toBeVisible();
-  await input.click();
-  await input.press("ControlOrMeta+A");
-  await input.fill(String(value));
-  await input.press("Enter");
-  await expect(input).toHaveValue(String(value));
-}
-
-async function loginAsAssistant(page: Page, password = ASSISTANT_PASSWORD) {
-  await page.goto("/login.html");
-  await page.getByRole("button", { name: /助教/ }).click();
-  await page.locator("#login-username").fill(ASSISTANT_USERNAME);
-  await page.locator("#login-password").fill(password);
-  await page.getByRole("button", { name: /登录系统|登录/ }).click();
-
-  await expect(page).toHaveURL(/\/teacher\.html/);
-  await expect(page.getByRole("heading", { name: "实验进度", level: 3 })).toBeVisible();
-}
-
-async function openTopLevelPage(page: Page, menuLabel: string, headingText: string) {
-  await page.getByRole("menuitem", { name: menuLabel }).first().click();
-  await expect(page.getByRole("heading", { name: headingText, level: 3 })).toBeVisible();
-}
-
-async function openSubMenuPage(page: Page, parent: string, child: string, headingText: string) {
-  const heading = page.getByRole("heading", { name: headingText, level: 3 });
-  if (await heading.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    return;
-  }
-
-  const parentMenu = page.getByRole("menuitem", { name: parent }).first();
-  await expect(parentMenu).toBeVisible();
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await parentMenu.click({ force: attempt > 0 });
-
-    if (await heading.isVisible({ timeout: 1_500 }).catch(() => false)) {
-      return;
-    }
-
-    const childMenu = page.getByRole("menuitem", { name: child }).first();
-    if ((await childMenu.count()) === 0) continue;
-    await childMenu.waitFor({ state: "visible", timeout: 3_000 }).catch(() => undefined);
-    if (!(await childMenu.isVisible().catch(() => false))) {
-      if (await heading.isVisible({ timeout: 1_500 }).catch(() => false)) return;
-      continue;
-    }
-
-    try {
-      await childMenu.click();
-    } catch {
-      await childMenu.click({ force: true });
-    }
-
-    if (await heading.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      return;
-    }
-  }
-
-  await expect(heading).toBeVisible();
-}
-
-async function openPersonalInfoPage(page: Page) {
-  const heading = page.getByRole("heading", { name: "个人信息管理", level: 3 });
-  if (await heading.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    return;
-  }
-
-  await page.goto("/teacher.html#/account-personal");
-  await expect(page).toHaveURL(/\/teacher\.html#\/account-personal/);
-  await expect(heading).toBeVisible({ timeout: 20_000 });
-}
-
-test("@assistant 布局、菜单与退出登录覆盖", async ({ page }) => {
-  await loginAsAssistant(page);
-  await expect(page.getByText("助教")).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "助教管理" })).toHaveCount(0);
-
-  const menuToggle = page.locator("header button").first();
-  await menuToggle.click();
-  await expect(page.getByRole("heading", { level: 4, name: "T" })).toBeVisible();
-  await menuToggle.click();
-  await expect(page.getByRole("heading", { level: 4, name: "Teacher Portal" })).toBeVisible();
-
-  await openTopLevelPage(page, "班级管理", "班级管理");
-  const classRow = tableRowByText(page, DEFAULT_CLASS_NAME);
-  await expect(classRow).toBeVisible();
-  await classRow.getByRole("button", { name: "学生列表" }).click();
-  const studentsModal = await getVisibleModal(page, new RegExp(`学生列表\\s*-\\s*${DEFAULT_CLASS_NAME}`));
-  await expect(studentsModal.locator("table")).toBeVisible();
-  await studentsModal.getByRole("button", { name: /关\s*闭/ }).click();
-
-  await openTopLevelPage(page, "学生管理", "学生管理");
-  await openSubMenuPage(page, "账户设置", "个人信息", "个人信息管理");
-  await openSubMenuPage(page, "考核管理", "题库管理", "题库管理");
-
-  await page.locator("header .ant-avatar").first().click();
-  await page.getByRole("menuitem", { name: "退出登录" }).click();
-  const logoutModal = await getVisibleModal(page, "确认退出");
-  await logoutModal.getByRole("button", { name: /取\s*消/ }).click();
-  await expect(page).toHaveURL(/\/teacher\.html/);
-
-  await page.locator("header .ant-avatar").first().click();
-  await page.getByRole("menuitem", { name: "退出登录" }).click();
-  const logoutConfirm = await getVisibleModal(page, "确认退出");
-  await logoutConfirm.getByRole("button", { name: /退\s*出/ }).click();
-
-  await expect(page).toHaveURL(/\/login\.html$/);
-  const token = await page.evaluate(() => localStorage.getItem("token"));
-  expect(token).toBeNull();
+    // Logout
+    await logout(page);
+    const token = await page.evaluate(() => localStorage.getItem("token"));
+    expect(token).toBeNull();
+  });
 });
 
-test("@assistant 实验报告核心操作覆盖（检索+评阅+CSV/归档导出）", async ({ page }) => {
-  await loginAsAssistant(page);
-  await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+test.describe("@assistant 实验报告", () => {
+  test("检索与评阅", async ({ page }) => {
+    await loginAsAssistant(page);
+    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
 
-  await expect(page.getByText("报告平均得分")).toBeVisible();
-  await page.getByPlaceholder("学号或姓名").fill(REVIEW_TARGET_USERNAME);
-  const reportRow = tableRowByText(page, REVIEW_TARGET_USERNAME);
-  await expect(reportRow).toBeVisible();
-  await expect(reportRow.getByText("待评阅")).toBeVisible();
-  const pendingBeforeReview = await getStatisticValue(page, "待评阅");
+    await expect(page.getByText("报告平均得分")).toBeVisible();
+    
+    const searchInput = page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder);
+    await searchInput.fill(TEST_DATA.students.pendingReview1);
+    
+    const reportRow = tableRowByText(page, TEST_DATA.students.pendingReview1);
+    await expect(reportRow).toBeVisible();
+    await expect(reportRow.getByText(ExperimentReportSelectors.statusSubmitted)).toBeVisible();
+    
+    const pendingBefore = await getStatisticValue(page, "待评阅");
 
-  await page.getByRole("button", { name: "导出 CSV" }).click();
-  await expectSuccessMessage(page, "导出成功");
-  await expect(page.getByRole("link", { name: "下载 CSV" })).toBeVisible();
+    // Review
+    await reportRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
+    const reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
+    
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.reportScoreInput.placeholder).fill("89");
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.modelScoreInput.placeholder).fill("91");
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.feedbackInput.placeholder).fill("Assistant E2E 自动评阅。");
+    await reviewModal.getByRole(ExperimentReportSelectors.saveReviewBtn.role, { name: ExperimentReportSelectors.saveReviewBtn.name }).click();
+    
+    await expectSuccessMessage(page, SuccessMessages.reviewSaved);
+    await expect(tableRowByText(page, TEST_DATA.students.pendingReview1).getByText(ExperimentReportSelectors.statusGraded)).toBeVisible();
+    
+    const pendingAfter = await getStatisticValue(page, "待评阅");
+    expect(pendingAfter).toBe(Math.max(pendingBefore - 1, 0));
+  });
 
-  await page.getByRole("button", { name: "导出所有报告" }).click();
-  await expectSuccessMessage(page, "报告文件导出成功");
-  await expect(page.getByRole("link", { name: "下载报告文件" })).toBeVisible();
+  test("批量评阅", async ({ page }) => {
+    await loginAsAssistant(page);
+    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
 
-  await reportRow.getByRole("button", { name: "评阅" }).click();
-  const reviewModal = await getVisibleModal(page, /评阅报告/);
-  await reviewModal.getByPlaceholder("请输入报告得分").fill("89");
-  await reviewModal.getByPlaceholder("请输入模型选择得分").fill("91");
-  await reviewModal.getByPlaceholder("请输入评语，可为空").fill("Assistant E2E 自动评阅。");
-  await reviewModal.getByRole("button", { name: "保存评阅结果" }).click();
-  await expectSuccessMessage(page, "评阅结果保存成功");
-  await expect(tableRowByText(page, REVIEW_TARGET_USERNAME).getByText("已评阅")).toBeVisible();
-  const pendingAfterReview = await getStatisticValue(page, "待评阅");
-  expect(pendingAfterReview).toBe(Math.max(pendingBeforeReview - 1, 0));
+    const pendingBefore = await getStatisticValue(page, "待评阅");
+    expect(pendingBefore).toBeGreaterThanOrEqual(2);
+
+    // Review first student
+    let searchInput = page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder);
+    await searchInput.fill(TEST_DATA.students.pendingReview1);
+    
+    let reportRow = tableRowByText(page, TEST_DATA.students.pendingReview1);
+    await reportRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
+    
+    let reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.reportScoreInput.placeholder).fill("85");
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.modelScoreInput.placeholder).fill("88");
+    await reviewModal.getByRole(ExperimentReportSelectors.saveReviewBtn.role, { name: ExperimentReportSelectors.saveReviewBtn.name }).click();
+    await expectSuccessMessage(page, SuccessMessages.reviewSaved);
+
+    // Review second student (shared with teacher seed)
+    await searchInput.clear();
+    await searchInput.fill(TEST_DATA.students.pendingReview2);
+    
+    reportRow = tableRowByText(page, TEST_DATA.students.pendingReview2);
+    await reportRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
+    
+    reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.reportScoreInput.placeholder).fill("78");
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.modelScoreInput.placeholder).fill("80");
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.feedbackInput.placeholder).fill("Assistant 批量评阅 - 教师应能看到此记录。");
+    await reviewModal.getByRole(ExperimentReportSelectors.saveReviewBtn.role, { name: ExperimentReportSelectors.saveReviewBtn.name }).click();
+    await expectSuccessMessage(page, SuccessMessages.reviewSaved);
+
+    // Verify pending count decreased
+    const pendingAfter = await getStatisticValue(page, "待评阅");
+    expect(pendingAfter).toBe(pendingBefore - 2);
+  });
+
+  test("导出功能", async ({ page }) => {
+    await loginAsAssistant(page);
+    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+
+    // Export CSV
+    await page.getByRole(ExperimentReportSelectors.exportCsvBtn.role, { name: ExperimentReportSelectors.exportCsvBtn.name }).click();
+    await expectSuccessMessage(page, SuccessMessages.csvExported);
+    await expect(page.getByRole(ExperimentReportSelectors.downloadCsvLink.role, { name: ExperimentReportSelectors.downloadCsvLink.name })).toBeVisible();
+
+    // Export all reports
+    await page.getByRole(ExperimentReportSelectors.exportAllBtn.role, { name: ExperimentReportSelectors.exportAllBtn.name }).click();
+    await expectSuccessMessage(page, SuccessMessages.reportsExported);
+    await expect(page.getByRole(ExperimentReportSelectors.downloadReportLink.role, { name: ExperimentReportSelectors.downloadReportLink.name })).toBeVisible();
+  });
 });
 
-test("@assistant 考核管理覆盖（权重保存+总览聚合+成绩导出）", async ({ page }) => {
-  await loginAsAssistant(page);
-  await openSubMenuPage(page, "考核管理", "成绩权重", "成绩权重设置");
+test.describe("@assistant 考核管理", () => {
+  test("成绩权重设置", async ({ page }) => {
+    await loginAsAssistant(page);
+    await openSubMenuPage(page, "考核管理", "成绩权重", "成绩权重设置");
 
-  await page.getByRole("button", { name: "恢复默认" }).click();
-  await expectSuccessMessage(page, "已恢复默认权重");
-  const saveDefaultWeightsResponsePromise = page.waitForResponse(
-    (response) =>
-      response.request().method() === "PUT" &&
-      /\/api\/v1\/classes\/\d+\/grading-policy$/.test(response.url()),
-  );
-  await page.getByRole("button", { name: "保存设置" }).click();
-  const saveDefaultWeightsResponse = await saveDefaultWeightsResponsePromise;
-  expect(saveDefaultWeightsResponse.ok()).toBeTruthy();
-  await expectSuccessMessage(page, "权重保存成功");
+    // Reset and save default
+    await page.getByRole(GradeWeightSelectors.resetBtn.role, { name: GradeWeightSelectors.resetBtn.name }).click();
+    await expectSuccessMessage(page, SuccessMessages.weightsReset);
 
-  await setWeightByLabel(page, "需求预测 - 数据准备", 6);
-  await setWeightByLabel(page, "报告提交", 34);
-  const saveUpdatedWeightsResponsePromise = page.waitForResponse(
-    (response) =>
-      response.request().method() === "PUT" &&
-      /\/api\/v1\/classes\/\d+\/grading-policy$/.test(response.url()),
-  );
-  await page.getByRole("button", { name: "保存设置" }).click();
-  const saveUpdatedWeightsResponse = await saveUpdatedWeightsResponsePromise;
-  expect(saveUpdatedWeightsResponse.ok()).toBeTruthy();
-  const saveUpdatedPayload = saveUpdatedWeightsResponse.request().postDataJSON() as Record<string, unknown>;
-  expect(Number(saveUpdatedPayload.exp_flow_demand_data_preparation)).toBe(6);
-  expect(Number(saveUpdatedPayload.exp_flow_report_submission)).toBe(34);
-  await expectSuccessMessage(page, "权重保存成功");
+    let savePromise = page.waitForResponse(
+      (r) => r.request().method() === "PUT" && API.gradingPolicy.test(r.url()),
+    );
+    await page.getByRole(GradeWeightSelectors.saveBtn.role, { name: GradeWeightSelectors.saveBtn.name }).click();
+    expect((await savePromise).ok()).toBeTruthy();
+    await expectSuccessMessage(page, SuccessMessages.weightsSaved);
 
-  await page.getByRole("button", { name: "恢复默认" }).click();
-  await expectSuccessMessage(page, "已恢复默认权重");
-  const saveRollbackWeightsResponsePromise = page.waitForResponse(
-    (response) =>
-      response.request().method() === "PUT" &&
-      /\/api\/v1\/classes\/\d+\/grading-policy$/.test(response.url()),
-  );
-  await page.getByRole("button", { name: "保存设置" }).click();
-  const saveRollbackWeightsResponse = await saveRollbackWeightsResponsePromise;
-  expect(saveRollbackWeightsResponse.ok()).toBeTruthy();
-  await expectSuccessMessage(page, "权重保存成功");
+    // Update weights
+    await setWeightByLabel(page, "需求预测 - 数据准备", 6);
+    await setWeightByLabel(page, "报告提交", 34);
+    
+    savePromise = page.waitForResponse(
+      (r) => r.request().method() === "PUT" && API.gradingPolicy.test(r.url()),
+    );
+    await page.getByRole(GradeWeightSelectors.saveBtn.role, { name: GradeWeightSelectors.saveBtn.name }).click();
+    const updateResponse = await savePromise;
+    expect(updateResponse.ok()).toBeTruthy();
+    
+    const payload = updateResponse.request().postDataJSON() as Record<string, unknown>;
+    expect(Number(payload.exp_flow_demand_data_preparation)).toBe(6);
+    expect(Number(payload.exp_flow_report_submission)).toBe(34);
 
-  const assistantSummaryRequest = page.waitForResponse((response) =>
-    response.request().method() === "GET" &&
-    response.url().includes("/assistants/") &&
-    response.url().includes("/grade-summaries")
-  );
+    // Reset again
+    await page.getByRole(GradeWeightSelectors.resetBtn.role, { name: GradeWeightSelectors.resetBtn.name }).click();
+    await expectSuccessMessage(page, SuccessMessages.weightsReset);
+    
+    savePromise = page.waitForResponse(
+      (r) => r.request().method() === "PUT" && API.gradingPolicy.test(r.url()),
+    );
+    await page.getByRole(GradeWeightSelectors.saveBtn.role, { name: GradeWeightSelectors.saveBtn.name }).click();
+    expect((await savePromise).ok()).toBeTruthy();
+  });
 
-  await openSubMenuPage(page, "考核管理", "成绩总览", "成绩总览");
-  const summaryResponse = await assistantSummaryRequest;
-  expect(summaryResponse.ok()).toBeTruthy();
+  test("成绩总览", async ({ page }) => {
+    await loginAsAssistant(page);
+    
+    const summaryPromise = page.waitForResponse(
+      (r) => r.request().method() === "GET" && API.assistantGradeSummaries.test(r.url()),
+    );
+    await openSubMenuPage(page, "考核管理", "成绩总览", "成绩总览");
+    
+    const summaryResponse = await summaryPromise;
+    expect(summaryResponse.ok()).toBeTruthy();
 
-  await expect(page.getByText("各班级平均分对比")).toBeVisible();
-  const classCard = page
-    .locator(".ant-card")
-    .filter({ hasText: DEFAULT_CLASS_NAME })
-    .filter({ hasText: "点击查看详情" })
-    .first();
-  await expect(classCard).toBeVisible();
-  const classGradesResponsePromise = page.waitForResponse((response) =>
-    response.request().method() === "GET" &&
-    /\/api\/v1\/classes\/\d+\/grade-summaries/.test(response.url()),
-  );
-  await classCard.click();
-  const classGradesResponse = await classGradesResponsePromise;
-  expect(classGradesResponse.ok()).toBeTruthy();
-  const classGradesData = unwrapDataEnvelope<Array<{ report_status?: string | null }>>(await classGradesResponse.json());
-  const gradedCount = classGradesData.filter((row) => row.report_status === "graded").length;
-  const gradedCardValue = await getStatisticValue(page, "已评分");
-  expect(gradedCardValue).toBe(gradedCount);
+    // Verify charts
+    await expect(page.getByText("各班级平均分对比")).toBeVisible();
+    
+    const classCard = page
+      .locator(CommonSelectors.card)
+      .filter({ hasText: TEST_DATA.defaultClassName })
+      .filter({ hasText: GradeOverviewSelectors.classCardClickHint })
+      .first();
+    await expect(classCard).toBeVisible();
 
-  await page.getByRole("button", { name: "导出成绩" }).click();
-  await expectSuccessMessage(page, "导出成功");
-  const exportAlert = page.locator(".ant-alert").filter({ hasText: "导出成功" }).last();
-  await expect(exportAlert).toBeVisible();
-  await expect(exportAlert.getByRole("link").first()).toBeVisible();
+    // View class details
+    const detailPromise = page.waitForResponse(
+      (r) => r.request().method() === "GET" && API.classGradeSummaries.test(r.url()),
+    );
+    await classCard.click();
+    
+    const detailResponse = await detailPromise;
+    expect(detailResponse.ok()).toBeTruthy();
+    const gradesData = unwrapDataEnvelope<Array<{ report_status?: string | null }>>(await detailResponse.json());
+    const gradedCount = gradesData.filter((row) => row.report_status === "graded").length;
+    
+    const gradedCardValue = await getStatisticValue(page, GradeOverviewSelectors.gradedCountStat);
+    expect(gradedCardValue).toBe(gradedCount);
 
-  await page.getByPlaceholder("搜索学号或姓名").fill(REVIEW_TARGET_USERNAME);
-  await expect(tableRowByText(page, REVIEW_TARGET_USERNAME)).toBeVisible();
+    // Export grades
+    await page.getByRole("button", { name: "导出成绩" }).click();
+    await expectSuccessMessage(page, SuccessMessages.gradesExported);
+    
+    const exportAlert = page.locator(CommonSelectors.alertMessage).filter({ hasText: SuccessMessages.gradesExported }).last();
+    await expect(exportAlert).toBeVisible();
+    await expect(exportAlert.getByRole("link").first()).toBeVisible();
+
+    // Search
+    await page.getByPlaceholder(GradeOverviewSelectors.searchInput.placeholder).fill(TEST_DATA.students.pendingReview1);
+    await expect(tableRowByText(page, TEST_DATA.students.pendingReview1)).toBeVisible();
+  });
 });
 
-test("@assistant 个人信息核心操作覆盖（编辑+修改密码并回滚）", async ({ page }) => {
-  await loginAsAssistant(page);
-  await openPersonalInfoPage(page);
+test.describe("@assistant 个人信息", () => {
+  test("编辑个人信息", async ({ page }) => {
+    await loginAsAssistant(page);
+    await openPersonalInfoPage(page);
 
-  await page.getByRole("button", { name: "编辑信息" }).click();
-  const editModal = await getVisibleModal(page, "编辑个人信息");
-  await fillFormField(editModal, "姓名", `助教${makeLetters(4)}`);
-  await fillFormField(editModal, "手机号码", makePhone(51));
-  await fillFormField(editModal, "邮箱", `assistant2+${Date.now()}@e2e.test`);
-  await editModal.getByRole("button", { name: /保存修改/ }).click();
-  await expectSuccessMessage(page, "个人信息保存成功");
+    await page.getByRole(PersonalInfoSelectors.editBtn.role, { name: PersonalInfoSelectors.editBtn.name }).click();
+    const editModal = await getVisibleModal(page, ModalTitles.editPersonalInfo);
+    
+    await fillFormField(editModal, PersonalInfoSelectors.fullNameInput, `助教${makeLetters(4)}`);
+    await fillFormField(editModal, PersonalInfoSelectors.phoneInput, makePhone(51));
+    await fillFormField(editModal, PersonalInfoSelectors.emailInput, `assistant2+${Date.now()}@e2e.test`);
+    await editModal.getByRole(PersonalInfoSelectors.saveBtn.role, { name: PersonalInfoSelectors.saveBtn.name }).click();
+    
+    await expectSuccessMessage(page, SuccessMessages.personalInfoSaved);
+  });
 
-  const passwordCard = page.locator(".ant-card").filter({ hasText: "修改密码" }).first();
-  await passwordCard.getByPlaceholder("请输入当前密码").fill(ASSISTANT_PASSWORD);
-  await passwordCard.getByPlaceholder("至少6个字符").fill(TEMP_ASSISTANT_PASSWORD);
-  await passwordCard.getByPlaceholder("再次输入新密码").fill(TEMP_ASSISTANT_PASSWORD);
-  await passwordCard.getByRole("button", { name: "保存新密码" }).click();
-  await expectSuccessMessage(page, "密码修改成功");
+  test("修改密码并回滚", async ({ page }) => {
+    await loginAsAssistant(page);
+    await openPersonalInfoPage(page);
 
-  await page.locator("header .ant-avatar").first().click();
-  await page.getByRole("menuitem", { name: "退出登录" }).click();
-  const logoutModal = await getVisibleModal(page, "确认退出");
-  await logoutModal.getByRole("button", { name: /退\s*出/ }).click();
-  await expect(page).toHaveURL(/\/login\.html$/);
+    // Change password
+    const passwordCard = page.locator(CommonSelectors.card).filter({ hasText: PersonalInfoSelectors.passwordCard }).first();
+    await passwordCard.getByPlaceholder(PersonalInfoSelectors.currentPasswordInput.placeholder).fill(ACCOUNTS.assistant.password);
+    await passwordCard.getByPlaceholder(PersonalInfoSelectors.newPasswordInput.placeholder).fill(ACCOUNTS.assistant.tempPassword);
+    await passwordCard.getByPlaceholder(PersonalInfoSelectors.confirmPasswordInput.placeholder).fill(ACCOUNTS.assistant.tempPassword);
+    await passwordCard.getByRole(PersonalInfoSelectors.savePasswordBtn.role, { name: PersonalInfoSelectors.savePasswordBtn.name }).click();
+    await expectSuccessMessage(page, SuccessMessages.passwordChanged);
 
-  await loginAsAssistant(page, TEMP_ASSISTANT_PASSWORD);
-  await openPersonalInfoPage(page);
+    // Logout and login with new password
+    await logout(page);
+    await loginAsAssistant(page, ACCOUNTS.assistant.tempPassword);
+    await openPersonalInfoPage(page);
 
-  const rollbackCard = page.locator(".ant-card").filter({ hasText: "修改密码" }).first();
-  await rollbackCard.getByPlaceholder("请输入当前密码").fill(TEMP_ASSISTANT_PASSWORD);
-  await rollbackCard.getByPlaceholder("至少6个字符").fill(ASSISTANT_PASSWORD);
-  await rollbackCard.getByPlaceholder("再次输入新密码").fill(ASSISTANT_PASSWORD);
-  await rollbackCard.getByRole("button", { name: "保存新密码" }).click();
-  await expectSuccessMessage(page, "密码修改成功");
+    // Rollback password
+    const rollbackCard = page.locator(CommonSelectors.card).filter({ hasText: PersonalInfoSelectors.passwordCard }).first();
+    await rollbackCard.getByPlaceholder(PersonalInfoSelectors.currentPasswordInput.placeholder).fill(ACCOUNTS.assistant.tempPassword);
+    await rollbackCard.getByPlaceholder(PersonalInfoSelectors.newPasswordInput.placeholder).fill(ACCOUNTS.assistant.password);
+    await rollbackCard.getByPlaceholder(PersonalInfoSelectors.confirmPasswordInput.placeholder).fill(ACCOUNTS.assistant.password);
+    await rollbackCard.getByRole(PersonalInfoSelectors.savePasswordBtn.role, { name: PersonalInfoSelectors.savePasswordBtn.name }).click();
+    await expectSuccessMessage(page, SuccessMessages.passwordChanged);
+  });
+});
+
+
+test.describe("@assistant 实验进度", () => {
+  test("列表与统计", async ({ page }) => {
+    await loginAsAssistant(page);
+    await openSubMenuPage(page, "实验管理", "实验进度", "实验进度");
+
+    // Verify statistics cards
+    await expect(page.getByText(ExperimentProgressSelectors.totalStudentsStat)).toBeVisible();
+    await expect(page.getByText(ExperimentProgressSelectors.completedStat)).toBeVisible();
+    await expect(page.getByText(ExperimentProgressSelectors.inProgressStat)).toBeVisible();
+    await expect(page.getByText(ExperimentProgressSelectors.avgCompletionStat)).toBeVisible();
+
+    // Verify table columns
+    await expect(page.getByText("学号")).toBeVisible();
+    await expect(page.getByText("姓名")).toBeVisible();
+    await expect(page.getByText("状态")).toBeVisible();
+    await expect(page.getByText("完成进度")).toBeVisible();
+
+    // Search for a student
+    const searchInput = page.getByPlaceholder(ExperimentProgressSelectors.searchInput.placeholder);
+    await searchInput.fill(TEST_DATA.students.pendingReview1);
+    
+    const studentRow = tableRowByText(page, TEST_DATA.students.pendingReview1);
+    await expect(studentRow).toBeVisible();
+  });
+
+  test("展开行详情", async ({ page }) => {
+    await loginAsAssistant(page);
+    await openSubMenuPage(page, "实验管理", "实验进度", "实验进度");
+
+    // Search for a student
+    const searchInput = page.getByPlaceholder(ExperimentProgressSelectors.searchInput.placeholder);
+    await searchInput.fill(TEST_DATA.students.pendingReview1);
+
+    // Find and expand the row
+    const expandIcon = page.locator(".ant-table-row-expand-icon").first();
+    await expect(expandIcon).toBeVisible();
+    await expandIcon.click();
+
+    // Verify expanded content
+    await expect(page.getByText(ExperimentProgressSelectors.stepCompletionText)).toBeVisible();
+    await expect(page.getByText(ExperimentProgressSelectors.timelineText)).toBeVisible();
+    await expect(page.getByText("实验状态")).toBeVisible();
+    await expect(page.getByText("开始时间")).toBeVisible();
+  });
+});
+
+test.describe("@assistant 实验日志", () => {
+  test("列表与统计", async ({ page }) => {
+    await loginAsAssistant(page);
+    await openSubMenuPage(page, "实验管理", "实验日志", "实验日志");
+
+    // Verify statistics cards
+    await expect(page.getByText(ExperimentLogSelectors.totalStudentsStat)).toBeVisible();
+    await expect(page.getByText(ExperimentLogSelectors.totalExperimentsStat)).toBeVisible();
+    await expect(page.getByText(ExperimentLogSelectors.totalDurationStat)).toBeVisible();
+    await expect(page.getByText(ExperimentLogSelectors.avgDurationStat)).toBeVisible();
+
+    // Verify table columns
+    await expect(page.getByText("学号")).toBeVisible();
+    await expect(page.getByText("姓名")).toBeVisible();
+    await expect(page.getByText("实验次数")).toBeVisible();
+    await expect(page.getByText("总时长")).toBeVisible();
+
+    // Search for a student
+    const searchInput = page.getByPlaceholder(ExperimentLogSelectors.searchInput.placeholder);
+    await searchInput.fill(TEST_DATA.students.pendingReview1);
+    
+    const studentRow = tableRowByText(page, TEST_DATA.students.pendingReview1);
+    await expect(studentRow).toBeVisible();
+  });
+
+  test("展开行查看实验详情", async ({ page }) => {
+    await loginAsAssistant(page);
+    await openSubMenuPage(page, "实验管理", "实验日志", "实验日志");
+
+    // Search for a student
+    const searchInput = page.getByPlaceholder(ExperimentLogSelectors.searchInput.placeholder);
+    await searchInput.fill(TEST_DATA.students.pendingReview1);
+
+    // Find and expand the row
+    const expandIcon = page.locator(".ant-table-row-expand-icon").first();
+    await expect(expandIcon).toBeVisible();
+    await expandIcon.click();
+
+    // Verify expanded content shows experiment details
+    await expect(page.getByText("实验ID")).toBeVisible();
+    await expect(page.getByText("状态")).toBeVisible();
+    await expect(page.getByText("行业")).toBeVisible();
+    await expect(page.getByText("公司")).toBeVisible();
+    await expect(page.getByText("产品")).toBeVisible();
+  });
+});
+
+test.describe("@assistant 评阅边缘测试", () => {
+  test("评阅分数边界值", async ({ page }) => {
+    await loginAsAssistant(page);
+    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+
+    // Find a pending review student
+    const searchInput = page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder);
+    await searchInput.fill(TEST_DATA.students.pendingReview3);
+    
+    const reportRow = tableRowByText(page, TEST_DATA.students.pendingReview3);
+    await reportRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
+    
+    const reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
+
+    // Test boundary values
+    // Test 0 score (minimum)
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.reportScoreInput.placeholder).fill("0");
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.modelScoreInput.placeholder).fill("0");
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.feedbackInput.placeholder).fill("边界测试：0分");
+    await reviewModal.getByRole(ExperimentReportSelectors.saveReviewBtn.role, { name: ExperimentReportSelectors.saveReviewBtn.name }).click();
+    
+    await expectSuccessMessage(page, SuccessMessages.reviewSaved);
+    await expect(tableRowByText(page, TEST_DATA.students.pendingReview3).getByText(ExperimentReportSelectors.statusGraded)).toBeVisible();
+  });
+
+  test("评阅100分", async ({ page }) => {
+    await loginAsAssistant(page);
+    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+
+    // Find another pending review student
+    const searchInput = page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder);
+    await searchInput.fill(TEST_DATA.students.pendingReview4);
+    
+    const reportRow = tableRowByText(page, TEST_DATA.students.pendingReview4);
+    await reportRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
+    
+    const reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
+
+    // Test 100 score (maximum)
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.reportScoreInput.placeholder).fill("100");
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.modelScoreInput.placeholder).fill("100");
+    await reviewModal.getByPlaceholder(ExperimentReportSelectors.feedbackInput.placeholder).fill("边界测试：满分100");
+    await reviewModal.getByRole(ExperimentReportSelectors.saveReviewBtn.role, { name: ExperimentReportSelectors.saveReviewBtn.name }).click();
+    
+    await expectSuccessMessage(page, SuccessMessages.reviewSaved);
+    await expect(tableRowByText(page, TEST_DATA.students.pendingReview4).getByText(ExperimentReportSelectors.statusGraded)).toBeVisible();
+  });
 });

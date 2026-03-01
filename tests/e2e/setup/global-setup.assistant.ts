@@ -6,6 +6,7 @@ import {
   resetDatabase,
   resetUserPassword,
   seedAssistantCoreFixtures,
+  seedEdgeCaseFixtures,
 } from "./setup-utils";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -20,4 +21,5 @@ export default async function globalSetup(_: FullConfig) {
   await cleanupUploadArtifacts(BE_DIR);
   await resetUserPassword(BE_DIR, assistantUsername, assistantPassword);
   await seedAssistantCoreFixtures(BE_DIR);
+  await seedEdgeCaseFixtures(BE_DIR);
 }
