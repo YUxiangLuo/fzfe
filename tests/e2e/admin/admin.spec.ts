@@ -28,6 +28,7 @@ import {
   confirmDelete,
   // Assertions
   expectSuccessMessage,
+  expectErrorMessage,
   // Login
   loginAs,
   // Fixtures & Constants
@@ -38,6 +39,7 @@ import {
   AdminUserSelectors,
   AdminClassSelectors,
   SuccessMessages,
+  ErrorMessages,
   ModalTitles,
 } from "../helpers";
 
@@ -203,6 +205,100 @@ test.describe("@admin 实验手册管理", () => {
     await expectSuccessMessage(page, SuccessMessages.deleteSuccess);
     await expect(page.locator("tr").filter({ hasText: updatedManualName })).toHaveCount(0);
   });
+
+  test("文件上传校验：非PDF和名称长度", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "实验手册管理", "实验手册管理");
+
+    await page.getByRole(AdminManualSelectors.addBtn.role, { name: AdminManualSelectors.addBtn.name }).click();
+    const modal = await getVisibleModal(page, ModalTitles.addManual);
+
+    // Upload non-PDF file → expect file type error
+    await modal.locator(AdminManualSelectors.fileInput).setInputFiles({
+      name: "invalid.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("not a pdf", "utf8"),
+    });
+    await expect(page.getByText(ErrorMessages.pdfOnly)).toBeVisible();
+
+    // Name too short (1 char) → submit → expect min length error
+    await fillFormField(modal, AdminManualSelectors.manualNameInput, "A");
+    await confirmModal(modal);
+    await expect(modal.getByText(ErrorMessages.manualNameTooShort)).toBeVisible();
+
+    // Name too long (101 chars) → submit → expect max length error
+    await fillFormField(modal, AdminManualSelectors.manualNameInput, "A".repeat(101));
+    await confirmModal(modal);
+    await expect(modal.getByText(ErrorMessages.manualNameTooLong)).toBeVisible();
+
+    // Valid name but no file → submit → expect file required toast
+    await fillFormField(modal, AdminManualSelectors.manualNameInput, "有效手册名称");
+    await confirmModal(modal);
+    await expectErrorMessage(page, ErrorMessages.pdfRequired);
+
+    await cancelModal(modal);
+  });
+
+  test("手册互斥激活：同时只有一个手册处于启用状态", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "实验手册管理", "实验手册管理");
+
+    const manualNameA = makeRunId("E2E互斥A");
+    const manualNameB = makeRunId("E2E互斥B");
+
+    // Create manual A
+    await page.getByRole(AdminManualSelectors.addBtn.role, { name: AdminManualSelectors.addBtn.name }).click();
+    const createModalA = await getVisibleModal(page, ModalTitles.addManual);
+    await fillFormField(createModalA, AdminManualSelectors.manualNameInput, manualNameA);
+    await createModalA.locator(AdminManualSelectors.fileInput).setInputFiles({
+      name: `manual-a-${Date.now()}.pdf`,
+      mimeType: "application/pdf",
+      buffer: buildTinyPdfBuffer(),
+    });
+    await confirmModal(createModalA);
+    await expectSuccessMessage(page, SuccessMessages.uploadSuccess);
+
+    // Activate manual A
+    const rowA = tableRowByText(page, manualNameA);
+    await expect(rowA).toBeVisible();
+    await rowA.getByRole("switch").click();
+    await expectSuccessMessage(page, SuccessMessages.statusUpdated);
+    await expect(rowA.getByRole("switch")).toBeChecked();
+
+    // Create manual B
+    await page.getByRole(AdminManualSelectors.addBtn.role, { name: AdminManualSelectors.addBtn.name }).click();
+    const createModalB = await getVisibleModal(page, ModalTitles.addManual);
+    await fillFormField(createModalB, AdminManualSelectors.manualNameInput, manualNameB);
+    await createModalB.locator(AdminManualSelectors.fileInput).setInputFiles({
+      name: `manual-b-${Date.now()}.pdf`,
+      mimeType: "application/pdf",
+      buffer: buildTinyPdfBuffer(),
+    });
+    await confirmModal(createModalB);
+    await expectSuccessMessage(page, SuccessMessages.uploadSuccess);
+
+    // Activate manual B → should deactivate A
+    const rowB = tableRowByText(page, manualNameB);
+    await expect(rowB).toBeVisible();
+    await rowB.getByRole("switch").click();
+    await expectSuccessMessage(page, SuccessMessages.statusUpdated);
+    await expect(rowB.getByRole("switch")).toBeChecked();
+
+    // Refresh and verify A is now off
+    await page.reload();
+    await openTopLevelPage(page, "实验手册管理", "实验手册管理");
+    const rowAAfter = tableRowByText(page, manualNameA);
+    await expect(rowAAfter.getByRole("switch")).not.toBeChecked();
+
+    // Cleanup: delete both manuals
+    await tableRowByText(page, manualNameB).getByRole("button", { name: `删除 ${manualNameB}` }).click();
+    await confirmDelete(page);
+    await expectSuccessMessage(page, SuccessMessages.deleteSuccess);
+
+    await tableRowByText(page, manualNameA).getByRole("button", { name: `删除 ${manualNameA}` }).click();
+    await confirmDelete(page);
+    await expectSuccessMessage(page, SuccessMessages.deleteSuccess);
+  });
 });
 
 test.describe("@admin 实验数据管理", () => {
@@ -266,6 +362,34 @@ test.describe("@admin 实验数据管理", () => {
     await confirmDelete(page);
     await expectSuccessMessage(page, SuccessMessages.deleteSuccess);
     await expect(page.locator("tr").filter({ hasText: updatedDatasetName })).toHaveCount(0);
+  });
+
+  test("文件上传校验：非CSV和名称长度", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "实验数据管理", "实验数据管理");
+
+    await page.getByRole(AdminDatasetSelectors.addBtn.role, { name: AdminDatasetSelectors.addBtn.name }).click();
+    const modal = await getVisibleModal(page, ModalTitles.addDataset);
+
+    // Upload non-CSV file → expect file type error
+    await modal.locator(AdminDatasetSelectors.fileInput).setInputFiles({
+      name: "invalid.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("not a csv", "utf8"),
+    });
+    await expect(page.getByText(ErrorMessages.csvOnlyDataset)).toBeVisible();
+
+    // Name too short (1 char) → submit → expect min length error
+    await fillFormField(modal, AdminDatasetSelectors.datasetNameInput, "A");
+    await confirmModal(modal);
+    await expect(modal.getByText(ErrorMessages.datasetNameTooShort)).toBeVisible();
+
+    // Valid name but no file → submit → expect file required toast
+    await fillFormField(modal, AdminDatasetSelectors.datasetNameInput, "有效数据集名称");
+    await confirmModal(modal);
+    await expectErrorMessage(page, ErrorMessages.dataFileRequired);
+
+    await cancelModal(modal);
   });
 });
 
@@ -474,6 +598,46 @@ test.describe("@admin 用户管理", () => {
     await confirmDelete(page);
     await expectSuccessMessage(page, SuccessMessages.userDeleted);
   });
+
+  test("分页与搜索交互", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
+
+    const batchPrefix = `PG${Date.now().toString().slice(-6)}`;
+
+    // Use batch CSV upload to create 11 teachers at once (much faster than individual creation)
+    const csvRows: string[][] = [["姓名", "手机号"]];
+    for (let i = 0; i < 11; i++) {
+      csvRows.push([`${batchPrefix}教师${i}`, makePhone(100 + i)]);
+    }
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.batchAddTeacherBtn }).first().click();
+    const batchModal = await getVisibleModal(page, ModalTitles.batchAddTeacher);
+    await batchModal.locator('input[type="file"]').setInputFiles({
+      name: "batch-pagination.csv",
+      mimeType: "text/csv",
+      buffer: buildCsv(csvRows),
+    });
+    await confirmModal(batchModal);
+    await expectSuccessMessage(page, SuccessMessages.batchTeacherAdded);
+
+    // Search for our batch prefix so we only see our 11 users
+    await searchUsers(page, batchPrefix);
+
+    // Verify pagination appears (11 results, page size 10 → 2 pages)
+    const pagination = page.locator(".ant-pagination");
+    await expect(pagination).toBeVisible();
+    await pagination.locator(".ant-pagination-item").getByText("2").click();
+    await expect(pagination.locator(".ant-pagination-item-active")).toHaveText("2");
+
+    // Search with a more specific keyword → pagination resets to page 1
+    await searchUsers(page, `${batchPrefix}教师0`);
+    await expect(tableRowByText(page, `${batchPrefix}教师0`)).toBeVisible();
+
+    // Clear search → all results return
+    await searchUsers(page, "");
+    await expect(tableRowByText(page, "系统管理员")).toBeVisible();
+  });
 });
 
 test.describe("@admin 班级管理", () => {
@@ -513,6 +677,16 @@ test.describe("@admin 认证与边缘测试", () => {
     // Non-admin role token → redirect to login
     const studentToken = buildFakeToken("Student");
     await page.evaluate((t) => localStorage.setItem("token", t), studentToken);
+    await page.goto("/admin.html");
+    await expect(page).toHaveURL(/\/login\.html$/);
+  });
+
+  test("Token 过期重定向", async ({ page }) => {
+    // Navigate to origin first to make localStorage accessible
+    await page.goto("/login.html");
+    // Build an expired admin token (exp in the past)
+    const expiredToken = buildFakeToken("Admin", -3600);
+    await page.evaluate((t) => localStorage.setItem("token", t), expiredToken);
     await page.goto("/admin.html");
     await expect(page).toHaveURL(/\/login\.html$/);
   });

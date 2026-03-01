@@ -264,6 +264,18 @@ export const SuccessMessages = {
 
 export const ErrorMessages = {
   weightSumError: "顶层权重总和必须为 100%",
+  // File upload
+  pdfOnly: "仅支持上传PDF格式文件",
+  csvOnlyDataset: "仅支持上传CSV文件",
+  pdfRequired: "请上传PDF文件",
+  dataFileRequired: "请上传数据文件",
+  // Name length
+  manualNameTooShort: "手册名称至少需要2个字符",
+  manualNameTooLong: "手册名称不能超过100个字符",
+  datasetNameTooShort: "数据集名称至少需要2个字符",
+  // Password
+  passwordTooShort: "密码至少需要6个字符",
+  passwordMismatch: "两次输入的密码不一致",
 } as const;
 
 export const ModalTitles = {
