@@ -393,3 +393,15 @@ export async function openPersonalInfoPage(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/teacher\.html#\/account-personal/);
   await expect(heading).toBeVisible({ timeout: 20_000 });
 }
+
+
+// ===== Re-exports from new architecture =====
+
+// Export API helpers
+export * from "./api-helpers";
+
+// Export Student Factory
+export { StudentFactory, type StudentData, type StudentQuery } from "../factories/StudentFactory";
+
+// Export Playwright Fixtures (for new test style)
+export { test, expect as playwrightExpect, type UserContext, type TestDataContext } from "../fixtures/index";
