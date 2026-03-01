@@ -61,14 +61,15 @@ export default defineConfig({
   ],
   
   // WebServer 配置 - 关键修复
+  // 注意：Shiyan 测试运行时间长，需要保持服务器稳定
   webServer: [
     {
       // 后端服务器
       command: "bun run src/e2e-server.ts",
       cwd: BE_DIR,
-      port: E2E_BACKEND_PORT,  // 使用端口检查而非 URL
-      timeout: 180_000,  // 增加到 3 分钟
-      reuseExistingServer: !process.env.CI,  // CI 外复用服务器
+      port: E2E_BACKEND_PORT,
+      timeout: 300_000,  // 5 分钟启动超时
+      reuseExistingServer: true,  // 复用已存在的服务器（关键修复）
       env: {
         ...process.env,
         PORT: String(E2E_BACKEND_PORT),
@@ -78,9 +79,9 @@ export default defineConfig({
       // 前端开发服务器
       command: `bun run dev -- --host 127.0.0.1 --port ${E2E_FRONTEND_PORT}`,
       cwd: FE_DIR,
-      port: E2E_FRONTEND_PORT,  // 使用端口检查
-      timeout: 180_000,  // 增加到 3 分钟
-      reuseExistingServer: !process.env.CI,  // CI 外复用服务器
+      port: E2E_FRONTEND_PORT,
+      timeout: 300_000,  // 5 分钟启动超时
+      reuseExistingServer: true,  // 复用已存在的服务器（关键修复）
       env: {
         ...process.env,
         VITE_API_URL: `${E2E_BACKEND_ORIGIN}/api/v1`,

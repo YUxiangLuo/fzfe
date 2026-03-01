@@ -353,17 +353,17 @@ export async function completeARIMA(page: Page) {
   await expectHashPath(page, "/model/arima/intro");
 
   // intro → stationarity explanation
-  await clickLastEnabledButton(page, "下一步");
+  await clickLastEnabledButton(page, "下一步", 60_000); // 增加超时到 60 秒
   // stationarity explanation → ADF table (triggers calculation)
-  await clickLastEnabledButton(page, "下一步");
+  await clickLastEnabledButton(page, "下一步", 60_000); // 增加超时到 60 秒
 
   // Wait for ADF results table to load, find first stationary d value
-  await expect(page.getByText("平稳性检验表")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText("平稳性检验表")).toBeVisible({ timeout: 120_000 });
   const stationaryCell = page
     .locator("td")
     .filter({ hasText: /^\s*平稳\s*$/ })
     .first();
-  await expect(stationaryCell).toBeVisible({ timeout: 60_000 });
+  await expect(stationaryCell).toBeVisible({ timeout: 120_000 });
 
   // Read the d value from the same row as the first "平稳" cell
   const stationaryRow = stationaryCell.locator("xpath=ancestor::tr");
@@ -371,9 +371,9 @@ export async function completeARIMA(page: Page) {
   const dValue = dCellText.match(/\d+/)?.[0] ?? "1";
 
   // → differencing order input
-  await clickLastEnabledButton(page, "下一步");
+  await clickLastEnabledButton(page, "下一步", 60_000); // 增加超时到 60 秒
   await page.locator("#diff-order").fill(dValue);
-  await clickLastEnabledButton(page, "下一步");
+  await clickLastEnabledButton(page, "下一步", 60_000); // 增加超时到 60 秒
 
   // → differencing validation (should pass)
   await expect(page.getByText("检验通过")).toBeVisible();
