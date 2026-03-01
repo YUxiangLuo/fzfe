@@ -62,14 +62,10 @@ const NewStep1: React.FC = () => {
 
     try {
       // 🚀 调用预测接口获取需求预测
-      console.log('📌 使用的最佳模型:', state.selectedBestModel);
-
       const modelType = MODEL_TYPE_MAP[state.selectedBestModel];
       if (!modelType) {
         throw new Error(`无效的模型类型: ${state.selectedBestModel}`);
       }
-
-      console.log('🚀 调用预测API:', { model_type: modelType, forecast_steps: FIXED_FORECAST_PERIODS });
 
       const response = await apiClient.post<{
         status: string;
@@ -97,8 +93,6 @@ const NewStep1: React.FC = () => {
       if (!firstPrediction) {
         throw new Error('预测API未返回期1数据');
       }
-      console.log('✅ 预测数据获取成功:', predictions);
-
       // 保存完整预测结果
       savePredictions(predictions);
 
@@ -123,9 +117,8 @@ const NewStep1: React.FC = () => {
         serviceLevel: 1.0, // 服务水平 = 100%
       });
 
-      // 🔧 基于历史销售数据计算产能（平均需求 × 简化倍数）
-      const capacity = Math.round(avgDemand * CAPACITY_CONFIG.SIMPLE_MULTIPLIER);
-      console.log('🔧 计算产能: 平均需求', avgDemand, '×', CAPACITY_CONFIG.SIMPLE_MULTIPLIER, '=', capacity);
+      // 🔧 基于历史销售数据计算产能（平均需求 × normal 场景倍数）
+      const capacity = Math.round(avgDemand * CAPACITY_CONFIG.SCENARIOS.NORMAL.multiplier);
 
       // 保存参数（使用固定值）
       updateParameters({
@@ -305,7 +298,7 @@ const NewStep1: React.FC = () => {
             </div>
             <div className="flex items-start space-x-2">
               <div className="w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
-              <div><strong>产出量的计算：</strong>产出量 = 上月的投入量。第二个月的产出量等于第一个月的投入量。</div>
+              <div><strong>产出量的计算：</strong>产出量 = min(上月投入量, 产能上限)。第二个月的产出量等于第一个月的投入量（受产能上限约束）。</div>
             </div>
             <div className="flex items-start space-x-2">
               <div className="w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
@@ -439,7 +432,7 @@ const NewStep1: React.FC = () => {
                   📊 <strong>MPS表第一排已填充</strong>：期初库存=0、产出量={period1Data.demand}、期末库存=0、缺货=0、服务水平=100%
                 </p>
                 <p className="text-sm text-gray-700">
-                  🏭 <strong>产能已设定</strong>：{Math.round(avgDemand * CAPACITY_CONFIG.SIMPLE_MULTIPLIER)}件/月（历史平均需求 × {CAPACITY_CONFIG.SIMPLE_MULTIPLIER}）
+                  🏭 <strong>产能已设定</strong>：{Math.round(avgDemand * CAPACITY_CONFIG.SCENARIOS.NORMAL.multiplier)}件/月（历史平均需求 × {CAPACITY_CONFIG.SCENARIOS.NORMAL.multiplier}）
                 </p>
                 <p className="text-xs text-gray-600 mt-2">
                   💡 第一期采用标准化设置，为后续计划提供参考基准

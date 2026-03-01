@@ -51,11 +51,9 @@ const NewStep2: React.FC = () => {
       return;
     }
     setIsLoadingPrediction(true);
-    // 添加1秒虚拟loading
-    await new Promise(resolve => setTimeout(resolve, 1000));
     let demand = Math.round(period2Prediction.prediction);
     if (!Number.isFinite(demand) || demand < 0) {
-      console.warn(`⚠️ 第2期预测需求异常(${period2Prediction.prediction})，已修正为0`);
+      console.warn(`第2期预测需求异常(${period2Prediction.prediction})，已修正为0`);
       demand = 0;
     }
     setPeriod2DemandValue(demand);
@@ -206,7 +204,7 @@ const NewStep2: React.FC = () => {
           <div className="bg-purple-50 border border-purple-300 rounded-lg p-4">
             <p className="font-semibold text-purple-900 mb-2">计算公式：</p>
             <div className="font-mono text-sm bg-white p-3 rounded border border-purple-200">
-              库存量 = 产出量 - 实际需求量
+              期末库存 = 期初库存 + 产出量 - 实际需求量
             </div>
           </div>
           <p>
@@ -236,7 +234,7 @@ const NewStep2: React.FC = () => {
           <div className="bg-red-50 border border-red-300 rounded-lg p-4">
             <p className="font-semibold text-red-900 mb-2">计算公式：</p>
             <div className="font-mono text-sm bg-white p-3 rounded border border-red-200">
-              缺货量 = 实际需求量 - 产出量
+              缺货量 = max(0, 实际需求量 - 期初库存 - 产出量)
             </div>
           </div>
           <p>

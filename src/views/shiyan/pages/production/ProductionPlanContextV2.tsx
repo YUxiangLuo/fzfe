@@ -454,16 +454,14 @@ export const ProductionPlanProvider: React.FC<{
         console.warn(`⚠️ 期 ${i + 1} 需求预测值异常(${prediction.prediction})，已修正为0`);
         demandForecast = 0;
       }
-      const totalDemand = previousStockout + demandForecast; // 期末累计需求 = 补上期缺货 + 本期需求
-
-      let endingInventory = availableInventory - totalDemand;
+      // 库存计算仅基于本期需求；上期缺货通过投入量公式中的 +previousStockout 补偿
+      let endingInventory = availableInventory - demandForecast;
       let stockout = 0;
       if (endingInventory < 0) {
         stockout = Math.abs(endingInventory);
         endingInventory = 0;
       }
-      // 服务水平口径与缺货口径一致：以“当期累计需求（含补上期缺货）”为分母，避免被高估
-      const serviceLevel = totalDemand > 0 ? Math.max(0, 1 - (stockout / totalDemand)) : 1.0;
+      const serviceLevel = demandForecast > 0 ? Math.max(0, 1 - (stockout / demandForecast)) : 1.0;
 
 
       // 3. 计算本期投入量 (供下一期使用)

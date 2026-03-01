@@ -225,6 +225,9 @@ const NewStep4: React.FC = () => {
             <div className="text-xs text-purple-800 space-y-1">
               <div>• <strong>Z分数</strong>：基于目标服务水平的统计参数（目标：{(targetServiceLevel * 100).toFixed(0)}% → Z = {zScore.toFixed(1)}）</div>
               <div>• <strong>需求标准差</strong>：需求波动的度量（从预测模型获得）</div>
+              <div className="mt-2 text-xs bg-purple-100 border-l-4 border-purple-400 pl-3 py-2 rounded">
+                注：完整公式为 安全库存 = Z × σ × √L（L=提前期）。本实验提前期 L=1 个月，因此 √L=1，公式简化为 Z × σ。
+              </div>
             </div>
           </div>
 
