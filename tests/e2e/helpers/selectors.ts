@@ -56,6 +56,7 @@ export const LoginSelectors = {
   passwordInput: "#login-password",
   teacherTab: { role: "button", name: /教师/ },
   assistantTab: { role: "button", name: /助教/ },
+  adminTab: { role: "button", name: /管理员/ },
   loginBtn: { role: "button", name: /登录系统|登录/ },
 } as const;
 
@@ -176,6 +177,42 @@ export const GradeOverviewSelectors = {
   minScoreStat: "最低分",
 } as const;
 
+export const AdminManualSelectors = {
+  addBtn: { role: "button", name: "新增" },
+  fileInput: 'input[type="file"]',
+  manualNameInput: "手册名称",
+  remarkInput: "备注",
+} as const;
+
+export const AdminDatasetSelectors = {
+  addBtn: { role: "button", name: "新增数据" },
+  fileInput: 'input[type="file"]',
+  datasetNameInput: "数据集名称",
+  remarkInput: "备注",
+  downloadTemplateBtn: { role: "button", name: "下载模板" },
+  csvHeaders: ["行业名称", "公司名称", "产品名称", "年份", "月份", "销售数量", "数量单位"] as string[],
+} as const;
+
+export const AdminUserSelectors = {
+  addTeacherBtn: /^添加教师$/,
+  addAssistantBtn: /^添加助教$/,
+  batchAddTeacherBtn: /^批量添加教师$/,
+  batchAddAssistantBtn: /^批量添加助教$/,
+  searchInput: { placeholder: "输入关键字搜索" },
+  usernameInput: "用户名",
+  fullNameInput: "姓名",
+  emailInput: "邮箱",
+  phoneInput: "手机号",
+  passwordInput: "密码",
+  newPasswordInput: "新密码",
+  confirmPasswordInput: "确认密码",
+} as const;
+
+export const AdminClassSelectors = {
+  searchInput: { placeholder: "请输入班级名称或编号" },
+  viewDetailBtn: { role: "button", name: "查看班级详情" },
+} as const;
+
 export const PersonalInfoSelectors = {
   editBtn: { role: "button", name: "编辑信息" },
   saveBtn: { role: "button", name: /保存修改/ },
@@ -212,6 +249,17 @@ export const SuccessMessages = {
   gradesExported: "导出成功",
   personalInfoSaved: "个人信息保存成功",
   passwordChanged: "密码修改成功",
+  // Admin-specific
+  uploadSuccess: "上传成功",
+  saveSuccess: "保存成功",
+  deleteSuccess: "删除成功",
+  statusUpdated: "状态更新成功",
+  teacherAdded: "教师添加成功",
+  assistantAdded: "助教添加成功",
+  userDeleted: "用户删除成功",
+  resetPassword: "重置密码",
+  batchTeacherAdded: "批量添加教师成功",
+  batchAssistantAdded: "批量添加助教成功",
 } as const;
 
 export const ErrorMessages = {
@@ -232,7 +280,18 @@ export const ModalTitles = {
   reviewReport: /评阅报告/,
   editPersonalInfo: "编辑个人信息",
   logoutConfirm: "确认退出",
-  deleteConfirm: /确定删除/,
+  deleteConfirm: /确认删除/,
+  // Admin-specific
+  addManual: "新增实验手册",
+  editManual: "修改实验手册",
+  addDataset: "新增实验数据",
+  editDataset: "修改实验数据",
+  addTeacher: "添加教师",
+  addAssistant: "添加助教",
+  batchAddTeacher: "批量添加教师",
+  batchAddAssistant: "批量添加助教",
+  resetUserPassword: "修改用户",
+  classDetail: /班级详情/,
 } as const;
 
 // ===== Menu Paths =====

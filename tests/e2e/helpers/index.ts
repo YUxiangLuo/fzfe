@@ -193,6 +193,30 @@ export async function clearMultiSelectByLabel(modal: Locator, label: string): Pr
   }
 }
 
+// ===== Modal Action Helpers =====
+
+/**
+ * Click the confirm/OK button in a modal
+ */
+export async function confirmModal(modal: Locator): Promise<void> {
+  await modal.getByRole("button", { name: /确\s*定/ }).click();
+}
+
+/**
+ * Click the cancel button in a modal
+ */
+export async function cancelModal(modal: Locator): Promise<void> {
+  await modal.getByRole("button", { name: /取\s*消/ }).click();
+}
+
+/**
+ * Confirm a delete dialog
+ */
+export async function confirmDelete(page: Page): Promise<void> {
+  const deleteModal = await getVisibleModal(page, ModalTitles.deleteConfirm);
+  await deleteModal.getByRole("button", { name: /删\s*除/ }).click();
+}
+
 // ===== Statistic Helpers =====
 
 /**
@@ -343,7 +367,7 @@ export async function setWeightByLabel(page: Page, label: string, value: number)
 export interface LoginOptions {
   username: string;
   password: string;
-  role: "teacher" | "assistant";
+  role: "teacher" | "assistant" | "admin";
 }
 
 /**
@@ -351,18 +375,26 @@ export interface LoginOptions {
  */
 export async function loginAs(page: Page, options: LoginOptions): Promise<void> {
   await page.goto("/login.html");
-  
-  const roleTab = options.role === "teacher" 
-    ? page.getByRole(LoginSelectors.teacherTab.role, { name: LoginSelectors.teacherTab.name })
-    : page.getByRole(LoginSelectors.assistantTab.role, { name: LoginSelectors.assistantTab.name });
-  await roleTab.click();
-  
+
+  const roleTabMap = {
+    teacher: LoginSelectors.teacherTab,
+    assistant: LoginSelectors.assistantTab,
+    admin: LoginSelectors.adminTab,
+  } as const;
+  const tab = roleTabMap[options.role];
+  await page.getByRole(tab.role, { name: tab.name }).click();
+
   await page.locator(LoginSelectors.usernameInput).fill(options.username);
   await page.locator(LoginSelectors.passwordInput).fill(options.password);
   await page.getByRole(LoginSelectors.loginBtn.role, { name: LoginSelectors.loginBtn.name }).click();
 
-  await expect(page).toHaveURL(/\/teacher\.html/);
-  await expect(page.getByRole("heading", { name: "实验进度", level: 3 })).toBeVisible();
+  if (options.role === "admin") {
+    await expect(page).toHaveURL(/\/admin\.html$/);
+    await expect(page.getByRole("heading", { name: "实验数据管理", level: 3 })).toBeVisible();
+  } else {
+    await expect(page).toHaveURL(/\/teacher\.html/);
+    await expect(page.getByRole("heading", { name: "实验进度", level: 3 })).toBeVisible();
+  }
 }
 
 /**

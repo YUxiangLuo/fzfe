@@ -28,6 +28,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 playwright-report
 test-results
 blob-report
+tests/e2e/fixtures.ts
+tests/e2e/generated/
 
 # dotenv environment variable files
 .env

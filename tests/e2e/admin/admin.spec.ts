@@ -1,22 +1,47 @@
-import { expect, test, type Locator, type Page, type Response } from "@playwright/test";
+/**
+ * Admin E2E Tests
+ *
+ * Tests for admin role covering:
+ * - Layout and session (menu navigation, logout)
+ * - Manual management (CRUD, download)
+ * - Dataset management (CRUD, download, Chinese filename)
+ * - User management (add/delete teacher & assistant, batch add, form validation)
+ * - Class management (search, view details)
+ * - Auth guards and edge cases
+ */
 
-const ADMIN_USERNAME = process.env.E2E_ADMIN_USERNAME ?? "admin";
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "AdminE2E!234";
+import { expect, test, type Page, type Response } from "@playwright/test";
+import {
+  // Generators
+  makeRunId,
+  makePhone,
+  buildCsv,
+  // Navigation
+  openTopLevelPage,
+  // Locators
+  tableRowByText,
+  getVisibleModal,
+  fillFormField,
+  // Modal actions
+  confirmModal,
+  cancelModal,
+  confirmDelete,
+  // Assertions
+  expectSuccessMessage,
+  // Login
+  loginAs,
+  // Fixtures & Constants
+  ACCOUNTS,
+  // Selectors
+  AdminManualSelectors,
+  AdminDatasetSelectors,
+  AdminUserSelectors,
+  AdminClassSelectors,
+  SuccessMessages,
+  ModalTitles,
+} from "../helpers";
 
-const datasetCsvHeaders = ["行业名称", "公司名称", "产品名称", "年份", "月份", "销售数量", "数量单位"];
-
-function makeRunId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-}
-
-function makePhone(offset: number): string {
-  const num = (Date.now() + offset) % 1_000_000_000;
-  return `18${num.toString().padStart(9, "0")}`;
-}
-
-function buildCsv(rows: string[][]): Buffer {
-  return Buffer.from(rows.map((row) => row.join(",")).join("\n"), "utf8");
-}
+// ===== Admin-specific Utilities =====
 
 function buildTinyPdfBuffer(): Buffer {
   const pdfContent = `%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Count 1 /Kids [3 0 R] >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000010 00000 n \n0000000060 00000 n \n0000000117 00000 n \ntrailer\n<< /Root 1 0 R /Size 4 >>\nstartxref\n173\n%%EOF\n`;
@@ -37,54 +62,8 @@ function buildFakeToken(role: string, expSeconds = 3600): string {
   return `${header}.${payload}.fake_signature`;
 }
 
-async function getVisibleModal(page: Page, title: string): Promise<Locator> {
-  const modal = page.getByRole("dialog", { name: new RegExp(title) }).first();
-  await expect(modal).toBeVisible();
-  return modal;
-}
-
-async function fillFormField(modal: Locator, label: string, value: string) {
-  const formItem = modal.locator(".ant-form-item").filter({ hasText: label }).first();
-  await expect(formItem).toBeVisible();
-  await formItem.locator("input, textarea").first().fill(value);
-}
-
-async function confirmModal(modal: Locator) {
-  await modal.getByRole("button", { name: /确\s*定/ }).click();
-}
-
-async function cancelModal(modal: Locator) {
-  await modal.getByRole("button", { name: /取\s*消/ }).click();
-}
-
-async function confirmDelete(page: Page) {
-  const deleteModal = await getVisibleModal(page, "确认删除");
-  await deleteModal.getByRole("button", { name: /删\s*除/ }).click();
-}
-
-async function expectSuccessMessage(page: Page, keyword: string) {
-  const notice = page.locator(".ant-message-notice-content");
-  await expect(notice.filter({ hasText: keyword }).last()).toBeVisible({ timeout: 20_000 });
-}
-
-async function loginAsAdmin(page: Page) {
-  await page.goto("/login.html");
-  await page.getByRole("button", { name: /管理员/ }).click();
-  await page.locator("#login-username").fill(ADMIN_USERNAME);
-  await page.locator("#login-password").fill(ADMIN_PASSWORD);
-  await page.getByRole("button", { name: /登录系统|登录/ }).click();
-
-  await expect(page).toHaveURL(/\/admin\.html$/);
-  await expect(page.getByRole("heading", { name: "实验数据管理", level: 3 })).toBeVisible();
-}
-
-async function openMenu(page: Page, menuLabel: string, headingText: string) {
-  await page.getByRole("menuitem", { name: menuLabel }).click();
-  await expect(page.getByRole("heading", { name: headingText, level: 3 })).toBeVisible();
-}
-
 async function searchUsers(page: Page, keyword: string) {
-  const searchInput = page.getByPlaceholder("输入关键字搜索");
+  const searchInput = page.getByPlaceholder(AdminUserSelectors.searchInput.placeholder);
   await searchInput.fill(keyword);
 
   const trimmedKeyword = keyword.trim();
@@ -107,10 +86,6 @@ async function searchUsers(page: Page, keyword: string) {
   expect(response.ok()).toBeTruthy();
 }
 
-function tableRowByText(page: Page, text: string): Locator {
-  return page.locator("tr").filter({ hasText: text }).first();
-}
-
 async function waitForAuthedFileResponse(
   page: Page,
   pathSegment: string,
@@ -123,484 +98,522 @@ async function waitForAuthedFileResponse(
   return response;
 }
 
-test("@admin 布局与会话操作覆盖（含退出登录）", async ({ page }) => {
-  await loginAsAdmin(page);
+// ===== Setup =====
 
-  const menuToggle = page.locator("header button").first();
-  await menuToggle.click();
-  await expect(page.getByRole("heading", { level: 4, name: "A" })).toBeVisible();
-
-  await menuToggle.click();
-  await expect(page.getByRole("heading", { level: 4, name: "Admin Portal" })).toBeVisible();
-
-  await openMenu(page, "实验手册管理", "实验手册管理");
-  await openMenu(page, "实验数据管理", "实验数据管理");
-  await openMenu(page, "用户管理", "用户列表");
-  await openMenu(page, "班级管理", "班级管理");
-
-  await page.locator(".ant-avatar").first().click();
-  await page.getByRole("menuitem", { name: "退出登录" }).click();
-
-  const logoutModal = await getVisibleModal(page, "确认退出");
-  await logoutModal.getByRole("button", { name: /取\s*消/ }).click();
-  await expect(page).toHaveURL(/\/admin\.html$/);
-
-  await page.locator(".ant-avatar").first().click();
-  await page.getByRole("menuitem", { name: "退出登录" }).click();
-  const logoutConfirm = await getVisibleModal(page, "确认退出");
-  await logoutConfirm.getByRole("button", { name: /退\s*出/ }).click();
-
-  await expect(page).toHaveURL(/\/login\.html$/);
-  const token = await page.evaluate(() => localStorage.getItem("token"));
-  expect(token).toBeNull();
-});
-
-test("@admin 实验手册全部操作覆盖", async ({ page }) => {
-  await loginAsAdmin(page);
-  await openMenu(page, "实验手册管理", "实验手册管理");
-
-  const manualName = makeRunId("E2E手册");
-  const updatedManualName = `${manualName}-更新`;
-
-  await page.getByRole("button", { name: "新增" }).click();
-  const createModal = await getVisibleModal(page, "新增实验手册");
-  await cancelModal(createModal);
-  await expect(createModal).not.toBeVisible();
-
-  await page.getByRole("button", { name: "新增" }).click();
-  const createAgainModal = await getVisibleModal(page, "新增实验手册");
-  await fillFormField(createAgainModal, "手册名称", manualName);
-  await fillFormField(createAgainModal, "备注", "e2e manual upload");
-  await createAgainModal.locator('input[type="file"]').setInputFiles({
-    name: `manual-${Date.now()}.pdf`,
-    mimeType: "application/pdf",
-    buffer: buildTinyPdfBuffer(),
+async function loginAsAdmin(page: Page): Promise<void> {
+  await loginAs(page, {
+    username: ACCOUNTS.admin.username,
+    password: ACCOUNTS.admin.password,
+    role: "admin",
   });
-  await confirmModal(createAgainModal);
+}
 
-  await expectSuccessMessage(page, "上传成功");
+// ===== Test Suite =====
 
-  const manualRow = tableRowByText(page, manualName);
-  await expect(manualRow).toBeVisible();
+test.describe("@admin 布局与会话", () => {
+  test("菜单导航与退出登录", async ({ page }) => {
+    await loginAsAdmin(page);
 
-  await manualRow.getByRole("button", { name: `编辑 ${manualName}` }).click();
-  const editModal = await getVisibleModal(page, "修改实验手册");
-  await fillFormField(editModal, "手册名称", updatedManualName);
-  await fillFormField(editModal, "备注", "e2e manual updated");
-  await confirmModal(editModal);
+    const menuToggle = page.locator("header button").first();
+    await menuToggle.click();
+    await expect(page.getByRole("heading", { level: 4, name: "A" })).toBeVisible();
 
-  await expectSuccessMessage(page, "保存成功");
-  const updatedRow = tableRowByText(page, updatedManualName);
-  await expect(updatedRow).toBeVisible();
+    await menuToggle.click();
+    await expect(page.getByRole("heading", { level: 4, name: "Admin Portal" })).toBeVisible();
 
-  await updatedRow.getByRole("switch").click();
-  await expectSuccessMessage(page, "状态更新成功");
+    await openTopLevelPage(page, "实验手册管理", "实验手册管理");
+    await openTopLevelPage(page, "实验数据管理", "实验数据管理");
+    await openTopLevelPage(page, "用户管理", "用户列表");
+    await openTopLevelPage(page, "班级管理", "班级管理");
 
-  const manualDownloadResponse = await waitForAuthedFileResponse(page, "/manuals/", async () => {
-    await updatedRow.getByRole("button", { name: `下载 ${updatedManualName}` }).click();
+    await page.locator(".ant-avatar").first().click();
+    await page.getByRole("menuitem", { name: "退出登录" }).click();
+
+    const logoutModal = await getVisibleModal(page, ModalTitles.logoutConfirm);
+    await cancelModal(logoutModal);
+    await expect(page).toHaveURL(/\/admin\.html$/);
+
+    await page.locator(".ant-avatar").first().click();
+    await page.getByRole("menuitem", { name: "退出登录" }).click();
+    const logoutConfirm = await getVisibleModal(page, ModalTitles.logoutConfirm);
+    await logoutConfirm.getByRole("button", { name: /退\s*出/ }).click();
+
+    await expect(page).toHaveURL(/\/login\.html$/);
+    const token = await page.evaluate(() => localStorage.getItem("token"));
+    expect(token).toBeNull();
   });
-  expect(manualDownloadResponse.headers()["content-disposition"] ?? "").toContain("inline");
-  expect(manualDownloadResponse.headers()["content-disposition"] ?? "").toContain("filename*=UTF-8''");
-
-  await updatedRow.getByRole("button", { name: `删除 ${updatedManualName}` }).click();
-  await confirmDelete(page);
-  await expectSuccessMessage(page, "删除成功");
-  await expect(page.locator("tr").filter({ hasText: updatedManualName })).toHaveCount(0);
 });
 
-test("@admin 实验数据全部操作覆盖（含中文文件名下载）", async ({ page }) => {
-  await loginAsAdmin(page);
-  await openMenu(page, "实验数据管理", "实验数据管理");
+test.describe("@admin 实验手册管理", () => {
+  test("全部操作覆盖", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "实验手册管理", "实验手册管理");
 
-  const datasetName = makeRunId("E2E数据集");
-  const updatedDatasetName = `${datasetName}-更新`;
-  const chineseCsvName = `3-726_鲁泰纺织股份有限公司_${Date.now()}.csv`;
+    const manualName = makeRunId("E2E手册");
+    const updatedManualName = `${manualName}-更新`;
 
-  await page.getByRole("button", { name: "新增数据" }).click();
-  const createModal = await getVisibleModal(page, "新增实验数据");
+    // Create cancel
+    await page.getByRole(AdminManualSelectors.addBtn.role, { name: AdminManualSelectors.addBtn.name }).click();
+    const createModal = await getVisibleModal(page, ModalTitles.addManual);
+    await cancelModal(createModal);
+    await expect(createModal).not.toBeVisible();
 
-  const [datasetTemplateDownload] = await Promise.all([
-    page.waitForEvent("download"),
-    createModal.getByRole("button", { name: "下载模板" }).click(),
-  ]);
-  expect(datasetTemplateDownload.suggestedFilename()).toContain("实验数据导入模板");
+    // Create
+    await page.getByRole(AdminManualSelectors.addBtn.role, { name: AdminManualSelectors.addBtn.name }).click();
+    const createAgainModal = await getVisibleModal(page, ModalTitles.addManual);
+    await fillFormField(createAgainModal, AdminManualSelectors.manualNameInput, manualName);
+    await fillFormField(createAgainModal, AdminManualSelectors.remarkInput, "e2e manual upload");
+    await createAgainModal.locator(AdminManualSelectors.fileInput).setInputFiles({
+      name: `manual-${Date.now()}.pdf`,
+      mimeType: "application/pdf",
+      buffer: buildTinyPdfBuffer(),
+    });
+    await confirmModal(createAgainModal);
 
-  await fillFormField(createModal, "数据集名称", datasetName);
-  await fillFormField(createModal, "备注", "e2e dataset upload");
-  await createModal.locator('input[type="file"]').setInputFiles({
-    name: chineseCsvName,
-    mimeType: "text/csv",
-    buffer: buildCsv([
-      datasetCsvHeaders,
-      ["纺织行业", "鲁泰纺织股份有限公司", "色织布", "2024", "1", "100", "米"],
-      ["纺织行业", "鲁泰纺织股份有限公司", "色织布", "2024", "2", "120", "米"],
-    ]),
+    await expectSuccessMessage(page, SuccessMessages.uploadSuccess);
+
+    const manualRow = tableRowByText(page, manualName);
+    await expect(manualRow).toBeVisible();
+
+    // Edit
+    await manualRow.getByRole("button", { name: `编辑 ${manualName}` }).click();
+    const editModal = await getVisibleModal(page, ModalTitles.editManual);
+    await fillFormField(editModal, AdminManualSelectors.manualNameInput, updatedManualName);
+    await fillFormField(editModal, AdminManualSelectors.remarkInput, "e2e manual updated");
+    await confirmModal(editModal);
+
+    await expectSuccessMessage(page, SuccessMessages.saveSuccess);
+    const updatedRow = tableRowByText(page, updatedManualName);
+    await expect(updatedRow).toBeVisible();
+
+    // Toggle status
+    await updatedRow.getByRole("switch").click();
+    await expectSuccessMessage(page, SuccessMessages.statusUpdated);
+
+    // Download
+    const manualDownloadResponse = await waitForAuthedFileResponse(page, "/manuals/", async () => {
+      await updatedRow.getByRole("button", { name: `下载 ${updatedManualName}` }).click();
+    });
+    expect(manualDownloadResponse.headers()["content-disposition"] ?? "").toContain("inline");
+    expect(manualDownloadResponse.headers()["content-disposition"] ?? "").toContain("filename*=UTF-8''");
+
+    // Delete
+    await updatedRow.getByRole("button", { name: `删除 ${updatedManualName}` }).click();
+    await confirmDelete(page);
+    await expectSuccessMessage(page, SuccessMessages.deleteSuccess);
+    await expect(page.locator("tr").filter({ hasText: updatedManualName })).toHaveCount(0);
   });
-  await confirmModal(createModal);
+});
 
-  await expectSuccessMessage(page, "上传成功");
+test.describe("@admin 实验数据管理", () => {
+  test("全部操作覆盖（含中文文件名下载）", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "实验数据管理", "实验数据管理");
 
-  const datasetRow = tableRowByText(page, datasetName);
-  await expect(datasetRow).toBeVisible();
+    const datasetName = makeRunId("E2E数据集");
+    const updatedDatasetName = `${datasetName}-更新`;
+    const chineseCsvName = `3-726_鲁泰纺织股份有限公司_${Date.now()}.csv`;
 
-  await datasetRow.getByRole("button", { name: `Edit ${datasetName}` }).click();
-  const editModal = await getVisibleModal(page, "修改实验数据");
-  await fillFormField(editModal, "数据集名称", updatedDatasetName);
-  await fillFormField(editModal, "备注", "e2e dataset updated");
-  await confirmModal(editModal);
+    // Create with template download
+    await page.getByRole(AdminDatasetSelectors.addBtn.role, { name: AdminDatasetSelectors.addBtn.name }).click();
+    const createModal = await getVisibleModal(page, ModalTitles.addDataset);
 
-  await expectSuccessMessage(page, "保存成功");
-  const updatedRow = tableRowByText(page, updatedDatasetName);
-  await expect(updatedRow).toBeVisible();
+    const [datasetTemplateDownload] = await Promise.all([
+      page.waitForEvent("download"),
+      createModal.getByRole(AdminDatasetSelectors.downloadTemplateBtn.role, { name: AdminDatasetSelectors.downloadTemplateBtn.name }).click(),
+    ]);
+    expect(datasetTemplateDownload.suggestedFilename()).toContain("实验数据导入模板");
 
-  const datasetDownloadResponse = await waitForAuthedFileResponse(page, "/datasets/", async () => {
-    await updatedRow.getByRole("button", { name: `Download ${updatedDatasetName}` }).click();
+    await fillFormField(createModal, AdminDatasetSelectors.datasetNameInput, datasetName);
+    await fillFormField(createModal, AdminDatasetSelectors.remarkInput, "e2e dataset upload");
+    await createModal.locator(AdminDatasetSelectors.fileInput).setInputFiles({
+      name: chineseCsvName,
+      mimeType: "text/csv",
+      buffer: buildCsv([
+        AdminDatasetSelectors.csvHeaders,
+        ["纺织行业", "鲁泰纺织股份有限公司", "色织布", "2024", "1", "100", "米"],
+        ["纺织行业", "鲁泰纺织股份有限公司", "色织布", "2024", "2", "120", "米"],
+      ]),
+    });
+    await confirmModal(createModal);
+
+    await expectSuccessMessage(page, SuccessMessages.uploadSuccess);
+
+    const datasetRow = tableRowByText(page, datasetName);
+    await expect(datasetRow).toBeVisible();
+
+    // Edit
+    await datasetRow.getByRole("button", { name: `Edit ${datasetName}` }).click();
+    const editModal = await getVisibleModal(page, ModalTitles.editDataset);
+    await fillFormField(editModal, AdminDatasetSelectors.datasetNameInput, updatedDatasetName);
+    await fillFormField(editModal, AdminDatasetSelectors.remarkInput, "e2e dataset updated");
+    await confirmModal(editModal);
+
+    await expectSuccessMessage(page, SuccessMessages.saveSuccess);
+    const updatedRow = tableRowByText(page, updatedDatasetName);
+    await expect(updatedRow).toBeVisible();
+
+    // Download
+    const datasetDownloadResponse = await waitForAuthedFileResponse(page, "/datasets/", async () => {
+      await updatedRow.getByRole("button", { name: `Download ${updatedDatasetName}` }).click();
+    });
+    const contentDisposition = datasetDownloadResponse.headers()["content-disposition"] ?? "";
+    expect(contentDisposition).toContain("attachment");
+    expect(contentDisposition).toContain("filename*=UTF-8''");
+
+    // Delete
+    await updatedRow.getByRole("button", { name: `Delete ${updatedDatasetName}` }).click();
+    await confirmDelete(page);
+    await expectSuccessMessage(page, SuccessMessages.deleteSuccess);
+    await expect(page.locator("tr").filter({ hasText: updatedDatasetName })).toHaveCount(0);
   });
-  const contentDisposition = datasetDownloadResponse.headers()["content-disposition"] ?? "";
-  expect(contentDisposition).toContain("attachment");
-  expect(contentDisposition).toContain("filename*=UTF-8''");
-
-  await updatedRow.getByRole("button", { name: `Delete ${updatedDatasetName}` }).click();
-  await confirmDelete(page);
-  await expectSuccessMessage(page, "删除成功");
-  await expect(page.locator("tr").filter({ hasText: updatedDatasetName })).toHaveCount(0);
 });
 
-test("@admin 用户单个增删改操作覆盖（含管理员自保护）", async ({ page }) => {
-  await loginAsAdmin(page);
-  await openMenu(page, "用户管理", "用户列表");
+test.describe("@admin 用户管理", () => {
+  test("单个增删改操作覆盖（含管理员自保护）", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
 
-  const adminRow = tableRowByText(page, "系统管理员");
-  await expect(adminRow.getByRole("button", { name: "重置密码 admin" })).toBeDisabled();
-  await expect(adminRow.getByRole("button", { name: "删除用户 admin" })).toBeDisabled();
+    // Admin self-protection
+    const adminRow = tableRowByText(page, "系统管理员");
+    await expect(adminRow.getByRole("button", { name: "重置密码 admin" })).toBeDisabled();
+    await expect(adminRow.getByRole("button", { name: "删除用户 admin" })).toBeDisabled();
 
-  const teacherUsername = `t${Date.now().toString().slice(-8)}`;
-  const teacherName = `E2E教师${makeRunId("S")}`;
-  const teacherPhone = makePhone(1);
+    // Add teacher
+    const teacherUsername = `t${Date.now().toString().slice(-8)}`;
+    const teacherName = `E2E教师${makeRunId("S")}`;
+    const teacherPhone = makePhone(1);
 
-  await page.locator("button").filter({ hasText: /^添加教师$/ }).first().click();
-  const teacherModal = await getVisibleModal(page, "添加教师");
-  await fillFormField(teacherModal, "用户名", teacherUsername);
-  await fillFormField(teacherModal, "姓名", teacherName);
-  await fillFormField(teacherModal, "邮箱", `${teacherUsername}@e2e.test`);
-  await fillFormField(teacherModal, "手机号", teacherPhone);
-  await fillFormField(teacherModal, "密码", "Pass1234");
-  await confirmModal(teacherModal);
+    await page.locator("button").filter({ hasText: AdminUserSelectors.addTeacherBtn }).first().click();
+    const teacherModal = await getVisibleModal(page, ModalTitles.addTeacher);
+    await fillFormField(teacherModal, AdminUserSelectors.usernameInput, teacherUsername);
+    await fillFormField(teacherModal, AdminUserSelectors.fullNameInput, teacherName);
+    await fillFormField(teacherModal, AdminUserSelectors.emailInput, `${teacherUsername}@e2e.test`);
+    await fillFormField(teacherModal, AdminUserSelectors.phoneInput, teacherPhone);
+    await fillFormField(teacherModal, AdminUserSelectors.passwordInput, "Pass1234");
+    await confirmModal(teacherModal);
 
-  await expectSuccessMessage(page, "教师添加成功");
+    await expectSuccessMessage(page, SuccessMessages.teacherAdded);
 
-  await searchUsers(page, teacherName);
-  const teacherRow = tableRowByText(page, teacherName);
-  await expect(teacherRow).toBeVisible();
+    await searchUsers(page, teacherName);
+    const teacherRow = tableRowByText(page, teacherName);
+    await expect(teacherRow).toBeVisible();
 
-  await teacherRow.getByRole("button", { name: `重置密码 ${teacherUsername}` }).click();
-  const passwordModal = await getVisibleModal(page, "修改用户");
-  await fillFormField(passwordModal, "新密码", "Reset1234");
-  await fillFormField(passwordModal, "确认密码", "Reset1234");
-  await confirmModal(passwordModal);
-  await expectSuccessMessage(page, "重置密码");
+    // Reset password
+    await teacherRow.getByRole("button", { name: `重置密码 ${teacherUsername}` }).click();
+    const passwordModal = await getVisibleModal(page, ModalTitles.resetUserPassword);
+    await fillFormField(passwordModal, AdminUserSelectors.newPasswordInput, "Reset1234");
+    await fillFormField(passwordModal, AdminUserSelectors.confirmPasswordInput, "Reset1234");
+    await confirmModal(passwordModal);
+    await expectSuccessMessage(page, SuccessMessages.resetPassword);
 
-  await teacherRow.getByRole("button", { name: `删除用户 ${teacherUsername}` }).click();
-  await confirmDelete(page);
-  await expectSuccessMessage(page, "用户删除成功");
+    // Delete teacher
+    await teacherRow.getByRole("button", { name: `删除用户 ${teacherUsername}` }).click();
+    await confirmDelete(page);
+    await expectSuccessMessage(page, SuccessMessages.userDeleted);
 
-  const assistantUsername = `a${Date.now().toString().slice(-8)}`;
-  const assistantName = `E2E助教${makeRunId("S")}`;
-  const assistantPhone = makePhone(2);
+    // Add assistant
+    const assistantUsername = `a${Date.now().toString().slice(-8)}`;
+    const assistantName = `E2E助教${makeRunId("S")}`;
+    const assistantPhone = makePhone(2);
 
-  await page.locator("button").filter({ hasText: /^添加助教$/ }).first().click();
-  const assistantModal = await getVisibleModal(page, "添加助教");
-  await fillFormField(assistantModal, "用户名", assistantUsername);
-  await fillFormField(assistantModal, "姓名", assistantName);
-  await fillFormField(assistantModal, "邮箱", `${assistantUsername}@e2e.test`);
-  await fillFormField(assistantModal, "手机号", assistantPhone);
-  await fillFormField(assistantModal, "密码", "Pass1234");
-  await confirmModal(assistantModal);
+    await page.locator("button").filter({ hasText: AdminUserSelectors.addAssistantBtn }).first().click();
+    const assistantModal = await getVisibleModal(page, ModalTitles.addAssistant);
+    await fillFormField(assistantModal, AdminUserSelectors.usernameInput, assistantUsername);
+    await fillFormField(assistantModal, AdminUserSelectors.fullNameInput, assistantName);
+    await fillFormField(assistantModal, AdminUserSelectors.emailInput, `${assistantUsername}@e2e.test`);
+    await fillFormField(assistantModal, AdminUserSelectors.phoneInput, assistantPhone);
+    await fillFormField(assistantModal, AdminUserSelectors.passwordInput, "Pass1234");
+    await confirmModal(assistantModal);
 
-  await expectSuccessMessage(page, "助教添加成功");
-  await searchUsers(page, assistantName);
-  const assistantRow = tableRowByText(page, assistantName);
-  await expect(assistantRow).toBeVisible();
+    await expectSuccessMessage(page, SuccessMessages.assistantAdded);
+    await searchUsers(page, assistantName);
+    const assistantRow = tableRowByText(page, assistantName);
+    await expect(assistantRow).toBeVisible();
 
-  await assistantRow.getByRole("button", { name: `删除用户 ${assistantUsername}` }).click();
-  await confirmDelete(page);
-  await expectSuccessMessage(page, "用户删除成功");
-});
-
-test("@admin 批量添加教师操作覆盖（模板+上传）", async ({ page }) => {
-  await loginAsAdmin(page);
-  await openMenu(page, "用户管理", "用户列表");
-
-  const batchTeacherName = `批量教师${makeRunId("B")}`;
-  const batchTeacherPhone = makePhone(3);
-
-  await page.locator("button").filter({ hasText: /^批量添加教师$/ }).first().click();
-  const batchModal = await getVisibleModal(page, "批量添加教师");
-
-  await expect(batchModal.getByText("CSV 字段说明")).toBeVisible();
-  await expect(batchModal.getByText("账号自动生成")).toBeVisible();
-  await expect(batchModal.getByText("prof_手机号")).toBeVisible();
-
-  const [teacherTemplateDownload] = await Promise.all([
-    page.waitForEvent("download"),
-    batchModal.getByRole("button", { name: "下载模板" }).click(),
-  ]);
-  expect(teacherTemplateDownload.suggestedFilename()).toContain("教师批量导入模板");
-
-  await batchModal.locator('input[type="file"]').setInputFiles({
-    name: "batch-teachers.csv",
-    mimeType: "text/csv",
-    buffer: buildCsv([
-      ["姓名", "手机号"],
-      [batchTeacherName, batchTeacherPhone],
-    ]),
+    // Delete assistant
+    await assistantRow.getByRole("button", { name: `删除用户 ${assistantUsername}` }).click();
+    await confirmDelete(page);
+    await expectSuccessMessage(page, SuccessMessages.userDeleted);
   });
-  await confirmModal(batchModal);
 
-  await expectSuccessMessage(page, "批量添加教师成功");
-  await searchUsers(page, batchTeacherName);
-  await expect(tableRowByText(page, batchTeacherName)).toBeVisible();
-});
+  test("批量添加教师（模板+上传）", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
 
-test("@admin 批量添加助教操作覆盖（模板+上传）", async ({ page }) => {
-  await loginAsAdmin(page);
-  await openMenu(page, "用户管理", "用户列表");
+    const batchTeacherName = `批量教师${makeRunId("B")}`;
+    const batchTeacherPhone = makePhone(3);
 
-  const batchAssistantName = `批量助教${makeRunId("B")}`;
-  const batchAssistantPhone = makePhone(4);
+    await page.locator("button").filter({ hasText: AdminUserSelectors.batchAddTeacherBtn }).first().click();
+    const batchModal = await getVisibleModal(page, ModalTitles.batchAddTeacher);
 
-  await page.locator("button").filter({ hasText: /^批量添加助教$/ }).first().click();
-  const batchModal = await getVisibleModal(page, "批量添加助教");
+    await expect(batchModal.getByText("CSV 字段说明")).toBeVisible();
+    await expect(batchModal.getByText("账号自动生成")).toBeVisible();
+    await expect(batchModal.getByText("prof_手机号")).toBeVisible();
 
-  await expect(batchModal.getByText("CSV 字段说明")).toBeVisible();
-  await expect(batchModal.getByText("账号自动生成")).toBeVisible();
-  await expect(batchModal.getByText("ta_手机号")).toBeVisible();
+    const [teacherTemplateDownload] = await Promise.all([
+      page.waitForEvent("download"),
+      batchModal.getByRole("button", { name: "下载模板" }).click(),
+    ]);
+    expect(teacherTemplateDownload.suggestedFilename()).toContain("教师批量导入模板");
 
-  const [assistantTemplateDownload] = await Promise.all([
-    page.waitForEvent("download"),
-    batchModal.getByRole("button", { name: "下载模板" }).click(),
-  ]);
-  expect(assistantTemplateDownload.suggestedFilename()).toContain("助教批量导入模板");
+    await batchModal.locator('input[type="file"]').setInputFiles({
+      name: "batch-teachers.csv",
+      mimeType: "text/csv",
+      buffer: buildCsv([
+        ["姓名", "手机号"],
+        [batchTeacherName, batchTeacherPhone],
+      ]),
+    });
+    await confirmModal(batchModal);
 
-  await batchModal.locator('input[type="file"]').setInputFiles({
-    name: "batch-assistants.csv",
-    mimeType: "text/csv",
-    buffer: buildCsv([
-      ["姓名", "手机号"],
-      [batchAssistantName, batchAssistantPhone],
-    ]),
+    await expectSuccessMessage(page, SuccessMessages.batchTeacherAdded);
+    await searchUsers(page, batchTeacherName);
+    await expect(tableRowByText(page, batchTeacherName)).toBeVisible();
   });
-  await confirmModal(batchModal);
 
-  await expectSuccessMessage(page, "批量添加助教成功");
-  await searchUsers(page, batchAssistantName);
-  await expect(tableRowByText(page, batchAssistantName)).toBeVisible();
-});
+  test("批量添加助教（模板+上传）", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
 
-test("@admin 班级管理全部操作覆盖", async ({ page }) => {
-  await loginAsAdmin(page);
-  await openMenu(page, "班级管理", "班级管理");
+    const batchAssistantName = `批量助教${makeRunId("B")}`;
+    const batchAssistantPhone = makePhone(4);
 
-  const search = page.getByPlaceholder("请输入班级名称或编号");
-  await search.fill("计算机科学与技术2501");
+    await page.locator("button").filter({ hasText: AdminUserSelectors.batchAddAssistantBtn }).first().click();
+    const batchModal = await getVisibleModal(page, ModalTitles.batchAddAssistant);
 
-  const classRow = tableRowByText(page, "计算机科学与技术2501");
-  await expect(classRow).toBeVisible();
+    await expect(batchModal.getByText("CSV 字段说明")).toBeVisible();
+    await expect(batchModal.getByText("账号自动生成")).toBeVisible();
+    await expect(batchModal.getByText("ta_手机号")).toBeVisible();
 
-  await classRow.getByRole("button", { name: "查看班级详情" }).click();
-  const detailsModal = await getVisibleModal(page, "班级详情 - 计算机科学与技术2501");
+    const [assistantTemplateDownload] = await Promise.all([
+      page.waitForEvent("download"),
+      batchModal.getByRole("button", { name: "下载模板" }).click(),
+    ]);
+    expect(assistantTemplateDownload.suggestedFilename()).toContain("助教批量导入模板");
 
-  await expect(detailsModal.getByText("所属教师")).toBeVisible();
-  await detailsModal.getByRole("tab", { name: "助教列表" }).click();
-  await expect(detailsModal.getByText("助教列表")).toBeVisible();
-  await detailsModal.getByRole("tab", { name: "学生列表" }).click();
-  await expect(detailsModal.getByText("学生列表")).toBeVisible();
+    await batchModal.locator('input[type="file"]').setInputFiles({
+      name: "batch-assistants.csv",
+      mimeType: "text/csv",
+      buffer: buildCsv([
+        ["姓名", "手机号"],
+        [batchAssistantName, batchAssistantPhone],
+      ]),
+    });
+    await confirmModal(batchModal);
 
-  await detailsModal.getByRole("button", { name: /关\s*闭/ }).click();
-  await expect(detailsModal).not.toBeVisible();
-
-  await search.fill("");
-  await expect(tableRowByText(page, "计算机科学与技术2502")).toBeVisible();
-});
-
-test("@admin 认证守卫：无token或非admin角色重定向", async ({ page }) => {
-  // 1. No token → redirect to login (fresh context has empty localStorage)
-  await page.goto("/admin.html");
-  await expect(page).toHaveURL(/\/login\.html$/);
-
-  // 2. Non-admin role token → redirect to login
-  const studentToken = buildFakeToken("Student");
-  await page.evaluate((t) => localStorage.setItem("token", t), studentToken);
-  await page.goto("/admin.html");
-  await expect(page).toHaveURL(/\/login\.html$/);
-});
-
-test("@admin 表单校验：用户管理各类无效输入", async ({ page }) => {
-  await loginAsAdmin(page);
-  await openMenu(page, "用户管理", "用户列表");
-
-  // --- Add teacher: empty form submission ---
-  await page.locator("button").filter({ hasText: /^添加教师$/ }).first().click();
-  const teacherModal = await getVisibleModal(page, "添加教师");
-  await confirmModal(teacherModal);
-  await expect(teacherModal.getByText("请输入用户名")).toBeVisible();
-  await expect(teacherModal.getByText("请输入姓名")).toBeVisible();
-  await expect(teacherModal.getByText("请输入邮箱")).toBeVisible();
-  await expect(teacherModal.getByText("请输入手机号")).toBeVisible();
-  await expect(teacherModal.getByText("请输入密码")).toBeVisible();
-
-  // --- Add teacher: invalid email ---
-  await fillFormField(teacherModal, "邮箱", "bad-email");
-  await confirmModal(teacherModal);
-  await expect(teacherModal.getByText("邮箱格式不正确")).toBeVisible();
-
-  // --- Add teacher: invalid phone ---
-  await fillFormField(teacherModal, "手机号", "12345");
-  await confirmModal(teacherModal);
-  await expect(teacherModal.getByText("手机号格式不正确")).toBeVisible();
-
-  // --- Add teacher: short password ---
-  await fillFormField(teacherModal, "密码", "ab");
-  await confirmModal(teacherModal);
-  await expect(teacherModal.getByText("密码至少需要6个字符")).toBeVisible();
-
-  // --- Cancel add teacher modal ---
-  await cancelModal(teacherModal);
-  await expect(teacherModal).not.toBeVisible();
-
-  // --- Create a temporary teacher for reset password validation ---
-  const tempUsername = `t${Date.now().toString().slice(-8)}`;
-  const tempName = `E2E校验${makeRunId("V")}`;
-  const tempPhone = makePhone(10);
-
-  await page.locator("button").filter({ hasText: /^添加教师$/ }).first().click();
-  const createModal = await getVisibleModal(page, "添加教师");
-  await fillFormField(createModal, "用户名", tempUsername);
-  await fillFormField(createModal, "姓名", tempName);
-  await fillFormField(createModal, "邮箱", `${tempUsername}@e2e.test`);
-  await fillFormField(createModal, "手机号", tempPhone);
-  await fillFormField(createModal, "密码", "Pass1234");
-  await confirmModal(createModal);
-  await expectSuccessMessage(page, "教师添加成功");
-
-  await searchUsers(page, tempName);
-  const tempRow = tableRowByText(page, tempName);
-  await expect(tempRow).toBeVisible();
-
-  // --- Reset password: password mismatch ---
-  await tempRow.getByRole("button", { name: `重置密码 ${tempUsername}` }).click();
-  const passwordModal = await getVisibleModal(page, "修改用户");
-  await fillFormField(passwordModal, "新密码", "Password1");
-  await fillFormField(passwordModal, "确认密码", "Password2");
-  await confirmModal(passwordModal);
-  await expect(passwordModal.getByText("两次输入的密码不一致")).toBeVisible();
-
-  // --- Cancel reset password modal ---
-  await cancelModal(passwordModal);
-  await expect(passwordModal).not.toBeVisible();
-
-  // --- Cleanup: delete temporary teacher ---
-  await tempRow.getByRole("button", { name: `删除用户 ${tempUsername}` }).click();
-  await confirmDelete(page);
-  await expectSuccessMessage(page, "用户删除成功");
-});
-
-test("@admin 取消操作：删除取消与编辑取消", async ({ page }) => {
-  await loginAsAdmin(page);
-
-  // ---- Manual: create, delete-cancel, edit-cancel ----
-  await openMenu(page, "实验手册管理", "实验手册管理");
-  const manualName = makeRunId("E2E取消手册");
-
-  await page.getByRole("button", { name: "新增" }).click();
-  const createManualModal = await getVisibleModal(page, "新增实验手册");
-  await fillFormField(createManualModal, "手册名称", manualName);
-  await fillFormField(createManualModal, "备注", "cancel test");
-  await createManualModal.locator('input[type="file"]').setInputFiles({
-    name: `manual-cancel-${Date.now()}.pdf`,
-    mimeType: "application/pdf",
-    buffer: buildTinyPdfBuffer(),
+    await expectSuccessMessage(page, SuccessMessages.batchAssistantAdded);
+    await searchUsers(page, batchAssistantName);
+    await expect(tableRowByText(page, batchAssistantName)).toBeVisible();
   });
-  await confirmModal(createManualModal);
-  await expectSuccessMessage(page, "上传成功");
 
-  const manualRow = tableRowByText(page, manualName);
-  await expect(manualRow).toBeVisible();
+  test("表单校验：各类无效输入", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
 
-  // Delete cancel → manual still exists
-  await manualRow.getByRole("button", { name: `删除 ${manualName}` }).click();
-  const deleteManualModal = await getVisibleModal(page, "确认删除");
-  await cancelModal(deleteManualModal);
-  await expect(manualRow).toBeVisible();
+    // Empty form submission
+    await page.locator("button").filter({ hasText: AdminUserSelectors.addTeacherBtn }).first().click();
+    const teacherModal = await getVisibleModal(page, ModalTitles.addTeacher);
+    await confirmModal(teacherModal);
+    await expect(teacherModal.getByText("请输入用户名")).toBeVisible();
+    await expect(teacherModal.getByText("请输入姓名")).toBeVisible();
+    await expect(teacherModal.getByText("请输入邮箱")).toBeVisible();
+    await expect(teacherModal.getByText("请输入手机号")).toBeVisible();
+    await expect(teacherModal.getByText("请输入密码")).toBeVisible();
 
-  // Edit cancel → original name unchanged
-  await manualRow.getByRole("button", { name: `编辑 ${manualName}` }).click();
-  const editManualModal = await getVisibleModal(page, "修改实验手册");
-  await fillFormField(editManualModal, "手册名称", `${manualName}-changed`);
-  await cancelModal(editManualModal);
-  await expect(editManualModal).not.toBeVisible();
-  await expect(tableRowByText(page, manualName)).toBeVisible();
+    // Invalid email
+    await fillFormField(teacherModal, AdminUserSelectors.emailInput, "bad-email");
+    await confirmModal(teacherModal);
+    await expect(teacherModal.getByText("邮箱格式不正确")).toBeVisible();
 
-  // ---- Dataset: create, delete-cancel ----
-  await openMenu(page, "实验数据管理", "实验数据管理");
-  const datasetName = makeRunId("E2E取消数据集");
+    // Invalid phone
+    await fillFormField(teacherModal, AdminUserSelectors.phoneInput, "12345");
+    await confirmModal(teacherModal);
+    await expect(teacherModal.getByText("手机号格式不正确")).toBeVisible();
 
-  await page.getByRole("button", { name: "新增数据" }).click();
-  const createDatasetModal = await getVisibleModal(page, "新增实验数据");
-  await fillFormField(createDatasetModal, "数据集名称", datasetName);
-  await fillFormField(createDatasetModal, "备注", "cancel test");
-  await createDatasetModal.locator('input[type="file"]').setInputFiles({
-    name: `dataset-cancel-${Date.now()}.csv`,
-    mimeType: "text/csv",
-    buffer: buildCsv([
-      datasetCsvHeaders,
-      ["纺织行业", "鲁泰纺织", "布", "2024", "1", "50", "米"],
-    ]),
+    // Short password
+    await fillFormField(teacherModal, AdminUserSelectors.passwordInput, "ab");
+    await confirmModal(teacherModal);
+    await expect(teacherModal.getByText("密码至少需要6个字符")).toBeVisible();
+
+    await cancelModal(teacherModal);
+    await expect(teacherModal).not.toBeVisible();
+
+    // Create temp teacher for reset password validation
+    const tempUsername = `t${Date.now().toString().slice(-8)}`;
+    const tempName = `E2E校验${makeRunId("V")}`;
+    const tempPhone = makePhone(10);
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.addTeacherBtn }).first().click();
+    const createModal = await getVisibleModal(page, ModalTitles.addTeacher);
+    await fillFormField(createModal, AdminUserSelectors.usernameInput, tempUsername);
+    await fillFormField(createModal, AdminUserSelectors.fullNameInput, tempName);
+    await fillFormField(createModal, AdminUserSelectors.emailInput, `${tempUsername}@e2e.test`);
+    await fillFormField(createModal, AdminUserSelectors.phoneInput, tempPhone);
+    await fillFormField(createModal, AdminUserSelectors.passwordInput, "Pass1234");
+    await confirmModal(createModal);
+    await expectSuccessMessage(page, SuccessMessages.teacherAdded);
+
+    await searchUsers(page, tempName);
+    const tempRow = tableRowByText(page, tempName);
+    await expect(tempRow).toBeVisible();
+
+    // Password mismatch
+    await tempRow.getByRole("button", { name: `重置密码 ${tempUsername}` }).click();
+    const passwordModal = await getVisibleModal(page, ModalTitles.resetUserPassword);
+    await fillFormField(passwordModal, AdminUserSelectors.newPasswordInput, "Password1");
+    await fillFormField(passwordModal, AdminUserSelectors.confirmPasswordInput, "Password2");
+    await confirmModal(passwordModal);
+    await expect(passwordModal.getByText("两次输入的密码不一致")).toBeVisible();
+
+    await cancelModal(passwordModal);
+    await expect(passwordModal).not.toBeVisible();
+
+    // Cleanup
+    await tempRow.getByRole("button", { name: `删除用户 ${tempUsername}` }).click();
+    await confirmDelete(page);
+    await expectSuccessMessage(page, SuccessMessages.userDeleted);
   });
-  await confirmModal(createDatasetModal);
-  await expectSuccessMessage(page, "上传成功");
-
-  const datasetRow = tableRowByText(page, datasetName);
-  await expect(datasetRow).toBeVisible();
-
-  // Delete cancel → dataset still exists
-  await datasetRow.getByRole("button", { name: `Delete ${datasetName}` }).click();
-  const deleteDatasetModal = await getVisibleModal(page, "确认删除");
-  await cancelModal(deleteDatasetModal);
-  await expect(datasetRow).toBeVisible();
-
-  // ---- Cleanup ----
-  await datasetRow.getByRole("button", { name: `Delete ${datasetName}` }).click();
-  await confirmDelete(page);
-  await expectSuccessMessage(page, "删除成功");
-
-  await openMenu(page, "实验手册管理", "实验手册管理");
-  await tableRowByText(page, manualName).getByRole("button", { name: `删除 ${manualName}` }).click();
-  await confirmDelete(page);
-  await expectSuccessMessage(page, "删除成功");
 });
 
-test("@admin 搜索边缘：用户搜索清空与无结果、班级搜索无结果", async ({ page }) => {
-  await loginAsAdmin(page);
-  await openMenu(page, "用户管理", "用户列表");
+test.describe("@admin 班级管理", () => {
+  test("搜索与查看班级详情", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "班级管理", "班级管理");
 
-  // User search: no results
-  await searchUsers(page, "NONEXIST_E2E_xxx");
-  await expect(page.locator(".ant-empty").first()).toBeVisible();
+    const search = page.getByPlaceholder(AdminClassSelectors.searchInput.placeholder);
+    await search.fill("计算机科学与技术2501");
 
-  // User search: clear → admin reappears
-  await searchUsers(page, "");
-  await expect(tableRowByText(page, "系统管理员")).toBeVisible();
+    const classRow = tableRowByText(page, "计算机科学与技术2501");
+    await expect(classRow).toBeVisible();
 
-  // Class search
-  await openMenu(page, "班级管理", "班级管理");
-  const classSearch = page.getByPlaceholder("请输入班级名称或编号");
+    await classRow.getByRole(AdminClassSelectors.viewDetailBtn.role, { name: AdminClassSelectors.viewDetailBtn.name }).click();
+    const detailsModal = await getVisibleModal(page, "班级详情 - 计算机科学与技术2501");
 
-  // Class search: no results
-  await classSearch.fill("NONEXIST_E2E_xxx");
-  await expect(page.locator(".ant-empty").first()).toBeVisible();
+    await expect(detailsModal.getByText("所属教师")).toBeVisible();
+    await detailsModal.getByRole("tab", { name: "助教列表" }).click();
+    await expect(detailsModal.getByText("助教列表")).toBeVisible();
+    await detailsModal.getByRole("tab", { name: "学生列表" }).click();
+    await expect(detailsModal.getByText("学生列表")).toBeVisible();
 
-  // Class search: clear → data reappears
-  await classSearch.fill("");
-  await expect(tableRowByText(page, "计算机科学与技术2501")).toBeVisible();
+    await detailsModal.getByRole("button", { name: /关\s*闭/ }).click();
+    await expect(detailsModal).not.toBeVisible();
+
+    await search.fill("");
+    await expect(tableRowByText(page, "计算机科学与技术2502")).toBeVisible();
+  });
+});
+
+test.describe("@admin 认证与边缘测试", () => {
+  test("认证守卫：无token或非admin角色重定向", async ({ page }) => {
+    // No token → redirect to login
+    await page.goto("/admin.html");
+    await expect(page).toHaveURL(/\/login\.html$/);
+
+    // Non-admin role token → redirect to login
+    const studentToken = buildFakeToken("Student");
+    await page.evaluate((t) => localStorage.setItem("token", t), studentToken);
+    await page.goto("/admin.html");
+    await expect(page).toHaveURL(/\/login\.html$/);
+  });
+
+  test("搜索边缘：清空与无结果", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
+
+    // User search: no results
+    await searchUsers(page, "NONEXIST_E2E_xxx");
+    await expect(page.locator(".ant-empty").first()).toBeVisible();
+
+    // User search: clear → admin reappears
+    await searchUsers(page, "");
+    await expect(tableRowByText(page, "系统管理员")).toBeVisible();
+
+    // Class search
+    await openTopLevelPage(page, "班级管理", "班级管理");
+    const classSearch = page.getByPlaceholder(AdminClassSelectors.searchInput.placeholder);
+
+    // Class search: no results
+    await classSearch.fill("NONEXIST_E2E_xxx");
+    await expect(page.locator(".ant-empty").first()).toBeVisible();
+
+    // Class search: clear → data reappears
+    await classSearch.fill("");
+    await expect(tableRowByText(page, "计算机科学与技术2501")).toBeVisible();
+  });
+
+  test("取消操作：删除取消与编辑取消", async ({ page }) => {
+    await loginAsAdmin(page);
+
+    // ---- Manual: create, delete-cancel, edit-cancel ----
+    await openTopLevelPage(page, "实验手册管理", "实验手册管理");
+    const manualName = makeRunId("E2E取消手册");
+
+    await page.getByRole(AdminManualSelectors.addBtn.role, { name: AdminManualSelectors.addBtn.name }).click();
+    const createManualModal = await getVisibleModal(page, ModalTitles.addManual);
+    await fillFormField(createManualModal, AdminManualSelectors.manualNameInput, manualName);
+    await fillFormField(createManualModal, AdminManualSelectors.remarkInput, "cancel test");
+    await createManualModal.locator(AdminManualSelectors.fileInput).setInputFiles({
+      name: `manual-cancel-${Date.now()}.pdf`,
+      mimeType: "application/pdf",
+      buffer: buildTinyPdfBuffer(),
+    });
+    await confirmModal(createManualModal);
+    await expectSuccessMessage(page, SuccessMessages.uploadSuccess);
+
+    const manualRow = tableRowByText(page, manualName);
+    await expect(manualRow).toBeVisible();
+
+    // Delete cancel → manual still exists
+    await manualRow.getByRole("button", { name: `删除 ${manualName}` }).click();
+    const deleteManualModal = await getVisibleModal(page, ModalTitles.deleteConfirm);
+    await cancelModal(deleteManualModal);
+    await expect(manualRow).toBeVisible();
+
+    // Edit cancel → original name unchanged
+    await manualRow.getByRole("button", { name: `编辑 ${manualName}` }).click();
+    const editManualModal = await getVisibleModal(page, ModalTitles.editManual);
+    await fillFormField(editManualModal, AdminManualSelectors.manualNameInput, `${manualName}-changed`);
+    await cancelModal(editManualModal);
+    await expect(editManualModal).not.toBeVisible();
+    await expect(tableRowByText(page, manualName)).toBeVisible();
+
+    // ---- Dataset: create, delete-cancel ----
+    await openTopLevelPage(page, "实验数据管理", "实验数据管理");
+    const datasetName = makeRunId("E2E取消数据集");
+
+    await page.getByRole(AdminDatasetSelectors.addBtn.role, { name: AdminDatasetSelectors.addBtn.name }).click();
+    const createDatasetModal = await getVisibleModal(page, ModalTitles.addDataset);
+    await fillFormField(createDatasetModal, AdminDatasetSelectors.datasetNameInput, datasetName);
+    await fillFormField(createDatasetModal, AdminDatasetSelectors.remarkInput, "cancel test");
+    await createDatasetModal.locator(AdminDatasetSelectors.fileInput).setInputFiles({
+      name: `dataset-cancel-${Date.now()}.csv`,
+      mimeType: "text/csv",
+      buffer: buildCsv([
+        AdminDatasetSelectors.csvHeaders,
+        ["纺织行业", "鲁泰纺织", "布", "2024", "1", "50", "米"],
+      ]),
+    });
+    await confirmModal(createDatasetModal);
+    await expectSuccessMessage(page, SuccessMessages.uploadSuccess);
+
+    const datasetRow = tableRowByText(page, datasetName);
+    await expect(datasetRow).toBeVisible();
+
+    // Delete cancel → dataset still exists
+    await datasetRow.getByRole("button", { name: `Delete ${datasetName}` }).click();
+    const deleteDatasetModal = await getVisibleModal(page, ModalTitles.deleteConfirm);
+    await cancelModal(deleteDatasetModal);
+    await expect(datasetRow).toBeVisible();
+
+    // ---- Cleanup ----
+    await datasetRow.getByRole("button", { name: `Delete ${datasetName}` }).click();
+    await confirmDelete(page);
+    await expectSuccessMessage(page, SuccessMessages.deleteSuccess);
+
+    await openTopLevelPage(page, "实验手册管理", "实验手册管理");
+    await tableRowByText(page, manualName).getByRole("button", { name: `删除 ${manualName}` }).click();
+    await confirmDelete(page);
+    await expectSuccessMessage(page, SuccessMessages.deleteSuccess);
+  });
 });

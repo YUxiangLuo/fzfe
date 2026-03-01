@@ -5,66 +5,57 @@
 ### 运行所有测试
 
 ```bash
-# 使用脚本（推荐）
 bun run e2e:all
-
-# 或使用原始命令
-bunx playwright test --config=playwright.teacher.config.ts
-bunx playwright test --config=playwright.assistant.config.ts
 ```
 
 ### 运行特定测试套件
 
 ```bash
-# 运行 Teacher 测试
 bun run e2e:teacher
-
-# 运行 Assistant 测试
 bun run e2e:assistant
-
-# 清理端口（如果遇到端口冲突）
-bun run e2e:clean
+bun run e2e:admin
+bun run e2e:shiyan
 ```
 
 ### 运行特定测试用例
 
 ```bash
-# 使用脚本运行特定测试
-./scripts/run-e2e.sh teacher "班级管理"
-./scripts/run-e2e.sh assistant "实验报告"
-
-# 或使用 bun
+# 使用 --grep 过滤
 bunx playwright test --config=playwright.teacher.config.ts --grep "班级管理"
+bunx playwright test --config=playwright.assistant.config.ts --grep "实验报告"
 ```
 
 ## 可用命令
 
 | 命令 | 说明 |
 |------|------|
-| `bun run e2e` | 显示帮助信息 |
-| `bun run e2e:teacher` | 运行教师端 E2E 测试 |
-| `bun run e2e:teacher:headed` | 运行教师端测试（带浏览器界面） |
-| `bun run e2e:assistant` | 运行助教端 E2E 测试 |
-| `bun run e2e:assistant:headed` | 运行助教端测试（带浏览器界面） |
-| `bun run e2e:admin` | 运行管理员端 E2E 测试 |
-| `bun run e2e:shiyan` | 运行学生端 E2E 测试 |
+| `bun run e2e:gen` | 生成 fixtures（前后端同步） |
+| `bun run e2e:teacher` | 运行教师端测试 |
+| `bun run e2e:teacher:headed` | 教师端测试（带浏览器界面） |
+| `bun run e2e:assistant` | 运行助教端测试 |
+| `bun run e2e:assistant:headed` | 助教端测试（带浏览器界面） |
+| `bun run e2e:admin` | 运行管理员端测试 |
+| `bun run e2e:admin:headed` | 管理员端测试（带浏览器界面） |
+| `bun run e2e:shiyan` | 运行学生端测试 |
+| `bun run e2e:shiyan:headed` | 学生端测试（带浏览器界面） |
 | `bun run e2e:all` | 运行所有 E2E 测试 |
-| `bun run e2e:clean` | 清理测试端口和进程 |
 
 ## 测试配置
 
 ### 配置文件
 
-- `playwright.teacher.config.ts` - 教师端测试配置
-- `playwright.assistant.config.ts` - 助教端测试配置
-- `playwright.admin.config.ts` - 管理员端测试配置
-- `playwright.shiyan.config.ts` - 学生端测试配置
+| 配置文件 | 后端端口 | 前端端口 |
+|---------|:-------:|:-------:|
+| `playwright.admin.config.ts` | 54101 | 55101 |
+| `playwright.teacher.config.ts` | 54102 | 55102 |
+| `playwright.assistant.config.ts` | 54103 | 55103 |
+| `playwright.shiyan.config.ts` | 54104 | 55104 |
+
+各角色使用独立端口，互不冲突。
 
 ### 测试数据
 
-测试数据通过以下文件管理：
-
-- `tests/e2e/fixtures.ts` - 共享常量（账户、测试数据、API 端点）
+- `tests/e2e/fixtures.ts` - 自动生成的共享常量（`bun run e2e:gen`）
 - `tests/e2e/helpers/` - 工具函数和选择器
 - `../be/scripts/e2e-seed-*.ts` - 后端数据种子脚本
 
@@ -82,10 +73,6 @@ E2E_TEACHER_USERNAME=teacher1
 E2E_TEACHER_PASSWORD=TeacherE2E!234
 E2E_ASSISTANT_USERNAME=assistant2
 E2E_ASSISTANT_PASSWORD=AssistantE2E!234
-
-# 端口配置
-E2E_BACKEND_PORT=54102  # Teacher
-E2E_FRONTEND_PORT=55102
 ```
 
 ## 调试测试
@@ -93,20 +80,15 @@ E2E_FRONTEND_PORT=55102
 ### 查看测试报告
 
 ```bash
-# HTML 报告
-playwright show-report playwright-report/teacher
-playwright show-report playwright-report/assistant
-
-# 查看失败截图和视频
-ls test-results/teacher/
-ls test-results/assistant/
+bunx playwright show-report playwright-report/teacher
+bunx playwright show-report playwright-report/admin
 ```
 
-### 交互式调试（ headed 模式）
+### 交互式调试
 
 ```bash
-# 带界面的测试运行
-bunx playwright test --config=playwright.teacher.config.ts --headed
+# headed 模式
+bun run e2e:teacher:headed
 
 # 单步调试
 bunx playwright test --config=playwright.teacher.config.ts --debug
@@ -115,46 +97,34 @@ bunx playwright test --config=playwright.teacher.config.ts --debug
 ### 查看 Trace
 
 ```bash
-# 启动 Trace 查看器
-npx playwright show-trace test-results/teacher/<test-name>/trace.zip
+bunx playwright show-trace test-results/teacher/<test-name>/trace.zip
 ```
 
 ## 常见问题
 
 ### 端口冲突
 
-如果遇到端口占用错误，运行：
+各角色使用独立端口，一般不会冲突。如果手动杀进程：
+
 ```bash
-bun run e2e:clean
+# 查找占用端口的进程
+lsof -i :54101
+# 杀掉进程
+kill <PID>
 ```
 
 ### 数据库连接失败
 
-确保后端数据库已正确配置：
 ```bash
 cd ../be
 bun run db:setup
 ```
 
-### 测试超时
-
-可以调整 playwright 配置中的 `timeout` 值：
-```typescript
-// playwright.teacher.config.ts
-export default defineConfig({
-  timeout: 120_000,  // 默认 90 秒
-});
-```
-
 ## 编写新测试
 
-参考现有测试文件：
+参考现有测试文件，使用共享工具函数：
 
-1. `tests/e2e/teacher/teacher.spec.ts` - 教师端测试示例
-2. `tests/e2e/assistant/assistant.spec.ts` - 助教端测试示例
-
-使用共享工具函数：
 ```typescript
-import { loginAs, tableRowByText, expectSuccessMessage } from "../helpers";
-import { TEST_DATA, ACCOUNTS } from "../fixtures";
+import { expect, test } from "@playwright/test";
+import { loginAs, tableRowByText, expectSuccessMessage, ACCOUNTS } from "../helpers";
 ```
