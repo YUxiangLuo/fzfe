@@ -43,7 +43,11 @@ bunx playwright test --config=playwright.teacher.config.ts --grep "班级管理"
 |------|------|
 | `bun run e2e` | 显示帮助信息 |
 | `bun run e2e:teacher` | 运行教师端 E2E 测试 |
+| `bun run e2e:teacher:headed` | 运行教师端测试（带浏览器界面） |
 | `bun run e2e:assistant` | 运行助教端 E2E 测试 |
+| `bun run e2e:assistant:headed` | 运行助教端测试（带浏览器界面） |
+| `bun run e2e:admin` | 运行管理员端 E2E 测试 |
+| `bun run e2e:shiyan` | 运行学生端 E2E 测试 |
 | `bun run e2e:all` | 运行所有 E2E 测试 |
 | `bun run e2e:clean` | 清理测试端口和进程 |
 

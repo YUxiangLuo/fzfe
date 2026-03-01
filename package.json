@@ -10,18 +10,13 @@
     "test": "bun run typecheck",
     "e2e": "./scripts/run-e2e.sh",
     "e2e:teacher": "./scripts/run-e2e.sh teacher",
+    "e2e:teacher:headed": "bunx playwright test --config=playwright.teacher.config.ts --headed",
     "e2e:assistant": "./scripts/run-e2e.sh assistant",
+    "e2e:assistant:headed": "bunx playwright test --config=playwright.assistant.config.ts --headed",
+    "e2e:admin": "bunx playwright test --config=playwright.admin.config.ts",
+    "e2e:shiyan": "bunx playwright test --config=playwright.shiyan.config.ts",
     "e2e:all": "./scripts/run-e2e.sh all",
-    "e2e:clean": "./scripts/run-e2e.sh clean",
-    "e2e-test:admin": "bunx playwright test --config=playwright.admin.config.ts --grep @admin",
-    "e2e-test:admin:headed": "bunx playwright test --config=playwright.admin.config.ts --grep @admin --headed",
-    "e2e-test:teacher": "bunx playwright test --config=playwright.teacher.config.ts --grep @teacher",
-    "e2e-test:teacher:headed": "bunx playwright test --config=playwright.teacher.config.ts --grep @teacher --headed",
-    "e2e-test:assistant": "bunx playwright test --config=playwright.assistant.config.ts --grep @assistant",
-    "e2e-test:assistant:headed": "bunx playwright test --config=playwright.assistant.config.ts --grep @assistant --headed",
-    "e2e-test:shiyan": "bunx playwright test --config=playwright.shiyan.config.ts --grep @shiyan",
-    "e2e-test:shiyan:headed": "bunx playwright test --config=playwright.shiyan.config.ts --grep @shiyan --headed",
-    "e2e-test:all": "bun run e2e-test:admin && bun run e2e-test:teacher && bun run e2e-test:assistant && bun run e2e-test:shiyan"
+    "e2e:clean": "./scripts/run-e2e.sh clean"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
