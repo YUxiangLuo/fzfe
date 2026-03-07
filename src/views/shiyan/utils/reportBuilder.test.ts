@@ -161,4 +161,36 @@ describe("reportBuilder", () => {
     expect(markdown).toContain("decision analysis");
     expect(markdown).toContain("| P1 | 100 | 10 | 110 |");
   });
+
+  it("renders fallback sections when report data is incomplete", () => {
+    const state = {
+      ...buildInitialState(),
+      experiment_id: 9,
+      student_id: 16,
+      selected_industry: null,
+      selected_company: null,
+      selected_product: null,
+      selected_best_model: null,
+      production_mps_table: [],
+    };
+
+    const markdown = buildExperimentReportMarkdown({
+      state,
+      userInfo: null,
+      analyses: {
+        data: "d",
+        comparison: "c",
+        selection: "s",
+        params: "p",
+        decision: "x",
+      },
+      viewModel: buildReportViewModel(state, null),
+    });
+
+    expect(markdown).toContain("# 学生的实验报告");
+    expect(markdown).toContain("| 行业 | N/A |");
+    expect(markdown).toContain("**选定模型**: N/A");
+    expect(markdown).toContain("**📝 说明：生产计划数据未保存**");
+    expect(markdown).toContain("**📝 说明：无汇总数据**");
+  });
 });

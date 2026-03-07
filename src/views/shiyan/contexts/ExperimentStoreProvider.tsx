@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { useExperimentStore } from "./ExperimentContext.zustand";
+import { useExperimentStore } from "../store/experiment";
 import { useToast } from "../shared/contexts/ToastContext";
 import { toastEventBus } from "../utils/toastEventBus";
 import { STEPS } from "../constants/steps";

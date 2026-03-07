@@ -155,4 +155,115 @@ describe("productResourceController", () => {
     expect(harness.getSlice().productSalesData).toBeNull();
     expect(harness.getSlice().ui.isLoadingSales).toBeFalse();
   });
+
+  it("stores field loading errors for the active product selection", async () => {
+    const harness = createHarness();
+    const getProductFieldOptions = mock(async () => {
+      throw new Error("fields unavailable");
+    });
+
+    const controller = createProductResourceController({
+      set: harness.set,
+      get: harness.get,
+      dependencies: {
+        getProductSalesData: mock(async () => ({
+          meta: {
+            industry: "electronics",
+            company: "acme",
+            product: "widget",
+            name: "Widget",
+            description: "desc",
+            unit: "件",
+          },
+          monthlySales: [],
+        })),
+        getProductFieldOptions,
+      },
+    });
+
+    await expect(
+      controller.loadProductFieldOptions("electronics", "acme", "widget"),
+    ).resolves.toBe("failed");
+
+    expect(getProductFieldOptions).toHaveBeenCalledTimes(1);
+    expect(harness.getSlice().productFieldOptions).toBeNull();
+    expect(harness.getSlice().ui.productFieldsError).toBe("fields unavailable");
+    expect(harness.getSlice().ui.isLoadingFields).toBeFalse();
+  });
+
+  it("stores loaded product field options for the current selection", async () => {
+    const harness = createHarness();
+    const getProductFieldOptions = mock(async () => ["sales", "inventory"]);
+
+    const controller = createProductResourceController({
+      set: harness.set,
+      get: harness.get,
+      dependencies: {
+        getProductSalesData: mock(async () => ({
+          meta: {
+            industry: "electronics",
+            company: "acme",
+            product: "widget",
+            name: "Widget",
+            description: "desc",
+            unit: "件",
+          },
+          monthlySales: [],
+        })),
+        getProductFieldOptions,
+      },
+    });
+
+    await expect(
+      controller.loadProductFieldOptions("electronics", "acme", "widget"),
+    ).resolves.toBe("success");
+
+    expect(harness.getSlice().productFieldOptions).toEqual(["sales", "inventory"]);
+    expect(harness.getSlice().ui.productFieldsError).toBeNull();
+    expect(harness.getSlice().ui.isLoadingFields).toBeFalse();
+  });
+
+  it("ignores stale field option responses after selection changes", async () => {
+    const harness = createHarness();
+    let resolveFields!: (value: string[]) => void;
+    const getProductFieldOptions = mock(
+      () =>
+        new Promise<string[]>((resolve) => {
+          resolveFields = resolve;
+        }),
+    );
+
+    const controller = createProductResourceController({
+      set: harness.set,
+      get: harness.get,
+      dependencies: {
+        getProductSalesData: mock(async () => ({
+          meta: {
+            industry: "electronics",
+            company: "acme",
+            product: "widget",
+            name: "Widget",
+            description: "desc",
+            unit: "件",
+          },
+          monthlySales: [],
+        })),
+        getProductFieldOptions,
+      },
+    });
+
+    const pendingLoad = controller.loadProductFieldOptions("electronics", "acme", "widget");
+    harness.set((current) => ({
+      state: {
+        ...current.state,
+        selected_product: "other-widget",
+      },
+    }));
+    controller.invalidateAndResetProductDependentResources();
+    resolveFields(["sales"]);
+
+    await expect(pendingLoad).resolves.toBe("ignored");
+    expect(harness.getSlice().productFieldOptions).toBeNull();
+    expect(harness.getSlice().ui.isLoadingFields).toBeFalse();
+  });
 });
