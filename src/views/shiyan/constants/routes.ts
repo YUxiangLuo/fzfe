@@ -5,6 +5,8 @@
 
 import { STEPS } from './steps';
 
+const LEGACY_REPORT_STEP = 8;
+
 export const ROUTES = {
   LOGIN: '/login.html',
   INTRODUCTION: '/introduction',
@@ -45,7 +47,7 @@ const STEP_TO_PATH: Record<number, string> = {
   [STEPS.MODEL]: ROUTES.MODEL,
   [STEPS.EVALUATION]: ROUTES.EVALUATION,
   [STEPS.PRODUCTION]: ROUTES.PRODUCTION,
-  [STEPS.RESULT]: ROUTES.REPORT,
+  [LEGACY_REPORT_STEP]: ROUTES.REPORT,
 };
 
 /**

@@ -2,6 +2,8 @@ import { ROUTES, getStepPath } from "../constants/routes";
 import { STEPS } from "../constants/steps";
 import type { ExperimentState, ExperimentUiState } from "../store/experiment";
 
+const LEGACY_REPORT_STEP = 8;
+
 const stripTrailingSlash = (path: string) =>
   path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
 
@@ -21,13 +23,17 @@ export const getModelQuizFallbackPath = (
   state: Pick<ExperimentState, "current_step">,
 ): string => getStepPath(state.current_step);
 
+const hasReachedLegacyReportState = (
+  state: Pick<ExperimentState, "current_step">,
+): boolean => state.current_step >= LEGACY_REPORT_STEP;
+
 export const canAccessPlanQuiz = (
   state: Pick<ExperimentState, "quiz_about_plan_completed" | "current_step" | "status">,
   isStepCompleted: (step: number) => boolean,
 ): boolean =>
   isStepCompleted(STEPS.PRODUCTION) ||
   state.quiz_about_plan_completed ||
-  state.current_step >= STEPS.RESULT ||
+  hasReachedLegacyReportState(state) ||
   state.status === "Completed";
 
 export const getPlanQuizFallbackPath = (
@@ -38,7 +44,7 @@ export const canAccessReport = (
   state: Pick<ExperimentState, "quiz_about_plan_completed" | "current_step" | "status">,
 ): boolean =>
   state.quiz_about_plan_completed ||
-  state.current_step >= STEPS.RESULT ||
+  hasReachedLegacyReportState(state) ||
   state.status === "Completed";
 
 export const getReportFallbackPath = (

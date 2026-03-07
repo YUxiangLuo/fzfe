@@ -4,7 +4,11 @@ import {
   recordStepEvent,
   updateExperimentState,
 } from "./experiment";
-import type { ExperimentState } from "../store/experiment/types";
+import type {
+  ExperimentSessionState,
+  ExperimentState,
+  PersistedExperimentState,
+} from "../store/experiment/types";
 
 type StepEventType = "STARTED" | "COMPLETED";
 
@@ -27,12 +31,12 @@ export interface ExperimentRepository {
 }
 
 const mergePersistedState = (
-  localState: ExperimentState,
-  persistedState: ExperimentState,
+  localSessionState: ExperimentSessionState,
+  persistedState: PersistedExperimentState,
 ): ExperimentState => ({
   ...persistedState,
-  selected_base_models: localState.selected_base_models,
-  selected_ensemble_models: localState.selected_ensemble_models,
+  selected_base_models: localSessionState.selected_base_models,
+  selected_ensemble_models: localSessionState.selected_ensemble_models,
 });
 
 export const createExperimentRepository = (

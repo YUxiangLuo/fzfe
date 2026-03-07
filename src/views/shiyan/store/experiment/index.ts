@@ -4,6 +4,8 @@ export {
   type ExperimentStore,
 } from "./store";
 export {
+  buildInitialPersistedState,
+  buildInitialSessionState,
   buildInitialState,
   initialState,
   resetModelingFields,
@@ -46,6 +48,8 @@ export {
 export type { UpdateStateOptions } from "./stateSyncController";
 export type {
   ExperimentStatus,
+  PersistedExperimentState,
+  ExperimentSessionState,
   ExperimentState,
   ExperimentUiState,
   SelectedBestModel,

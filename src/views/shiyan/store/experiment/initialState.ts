@@ -1,6 +1,15 @@
-import type { ExperimentState } from "./types";
+import type {
+  ExperimentSessionState,
+  ExperimentState,
+  PersistedExperimentState,
+} from "./types";
 
-export const buildInitialState = (): ExperimentState => ({
+export const buildInitialSessionState = (): ExperimentSessionState => ({
+  selected_base_models: [],
+  selected_ensemble_models: [],
+});
+
+export const buildInitialPersistedState = (): PersistedExperimentState => ({
   experiment_id: null,
   student_id: null,
   status: "Not Started",
@@ -9,9 +18,6 @@ export const buildInitialState = (): ExperimentState => ({
   selected_industry: null,
   selected_company: null,
   selected_product: null,
-
-  selected_base_models: [],
-  selected_ensemble_models: [],
 
   data_window_train_start_index: null,
   data_window_train_end_index: null,
@@ -85,6 +91,11 @@ export const buildInitialState = (): ExperimentState => ({
   start_time: null,
   last_activity_at: null,
   completion_time: null,
+});
+
+export const buildInitialState = (): ExperimentState => ({
+  ...buildInitialPersistedState(),
+  ...buildInitialSessionState(),
 });
 
 export const initialState: ExperimentState = buildInitialState();

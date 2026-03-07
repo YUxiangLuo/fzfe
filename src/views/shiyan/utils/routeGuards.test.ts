@@ -32,7 +32,7 @@ describe("routeGuards", () => {
     expect(getModelQuizFallbackPath({ current_step: 5 })).toBe("/model");
   });
 
-  it("allows plan quiz access after production completion or report completion state", () => {
+  it("allows plan quiz access after production completion or compatible legacy report state", () => {
     expect(
       canAccessPlanQuiz(
         {
@@ -81,7 +81,7 @@ describe("routeGuards", () => {
     ).toBe(false);
   });
 
-  it("allows report access only after the plan quiz or final workflow completion", () => {
+  it("allows report access only after the plan quiz, workflow completion, or a legacy report state", () => {
     expect(
       canAccessReport({
         quiz_about_plan_completed: true,

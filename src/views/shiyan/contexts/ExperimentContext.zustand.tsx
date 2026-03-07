@@ -4,6 +4,8 @@ export {
 	type ExperimentStore,
 } from "../store/experiment";
 export {
+	buildInitialPersistedState,
+	buildInitialSessionState,
 	buildInitialState,
 	initialState,
 	resetModelingFields,
@@ -37,6 +39,8 @@ export {
 } from "../store/experiment";
 export type {
 	ExperimentStatus,
+	PersistedExperimentState,
+	ExperimentSessionState,
 	ExperimentState,
 	ExperimentUiState,
 	SelectedBestModel,

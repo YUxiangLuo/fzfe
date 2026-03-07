@@ -1,17 +1,20 @@
-import { buildInitialState } from "../store/experiment/initialState";
+import {
+  buildInitialPersistedState,
+  buildInitialSessionState,
+  buildInitialState,
+} from "../store/experiment/initialState";
 import type {
   AdfStationarityRow,
   ExperimentState,
   MPSTableRow,
+  PersistedExperimentState,
 } from "../store/experiment/types";
 
-type ExperimentApiState = Partial<Omit<ExperimentState, FrontendOnlyExperimentField>> & {
+type ExperimentApiState = Partial<PersistedExperimentState> & {
   [key: string]: unknown;
 };
 
-type FrontendOnlyExperimentField = "selected_base_models" | "selected_ensemble_models";
-
-type ExperimentUpdatePayload = Omit<ExperimentState, FrontendOnlyExperimentField>;
+type ExperimentUpdatePayload = PersistedExperimentState;
 
 const normalizeStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
@@ -59,16 +62,17 @@ const normalizeForecastResults = (
 
 export const fromExperimentApi = (state: ExperimentApiState | null | undefined): ExperimentState => {
   const baseState = buildInitialState();
+  const basePersistedState = buildInitialPersistedState();
+  const baseSessionState = buildInitialSessionState();
 
   if (!state) {
     return baseState;
   }
 
   return {
-    ...baseState,
+    ...basePersistedState,
     ...state,
-    selected_base_models: baseState.selected_base_models,
-    selected_ensemble_models: baseState.selected_ensemble_models,
+    ...baseSessionState,
     arima_adf_stationarity: normalizeAdfRows(state.arima_adf_stationarity),
     lstm_features: normalizeStringArray(state.lstm_features),
     ensemble_weighted_base_models: normalizeStringArray(

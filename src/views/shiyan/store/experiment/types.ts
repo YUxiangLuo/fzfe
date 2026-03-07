@@ -52,7 +52,12 @@ export interface MPSTableRow {
   service_level: number;
 }
 
-export interface ExperimentState {
+export interface ExperimentSessionState {
+  selected_base_models: string[];
+  selected_ensemble_models: string[];
+}
+
+export interface PersistedExperimentState {
   experiment_id: number | null;
   student_id: number | null;
   status: ExperimentStatus;
@@ -61,9 +66,6 @@ export interface ExperimentState {
   selected_industry: string | null;
   selected_company: string | null;
   selected_product: string | null;
-
-  selected_base_models: string[];
-  selected_ensemble_models: string[];
 
   data_window_train_start_index: number | null;
   data_window_train_end_index: number | null;
@@ -141,6 +143,8 @@ export interface ExperimentState {
   last_activity_at: string | null;
   completion_time: string | null;
 }
+
+export type ExperimentState = PersistedExperimentState & ExperimentSessionState;
 
 export interface ExperimentUiState {
   loading: boolean;

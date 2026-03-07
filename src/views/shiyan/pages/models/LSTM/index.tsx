@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ModelStepLayout from '../components/ModelStepLayout';
 import Intro from './Intro';
@@ -11,6 +11,7 @@ import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
+import { useModelJob } from '../hooks/useModelJob';
 import RetryExceededFallback from '../components/RetryExceededFallback';
 
 const MODEL_NAME = 'LSTM模型';
@@ -36,18 +37,21 @@ const RESULTS_STEP_INDEX = 3;
 const LSTMStepper: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state, updateState, productSalesData, productFieldOptions } = useExperiment();
+  const { state, updateState, productSalesData, productFieldOptions, setTrainingLock } = useExperiment();
 
   const [normalization, setNormalization] = useState<'minmax' | 'zscore' | null>(state.lstm_normalization);
   const [features, setFeatures] = useState<string[]>(state.lstm_features ?? []);
   const [target, setTarget] = useState<string | null>(state.lstm_target_field);
   const [results, setResults] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-
-  // AbortController ref for cancelling requests
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const {
+    isLoading,
+    error,
+    setError,
+    retryCount,
+    runJob,
+    recordFailure,
+    handleRetry,
+  } = useModelJob();
 
   const isNormalizationInfoPage = useMemo(() => location.pathname === NORMALIZATION_INFO_PATH, [location.pathname]);
   const isLSTMMethodInfoPage = useMemo(() => location.pathname === LSTM_METHOD_INFO_PATH, [location.pathname]);
@@ -112,45 +116,49 @@ const LSTMStepper: React.FC = () => {
   }, [currentStep?.id, target, productFieldOptions]);
 
   const handleCalculate = useCallback(async () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-    
     setError(null);
     setResults(null);
-    setIsLoading(true);
-    try {
-      const requestBody = {
-        selected_industry: state.selected_industry,
-        selected_company: state.selected_company,
-        selected_product: state.selected_product,
-        data_window_train_start_index: state.data_window_train_start_index,
-        data_window_train_end_index: state.data_window_train_end_index,
-        data_window_evaluate_start_index: state.data_window_evaluate_start_index,
-        data_window_evaluate_end_index: state.data_window_evaluate_end_index,
-        lstmNormalization: normalization,
-        lstmTargetFeature: target ?? '销售数量',
-        lstmFeatures: features.join(","),
-      };
+    const requestBody = {
+      selected_industry: state.selected_industry,
+      selected_company: state.selected_company,
+      selected_product: state.selected_product,
+      data_window_train_start_index: state.data_window_train_start_index,
+      data_window_train_end_index: state.data_window_train_end_index,
+      data_window_evaluate_start_index: state.data_window_evaluate_start_index,
+      data_window_evaluate_end_index: state.data_window_evaluate_end_index,
+      lstmNormalization: normalization,
+      lstmTargetFeature: target ?? '销售数量',
+      lstmFeatures: features.join(","),
+    };
 
-      const response = await apiClient.post<any>(
+    const response = await runJob<any>({
+      lockPath: location.pathname,
+      setTrainingLock,
+      request: (signal) => apiClient.post<any>(
         "/models/lstm/training",
         requestBody,
-        { signal: abortController.signal }
-      );
+        { signal }
+      ),
+      getErrorMessage: (jobError) =>
+        jobError instanceof Error ? jobError.message : '遇到错误，请重试...',
+    });
 
-      if (response.status === "success") {
-        const apiResults = response.results;
-        setResults({
-          predictions: evaluateMonths.map((month: string, index: number) => ({
-            date: month,
-            actual: apiResults.eval_y_true[index],
-            predicted: apiResults.eval_predictions[index],
-          })),
-          metrics: apiResults.metrics,
-        });
+    if (!response) {
+      return;
+    }
+
+    if (response.status === "success") {
+      const apiResults = response.results;
+      const nextResults = {
+        predictions: evaluateMonths.map((month: string, index: number) => ({
+          date: month,
+          actual: apiResults.eval_y_true[index],
+          predicted: apiResults.eval_predictions[index],
+        })),
+        metrics: apiResults.metrics,
+      };
+
+      try {
         await updateState({
           lstm_features: features,
           lstm_target_field: target,
@@ -158,22 +166,16 @@ const LSTMStepper: React.FC = () => {
           lstm_metrics_mae: apiResults.metrics.mae,
           lstm_metrics_r2: apiResults.metrics.r2,
         }, { forceSync: true });
-      } else {
-        throw new Error(response.message || "计算失败，请重试...");
+        setResults(nextResults);
+      } catch (jobError) {
+        recordFailure(jobError, '实验进度同步失败，请稍后重试。');
       }
-    } catch (e) {
-      // Ignore abort errors
-      if (e instanceof DOMException && e.name === 'AbortError') {
-        return;
-      }
-      setError(e instanceof Error ? e.message : "遇到错误，请重试...");
-      setRetryCount(prev => prev + 1);
-    } finally {
-      if (abortControllerRef.current === abortController) {
-        setIsLoading(false);
-      }
+      return;
     }
+
+    recordFailure(response.message || "计算失败，请重试...");
   }, [
+    location.pathname,
     state.selected_industry,
     state.selected_company,
     state.selected_product,
@@ -185,6 +187,9 @@ const LSTMStepper: React.FC = () => {
     target,
     features,
     evaluateMonths,
+    runJob,
+    recordFailure,
+    setTrainingLock,
     updateState
   ]);
 
@@ -205,15 +210,6 @@ const LSTMStepper: React.FC = () => {
     isLoading,
     error,
   });
-
-  // Cleanup: cancel all pending requests on unmount
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
 
   const handleNext = async () => {
     if (currentStep?.id === 'preprocessing') {
@@ -286,12 +282,6 @@ const LSTMStepper: React.FC = () => {
   }
 
   const CurrentComponent = currentStep.component as React.FC<any>;
-
-  const handleRetry = useCallback(() => {
-    if (retryCount < 3) {
-      setError(null);
-    }
-  }, [retryCount]);
 
   const componentProps: { [key: string]: PreprocessingProps | BuildProps | ResultsProps | {} } = {
     preprocessing: { normalization, setNormalization, error, onShowNormalizationInfo: handleShowNormalizationInfo },

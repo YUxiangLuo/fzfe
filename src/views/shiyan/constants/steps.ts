@@ -22,8 +22,6 @@ export const STEPS = {
   EVALUATION: 6,
   /** 步骤7: 生产计划 */
   PRODUCTION: 7,
-  /** 步骤8: 结果报告 */
-  RESULT: 8,
 } as const;
 
 /**
@@ -42,7 +40,6 @@ export const STEP_NAMES: Record<StepNumber, string> = {
   [STEPS.MODEL]: '模型构建',
   [STEPS.EVALUATION]: '模型评估',
   [STEPS.PRODUCTION]: '生产计划',
-  [STEPS.RESULT]: '结果报告',
 };
 
 /**
@@ -52,7 +49,7 @@ export const STEP_NAMES: Record<StepNumber, string> = {
  */
 export const getNextStep = (currentStep: StepNumber): StepNumber => {
   const nextStep = currentStep + 1;
-  return nextStep <= STEPS.RESULT ? (nextStep as StepNumber) : currentStep;
+  return nextStep <= STEPS.PRODUCTION ? (nextStep as StepNumber) : currentStep;
 };
 
 /**
