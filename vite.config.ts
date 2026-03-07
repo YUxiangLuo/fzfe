@@ -83,11 +83,11 @@ export default defineConfig({
 
   // 开发服务器配置
   server: {
-    port: 3000,
+    port: 4000,
     // API 代理到后端服务器（支持环境变量覆盖，用于 E2E 测试）
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL?.replace('/api/v1', '') ?? 'http://localhost:3001',
+        target: process.env.VITE_API_URL?.replace('/api/v1', '') ?? 'http://localhost:4001',
         changeOrigin: true,
       },
     },
@@ -95,6 +95,6 @@ export default defineConfig({
 
   // Preview 服务器配置（用于预览生产构建）
   preview: {
-    port: 3000,
+    port: 4000,
   },
 });
