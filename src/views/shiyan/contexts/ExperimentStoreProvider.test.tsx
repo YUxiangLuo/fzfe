@@ -1,9 +1,12 @@
 /// <reference lib="dom" />
 /// <reference types="bun-types" />
 
+import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { act, render } from "@testing-library/react";
 import type { RenderResult } from "@testing-library/react";
+
+const r = (p: string) => resolve(import.meta.dir, p);
 
 type ToastListener = (event: { message: string; type: string; duration?: number }) => void;
 
@@ -60,7 +63,7 @@ let storeState: StoreShape = {
 };
 
 mock.module(
-  "/home/alice/pros/fangzhen/fe/src/views/shiyan/store/experiment/index.ts",
+  r("../store/experiment/index.ts"),
   () => ({
     useExperimentStore(selector: (state: StoreShape) => unknown) {
       return selector(storeState);
@@ -69,14 +72,14 @@ mock.module(
 );
 
 mock.module(
-  "/home/alice/pros/fangzhen/fe/src/views/shiyan/shared/contexts/ToastContext.tsx",
+  r("../shared/contexts/ToastContext.tsx"),
   () => ({
     useToast: () => ({ addToast }),
   }),
 );
 
 mock.module(
-  "/home/alice/pros/fangzhen/fe/src/views/shiyan/utils/toastEventBus.ts",
+  r("../utils/toastEventBus.ts"),
   () => ({
     toastEventBus: {
       subscribe: subscribeMock,
@@ -85,7 +88,7 @@ mock.module(
 );
 
 mock.module(
-  "/home/alice/pros/fangzhen/fe/src/views/shiyan/hooks/useAutoRetryLoader.ts",
+  r("../hooks/useAutoRetryLoader.ts"),
   () => ({
     useAutoRetryLoader: useAutoRetryLoaderMock,
   }),

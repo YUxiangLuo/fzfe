@@ -1,25 +1,26 @@
 /// <reference lib="dom" />
 /// <reference types="bun-types" />
 
+import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { act, render } from "@testing-library/react";
 import type { RenderResult } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { createMockExperimentValue } from "../test-utils/mockExperiment";
 
-let experimentValue = {
+const r = (p: string) => resolve(import.meta.dir, p);
+
+let experimentValue = createMockExperimentValue({
   state: {
     current_step: 3,
     highest_completed_step: 2,
   },
-  ui: {
-    isTrainingLocked: false,
-  },
   isStepCompleted: (step: number) => step <= 2,
   isStepUnlocked: (step: number) => step <= 4,
-};
+});
 
 mock.module(
-  "/home/alice/pros/fangzhen/fe/src/views/shiyan/contexts/ExperimentContext.zustand.tsx",
+  r("../contexts/ExperimentContext.zustand.tsx"),
   () => ({
     useExperiment: () => experimentValue,
   }),
@@ -44,17 +45,14 @@ describe("Sidebar", () => {
   let view: RenderResult | null = null;
 
   beforeEach(() => {
-    experimentValue = {
+    experimentValue = createMockExperimentValue({
       state: {
         current_step: 3,
         highest_completed_step: 2,
       },
-      ui: {
-        isTrainingLocked: false,
-      },
       isStepCompleted: (step: number) => step <= 2,
       isStepUnlocked: (step: number) => step <= 4,
-    };
+    });
   });
 
   afterEach(async () => {
@@ -89,6 +87,7 @@ describe("Sidebar", () => {
     experimentValue = {
       ...experimentValue,
       ui: {
+        ...experimentValue.ui,
         isTrainingLocked: true,
       },
       isStepUnlocked: () => true,

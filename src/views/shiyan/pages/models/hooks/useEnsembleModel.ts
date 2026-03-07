@@ -4,6 +4,7 @@ import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 import { MODEL_ID_MAP, ENSEMBLE_CONSTANTS } from '../constants';
 import { useModelJob } from './useModelJob';
+import type { ExperimentState } from '../../../store/experiment/types';
 
 type EnsembleType = 'weighted' | 'boosting' | 'stacking';
 
@@ -11,11 +12,11 @@ interface EnsembleModelConfig {
   type: EnsembleType;
   apiEndpoint: string;
   stateKey: {
-    baseModels: string;
-    completed: string;
-    metricsRmse: string;
-    metricsMae: string;
-    metricsR2: string;
+    baseModels: keyof ExperimentState;
+    completed: keyof ExperimentState;
+    metricsRmse: keyof ExperimentState;
+    metricsMae: keyof ExperimentState;
+    metricsR2: keyof ExperimentState;
   };
 }
 
@@ -45,7 +46,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
   const { isLoading, error, setError, retryCount, runJob, recordFailure, handleRetry, resetRetryCount } = useModelJob();
 
   const [selectedModels, setSelectedModels] = useState<string[]>(
-    (state as any)[config.stateKey.baseModels] ?? []
+    (state[config.stateKey.baseModels] as string[]) ?? []
   );
   const [results, setResults] = useState<EnsembleResults | null>(null);
 

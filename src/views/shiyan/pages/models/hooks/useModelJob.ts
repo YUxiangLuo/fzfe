@@ -105,7 +105,8 @@ export function useModelJob() {
     } catch (jobError) {
       const errorMessage = getErrorMessage?.(jobError)
         ?? (jobError instanceof Error ? jobError.message : '模型任务执行失败');
-      recordFailure(errorMessage);
+      setError(errorMessage);
+      setRetryCount((prev) => prev + 1);
 
       return null;
     } finally {

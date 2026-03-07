@@ -1,10 +1,13 @@
 /// <reference lib="dom" />
 /// <reference types="bun-types" />
 
+import { resolve } from 'path';
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import { render, waitFor } from '@testing-library/react';
 import type { RenderResult } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+
+const r = (p: string) => resolve(import.meta.dir, p);
 
 let experimentValue = {
   ui: {
@@ -14,45 +17,45 @@ let experimentValue = {
 };
 
 mock.module(
-  '/home/alice/pros/fangzhen/fe/src/views/shiyan/contexts/ExperimentContext.zustand.tsx',
+  r('../contexts/ExperimentContext.zustand.tsx'),
   () => ({
     useExperiment: () => experimentValue,
   }),
 );
 
-mock.module('/home/alice/pros/fangzhen/fe/src/views/shiyan/components/Header.tsx', () => ({
+mock.module(r('../components/Header.tsx'), () => ({
   default: () => <div data-testid="header">header</div>,
 }));
 
-mock.module('/home/alice/pros/fangzhen/fe/src/views/shiyan/components/Sidebar.tsx', () => ({
+mock.module(r('../components/Sidebar.tsx'), () => ({
   default: () => <div data-testid="sidebar">sidebar</div>,
 }));
 
-mock.module('/home/alice/pros/fangzhen/fe/src/views/shiyan/pages/IndustrySelection.tsx', () => ({
+mock.module(r('../pages/IndustrySelection.tsx'), () => ({
   default: () => <div>industry page</div>,
 }));
 
-mock.module('/home/alice/pros/fangzhen/fe/src/views/shiyan/pages/CompanySelection.tsx', () => ({
+mock.module(r('../pages/CompanySelection.tsx'), () => ({
   default: () => <div>company page</div>,
 }));
 
-mock.module('/home/alice/pros/fangzhen/fe/src/views/shiyan/pages/ProductSelection.tsx', () => ({
+mock.module(r('../pages/ProductSelection.tsx'), () => ({
   default: () => <div>product page</div>,
 }));
 
-mock.module('/home/alice/pros/fangzhen/fe/src/views/shiyan/pages/HistoricalData.tsx', () => ({
+mock.module(r('../pages/HistoricalData.tsx'), () => ({
   default: () => <div>data page</div>,
 }));
 
-mock.module('/home/alice/pros/fangzhen/fe/src/views/shiyan/pages/ModelBuilding.tsx', () => ({
+mock.module(r('../pages/ModelBuilding.tsx'), () => ({
   default: () => <div>model page</div>,
 }));
 
-mock.module('/home/alice/pros/fangzhen/fe/src/views/shiyan/pages/ResultEvaluation.tsx', () => ({
+mock.module(r('../pages/ResultEvaluation.tsx'), () => ({
   default: () => <div>evaluation page</div>,
 }));
 
-mock.module('/home/alice/pros/fangzhen/fe/src/views/shiyan/pages/production/ProductionPlanPageV2.tsx', () => ({
+mock.module(r('../pages/production/ProductionPlanPageV2.tsx'), () => ({
   default: () => <div>production page</div>,
 }));
 

@@ -73,6 +73,9 @@ const MODEL_DISPLAY_NAME_MAP: Record<string, string> = {
   lstm: "LSTM模型",
 };
 
+const stripHtmlTags = (text: string): string =>
+  text.replace(/<[^>]*>/g, "");
+
 const formatSales = (value: number | null | undefined): string => {
   if (value == null) return "N/A";
   return value.toLocaleString();
@@ -335,7 +338,7 @@ ${viewModel.trainingData.map((item) => `| ${item.month} | ${formatSales(item.sal
 ${viewModel.evaluationData.map((item) => `| ${item.month} | ${formatSales(item.sales)} |`).join("\n")}
 
 ### 1.3 分析
-${analyses.data}
+${stripHtmlTags(analyses.data)}
 
 ---
 
@@ -346,7 +349,7 @@ ${analyses.data}
 ${viewModel.allModels.map((model) => `| ${model.name} | ${model.params} | ${formatMetricValue(model.rmse)} | ${formatMetricValue(model.mae)} | ${formatMetricValue(model.r2)} |`).join("\n")}
 
 ### 分析
-${analyses.comparison}
+${stripHtmlTags(analyses.comparison)}
 
 ---
 
@@ -361,7 +364,7 @@ ${analyses.comparison}
 | R² | ${formatMetricValue(viewModel.bestModelMetrics?.r2)} |
 
 ### 分析
-${analyses.selection}
+${stripHtmlTags(analyses.selection)}
 
 ---
 
@@ -379,7 +382,7 @@ ${analyses.selection}
 ${periodComparisonSection}
 
 ### 4.3 分析
-${analyses.params}
+${stripHtmlTags(analyses.params)}
 
 ---
 
@@ -392,5 +395,5 @@ ${mpsTableSection}
 ${planSummarySection}
 
 ### 5.3 分析
-${analyses.decision}`;
+${stripHtmlTags(analyses.decision)}`;
 };

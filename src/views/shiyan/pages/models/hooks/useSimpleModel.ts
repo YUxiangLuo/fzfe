@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 import { useModelJob } from './useModelJob';
+import type { ExperimentState } from '../../../store/experiment/types';
 
 type SimpleModelType = 'exponential_smoothing' | 'moving_average';
 
@@ -10,11 +11,11 @@ interface SimpleModelConfig<T> {
   type: SimpleModelType;
   apiEndpoint: string;
   stateKeys: {
-    param: string;
-    completed: string;
-    metricsRmse: string;
-    metricsMae: string;
-    metricsR2: string;
+    param: keyof ExperimentState;
+    completed: keyof ExperimentState;
+    metricsRmse: keyof ExperimentState;
+    metricsMae: keyof ExperimentState;
+    metricsR2: keyof ExperimentState;
   };
   paramKey: string; // Key for request body (e.g., 'exponential_smoothing_alpha', 'moving_average_window')
   validateParam: (param: T) => boolean;
@@ -42,7 +43,7 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
   const location = useLocation();
   const { isLoading, error, setError, retryCount, runJob, recordFailure, handleRetry, resetRetryCount } = useModelJob();
 
-  const [param, setParam] = useState<T>((state as any)[config.stateKeys.param] ?? '' as T);
+  const [param, setParam] = useState<T>((state[config.stateKeys.param] as T) ?? '' as T);
   const [results, setResults] = useState<SimpleModelResults | null>(null);
 
   // Validate parameter

@@ -1,9 +1,12 @@
 /// <reference types="bun-types" />
 /// <reference lib="dom" />
 
+import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+
+const r = (p: string) => resolve(import.meta.dir, p);
 
 const apiGet = mock(async (): Promise<any> => ({
   user_id: 1,
@@ -23,21 +26,21 @@ let experimentValue = {
 
 const confirmMock = mock(async () => false);
 
-mock.module("/home/alice/pros/fangzhen/fe/src/utils/apiClient.ts", () => ({
+mock.module(r("../../../utils/apiClient.ts"), () => ({
   apiClient: {
     get: apiGet,
   },
 }));
 
 mock.module(
-  "/home/alice/pros/fangzhen/fe/src/views/shiyan/contexts/ExperimentContext.zustand.tsx",
+  r("../contexts/ExperimentContext.zustand.tsx"),
   () => ({
     useExperiment: () => experimentValue,
   }),
 );
 
 mock.module(
-  "/home/alice/pros/fangzhen/fe/src/views/shiyan/shared/contexts/ConfirmContext.tsx",
+  r("../shared/contexts/ConfirmContext.tsx"),
   () => ({
     useConfirm: () => ({ confirm: confirmMock }),
   }),

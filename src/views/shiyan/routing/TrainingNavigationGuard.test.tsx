@@ -1,10 +1,13 @@
 /// <reference lib="dom" />
 /// <reference types="bun-types" />
 
+import { resolve } from 'path';
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import { render, waitFor } from '@testing-library/react';
 import type { RenderResult } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
+
+const r = (p: string) => resolve(import.meta.dir, p);
 
 let experimentValue = {
   ui: {
@@ -14,7 +17,7 @@ let experimentValue = {
 };
 
 mock.module(
-  '/home/alice/pros/fangzhen/fe/src/views/shiyan/contexts/ExperimentContext.zustand.tsx',
+  r('../contexts/ExperimentContext.zustand.tsx'),
   () => ({
     useExperiment: () => experimentValue,
   }),

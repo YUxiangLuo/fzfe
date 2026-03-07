@@ -1,10 +1,13 @@
 /// <reference lib="dom" />
 /// <reference types="bun-types" />
 
+import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import type { RenderResult } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+
+const r = (p: string) => resolve(import.meta.dir, p);
 
 const apiGet = mock(async (): Promise<any> => ({
   file_name: "实验手册.pdf",
@@ -29,25 +32,25 @@ let experimentValue = {
   setIsSubmitting,
 };
 
-mock.module("/home/alice/pros/fangzhen/fe/src/utils/apiClient.ts", () => ({
+mock.module(r("../../../utils/apiClient.ts"), () => ({
   apiClient: {
     get: apiGet,
   },
 }));
 
-mock.module("/home/alice/pros/fangzhen/fe/src/hooks/useAuthObjectUrl.ts", () => ({
+mock.module(r("../../../hooks/useAuthObjectUrl.ts"), () => ({
   useAuthObjectUrl: useAuthObjectUrlMock,
 }));
 
 mock.module(
-  "/home/alice/pros/fangzhen/fe/src/views/shiyan/contexts/ExperimentContext.zustand.tsx",
+  r("../contexts/ExperimentContext.zustand.tsx"),
   () => ({
     useExperiment: () => experimentValue,
   }),
 );
 
 mock.module(
-  "/home/alice/pros/fangzhen/fe/src/views/shiyan/shared/contexts/ConfirmContext.tsx",
+  r("../shared/contexts/ConfirmContext.tsx"),
   () => ({
     useConfirm: () => ({ confirm: confirmMock }),
   }),
@@ -222,5 +225,27 @@ describe("Introduction", () => {
       expect(view!.getByTestId("location-display").textContent).toBe("/production");
     });
     expect(view.queryByText("检测到未完成的实验")).toBeNull();
+  });
+
+  it("stays on the introduction page and resets submitting state when createNewExperiment fails", async () => {
+    createNewExperiment.mockRejectedValueOnce(new Error("network error"));
+
+    view = await renderIntroduction("/introduction");
+
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "开始实验" }));
+    });
+
+    expect(setIsSubmitting).toHaveBeenCalledWith(true);
+    expect(createNewExperiment).toHaveBeenCalledTimes(1);
+    expect(setIsSubmitting).toHaveBeenLastCalledWith(false);
+    expect(view!.getByTestId("location-display").textContent).toBe("/introduction");
   });
 });

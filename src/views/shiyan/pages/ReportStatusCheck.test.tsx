@@ -1,10 +1,13 @@
 /// <reference lib="dom" />
 /// <reference types="bun-types" />
 
+import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import type { RenderResult } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+
+const r = (p: string) => resolve(import.meta.dir, p);
 
 const apiGet = mock(async (): Promise<any> => ({ is_rejected: false }));
 const createNewExperiment = mock(async () => {});
@@ -12,18 +15,18 @@ const setIsSubmitting = mock((_value: boolean) => {});
 const useAuthObjectUrlMock = mock(() => "about:blank");
 const consoleErrorMock = mock(() => {});
 
-mock.module("/home/alice/pros/fangzhen/fe/src/utils/apiClient.ts", () => ({
+mock.module(r("../../../utils/apiClient.ts"), () => ({
   apiClient: {
     get: apiGet,
   },
 }));
 
-mock.module("/home/alice/pros/fangzhen/fe/src/hooks/useAuthObjectUrl.ts", () => ({
+mock.module(r("../../../hooks/useAuthObjectUrl.ts"), () => ({
   useAuthObjectUrl: useAuthObjectUrlMock,
 }));
 
 mock.module(
-  "/home/alice/pros/fangzhen/fe/src/views/shiyan/contexts/ExperimentContext.zustand.tsx",
+  r("../contexts/ExperimentContext.zustand.tsx"),
   () => ({
     useExperiment: () => ({
       createNewExperiment,

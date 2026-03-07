@@ -20,7 +20,7 @@ export const TrainingNavigationGuard: React.FC<{ children: React.ReactNode }> = 
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [ui]);
+  }, [ui.isTrainingLocked]);
 
   const redirectPath = getTrainingLockRedirectPath(ui, location.pathname);
 
