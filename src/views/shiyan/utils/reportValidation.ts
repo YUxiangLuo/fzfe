@@ -20,7 +20,7 @@ export const checkMinLength = (text: string, minLength: number = 100): boolean =
  * @returns 重复率，范围在0到1之间。
  */
 export const calculateRepetitionRate = (text: string, n: number = 3): number => {
-  if (text.length < n) {
+  if (n <= 0 || text.length < n) {
     return 0;
   }
 

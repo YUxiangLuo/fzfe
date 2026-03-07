@@ -70,14 +70,18 @@ export function useAutoRetryLoader({
     const company = selectedCompany;
     const product = selectedProduct;
 
+    let cancelled = false;
     const timer = window.setTimeout(() => {
       void load(industry, company, product).then((result) => {
-        if (result === 'failed') {
+        if (!cancelled && result === 'failed') {
           setRetryCount((count) => count + 1);
         }
       });
     }, AUTO_RETRY_DELAY_MS * (retryCount + 1));
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [shouldLoad, error, isLoading, data, selectedIndustry, selectedCompany, selectedProduct, retryCount, load]);
 }

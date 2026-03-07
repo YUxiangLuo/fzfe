@@ -494,7 +494,7 @@ export const useExperimentStore = create<ExperimentStore>()(
             salesDataError: null,
           });
           return "success";
-        } catch (err: any) {
+        } catch (err) {
           const currentState = get().state;
           const isLatestRequest = requestVersion === salesDataRequestVersion;
           const isCurrentSelection = isMatchingProductSelection(
@@ -511,8 +511,9 @@ export const useExperimentStore = create<ExperimentStore>()(
             return "ignored";
           }
 
+          const errorMessage = err instanceof Error ? err.message : String(err);
           set({
-            salesDataError: err.message || "获取产品销量数据失败",
+            salesDataError: errorMessage || "获取产品销量数据失败",
             productSalesData: null,
             isLoadingSales: false,
           });
@@ -547,7 +548,7 @@ export const useExperimentStore = create<ExperimentStore>()(
             productFieldsError: null,
           });
           return "success";
-        } catch (err: any) {
+        } catch (err) {
           const currentState = get().state;
           const isLatestRequest = requestVersion === fieldOptionsRequestVersion;
           const isCurrentSelection = isMatchingProductSelection(
@@ -564,8 +565,9 @@ export const useExperimentStore = create<ExperimentStore>()(
             return "ignored";
           }
 
+          const errorMessage = err instanceof Error ? err.message : String(err);
           set({
-            productFieldsError: err.message || "获取产品字段信息失败",
+            productFieldsError: errorMessage || "获取产品字段信息失败",
             productFieldOptions: null,
             isLoadingFields: false,
           });

@@ -40,9 +40,9 @@ const ProductSelection: React.FC = () => {
         if (isActive) {
           setProducts(Array.isArray(response) ? response : []);
         }
-      } catch (err: any) {
+      } catch (err) {
         if (isActive) {
-          setError(err.message || '加载产品列表失败');
+          setError(err instanceof Error ? err.message : '加载产品列表失败');
           setProducts([]);
         }
       } finally {

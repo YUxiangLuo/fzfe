@@ -490,7 +490,7 @@ const HistoricalData: React.FC = () => {
             <XAxis dataKey="month" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
             <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => value.toLocaleString()} />
             <Tooltip
-              formatter={(value: number) => [`${value.toLocaleString()} ${productInfo.unit}`, '销量']}
+              formatter={(value) => [`${Number(value).toLocaleString()} ${productInfo.unit}`, '销量']}
               labelFormatter={(label) => `${label} 月度销量`}
             />
             <Legend />
@@ -513,7 +513,7 @@ const HistoricalData: React.FC = () => {
             <XAxis dataKey="range" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
             <YAxis tick={{ fontSize: 12 }} label={{ value: '频数', angle: -90, position: 'insideLeft' }} />
             <Tooltip
-              formatter={(value: number) => [`${value} 个月`, '频数']}
+              formatter={(value) => [`${value} 个月`, '频数']}
               labelFormatter={(label) => `销量区间: ${label}`}
             />
             <Legend />
@@ -528,7 +528,7 @@ const HistoricalData: React.FC = () => {
             <XAxis dataKey="month" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
             <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => value.toLocaleString()} />
             <Tooltip
-              formatter={(value: number) => [`${value.toLocaleString()} ${productInfo.unit}`, '销量']}
+              formatter={(value) => [`${Number(value).toLocaleString()} ${productInfo.unit}`, '销量']}
               labelFormatter={(label) => `${label} 月度销量`}
             />
             <Legend />
@@ -560,8 +560,8 @@ const HistoricalData: React.FC = () => {
             />
             <Tooltip
               cursor={{ strokeDasharray: '3 3' }}
-              formatter={(value: number, name: string) => {
-                if (name === '销量') return [`${value.toLocaleString()} ${productInfo.unit}`, name];
+              formatter={(value, name) => {
+                if (name === '销量') return [`${Number(value).toLocaleString()} ${productInfo.unit}`, name];
                 return [value, name];
               }}
               labelFormatter={(value, payload) => {

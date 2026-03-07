@@ -68,11 +68,12 @@ const ReportStatusCheck: React.FC = () => {
           setStatusData(response);
           setLoading(false);
         }
-      } catch (err: any) {
+      } catch (err) {
         // 如果接口报错，为安全起见，也跳转到介绍页，或者显示错误
         // 这里选择显示错误以便调试，或者您可以选择 console.error 后跳转
         console.error("Failed to check report status:", err);
-        setError("无法获取报告状态，请稍后重试。");
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setError(errorMessage || "无法获取报告状态，请稍后重试。");
         setLoading(false);
       }
     };

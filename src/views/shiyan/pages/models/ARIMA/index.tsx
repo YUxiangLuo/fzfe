@@ -154,12 +154,12 @@ const ARIMAStepper: React.FC = () => {
       const validResults = response.result.filter(r => r.stationary !== null);
       setAdfResults(validResults);
       await updateState({ arima_adf_stationarity: validResults }, { forceSync: true });
-    } catch (e: any) {
+    } catch (e) {
       // Ignore abort errors
-      if (e.name === 'AbortError') {
+      if (e instanceof DOMException && e.name === 'AbortError') {
         return;
       }
-      setError(e.message || "ADF检验失败，请重试...");
+      setError(e instanceof Error ? e.message : "ADF检验失败，请重试...");
       setAdfRetryCount(prev => prev + 1);
     } finally {
       if (adfAbortControllerRef.current === abortController) {
@@ -220,12 +220,12 @@ const ARIMAStepper: React.FC = () => {
       } else {
         throw new Error(response.message || "计算失败，请重试...");
       }
-    } catch (e: any) {
+    } catch (e) {
       // Ignore abort errors
-      if (e.name === 'AbortError') {
+      if (e instanceof DOMException && e.name === 'AbortError') {
         return;
       }
-      setError(e.message || "遇到错误，请重试...");
+      setError(e instanceof Error ? e.message : "遇到错误，请重试...");
       setRetryCount(prev => prev + 1);
     } finally {
       if (calculateAbortControllerRef.current === abortController) {

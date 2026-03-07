@@ -45,7 +45,7 @@ const WeightsPieChart: React.FC<WeightsPieChartProps> = ({ data }) => {
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip formatter={(value: number) => `${(value * 100).toFixed(2)}%`} />
+          <Tooltip formatter={(value) => `${(Number(value) * 100).toFixed(2)}%`} />
           <Legend />
         </PieChart>
       </ResponsiveContainer>

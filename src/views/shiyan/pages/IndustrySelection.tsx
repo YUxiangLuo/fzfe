@@ -76,9 +76,9 @@ const IndustrySelection: React.FC = () => {
         if (isActive) {
             setIndustries(Array.isArray(result) ? result : []);
         }
-            } catch (err: any) {
+            } catch (err) {
                 if (isActive) {
-                    setError(err.message || '加载行业列表失败');
+                    setError(err instanceof Error ? err.message : '加载行业列表失败');
                     setIndustries([]);
                 }
             } finally {

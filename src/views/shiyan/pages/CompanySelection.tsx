@@ -40,9 +40,9 @@ const CompanySelection: React.FC = () => {
         if (isActive) {
           setCompanies(Array.isArray(response) ? response : []);
         }
-      } catch (err: any) {
+      } catch (err) {
         if (isActive) {
-          setError(err.message || '加载企业列表失败');
+          setError(err instanceof Error ? err.message : '加载企业列表失败');
           setCompanies([]);
         }
       } finally {

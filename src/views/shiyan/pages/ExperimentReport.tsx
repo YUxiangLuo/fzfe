@@ -310,8 +310,9 @@ ${planDecisionAnalysis}`;
       await updateState({ status: 'Completed', last_activity_at: now, completion_time: now });
       setShowCompletionModal(true);
 
-    } catch (error: any) {
-      setSubmitError(error.message || '提交报告失败，请重试');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setSubmitError(errorMessage || '提交报告失败，请重试');
     } finally {
       setIsSubmitting(false);
     }

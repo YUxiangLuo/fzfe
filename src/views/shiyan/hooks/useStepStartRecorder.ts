@@ -17,8 +17,8 @@ export const useStepStartRecorder = (
     prevHighestStepRef.current = highestCompletedStep;
 
     if (stepOrder > highestCompletedStep && !hasRecordedStartRef.current) {
-      recordStepEvent(stepOrder, 'STARTED');
       hasRecordedStartRef.current = true;
+      void recordStepEvent(stepOrder, 'STARTED');
     }
   }, [stepOrder, highestCompletedStep, recordStepEvent]);
 };
