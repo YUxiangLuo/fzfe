@@ -3,9 +3,7 @@
  * 集中管理所有路由路径，避免硬编码
  */
 
-import { STEPS } from './steps';
-
-const LEGACY_REPORT_STEP = 8;
+import { LEGACY_REPORT_STEP, STEPS } from './steps';
 
 export const ROUTES = {
   LOGIN: '/login.html',

@@ -25,6 +25,12 @@ export const STEPS = {
 } as const;
 
 /**
+ * 旧版"结果报告"步骤编号，用于兼容数据库中 current_step >= 8 的历史数据。
+ * 当前工作流已不再包含此步骤，但路由守卫仍需识别该值。
+ */
+export const LEGACY_REPORT_STEP = 8;
+
+/**
  * 步骤类型
  */
 export type StepNumber = (typeof STEPS)[keyof typeof STEPS];

@@ -1,8 +1,6 @@
 import { ROUTES, getStepPath } from "../constants/routes";
-import { STEPS } from "../constants/steps";
+import { LEGACY_REPORT_STEP, STEPS } from "../constants/steps";
 import type { ExperimentState, ExperimentUiState } from "../store/experiment";
-
-const LEGACY_REPORT_STEP = 8;
 
 const stripTrailingSlash = (path: string) =>
   path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
