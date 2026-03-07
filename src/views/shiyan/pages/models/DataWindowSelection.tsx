@@ -46,11 +46,9 @@ const DataWindowSelection: React.FC = () => {
   const navigate = useNavigate();
   const {
     state,
+    ui,
     handleDataWindowChange,
     productSalesData,
-    isLoadingSales,
-    salesDataError,
-    isSubmitting,
   } = useExperiment();
   const { confirm } = useConfirm();
 
@@ -209,7 +207,7 @@ const DataWindowSelection: React.FC = () => {
     localEvaluateRange.startIndex !== null &&
     localEvaluateRange.endIndex !== null;
 
-  if (isLoadingSales) {
+  if (ui.isLoadingSales) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 flex flex-col items-center justify-center space-y-3">
         <CalendarRange className="w-8 h-8 text-blue-500 animate-pulse" />
@@ -218,11 +216,11 @@ const DataWindowSelection: React.FC = () => {
     );
   }
 
-  if (salesDataError) {
+  if (ui.salesDataError) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 space-y-4">
         <h2 className="text-xl font-semibold text-red-600">数据加载失败</h2>
-        <p className="text-red-500">{salesDataError}</p>
+        <p className="text-red-500">{ui.salesDataError}</p>
       </div>
     );
   }
@@ -501,8 +499,8 @@ const DataWindowSelection: React.FC = () => {
 
         <Button
           onClick={handleNext}
-          disabled={!canProceed || isSubmitting}
-          isLoading={isSubmitting}
+          disabled={!canProceed || ui.isSubmitting}
+          isLoading={ui.isSubmitting}
           size="lg"
         >
           下一步

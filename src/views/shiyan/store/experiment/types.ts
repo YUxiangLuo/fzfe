@@ -141,3 +141,14 @@ export interface ExperimentState {
   last_activity_at: string | null;
   completion_time: string | null;
 }
+
+export interface ExperimentUiState {
+  loading: boolean;
+  isLoadingSales: boolean;
+  salesDataError: string | null;
+  isLoadingFields: boolean;
+  productFieldsError: string | null;
+  isSubmitting: boolean;
+  isTrainingLocked: boolean;
+  trainingLockPath: string | null;
+}

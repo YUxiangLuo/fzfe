@@ -17,14 +17,11 @@ export const ExperimentStoreProvider = ({ children }: ExperimentStoreProviderPro
   const { addToast } = useToast();
   const initialize = useExperimentStore((state) => state.initialize);
   const state = useExperimentStore((state) => state.state);
+  const ui = useExperimentStore((state) => state.ui);
   const loadProductSalesData = useExperimentStore((state) => state.loadProductSalesData);
   const loadProductFieldOptions = useExperimentStore((state) => state.loadProductFieldOptions);
   const productSalesData = useExperimentStore((state) => state.productSalesData);
-  const isLoadingSales = useExperimentStore((state) => state.isLoadingSales);
-  const salesDataError = useExperimentStore((state) => state.salesDataError);
   const productFieldOptions = useExperimentStore((state) => state.productFieldOptions);
-  const isLoadingFields = useExperimentStore((state) => state.isLoadingFields);
-  const productFieldsError = useExperimentStore((state) => state.productFieldsError);
 
   // Subscribe to toast events from the store using EventEmitter pattern
   useEffect(() => {
@@ -50,8 +47,8 @@ export const ExperimentStoreProvider = ({ children }: ExperimentStoreProviderPro
   useAutoRetryLoader({
     shouldLoad: shouldLoadProductData,
     data: productSalesData,
-    isLoading: isLoadingSales,
-    error: salesDataError,
+    isLoading: ui.isLoadingSales,
+    error: ui.salesDataError,
     selectedIndustry: state.selected_industry,
     selectedCompany: state.selected_company,
     selectedProduct: state.selected_product,
@@ -62,8 +59,8 @@ export const ExperimentStoreProvider = ({ children }: ExperimentStoreProviderPro
   useAutoRetryLoader({
     shouldLoad: shouldLoadProductData,
     data: productFieldOptions,
-    isLoading: isLoadingFields,
-    error: productFieldsError,
+    isLoading: ui.isLoadingFields,
+    error: ui.productFieldsError,
     selectedIndustry: state.selected_industry,
     selectedCompany: state.selected_company,
     selectedProduct: state.selected_product,

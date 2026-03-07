@@ -13,24 +13,42 @@
 
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
+import { experimentRepository } from "../../services/experimentRepository";
+import { buildInitialState } from "./initialState";
+import { createProductResourceController } from "./productResourceController";
 import {
-  createExperimentState,
-  getExperimentState,
-  recordStepEvent as recordExperimentStepEvent,
-  updateExperimentState as apiUpdateExperimentState,
-} from "../../services/experiment";
+  buildResetArimaPatch,
+  buildResetBoostingEnsemblePatch,
+  buildResetExponentialSmoothingPatch,
+  buildResetLstmPatch,
+  buildResetMovingAveragePatch,
+  buildResetStackingEnsemblePatch,
+  buildResetWeightedEnsemblePatch,
+} from "./resetPatches";
 import {
-  getProductFieldOptions,
-  getProductSalesData,
-} from "../../services/datasets";
+  createExperimentStateSyncController,
+  type UpdateStateOptions,
+} from "./stateSyncController";
 import {
-  buildInitialState,
-  resetModelingFields,
-  resetProductionPlanFields,
-} from "./initialState";
+  buildInitialUiState,
+  mergeExperimentUiState,
+} from "./storeHelpers";
+import {
+  applyBestModelChangeTransition,
+  applyCompanyChangeTransition,
+  applyDataWindowChangeTransition,
+  applyEnterEvaluationTransition,
+  applyIndustryChangeTransition,
+  applyProductChangeTransition,
+} from "./transitions";
 import { STEPS } from "../../constants/steps";
 import { toastEventBus } from "../../utils/toastEventBus";
-import type { ExperimentState, ProductSalesData, SelectedBestModel } from "./types";
+import type {
+  ExperimentState,
+  ExperimentUiState,
+  ProductSalesData,
+  SelectedBestModel,
+} from "./types";
 
 // Debug flag - can be controlled at runtime via window.__EXPERIMENT_DEBUG__
 declare global {
@@ -81,24 +99,11 @@ const addToast = (message: string, type: "success" | "error" | "info") => {
   toastEventBus.emit({ message, type });
 };
 
-export interface UpdateStateOptions {
-  forceSync?: boolean;
-  skipSync?: boolean;
-  throwOnSyncError?: boolean;
-}
-
 export interface ExperimentStore {
   state: ExperimentState;
-  loading: boolean;
+  ui: ExperimentUiState;
   productSalesData: ProductSalesData | null;
-  isLoadingSales: boolean;
-  salesDataError: string | null;
   productFieldOptions: string[] | null;
-  isLoadingFields: boolean;
-  productFieldsError: string | null;
-  isSubmitting: boolean;
-  isTrainingLocked: boolean;
-  trainingLockPath: string | null;
 
   initialize: () => Promise<void>;
   setIsSubmitting: (isSubmitting: boolean) => void;
@@ -136,63 +141,78 @@ export interface ExperimentStore {
   createNewExperiment: () => Promise<void>;
 }
 
-const isMatchingProductSelection = (
-  state: ExperimentState,
-  industry: string,
-  company: string,
-  product: string,
-) => {
-  return (
-    state.selected_industry === industry &&
-    state.selected_company === company &&
-    state.selected_product === product
-  );
-};
-
 export const useExperimentStore = create<ExperimentStore>()(
   devtools(
     (set, get) => {
       // Request versioning counters — scoped to the store closure
       // so they reset together with the store (e.g. in tests).
       let trainingLockCount = 0;
-      let stateUpdateVersion = 0;
-      let salesDataRequestVersion = 0;
-      let fieldOptionsRequestVersion = 0;
+      const mergeUiState = (
+        currentUi: ExperimentUiState,
+        updates: Partial<ExperimentUiState>,
+      ): ExperimentUiState => mergeExperimentUiState(currentUi, updates);
 
-      const invalidateProductDataRequests = () => {
-        salesDataRequestVersion++;
-        fieldOptionsRequestVersion++;
-      };
+      const productResourceController = createProductResourceController({
+        set,
+        get: () => get(),
+      });
+
+      const stateSyncController = createExperimentStateSyncController({
+        repository: experimentRepository,
+        getState: () => get().state,
+        setState: (state) => set({ state }),
+        onLocalStateChange: (previousState, nextState) => {
+          logger.stateChange("updateState", previousState, nextState);
+        },
+        onSyncSuccess: () => {
+          addToast("实验进度已同步至云端", "success");
+        },
+        onSyncError: (error) => {
+          addToast("同步失败，请检查网络连接或联系管理员", "error");
+          logger.error("updateState:sync", error);
+        },
+        onIgnoreStaleResponse: (responseVersion, latestVersion) => {
+          logger.action("updateState:ignoreStaleServerResponse", {
+            responseVersion,
+            latestVersion,
+          });
+        },
+        onRemoteProductSelectionChanged: () => {
+          productResourceController.invalidateAndResetProductDependentResources();
+        },
+        onCompletedStepRecordError: (step, error) => {
+          console.error(`Failed to record COMPLETED event for step ${step}:`, error);
+        },
+      });
 
       return ({
       state: buildInitialState(),
-      loading: true,
+      ui: buildInitialUiState(),
       productSalesData: null,
-      isLoadingSales: false,
-      salesDataError: null,
       productFieldOptions: null,
-      isLoadingFields: false,
-      productFieldsError: null,
-      isSubmitting: false,
-      isTrainingLocked: false,
-      trainingLockPath: null,
 
       setIsSubmitting: (isSubmitting) => {
-        set({ isSubmitting });
+        set((current) => ({
+          ui: mergeUiState(current.ui, { isSubmitting }),
+        }));
       },
       setTrainingLock: (isLocked, lockPath = null) => {
         if (isLocked) {
           trainingLockCount++;
-          set({
-            isTrainingLocked: true,
-            trainingLockPath: get().trainingLockPath ?? lockPath ?? null,
-          });
+          set((current) => ({
+            ui: mergeUiState(current.ui, {
+              isTrainingLocked: true,
+              trainingLockPath: current.ui.trainingLockPath ?? lockPath ?? null,
+            }),
+          }));
         } else {
           trainingLockCount = Math.max(0, trainingLockCount - 1);
-          set({
-            isTrainingLocked: trainingLockCount > 0,
-            trainingLockPath: trainingLockCount > 0 ? get().trainingLockPath : null,
-          });
+          set((current) => ({
+            ui: mergeUiState(current.ui, {
+              isTrainingLocked: trainingLockCount > 0,
+              trainingLockPath: trainingLockCount > 0 ? current.ui.trainingLockPath : null,
+            }),
+          }));
         }
       },
 
@@ -200,11 +220,16 @@ export const useExperimentStore = create<ExperimentStore>()(
         logger.action("initialize");
         const fetchState = async (retryCount = 0): Promise<void> => {
           const maxRetries = 2;
-          set({ loading: true });
+          set((current) => ({
+            ui: mergeUiState(current.ui, { loading: true }),
+          }));
           try {
-            const fetchedState = await getExperimentState();
+            const fetchedState = await experimentRepository.getActive();
             logger.stateChange("initialize", buildInitialState(), fetchedState);
-            set({ state: fetchedState, loading: false });
+            set((current) => ({
+              state: fetchedState,
+              ui: mergeUiState(current.ui, { loading: false }),
+            }));
           } catch (error) {
             logger.error("initialize", error);
             console.warn(`Experiment state fetch attempt ${retryCount + 1} failed:`, error);
@@ -223,226 +248,88 @@ export const useExperimentStore = create<ExperimentStore>()(
             } else {
               set({ state: buildInitialState() });
             }
-            set({ loading: false });
+            set((current) => ({
+              ui: mergeUiState(current.ui, { loading: false }),
+            }));
           }
         };
         await fetchState();
       },
 
       updateState: async (updates, options = {}) => {
-        const { forceSync = false, skipSync = false, throwOnSyncError = false } = options;
-        logger.action("updateState", { updates, forceSync, skipSync, throwOnSyncError });
-        const previousState = get().state;
-        const currentUpdateVersion = ++stateUpdateVersion;
-        let nextState: ExperimentState = { ...previousState, ...updates };
-
-        if (nextState.status === "Not Started" && Object.keys(updates).length > 0) {
-          nextState.status = "In Progress";
-          nextState.start_time = nextState.start_time ?? new Date().toISOString();
-        }
-
-        nextState.last_activity_at = new Date().toISOString();
-
-        logger.stateChange("updateState", previousState, nextState);
-        set({ state: nextState });
-
-        if (
-          nextState.highest_completed_step > previousState.highest_completed_step &&
-          nextState.experiment_id
-        ) {
-          for (
-            let step = previousState.highest_completed_step + 1;
-            step <= nextState.highest_completed_step;
-            step++
-          ) {
-            recordExperimentStepEvent(nextState.experiment_id, step, "COMPLETED").catch((err) => {
-              console.error(`Failed to record COMPLETED event for step ${step}:`, err);
-            });
-          }
-        }
-
-        const stepCompleted =
-          nextState.highest_completed_step > previousState.highest_completed_step;
-
-        const experimentCompleted =
-          Object.prototype.hasOwnProperty.call(updates, "status") &&
-          nextState.status === "Completed" &&
-          previousState.status !== "Completed";
-
-        const shouldSyncToBackend =
-          !skipSync && (forceSync || stepCompleted || experimentCompleted);
-
-        if (shouldSyncToBackend) {
-          try {
-            const serverState = await apiUpdateExperimentState(nextState);
-
-            addToast("实验进度已同步至云端", "success");
-            if (serverState && typeof serverState === "object") {
-              if (currentUpdateVersion !== stateUpdateVersion) {
-                logger.action("updateState:ignoreStaleServerResponse", {
-                  responseVersion: currentUpdateVersion,
-                  latestVersion: stateUpdateVersion,
-                });
-                return;
-              }
-
-              const mergedState = {
-                ...serverState,
-                selected_base_models: nextState.selected_base_models,
-                selected_ensemble_models: nextState.selected_ensemble_models,
-              };
-              set({ state: mergedState as ExperimentState });
-
-              const productChangedRemote =
-                mergedState.selected_industry !== previousState.selected_industry ||
-                mergedState.selected_company !== previousState.selected_company ||
-                mergedState.selected_product !== previousState.selected_product;
-
-              if (productChangedRemote) {
-                invalidateProductDataRequests();
-                set({
-                  productSalesData: null,
-                  isLoadingSales: false,
-                  salesDataError: null,
-                  productFieldOptions: null,
-                  isLoadingFields: false,
-                  productFieldsError: null,
-                });
-              }
-            }
-          } catch (error) {
-            addToast("同步失败，请检查网络连接或联系管理员", "error");
-            logger.error("updateState:sync", error);
-            if (throwOnSyncError) {
-              set({ state: previousState });
-              throw error;
-            }
-          }
-        }
+        logger.action("updateState", options);
+        await stateSyncController.updateState(updates, options);
       },
 
       handleIndustryChange: async (selected_industry) => {
         logger.action("handleIndustryChange", { selected_industry });
-        set({ isSubmitting: true });
+        get().setIsSubmitting(true);
         try {
-          const currentState = get().state;
-          const newState: ExperimentState = { ...currentState, selected_industry };
-          newState.selected_company = null;
-          newState.selected_product = null;
-          newState.highest_completed_step = STEPS.INDUSTRY;
-          newState.current_step = STEPS.COMPANY;
-          resetModelingFields(newState, { resetQuizzes: true });
+          const newState = applyIndustryChangeTransition(get().state, selected_industry);
 
-          invalidateProductDataRequests();
-          set({
-            productSalesData: null,
-            isLoadingSales: false,
-            salesDataError: null,
-            productFieldOptions: null,
-            isLoadingFields: false,
-            productFieldsError: null,
-          });
+          productResourceController.invalidateAndResetProductDependentResources();
 
           await get().updateState(newState, { forceSync: true, throwOnSyncError: true });
         } finally {
-          set({ isSubmitting: false });
+          get().setIsSubmitting(false);
         }
       },
 
       handleCompanyChange: async (selected_company) => {
         logger.action("handleCompanyChange", { selected_company });
-        set({ isSubmitting: true });
+        get().setIsSubmitting(true);
         try {
-          const currentState = get().state;
-          const newState: ExperimentState = { ...currentState, selected_company };
-          newState.selected_product = null;
-          newState.highest_completed_step = STEPS.COMPANY;
-          newState.current_step = STEPS.PRODUCT;
-          resetModelingFields(newState, { resetQuizzes: true });
+          const newState = applyCompanyChangeTransition(get().state, selected_company);
 
-          invalidateProductDataRequests();
-          set({
-            productSalesData: null,
-            isLoadingSales: false,
-            salesDataError: null,
-            productFieldOptions: null,
-            isLoadingFields: false,
-            productFieldsError: null,
-          });
+          productResourceController.invalidateAndResetProductDependentResources();
 
           await get().updateState(newState, { forceSync: true, throwOnSyncError: true });
         } finally {
-          set({ isSubmitting: false });
+          get().setIsSubmitting(false);
         }
       },
 
       handleProductChange: async (selected_product) => {
         logger.action("handleProductChange", { selected_product });
-        set({ isSubmitting: true });
+        get().setIsSubmitting(true);
         try {
-          const currentState = get().state;
-          const newState: ExperimentState = { ...currentState, selected_product };
-          newState.highest_completed_step = STEPS.PRODUCT;
-          newState.current_step = STEPS.DATA_WINDOW;
-          resetModelingFields(newState, { resetQuizzes: true });
+          const newState = applyProductChangeTransition(get().state, selected_product);
 
-          invalidateProductDataRequests();
-          set({
-            productSalesData: null,
-            isLoadingSales: false,
-            salesDataError: null,
-            productFieldOptions: null,
-            isLoadingFields: false,
-            productFieldsError: null,
-          });
+          productResourceController.invalidateAndResetProductDependentResources();
 
           await get().updateState(newState, { forceSync: true, throwOnSyncError: true });
         } finally {
-          set({ isSubmitting: false });
+          get().setIsSubmitting(false);
         }
       },
 
       handleDataWindowChange: async (updates) => {
-        set({ isSubmitting: true });
+        get().setIsSubmitting(true);
         try {
-          const currentState = get().state;
-          const newState: ExperimentState = { ...currentState, ...updates };
-          resetModelingFields(newState, {
-            resetQuizzes: true,
-            preserveDataWindow: true,
-          });
-          newState.highest_completed_step = STEPS.DATA_WINDOW;
-          newState.current_step = STEPS.MODEL;
+          const newState = applyDataWindowChangeTransition(get().state, updates);
           await get().updateState(newState, { forceSync: true, throwOnSyncError: true });
         } finally {
-          set({ isSubmitting: false });
+          get().setIsSubmitting(false);
         }
       },
 
       handleEnterEvaluation: async () => {
-        set({ isSubmitting: true });
+        get().setIsSubmitting(true);
         try {
-          const currentState = get().state;
-          const newState: ExperimentState = { ...currentState };
-          newState.highest_completed_step = STEPS.MODEL;
-          newState.current_step = STEPS.EVALUATION;
+          const newState = applyEnterEvaluationTransition(get().state);
           await get().updateState(newState, { forceSync: true, throwOnSyncError: true });
         } finally {
-          set({ isSubmitting: false });
+          get().setIsSubmitting(false);
         }
       },
 
       handleBestModelChange: async (selected_best_model) => {
-        set({ isSubmitting: true });
+        get().setIsSubmitting(true);
         try {
-          const currentState = get().state;
-          const newState: ExperimentState = { ...currentState, selected_best_model };
-          resetProductionPlanFields(newState);
-          newState.highest_completed_step = STEPS.EVALUATION;
-          newState.current_step = STEPS.PRODUCTION;
+          const newState = applyBestModelChangeTransition(get().state, selected_best_model);
           await get().updateState(newState, { forceSync: true, throwOnSyncError: true });
         } finally {
-          set({ isSubmitting: false });
+          get().setIsSubmitting(false);
         }
       },
 
@@ -453,7 +340,7 @@ export const useExperimentStore = create<ExperimentStore>()(
           return;
         }
         try {
-          await recordExperimentStepEvent(experiment_id, stepOrder, eventType);
+          await experimentRepository.recordStepEvent(experiment_id, stepOrder, eventType);
         } catch (error) {
           console.error(`Failed to record ${eventType} event for step ${stepOrder}:`, error);
         }
@@ -468,252 +355,45 @@ export const useExperimentStore = create<ExperimentStore>()(
       },
 
       loadProductSalesData: async (industry, company, product) => {
-        const requestVersion = ++salesDataRequestVersion;
-        set({ isLoadingSales: true, salesDataError: null });
-        try {
-          const data = await getProductSalesData(industry, company, product);
-          const currentState = get().state;
-          const isLatestRequest = requestVersion === salesDataRequestVersion;
-          const isCurrentSelection = isMatchingProductSelection(
-            currentState,
-            industry,
-            company,
-            product,
-          );
-
-          if (!isLatestRequest || !isCurrentSelection) {
-            if (isLatestRequest) {
-              set({ isLoadingSales: false });
-            }
-            return "ignored";
-          }
-
-          set({
-            productSalesData: data,
-            isLoadingSales: false,
-            salesDataError: null,
-          });
-          return "success";
-        } catch (err) {
-          const currentState = get().state;
-          const isLatestRequest = requestVersion === salesDataRequestVersion;
-          const isCurrentSelection = isMatchingProductSelection(
-            currentState,
-            industry,
-            company,
-            product,
-          );
-
-          if (!isLatestRequest || !isCurrentSelection) {
-            if (isLatestRequest) {
-              set({ isLoadingSales: false });
-            }
-            return "ignored";
-          }
-
-          const errorMessage = err instanceof Error ? err.message : String(err);
-          set({
-            salesDataError: errorMessage || "获取产品销量数据失败",
-            productSalesData: null,
-            isLoadingSales: false,
-          });
-          return "failed";
-        }
+        return await productResourceController.loadProductSalesData(industry, company, product);
       },
 
       loadProductFieldOptions: async (industry, company, product) => {
-        const requestVersion = ++fieldOptionsRequestVersion;
-        set({ isLoadingFields: true, productFieldsError: null });
-        try {
-          const fields = await getProductFieldOptions(industry, company, product);
-          const currentState = get().state;
-          const isLatestRequest = requestVersion === fieldOptionsRequestVersion;
-          const isCurrentSelection = isMatchingProductSelection(
-            currentState,
-            industry,
-            company,
-            product,
-          );
-
-          if (!isLatestRequest || !isCurrentSelection) {
-            if (isLatestRequest) {
-              set({ isLoadingFields: false });
-            }
-            return "ignored";
-          }
-
-          set({
-            productFieldOptions: fields,
-            isLoadingFields: false,
-            productFieldsError: null,
-          });
-          return "success";
-        } catch (err) {
-          const currentState = get().state;
-          const isLatestRequest = requestVersion === fieldOptionsRequestVersion;
-          const isCurrentSelection = isMatchingProductSelection(
-            currentState,
-            industry,
-            company,
-            product,
-          );
-
-          if (!isLatestRequest || !isCurrentSelection) {
-            if (isLatestRequest) {
-              set({ isLoadingFields: false });
-            }
-            return "ignored";
-          }
-
-          const errorMessage = err instanceof Error ? err.message : String(err);
-          set({
-            productFieldsError: errorMessage || "获取产品字段信息失败",
-            productFieldOptions: null,
-            isLoadingFields: false,
-          });
-          return "failed";
-        }
+        return await productResourceController.loadProductFieldOptions(industry, company, product);
       },
 
       resetMovingAverageModel: async () => {
-        await get().updateState({
-          moving_average_completed: false,
-          moving_average_window: null,
-          moving_average_metrics_rmse: null,
-          moving_average_metrics_mae: null,
-          moving_average_metrics_r2: null,
-          ensemble_weighted_completed: false,
-          ensemble_weighted_base_models: [],
-          ensemble_weighted_metrics_rmse: null,
-          ensemble_weighted_metrics_mae: null,
-          ensemble_weighted_metrics_r2: null,
-          ensemble_boosting_completed: false,
-          ensemble_boosting_base_models: [],
-          ensemble_boosting_metrics_rmse: null,
-          ensemble_boosting_metrics_mae: null,
-          ensemble_boosting_metrics_r2: null,
-          ensemble_stacking_completed: false,
-          ensemble_stacking_base_models: [],
-          ensemble_stacking_metrics_rmse: null,
-          ensemble_stacking_metrics_mae: null,
-          ensemble_stacking_metrics_r2: null,
-        });
+        await get().updateState(buildResetMovingAveragePatch());
       },
 
       resetExponentialSmoothingModel: async () => {
-        await get().updateState({
-          exponential_smoothing_completed: false,
-          exponential_smoothing_alpha: null,
-          exponential_smoothing_metrics_rmse: null,
-          exponential_smoothing_metrics_mae: null,
-          exponential_smoothing_metrics_r2: null,
-          ensemble_weighted_completed: false,
-          ensemble_weighted_base_models: [],
-          ensemble_weighted_metrics_rmse: null,
-          ensemble_weighted_metrics_mae: null,
-          ensemble_weighted_metrics_r2: null,
-          ensemble_boosting_completed: false,
-          ensemble_boosting_base_models: [],
-          ensemble_boosting_metrics_rmse: null,
-          ensemble_boosting_metrics_mae: null,
-          ensemble_boosting_metrics_r2: null,
-          ensemble_stacking_completed: false,
-          ensemble_stacking_base_models: [],
-          ensemble_stacking_metrics_rmse: null,
-          ensemble_stacking_metrics_mae: null,
-          ensemble_stacking_metrics_r2: null,
-        });
+        await get().updateState(buildResetExponentialSmoothingPatch());
       },
 
       resetARIMAModel: async () => {
-        await get().updateState({
-          arima_completed: false,
-          arima_p: null,
-          arima_d: null,
-          arima_q: null,
-          arima_metrics_rmse: null,
-          arima_metrics_mae: null,
-          arima_metrics_r2: null,
-          arima_adf_stationarity: [],
-          ensemble_weighted_completed: false,
-          ensemble_weighted_base_models: [],
-          ensemble_weighted_metrics_rmse: null,
-          ensemble_weighted_metrics_mae: null,
-          ensemble_weighted_metrics_r2: null,
-          ensemble_boosting_completed: false,
-          ensemble_boosting_base_models: [],
-          ensemble_boosting_metrics_rmse: null,
-          ensemble_boosting_metrics_mae: null,
-          ensemble_boosting_metrics_r2: null,
-          ensemble_stacking_completed: false,
-          ensemble_stacking_base_models: [],
-          ensemble_stacking_metrics_rmse: null,
-          ensemble_stacking_metrics_mae: null,
-          ensemble_stacking_metrics_r2: null,
-        });
+        await get().updateState(buildResetArimaPatch());
       },
 
       resetLSTMModel: async () => {
-        await get().updateState({
-          lstm_completed: false,
-          lstm_normalization: null,
-          lstm_features: [],
-          lstm_target_field: null,
-          lstm_metrics_rmse: null,
-          lstm_metrics_mae: null,
-          lstm_metrics_r2: null,
-          ensemble_weighted_completed: false,
-          ensemble_weighted_base_models: [],
-          ensemble_weighted_metrics_rmse: null,
-          ensemble_weighted_metrics_mae: null,
-          ensemble_weighted_metrics_r2: null,
-          ensemble_boosting_completed: false,
-          ensemble_boosting_base_models: [],
-          ensemble_boosting_metrics_rmse: null,
-          ensemble_boosting_metrics_mae: null,
-          ensemble_boosting_metrics_r2: null,
-          ensemble_stacking_completed: false,
-          ensemble_stacking_base_models: [],
-          ensemble_stacking_metrics_rmse: null,
-          ensemble_stacking_metrics_mae: null,
-          ensemble_stacking_metrics_r2: null,
-        });
+        await get().updateState(buildResetLstmPatch());
       },
 
       resetWeightedEnsembleModel: async () => {
-        await get().updateState({
-          ensemble_weighted_completed: false,
-          ensemble_weighted_base_models: [],
-          ensemble_weighted_metrics_rmse: null,
-          ensemble_weighted_metrics_mae: null,
-          ensemble_weighted_metrics_r2: null,
-        });
+        await get().updateState(buildResetWeightedEnsemblePatch());
       },
 
       resetBoostingEnsembleModel: async () => {
-        await get().updateState({
-          ensemble_boosting_completed: false,
-          ensemble_boosting_base_models: [],
-          ensemble_boosting_metrics_rmse: null,
-          ensemble_boosting_metrics_mae: null,
-          ensemble_boosting_metrics_r2: null,
-        });
+        await get().updateState(buildResetBoostingEnsemblePatch());
       },
 
       resetStackingEnsembleModel: async () => {
-        await get().updateState({
-          ensemble_stacking_completed: false,
-          ensemble_stacking_base_models: [],
-          ensemble_stacking_metrics_rmse: null,
-          ensemble_stacking_metrics_mae: null,
-          ensemble_stacking_metrics_r2: null,
-        });
+        await get().updateState(buildResetStackingEnsemblePatch());
       },
 
       createNewExperiment: async () => {
         logger.action("createNewExperiment");
         try {
-          const newState = await createExperimentState();
+          const newState = await experimentRepository.create();
           await get().updateState(newState, { skipSync: true });
           logger.stateChange("createNewExperiment", {}, newState);
         } catch (error) {

@@ -20,7 +20,7 @@ interface UserSummary {
 
 const Header: React.FC = () => {
   const location = useLocation();
-  const { isTrainingLocked } = useExperiment();
+  const { ui } = useExperiment();
   const currentPath =
     location.pathname + (location.search || "") + (location.hash || "");
   const introductionState =
@@ -59,7 +59,7 @@ const Header: React.FC = () => {
   }, []);
 
   const handleLogout = async () => {
-    if (isTrainingLocked) return;
+    if (ui.isTrainingLocked) return;
 
     const isConfirmed = await confirm({
       title: "确认退出",
@@ -99,18 +99,18 @@ const Header: React.FC = () => {
 
   const handleGuardedClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>) => {
-      if (isTrainingLocked) e.preventDefault();
+      if (ui.isTrainingLocked) e.preventDefault();
     },
-    [isTrainingLocked],
+    [ui.isTrainingLocked],
   );
 
   const guardedProps = {
     onClick: handleGuardedClick,
-    title: isTrainingLocked ? TRAINING_LOCK_MESSAGE : undefined,
-    'aria-disabled': isTrainingLocked || undefined,
+    title: ui.isTrainingLocked ? TRAINING_LOCK_MESSAGE : undefined,
+    'aria-disabled': ui.isTrainingLocked || undefined,
   } as const;
 
-  const navLinkClass = isTrainingLocked
+  const navLinkClass = ui.isTrainingLocked
     ? "px-4 py-2 rounded-lg transition-colors font-medium text-gray-400 bg-gray-100 cursor-not-allowed"
     : "px-4 py-2 rounded-lg transition-colors font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100";
 
@@ -148,16 +148,16 @@ const Header: React.FC = () => {
               state={profileState}
               {...guardedProps}
               className={`flex items-center space-x-2 px-3 py-2 border rounded-lg transition-colors ${
-                isTrainingLocked
+                ui.isTrainingLocked
                   ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
                   : "bg-amber-50 border-amber-200 hover:bg-amber-100"
               }`}
             >
               <AlertTriangle
                 size={16}
-                className={`flex-shrink-0 ${isTrainingLocked ? "text-gray-400" : "text-amber-600"}`}
+                className={`flex-shrink-0 ${ui.isTrainingLocked ? "text-gray-400" : "text-amber-600"}`}
               />
-              <span className={`text-sm font-medium ${isTrainingLocked ? "text-gray-400" : "text-amber-800"}`}>
+              <span className={`text-sm font-medium ${ui.isTrainingLocked ? "text-gray-400" : "text-amber-800"}`}>
                 请尽快修改初始密码
               </span>
             </Link>
@@ -185,10 +185,10 @@ const Header: React.FC = () => {
 
             <button
               onClick={handleLogout}
-              disabled={isTrainingLocked}
-              title={isTrainingLocked ? TRAINING_LOCK_MESSAGE : undefined}
+              disabled={ui.isTrainingLocked}
+              title={ui.isTrainingLocked ? TRAINING_LOCK_MESSAGE : undefined}
               className={`p-2 rounded-lg transition-colors ${
-                isTrainingLocked
+                ui.isTrainingLocked
                   ? "text-gray-400 bg-gray-100 cursor-not-allowed"
                   : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               }`}

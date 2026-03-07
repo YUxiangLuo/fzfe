@@ -74,13 +74,11 @@ const HistoricalData: React.FC = () => {
   const { toast, showToast, hideToast } = useToast();
   const {
     state,
+    ui,
     updateState,
     productSalesData,
-    isLoadingSales,
-    salesDataError,
     loadProductSalesData,
     recordStepEvent,
-    isSubmitting,
     setIsSubmitting,
   } = useExperiment();
   const [selectedPeriod, setSelectedPeriod] = useState<'all' | '12months' | '6months'>('all');
@@ -104,8 +102,8 @@ const HistoricalData: React.FC = () => {
   useEffect(() => {
     if (
       productSalesData ||
-      isLoadingSales ||
-      salesDataError ||
+      ui.isLoadingSales ||
+      ui.salesDataError ||
       !selected_industry ||
       !selected_company ||
       !selected_product
@@ -115,8 +113,8 @@ const HistoricalData: React.FC = () => {
     void loadProductSalesData(selected_industry, selected_company, selected_product);
   }, [
     productSalesData,
-    isLoadingSales,
-    salesDataError,
+    ui.isLoadingSales,
+    ui.salesDataError,
     loadProductSalesData,
     selected_industry,
     selected_company,
@@ -579,7 +577,7 @@ const HistoricalData: React.FC = () => {
     }
   };
 
-  if (isLoadingSales) {
+  if (ui.isLoadingSales) {
     return (
       <div className="p-8 flex justify-center items-center h-96">
         <div className="text-center text-gray-500">
@@ -590,7 +588,7 @@ const HistoricalData: React.FC = () => {
     );
   }
 
-  if (salesDataError) {
+  if (ui.salesDataError) {
     const canRetryLoadSales = !!selected_industry && !!selected_company && !!selected_product;
     const handleRetryLoadSales = () => {
       if (!selected_industry || !selected_company || !selected_product) {
@@ -603,11 +601,11 @@ const HistoricalData: React.FC = () => {
       <div className="p-8 max-w-2xl mx-auto">
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-center space-y-3">
           <h3 className="font-bold">数据加载失败</h3>
-          <p>{salesDataError}</p>
+          <p>{ui.salesDataError}</p>
           <Button
             onClick={handleRetryLoadSales}
             variant="outline"
-            disabled={!canRetryLoadSales || isLoadingSales}
+            disabled={!canRetryLoadSales || ui.isLoadingSales}
           >
             重试加载
           </Button>
@@ -859,14 +857,14 @@ const HistoricalData: React.FC = () => {
           <button
             onClick={() => navigate(PATHS.PREVIOUS)}
             className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            disabled={isSubmitting}
+            disabled={ui.isSubmitting}
           >
             上一步
           </button>
           <Button
             onClick={handleNext}
-            isLoading={isSubmitting}
-            disabled={isSubmitting}
+            isLoading={ui.isSubmitting}
+            disabled={ui.isSubmitting}
             size="lg"
           >
             <span>下一步：需求预测</span>

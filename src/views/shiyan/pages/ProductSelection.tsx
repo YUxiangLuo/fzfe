@@ -10,7 +10,7 @@ import { useStepStartRecorder } from '../hooks/useStepStartRecorder';
 
 const ProductSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, handleProductChange, salesDataError, recordStepEvent, isSubmitting } = useExperiment();
+  const { state, ui, handleProductChange, recordStepEvent } = useExperiment();
   const [products, setProducts] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,9 +160,9 @@ const ProductSelection: React.FC = () => {
           </div>
         )}
 
-        {salesDataError && (
+        {ui.salesDataError && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-            {salesDataError}
+            {ui.salesDataError}
           </div>
         )}
 
@@ -176,8 +176,8 @@ const ProductSelection: React.FC = () => {
           </Button>
           <Button
             onClick={handleNext}
-            disabled={!localProduct || isLoading || !!error || isSubmitting}
-            isLoading={isSubmitting}
+            disabled={!localProduct || isLoading || !!error || ui.isSubmitting}
+            isLoading={ui.isSubmitting}
             size="lg"
             className="w-48"
           >

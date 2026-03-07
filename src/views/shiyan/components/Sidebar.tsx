@@ -26,7 +26,7 @@ const steps = [
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
-  const { state, isStepCompleted, isStepUnlocked, isTrainingLocked } = useExperiment();
+  const { state, ui, isStepCompleted, isStepUnlocked } = useExperiment();
   const { current_step } = state;
 
   const getStepStatus = (stepId: number) => {
@@ -78,7 +78,7 @@ const Sidebar: React.FC = () => {
           <div className="space-y-2">
             {steps.map((step) => {
               const status = getStepStatus(step.id);
-              const isLocked = !isStepUnlocked(step.id) || isTrainingLocked;
+              const isLocked = !isStepUnlocked(step.id) || ui.isTrainingLocked;
               
               const content = (
                 <div className={`w-full flex items-center space-x-3 p-3 rounded-lg transition-all ${getStepStyles(step.id)}`}>
@@ -107,8 +107,8 @@ const Sidebar: React.FC = () => {
               return (
                 <div
                   key={step.id}
-                  title={isTrainingLocked ? TRAINING_LOCK_MESSAGE : undefined}
-                  className={isTrainingLocked ? 'opacity-70 cursor-not-allowed' : ''}
+                  title={ui.isTrainingLocked ? TRAINING_LOCK_MESSAGE : undefined}
+                  className={ui.isTrainingLocked ? 'opacity-70 cursor-not-allowed' : ''}
                 >
                   {isLocked ? (
                     content

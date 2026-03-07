@@ -48,7 +48,7 @@ const ModelCard: React.FC<{ model: any; isCompleted: boolean; onClick: () => voi
 
 const EnsembleModelSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, updateState, isSubmitting, handleEnterEvaluation } = useExperiment();
+  const { state, ui, updateState, handleEnterEvaluation } = useExperiment();
 
   // Filter the models to be displayed based on user's selection
   const selectedModelDetails = allEnsembleModels.filter(model => state.selected_ensemble_models.includes(model.id));
@@ -138,8 +138,8 @@ const EnsembleModelSelection: React.FC = () => {
           </button>
           <Button
               onClick={handleNext}
-              disabled={isSubmitting}
-              isLoading={isSubmitting}
+              disabled={ui.isSubmitting}
+              isLoading={ui.isSubmitting}
               size="lg"
           >
               <span>进入结果评估</span>

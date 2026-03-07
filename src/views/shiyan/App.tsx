@@ -32,9 +32,9 @@ const ProtectedRoute = ({ step, children }: { step: number, children: React.Reac
 };
 
 const GuardedModelQuizRoute: React.FC = () => {
-  const { loading, state, isStepUnlocked } = useExperiment();
+  const { ui, state, isStepUnlocked } = useExperiment();
 
-  if (loading) return <RouteLoading />;
+  if (ui.loading) return <RouteLoading />;
 
   if (!isStepUnlocked(STEPS.PRODUCTION)) {
     return <Navigate to={getStepPath(state.current_step)} replace />;
@@ -44,9 +44,9 @@ const GuardedModelQuizRoute: React.FC = () => {
 };
 
 const GuardedPlanQuizRoute: React.FC = () => {
-  const { loading, state, isStepCompleted } = useExperiment();
+  const { ui, state, isStepCompleted } = useExperiment();
 
-  if (loading) return <RouteLoading />;
+  if (ui.loading) return <RouteLoading />;
 
   const canAccessPlanQuiz =
     isStepCompleted(STEPS.PRODUCTION) ||
@@ -62,9 +62,9 @@ const GuardedPlanQuizRoute: React.FC = () => {
 };
 
 const GuardedReportRoute: React.FC = () => {
-  const { loading, state, isStepCompleted } = useExperiment();
+  const { ui, state, isStepCompleted } = useExperiment();
 
-  if (loading) return <RouteLoading />;
+  if (ui.loading) return <RouteLoading />;
 
   const canAccessReport =
     state.quiz_about_plan_completed ||
@@ -83,13 +83,13 @@ const GuardedReportRoute: React.FC = () => {
 
 // The main layout with Header and Sidebar
 const MainLayout = () => {
-  const { loading } = useExperiment();
+  const { ui } = useExperiment();
   const location = useLocation();
 
   // Hide sidebar on production plan page
   const hideSidebar = location.pathname.startsWith('/production');
 
-  if (loading) {
+  if (ui.loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-xl font-medium text-gray-600">正在加载实验数据...</div>
@@ -132,25 +132,25 @@ const stripTrailingSlash = (p: string) =>
   p.length > 1 && p.endsWith('/') ? p.slice(0, -1) : p;
 
 const TrainingNavigationGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isTrainingLocked, trainingLockPath } = useExperiment();
+  const { ui } = useExperiment();
   const location = useLocation();
 
   React.useEffect(() => {
-    if (!isTrainingLocked) return;
+    if (!ui.isTrainingLocked) return;
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = '';
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [isTrainingLocked]);
+  }, [ui.isTrainingLocked]);
 
   if (
-    isTrainingLocked &&
-    trainingLockPath &&
-    stripTrailingSlash(location.pathname) !== stripTrailingSlash(trainingLockPath)
+    ui.isTrainingLocked &&
+    ui.trainingLockPath &&
+    stripTrailingSlash(location.pathname) !== stripTrailingSlash(ui.trainingLockPath)
   ) {
-    return <Navigate to={trainingLockPath} replace />;
+    return <Navigate to={ui.trainingLockPath} replace />;
   }
 
   return <>{children}</>;

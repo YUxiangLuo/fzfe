@@ -45,6 +45,12 @@ const formatDate = (dateString: string) => {
   });
 };
 
+const FALLBACK_REPORT_STATUS_ERROR = '无法获取报告状态，请稍后重试。';
+
+const getSafeReportStatusError = (_error: unknown): string => {
+  return FALLBACK_REPORT_STATUS_ERROR;
+};
+
 const ReportStatusCheck: React.FC = () => {
   const navigate = useNavigate();
   const { createNewExperiment, setIsSubmitting } = useExperiment();
@@ -72,8 +78,7 @@ const ReportStatusCheck: React.FC = () => {
         // 如果接口报错，为安全起见，也跳转到介绍页，或者显示错误
         // 这里选择显示错误以便调试，或者您可以选择 console.error 后跳转
         console.error("Failed to check report status:", err);
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        setError(errorMessage || "无法获取报告状态，请稍后重试。");
+        setError(getSafeReportStatusError(err));
         setLoading(false);
       }
     };

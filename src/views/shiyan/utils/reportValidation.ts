@@ -53,9 +53,9 @@ export const calculateRepetitionRate = (text: string, n: number = 3): number => 
  * @param analyses 包含所有分析文本的对象。
  * @returns 如果所有字段都非空则返回true，否则返回false。
  */
-export const validateAnalyses = (analyses: { [key: string]: string }): boolean => {
-  for (const key of Object.keys(analyses)) {
-    if (!analyses[key] || analyses[key].trim() === '') {
+export const validateAnalyses = <T extends object>(analyses: T): boolean => {
+  for (const value of Object.values(analyses)) {
+    if (typeof value !== 'string' || value.trim() === '') {
       return false;
     }
   }

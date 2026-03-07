@@ -64,7 +64,7 @@ const EXPERIMENT_STEPS = [
 const Introduction: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { state: experimentState, createNewExperiment, isSubmitting, setIsSubmitting } = useExperiment();
+  const { state: experimentState, ui, createNewExperiment, setIsSubmitting } = useExperiment();
   const [currentStep, setCurrentStep] = useState(0);
   const [manual, setManual] = useState<Manual | null>(null);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
@@ -332,7 +332,7 @@ const Introduction: React.FC = () => {
             </span>
             <Button
                   onClick={handleNext}
-                  isLoading={isSubmitting}
+                  isLoading={ui.isSubmitting}
                   size="lg"
               >
                 <span>{getButtonLabel()}</span>

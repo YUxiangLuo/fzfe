@@ -7,7 +7,7 @@ import { STEPS } from '../constants/steps';
 
 const ResultEvaluation: React.FC = () => {
   const navigate = useNavigate();
-  const { state, handleBestModelChange, recordStepEvent, isSubmitting } = useExperiment();
+  const { state, ui, handleBestModelChange, recordStepEvent } = useExperiment();
   const [selectedBestModel, setSelectedBestModel] = useState<SelectedBestModel | null>(null);
   useStepStartRecorder(6, state.highest_completed_step, recordStepEvent);
 
@@ -194,14 +194,14 @@ const ResultEvaluation: React.FC = () => {
           <div className="flex justify-center">
             <button
               onClick={handleNext}
-              disabled={!selectedBestModel || isSubmitting}
+              disabled={!selectedBestModel || ui.isSubmitting}
               className={`w-full py-4 rounded-lg text-lg font-semibold transition-all ${
-                selectedBestModel && !isSubmitting
+                selectedBestModel && !ui.isSubmitting
                   ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-md'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
-              {isSubmitting ? '处理中...' : '下一步'}
+              {ui.isSubmitting ? '处理中...' : '下一步'}
             </button>
           </div>
         </div>

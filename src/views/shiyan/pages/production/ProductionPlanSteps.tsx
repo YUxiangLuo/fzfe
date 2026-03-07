@@ -233,7 +233,7 @@ const ProductionPlanContent: React.FC = () => {
 
 // 包装Provider，从全局状态获取真实数据
 const ProductionPlanSteps: React.FC = () => {
-  const { state: experimentState, productSalesData, isLoadingSales } = useExperiment();
+  const { state: experimentState, ui, productSalesData } = useExperiment();
 
   // 从全局状态获取真实模型
   const selectedBestModel = experimentState.selected_best_model || 'lstm';
@@ -263,7 +263,7 @@ const ProductionPlanSteps: React.FC = () => {
   }, [productSalesData]);
 
   // 🔄 等待销量数据加载完成
-  if (isLoadingSales) {
+  if (ui.isLoadingSales) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center">

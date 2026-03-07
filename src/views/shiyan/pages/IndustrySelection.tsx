@@ -53,7 +53,7 @@ const getIndustryIcon = (industryName: string): React.ElementType => {
 
 const IndustrySelection: React.FC = () => {
     const navigate = useNavigate();
-    const { state, handleIndustryChange, recordStepEvent, isSubmitting } = useExperiment();
+    const { state, ui, handleIndustryChange, recordStepEvent } = useExperiment();
     const [industries, setIndustries] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -198,8 +198,8 @@ const IndustrySelection: React.FC = () => {
                     </span>
                     <Button
                         onClick={handleNext}
-                        disabled={!localIndustry || isLoading || !!error || isSubmitting}
-                        isLoading={isSubmitting}
+                        disabled={!localIndustry || isLoading || !!error || ui.isSubmitting}
+                        isLoading={ui.isSubmitting}
                         size="lg"
                     >
                         <span>下一步</span>

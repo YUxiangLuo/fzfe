@@ -10,7 +10,7 @@ import { useStepStartRecorder } from '../hooks/useStepStartRecorder';
 
 const CompanySelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, handleCompanyChange, recordStepEvent, isSubmitting } = useExperiment();
+  const { state, ui, handleCompanyChange, recordStepEvent } = useExperiment();
   const [companies, setCompanies] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -165,8 +165,8 @@ const CompanySelection: React.FC = () => {
             </Button>
             <Button
                 onClick={handleNext}
-                disabled={!localCompany || isLoading || !!error || isSubmitting}
-                isLoading={isSubmitting}
+                disabled={!localCompany || isLoading || !!error || ui.isSubmitting}
+                isLoading={ui.isSubmitting}
                 size="lg"
             >
                 <span>下一步</span>
