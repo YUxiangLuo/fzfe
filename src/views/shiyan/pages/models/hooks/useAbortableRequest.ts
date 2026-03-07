@@ -26,9 +26,9 @@ export function useAbortableRequest() {
     try {
       const result = await requestFn(abortController.signal);
       return result;
-    } catch (error: any) {
+    } catch (error) {
       // Ignore abort errors
-      if (error.name === 'AbortError') {
+      if (error instanceof DOMException && error.name === 'AbortError') {
         return null;
       }
       throw error;

@@ -161,12 +161,12 @@ const LSTMStepper: React.FC = () => {
       } else {
         throw new Error(response.message || "计算失败，请重试...");
       }
-    } catch (e: any) {
+    } catch (e) {
       // Ignore abort errors
-      if (e.name === 'AbortError') {
+      if (e instanceof DOMException && e.name === 'AbortError') {
         return;
       }
-      setError(e.message || "遇到错误，请重试...");
+      setError(e instanceof Error ? e.message : "遇到错误，请重试...");
       setRetryCount(prev => prev + 1);
     } finally {
       if (abortControllerRef.current === abortController) {
