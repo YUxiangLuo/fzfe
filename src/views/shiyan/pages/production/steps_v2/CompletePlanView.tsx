@@ -306,7 +306,7 @@ const CompletePlanView: React.FC = () => {
               </div>
               <div className="bg-purple-50 border border-purple-200 rounded p-3">
                 <div className="font-semibold text-purple-900 text-sm mb-1">• 库存量</div>
-                <p className="text-xs text-purple-800">产出量减去实际需求量后的剩余产品数量</p>
+                <p className="text-xs text-purple-800">期初库存加上产出量减去实际需求量后的剩余产品数量</p>
               </div>
               <div className="bg-red-50 border border-red-200 rounded p-3">
                 <div className="font-semibold text-red-900 text-sm mb-1">• 缺货量</div>
