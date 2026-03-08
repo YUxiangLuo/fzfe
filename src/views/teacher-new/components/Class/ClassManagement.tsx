@@ -35,6 +35,8 @@ import { getErrorMessage } from '../../utils/error';
 const { Title, Text } = Typography;
 const { confirm } = Modal;
 
+const ROLE_ASSISTANT = 'Assistant';
+
 interface CreateClassResponse {
     class: Class;
     students_created: number;
@@ -47,6 +49,7 @@ const ClassManagement: React.FC = () => {
     const [classes, setClasses] = useState<Class[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isAssistantView, setIsAssistantView] = useState(false);
 
     // Modal states
     const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -63,6 +66,8 @@ const ClassManagement: React.FC = () => {
     const [editForm] = Form.useForm();
     const [fileList, setFileList] = useState<UploadFile[]>([]);
     const [isSaving, setIsSaving] = useState(false);
+
+    const canManageClasses = !isAssistantView;
 
     // Download CSV template
     const handleDownloadTemplate = () => {
@@ -100,6 +105,7 @@ const ClassManagement: React.FC = () => {
             if (!token) throw new Error('未找到登录凭据');
             const decoded = decodeToken(token);
             if (!decoded) throw new Error('登录信息已失效');
+            setIsAssistantView(decoded.role === ROLE_ASSISTANT);
 
             const teacherId = decoded.sub;
             const data = await apiClient.get(`/teachers/${teacherId}/classes`);
@@ -117,6 +123,11 @@ const ClassManagement: React.FC = () => {
 
     // Create class handler
     const handleCreateClass = async (values: { class_name: string; class_code: string; students_file?: UploadFile[] }) => {
+        if (!canManageClasses) {
+            message.warning('助教仅可查看班级信息，不能新增班级');
+            return;
+        }
+
         setIsSaving(true);
         try {
             const formData = new FormData();
@@ -148,6 +159,10 @@ const ClassManagement: React.FC = () => {
 
     // Edit class handler
     const handleEditClass = async (values: { class_name: string; class_code: string }) => {
+        if (!canManageClasses) {
+            message.warning('助教仅可查看班级信息，不能编辑班级');
+            return;
+        }
         if (!selectedClass) return;
 
         setIsSaving(true);
@@ -176,6 +191,11 @@ const ClassManagement: React.FC = () => {
 
     // Delete class handler
     const handleDeleteClass = (classItem: Class) => {
+        if (!canManageClasses) {
+            message.warning('助教仅可查看班级信息，不能删除班级');
+            return;
+        }
+
         confirm({
             title: `确定要删除班级"${classItem.class_name}"吗？`,
             icon: <ExclamationCircleOutlined />,
@@ -214,6 +234,11 @@ const ClassManagement: React.FC = () => {
 
     // Open edit modal
     const openEditModal = (classItem: Class) => {
+        if (!canManageClasses) {
+            message.warning('助教仅可查看班级信息，不能编辑班级');
+            return;
+        }
+
         setSelectedClass(classItem);
         editForm.setFieldsValue({
             class_name: classItem.class_name,
@@ -287,21 +312,25 @@ const ClassManagement: React.FC = () => {
                     >
                         学生列表
                     </Button>
-                    <Button
-                        type="link"
-                        icon={<EditOutlined />}
-                        onClick={() => openEditModal(record)}
-                    >
-                        编辑
-                    </Button>
-                    <Button
-                        type="link"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={() => handleDeleteClass(record)}
-                    >
-                        删除
-                    </Button>
+                    {canManageClasses && (
+                        <>
+                            <Button
+                                type="link"
+                                icon={<EditOutlined />}
+                                onClick={() => openEditModal(record)}
+                            >
+                                编辑
+                            </Button>
+                            <Button
+                                type="link"
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={() => handleDeleteClass(record)}
+                            >
+                                删除
+                            </Button>
+                        </>
+                    )}
                 </Space>
             ),
         },
@@ -344,9 +373,11 @@ const ClassManagement: React.FC = () => {
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Title level={3} style={{ marginBottom: 0 }}>班级管理</Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
-                    新增班级
-                </Button>
+                {canManageClasses && (
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+                        新增班级
+                    </Button>
+                )}
             </div>
 
             <Card>

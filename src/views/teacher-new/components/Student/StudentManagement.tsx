@@ -227,13 +227,13 @@ const StudentManagement: React.FC = () => {
 
         setIsSaving(true);
         try {
-            await apiClient.post(`/users/${studentToResetPassword.user_id}/reset-password`, {
-                new_password: values.newPassword,
+            const response = await apiClient.post<{ message?: string }>(`/users/${studentToResetPassword.user_id}/reset-password`, {
+                newPassword: values.newPassword,
             });
             setResetPasswordModalOpen(false);
             setStudentToResetPassword(null);
             passwordForm.resetFields();
-            message.success('密码重置成功');
+            message.success(response?.message || '密码重置成功');
         } catch (err: unknown) {
             message.error(getErrorMessage(err, '重置失败'));
         } finally {
