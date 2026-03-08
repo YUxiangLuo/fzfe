@@ -127,7 +127,7 @@ const AssistantManagement: React.FC = () => {
                 username: values.username,
                 full_name: values.full_name,
                 email: values.email,
-                phone_number: values.phone_number || null,
+                phone_number: values.phone_number || undefined,
                 password: values.password,
                 class_ids: values.class_ids,
             });
