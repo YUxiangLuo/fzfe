@@ -81,9 +81,15 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
 
   // Handle model training
   const handleCalculate = useCallback(async () => {
+    if (!state.experiment_id) {
+      setError('实验状态未初始化，无法训练模型。');
+      return;
+    }
+
     const backendModels = selectedModels.map(id => MODEL_ID_MAP[id] || id);
 
     const requestBody: Record<string, any> = {
+      experiment_id: state.experiment_id,
       selected_industry: state.selected_industry,
       selected_company: state.selected_company,
       selected_product: state.selected_product,
@@ -142,6 +148,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     });
   }, [
     selectedModels,
+    state.experiment_id,
     state.selected_industry,
     state.selected_company,
     state.selected_product,

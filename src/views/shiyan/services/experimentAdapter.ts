@@ -14,7 +14,21 @@ type ExperimentApiState = Partial<PersistedExperimentState> & {
   [key: string]: unknown;
 };
 
-type ExperimentUpdatePayload = PersistedExperimentState;
+const SERVER_MANAGED_UPDATE_FIELDS = [
+  "experiment_id",
+  "student_id",
+  "status",
+  "start_time",
+  "last_activity_at",
+  "completion_time",
+  "quiz_about_model_completed",
+  "quiz_about_plan_completed",
+] as const satisfies ReadonlyArray<keyof PersistedExperimentState>;
+
+type ExperimentUpdatePayload = Omit<
+  Partial<PersistedExperimentState>,
+  (typeof SERVER_MANAGED_UPDATE_FIELDS)[number]
+>;
 
 const normalizeStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
@@ -99,6 +113,10 @@ export const toExperimentUpdatePayload = (
     selected_ensemble_models: _selectedEnsembleModels,
     ...payload
   } = state;
+
+  for (const field of SERVER_MANAGED_UPDATE_FIELDS) {
+    delete payload[field];
+  }
 
   return payload;
 };

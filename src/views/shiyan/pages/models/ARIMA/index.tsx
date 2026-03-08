@@ -170,7 +170,13 @@ const ARIMAStepper: React.FC = () => {
     // 计算之前清除所有错误和已有结果
     setTrainingError(null);
     setResults(null);
+    if (!state.experiment_id) {
+      setTrainingError('实验状态未初始化，无法训练模型。');
+      return;
+    }
+
     const requestBody = {
+      experiment_id: state.experiment_id,
       selected_industry: state.selected_industry,
       selected_company: state.selected_company,
       selected_product: state.selected_product,
@@ -222,6 +228,7 @@ const ARIMAStepper: React.FC = () => {
     });
   }, [
     location.pathname,
+    state.experiment_id,
     state.selected_industry,
     state.selected_company,
     state.selected_product,
