@@ -100,7 +100,7 @@ describe("Sidebar", () => {
     expect(view.queryAllByRole("link")).toHaveLength(0);
 
     const wrappersWithTitle = view.container.querySelectorAll(
-      '[title="融合模型训练进行中，请等待当前训练完成后再离开此页面"]',
+      '[title="模型训练进行中，请等待当前训练完成后再离开此页面"]',
     );
     expect(wrappersWithTitle).toHaveLength(7);
   });

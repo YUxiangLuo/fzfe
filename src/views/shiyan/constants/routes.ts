@@ -56,4 +56,4 @@ export const getStepPath = (step: number): string => {
 };
 
 export const TRAINING_LOCK_MESSAGE =
-  '融合模型训练进行中，请等待当前训练完成后再离开此页面';
+  '模型训练进行中，请等待当前训练完成后再离开此页面';

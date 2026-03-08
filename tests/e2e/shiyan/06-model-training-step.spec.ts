@@ -127,7 +127,7 @@ test.describe("@shiyan model training step", () => {
 
     const profileLink = page.getByRole("link", { name: "个人信息" });
     await expect(profileLink).toHaveAttribute("aria-disabled", "true");
-    await expect(profileLink).toHaveAttribute("title", /融合模型训练进行中/);
+    await expect(profileLink).toHaveAttribute("title", /模型训练进行中/);
     const logoutButton = page.locator("button").filter({ has: page.locator(".lucide-log-out") }).first();
     await expect(logoutButton).toBeDisabled();
 

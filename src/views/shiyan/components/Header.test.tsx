@@ -130,7 +130,7 @@ describe("Header", () => {
     const logoutButton = view.getByRole("button");
 
     expect(introLink.getAttribute("aria-disabled")).toBe("true");
-    expect(introLink.getAttribute("title")).toContain("融合模型训练进行中");
+    expect(introLink.getAttribute("title")).toContain("模型训练进行中");
     expect((logoutButton as HTMLButtonElement).disabled).toBe(true);
 
     fireEvent.click(logoutButton);
