@@ -52,6 +52,10 @@ describe("experimentAdapter", () => {
     const state = {
       ...buildInitialState(),
       experiment_id: 11,
+      student_id: 42,
+      status: "In Progress" as const,
+      quiz_about_model_completed: true,
+      quiz_about_plan_completed: true,
       selected_base_models: ["ma", "lstm"],
       selected_ensemble_models: ["ensemble_weighted"],
     };
@@ -60,6 +64,10 @@ describe("experimentAdapter", () => {
 
     expect("selected_base_models" in payload).toBeFalse();
     expect("selected_ensemble_models" in payload).toBeFalse();
-    expect(payload.experiment_id).toBe(11);
+    expect("experiment_id" in payload).toBeFalse();
+    expect("student_id" in payload).toBeFalse();
+    expect("status" in payload).toBeFalse();
+    expect("quiz_about_model_completed" in payload).toBeFalse();
+    expect("quiz_about_plan_completed" in payload).toBeFalse();
   });
 });

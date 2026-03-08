@@ -16,6 +16,17 @@ type ExperimentApiState = Partial<PersistedExperimentState> & {
 
 type ExperimentUpdatePayload = PersistedExperimentState;
 
+const SERVER_MANAGED_UPDATE_FIELDS: Array<keyof PersistedExperimentState> = [
+  "experiment_id",
+  "student_id",
+  "status",
+  "start_time",
+  "last_activity_at",
+  "completion_time",
+  "quiz_about_model_completed",
+  "quiz_about_plan_completed",
+];
+
 const normalizeStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
     return [];
@@ -99,6 +110,10 @@ export const toExperimentUpdatePayload = (
     selected_ensemble_models: _selectedEnsembleModels,
     ...payload
   } = state;
+
+  for (const field of SERVER_MANAGED_UPDATE_FIELDS) {
+    delete payload[field];
+  }
 
   return payload;
 };

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Factory, ArrowRight, Info, Loader2, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
+import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 import { MPS_CALCULATION, SERVICE_LEVELS, CAPACITY_CONFIG } from '../config/mpsConstants';
 import { validatePredictions } from '../utils/predictionValidator';
@@ -39,6 +40,7 @@ const MODEL_NAME_MAP: Record<string, string> = {
  */
 const NewStep1: React.FC = () => {
   const { state, updateParameters, updateCapacity, fillPeriod1Data, savePredictions, completeCurrentStep } = useProductionPlan();
+  const { state: experimentState } = useExperiment();
 
   const [isPredicting, setIsPredicting] = useState(false);
   const [isPeriod1Generated, setIsPeriod1Generated] = useState(false);
@@ -61,6 +63,10 @@ const NewStep1: React.FC = () => {
     setIsPredicting(true);
 
     try {
+      if (!experimentState.experiment_id) {
+        throw new Error('实验状态未初始化，无法进行需求预测');
+      }
+
       // 🚀 调用预测接口获取需求预测
       const modelType = MODEL_TYPE_MAP[state.selectedBestModel];
       if (!modelType) {
@@ -71,7 +77,7 @@ const NewStep1: React.FC = () => {
         status: string;
         results: { predictions: Array<{ prediction: number; std_dev: number }> };
       }>(`/models/${modelType==="weighted_average"?"weighted_avg":modelType}/predict`, {
-        model_type: modelType,
+        experiment_id: experimentState.experiment_id,
         forecast_steps: FIXED_FORECAST_PERIODS,
       });
 

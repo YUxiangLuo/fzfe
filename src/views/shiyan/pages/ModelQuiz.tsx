@@ -92,7 +92,7 @@ const ModelQuiz: React.FC = () => {
         {
           quiz_about_model_completed: true,
         },
-        { forceSync: true, throwOnSyncError: true },
+        { skipSync: true },
       );
 
       // 导航到生产计划页面

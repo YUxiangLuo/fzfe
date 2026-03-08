@@ -29,7 +29,7 @@ const MODEL_TYPE_MAP: Record<string, string> = {
  */
 const CompletePlanView: React.FC = () => {
   const { state, generateFullMPS, hideCompletePlanTeaching, saveMPSDataToGlobal } = useProductionPlan();
-  const { updateState } = useExperiment();
+  const { state: experimentState, updateState } = useExperiment();
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +66,10 @@ const CompletePlanView: React.FC = () => {
         await saveMPSDataToGlobal(updateState, generatedTable, predictionsToUse);
       } else {
         // 如果没有保存的预测数据，则调用API获取
+        if (!experimentState.experiment_id) {
+          throw new Error('实验状态未初始化，无法进行需求预测');
+        }
+
         const modelType = MODEL_TYPE_MAP[state.selectedBestModel];
         if (!modelType) {
           throw new Error(`无效的模型类型: ${state.selectedBestModel}`);
@@ -75,7 +79,7 @@ const CompletePlanView: React.FC = () => {
           status: string;
           results: { predictions: Array<{ prediction: number; std_dev: number }> };
         }>(`/models/${modelType==="weighted_average"?"weighted_avg":modelType}/predict`, {
-          model_type: modelType,
+          experiment_id: experimentState.experiment_id,
           forecast_steps: state.forecastPeriods,
         });
 

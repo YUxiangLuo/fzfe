@@ -120,7 +120,7 @@ const ExperimentReport: React.FC = () => {
 
       setSubmitSuccess(true);
       const now = new Date().toISOString();
-      await updateState({ status: 'Completed', last_activity_at: now, completion_time: now });
+      await updateState({ status: 'Completed', completion_time: now }, { skipSync: true });
       setShowCompletionModal(true);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
