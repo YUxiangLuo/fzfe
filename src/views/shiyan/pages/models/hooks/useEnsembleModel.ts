@@ -43,7 +43,7 @@ interface EnsembleResults {
 export function useEnsembleModel(config: EnsembleModelConfig) {
   const { state, updateState, productSalesData, setTrainingLock } = useExperiment();
   const location = useLocation();
-  const { isLoading, error, setError, retryCount, runJob, recordFailure, handleRetry, resetRetryCount } = useModelJob();
+  const { isLoading, error, setError, retryCount, runJob, handleRetry, resetRetryCount } = useModelJob();
 
   const [selectedModels, setSelectedModels] = useState<string[]>(
     (state[config.stateKey.baseModels] as string[]) ?? []
@@ -103,51 +103,44 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       requestBody.lstmNormalization = state.lstm_normalization;
     }
 
-    const result = await runJob<any>({
+    await runJob<any>({
       lockPath: location.pathname,
       setTrainingLock,
       request: (signal) => apiClient.post<any>(config.apiEndpoint, requestBody, { signal }),
-      getErrorMessage: (jobError) =>
-        jobError instanceof Error ? jobError.message : '模型训练时发生错误。',
-    });
+      onSuccess: async (result) => {
+        if (result.status !== "success") {
+          throw new Error(result.message || "模型训练失败。");
+        }
 
-    if (!result) {
-      return;
-    }
+        const apiResults = result.results;
+        const ensembleResults: EnsembleResults = {
+          predictions: evaluateMonths.map((month: string, index: number) => ({
+            date: month,
+            actual: apiResults.eval_y_true[index],
+            predicted: apiResults.eval_predictions[index],
+          })),
+          metrics: apiResults.metrics,
+        };
 
-    if (result.status === "success") {
-      const apiResults = result.results;
-      const ensembleResults: EnsembleResults = {
-        predictions: evaluateMonths.map((month: string, index: number) => ({
-          date: month,
-          actual: apiResults.eval_y_true[index],
-          predicted: apiResults.eval_predictions[index],
-        })),
-        metrics: apiResults.metrics,
-      };
+        if (config.type === 'weighted') {
+          ensembleResults.weights = apiResults.weights;
+          ensembleResults.model_names = apiResults.model_names;
+        } else if (config.type === 'stacking') {
+          ensembleResults.meta_model = apiResults.meta_model;
+        }
 
-      if (config.type === 'weighted') {
-        ensembleResults.weights = apiResults.weights;
-        ensembleResults.model_names = apiResults.model_names;
-      } else if (config.type === 'stacking') {
-        ensembleResults.meta_model = apiResults.meta_model;
-      }
+        setResults(ensembleResults);
 
-      try {
         await updateState({
           [config.stateKey.baseModels]: selectedModels,
           [config.stateKey.metricsRmse]: apiResults.metrics.rmse,
           [config.stateKey.metricsMae]: apiResults.metrics.mae,
           [config.stateKey.metricsR2]: apiResults.metrics.r2,
         }, { forceSync: true });
-        setResults(ensembleResults);
-      } catch (jobError) {
-        recordFailure(jobError, '实验进度同步失败，请稍后重试。');
-      }
-      return;
-    }
-
-    recordFailure(result.message || "模型训练失败。");
+      },
+      getErrorMessage: (jobError) =>
+        jobError instanceof Error ? jobError.message : '模型训练时发生错误。',
+    });
   }, [
     selectedModels,
     state.selected_industry,
@@ -169,7 +162,6 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     config.stateKey,
     location.pathname,
     runJob,
-    recordFailure,
     setTrainingLock,
     updateState,
   ]);

@@ -19,6 +19,11 @@ const getTimeoutForEndpoint = (endpoint: string): number | undefined => {
     return undefined;
   }
 
+  // ADF检验会拉起 Python 进程，真实数据集下可能超过默认 CRUD 超时
+  if (lowerEndpoint.includes('/tools/adf')) {
+    return 120000;
+  }
+
   // 模型预测 - 60秒（可能需要较长时间计算）
   if (lowerEndpoint.includes('/predict') || lowerEndpoint.includes('/forecast')) {
     return 60000;
@@ -84,6 +89,43 @@ const buildUrl = (endpoint: string): string => {
   }
 
   return base.toString();
+};
+
+interface RequestAbortContext {
+  signal: AbortSignal;
+  cleanup: () => void;
+  didTimeout: () => boolean;
+}
+
+const createRequestAbortContext = (timeout: number, externalSignal?: AbortSignal): RequestAbortContext => {
+  const controller = new AbortController();
+  let timedOut = false;
+
+  const abortFromExternalSignal = () => {
+    controller.abort(externalSignal?.reason);
+  };
+
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeout);
+
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      abortFromExternalSignal();
+    } else {
+      externalSignal.addEventListener("abort", abortFromExternalSignal, { once: true });
+    }
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timeoutId);
+      externalSignal?.removeEventListener("abort", abortFromExternalSignal);
+    },
+    didTimeout: () => timedOut,
+  };
 };
 
 const unwrapSuccessPayload = <T = any>(payload: unknown): T => {
@@ -207,25 +249,22 @@ const request = async <T = any>(
 
   // 如果需要超时控制
   if (timeout !== undefined) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const abortContext = createRequestAbortContext(timeout, options.signal ?? undefined);
 
     try {
       const response = await fetch(buildUrl(finalEndpoint), {
         ...config,
-        signal: options.signal || controller.signal, // 优先使用传入的signal
+        signal: abortContext.signal,
       });
-      clearTimeout(timeoutId);
       return handleResponse<T>(response, finalEndpoint);
     } catch (err: unknown) {
-      clearTimeout(timeoutId);
-
-      // 处理超时错误
-      if (err instanceof Error && err.name === 'AbortError') {
+      if (abortContext.didTimeout() && err instanceof Error && err.name === 'AbortError') {
         throw new Error(`请求超时（${timeout / 1000}秒），请检查网络连接后重试`);
       }
 
       throw err;
+    } finally {
+      abortContext.cleanup();
     }
   }
 

@@ -49,7 +49,6 @@ const LSTMStepper: React.FC = () => {
     setError,
     retryCount,
     runJob,
-    recordFailure,
     handleRetry,
   } = useModelJob();
 
@@ -131,7 +130,7 @@ const LSTMStepper: React.FC = () => {
       lstmFeatures: features.join(","),
     };
 
-    const response = await runJob<any>({
+    await runJob<any>({
       lockPath: location.pathname,
       setTrainingLock,
       request: (signal) => apiClient.post<any>(
@@ -139,26 +138,22 @@ const LSTMStepper: React.FC = () => {
         requestBody,
         { signal }
       ),
-      getErrorMessage: (jobError) =>
-        jobError instanceof Error ? jobError.message : '遇到错误，请重试...',
-    });
+      onSuccess: async (response) => {
+        if (response.status !== "success") {
+          throw new Error(response.message || "计算失败，请重试...");
+        }
 
-    if (!response) {
-      return;
-    }
+        const apiResults = response.results;
+        const nextResults = {
+          predictions: evaluateMonths.map((month: string, index: number) => ({
+            date: month,
+            actual: apiResults.eval_y_true[index],
+            predicted: apiResults.eval_predictions[index],
+          })),
+          metrics: apiResults.metrics,
+        };
 
-    if (response.status === "success") {
-      const apiResults = response.results;
-      const nextResults = {
-        predictions: evaluateMonths.map((month: string, index: number) => ({
-          date: month,
-          actual: apiResults.eval_y_true[index],
-          predicted: apiResults.eval_predictions[index],
-        })),
-        metrics: apiResults.metrics,
-      };
-
-      try {
+        setResults(nextResults);
         await updateState({
           lstm_features: features,
           lstm_target_field: target,
@@ -166,14 +161,10 @@ const LSTMStepper: React.FC = () => {
           lstm_metrics_mae: apiResults.metrics.mae,
           lstm_metrics_r2: apiResults.metrics.r2,
         }, { forceSync: true });
-        setResults(nextResults);
-      } catch (jobError) {
-        recordFailure(jobError, '实验进度同步失败，请稍后重试。');
-      }
-      return;
-    }
-
-    recordFailure(response.message || "计算失败，请重试...");
+      },
+      getErrorMessage: (jobError) =>
+        jobError instanceof Error ? jobError.message : '遇到错误，请重试...',
+    });
   }, [
     location.pathname,
     state.selected_industry,
@@ -188,7 +179,6 @@ const LSTMStepper: React.FC = () => {
     features,
     evaluateMonths,
     runJob,
-    recordFailure,
     setTrainingLock,
     updateState
   ]);

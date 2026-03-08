@@ -8,6 +8,7 @@ interface RunModelJobOptions<T> {
   lockPath?: string | null;
   setTrainingLock?: TrainingLockSetter;
   getErrorMessage?: (error: unknown) => string;
+  onSuccess?: (result: T) => Promise<void> | void;
 }
 
 export function useModelJob() {
@@ -17,14 +18,18 @@ export function useModelJob() {
   const [retryCount, setRetryCount] = useState(0);
   const isMountedRef = useRef(true);
   const jobIdRef = useRef(0);
+  const inFlightJobIdRef = useRef<number | null>(null);
   const activeLockRef = useRef<{
     jobId: number;
     release: TrainingLockSetter;
   } | null>(null);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
       isMountedRef.current = false;
+      inFlightJobIdRef.current = null;
       if (activeLockRef.current) {
         activeLockRef.current.release(false, null);
         activeLockRef.current = null;
@@ -55,6 +60,12 @@ export function useModelJob() {
     }
   }, []);
 
+  const clearInFlightJob = useCallback((jobId: number) => {
+    if (inFlightJobIdRef.current === jobId) {
+      inFlightJobIdRef.current = null;
+    }
+  }, []);
+
   const recordFailure = useCallback((jobError: unknown, fallbackMessage = '模型任务执行失败') => {
     if (!isMountedRef.current) {
       return;
@@ -71,13 +82,39 @@ export function useModelJob() {
     setRetryCount((previous) => previous + 1);
   }, []);
 
+  const getResolvedErrorMessage = useCallback((jobError: unknown, getErrorMessage?: (error: unknown) => string) => {
+    if (getErrorMessage) {
+      return getErrorMessage(jobError);
+    }
+
+    if (jobError instanceof Error && jobError.message) {
+      return jobError.message;
+    }
+
+    if (typeof jobError === 'string' && jobError.trim().length > 0) {
+      return jobError;
+    }
+
+    return '模型任务执行失败';
+  }, []);
+
   const runJob = useCallback(async <T>({
     request,
     lockPath,
     setTrainingLock,
     getErrorMessage,
+    onSuccess,
   }: RunModelJobOptions<T>): Promise<T | null> => {
+    if (inFlightJobIdRef.current !== null) {
+      return null;
+    }
+
     const jobId = ++jobIdRef.current;
+    inFlightJobIdRef.current = jobId;
+
+    if (isMountedRef.current) {
+      setIsLoading(true);
+    }
 
     if (setTrainingLock) {
       activeLockRef.current = {
@@ -85,10 +122,6 @@ export function useModelJob() {
         release: setTrainingLock,
       };
       setTrainingLock(true, lockPath ?? null);
-    }
-
-    if (isMountedRef.current) {
-      setIsLoading(true);
     }
 
     try {
@@ -101,19 +134,19 @@ export function useModelJob() {
         setError(null);
       }
 
+      await onSuccess?.(result);
+
       return result;
     } catch (jobError) {
-      const errorMessage = getErrorMessage?.(jobError)
-        ?? (jobError instanceof Error ? jobError.message : '模型任务执行失败');
-      setError(errorMessage);
-      setRetryCount((prev) => prev + 1);
+      recordFailure(getResolvedErrorMessage(jobError, getErrorMessage));
 
       return null;
     } finally {
       clearLoadingState(jobId);
       releaseLock(jobId);
+      clearInFlightJob(jobId);
     }
-  }, [clearLoadingState, executeRequest, recordFailure, releaseLock]);
+  }, [clearInFlightJob, clearLoadingState, executeRequest, getResolvedErrorMessage, recordFailure, releaseLock]);
 
   const handleRetry = useCallback(() => {
     if (retryCount < 3) {

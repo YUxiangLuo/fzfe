@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 interface UseAutoCalculationParams {
   /**
@@ -45,15 +45,48 @@ export const useAutoCalculation = ({
   isLoading,
   error,
 }: UseAutoCalculationParams) => {
+  const hasTriggeredRef = useRef(false);
+  const scheduledTriggerRef = useRef<number | null>(null);
+
   useEffect(() => {
-    if (
+    const shouldCalculate =
       currentStepId === calculationStepId &&
       !results &&
       !isLoading &&
       canCalculate &&
-      !error
+      !error;
+
+    if (shouldCalculate) {
+      if (hasTriggeredRef.current) {
+        return;
+      }
+
+      hasTriggeredRef.current = true;
+      scheduledTriggerRef.current = window.setTimeout(() => {
+        scheduledTriggerRef.current = null;
+        handleCalculate();
+      }, 0);
+
+      return () => {
+        if (scheduledTriggerRef.current !== null) {
+          window.clearTimeout(scheduledTriggerRef.current);
+          scheduledTriggerRef.current = null;
+          hasTriggeredRef.current = false;
+        }
+      };
+    }
+
+    if (
+      currentStepId !== calculationStepId ||
+      !!results ||
+      !!error ||
+      !canCalculate
     ) {
-      handleCalculate();
+      if (scheduledTriggerRef.current !== null) {
+        window.clearTimeout(scheduledTriggerRef.current);
+        scheduledTriggerRef.current = null;
+      }
+      hasTriggeredRef.current = false;
     }
     // The handleCalculate function is expected to be memoized with useCallback
     // to prevent infinite loops.
