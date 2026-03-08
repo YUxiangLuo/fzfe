@@ -129,14 +129,13 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
           ensembleResults.meta_model = apiResults.meta_model;
         }
 
-        setResults(ensembleResults);
-
         await updateState({
           [config.stateKey.baseModels]: selectedModels,
           [config.stateKey.metricsRmse]: apiResults.metrics.rmse,
           [config.stateKey.metricsMae]: apiResults.metrics.mae,
           [config.stateKey.metricsR2]: apiResults.metrics.r2,
         }, { forceSync: true });
+        setResults(ensembleResults);
       },
       getErrorMessage: (jobError) =>
         jobError instanceof Error ? jobError.message : '模型训练时发生错误。',

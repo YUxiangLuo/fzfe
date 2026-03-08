@@ -97,14 +97,13 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
           metrics: apiResults.metrics,
         };
 
-        setResults(modelResults);
-
         await updateState({
           [config.stateKeys.param]: param === '' ? null : param,
           [config.stateKeys.metricsRmse]: apiResults.metrics.rmse,
           [config.stateKeys.metricsMae]: apiResults.metrics.mae,
           [config.stateKeys.metricsR2]: apiResults.metrics.r2,
         }, { forceSync: true });
+        setResults(modelResults);
       },
       getErrorMessage: (jobError) =>
         jobError instanceof Error ? jobError.message : '计算失败，请稍后重试。',

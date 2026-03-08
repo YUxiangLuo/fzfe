@@ -76,18 +76,13 @@ export const useAutoCalculation = ({
       };
     }
 
-    if (
-      currentStepId !== calculationStepId ||
-      !!results ||
-      !!error ||
-      !canCalculate
-    ) {
-      if (scheduledTriggerRef.current !== null) {
-        window.clearTimeout(scheduledTriggerRef.current);
-        scheduledTriggerRef.current = null;
-      }
-      hasTriggeredRef.current = false;
+    // Not in a triggerable state — reset the dedup guard so a future
+    // transition back to triggerable (e.g. after error is cleared) can fire.
+    if (scheduledTriggerRef.current !== null) {
+      window.clearTimeout(scheduledTriggerRef.current);
+      scheduledTriggerRef.current = null;
     }
+    hasTriggeredRef.current = false;
     // The handleCalculate function is expected to be memoized with useCallback
     // to prevent infinite loops.
   }, [

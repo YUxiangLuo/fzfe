@@ -77,6 +77,12 @@ describe("apiClient timeout handling", () => {
       });
     }) as unknown as typeof fetch;
 
-    await expect(apiClient.get("/status")).rejects.toThrow("请求超时（10秒）");
+    try {
+      await expect(apiClient.get("/status")).rejects.toThrow("请求超时（10秒）");
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+      globalThis.clearTimeout = originalClearTimeout;
+      globalThis.fetch = originalFetch;
+    }
   });
 });

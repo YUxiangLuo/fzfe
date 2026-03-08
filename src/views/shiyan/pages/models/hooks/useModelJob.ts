@@ -25,6 +25,7 @@ export function useModelJob() {
   } | null>(null);
 
   useEffect(() => {
+    // Re-set to true for StrictMode's unmount→remount replay
     isMountedRef.current = true;
 
     return () => {
@@ -164,7 +165,6 @@ export function useModelJob() {
     setError,
     retryCount,
     runJob,
-    recordFailure,
     handleRetry,
     resetRetryCount,
   };

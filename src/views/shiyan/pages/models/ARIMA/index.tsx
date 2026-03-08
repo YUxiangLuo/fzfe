@@ -158,8 +158,8 @@ const ARIMAStepper: React.FC = () => {
         }
 
         const validResults = response.result.filter(r => r.stationary !== null);
-        setAdfResults(validResults);
         await updateState({ arima_adf_stationarity: validResults }, { forceSync: true });
+        setAdfResults(validResults);
       },
       getErrorMessage: (jobError) =>
         jobError instanceof Error ? jobError.message : 'ADF检验失败，请重试...',
@@ -208,7 +208,6 @@ const ARIMAStepper: React.FC = () => {
           order: apiResults.best_order,
         };
 
-        setResults(nextResults);
         await updateState({
           arima_p: apiResults.best_order.p,
           arima_q: apiResults.best_order.q,
@@ -216,6 +215,7 @@ const ARIMAStepper: React.FC = () => {
           arima_metrics_mae: apiResults.metrics.mae,
           arima_metrics_r2: apiResults.metrics.r2,
         }, { forceSync: true });
+        setResults(nextResults);
       },
       getErrorMessage: (jobError) =>
         jobError instanceof Error ? jobError.message : '遇到错误，请重试...',

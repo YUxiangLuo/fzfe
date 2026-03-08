@@ -153,7 +153,6 @@ const LSTMStepper: React.FC = () => {
           metrics: apiResults.metrics,
         };
 
-        setResults(nextResults);
         await updateState({
           lstm_features: features,
           lstm_target_field: target,
@@ -161,6 +160,7 @@ const LSTMStepper: React.FC = () => {
           lstm_metrics_mae: apiResults.metrics.mae,
           lstm_metrics_r2: apiResults.metrics.r2,
         }, { forceSync: true });
+        setResults(nextResults);
       },
       getErrorMessage: (jobError) =>
         jobError instanceof Error ? jobError.message : '遇到错误，请重试...',
