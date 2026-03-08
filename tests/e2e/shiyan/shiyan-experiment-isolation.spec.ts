@@ -5,7 +5,6 @@ import {
   completeEvaluationAndModelQuiz,
   completeExponentialSmoothing,
   completeIndustryCompanyProductAndDataWindow,
-  completeIntroductionAndStartExperiment,
   completeMovingAverage,
   completeProductionAndPlanQuiz,
   completeWeightedEnsemble,
