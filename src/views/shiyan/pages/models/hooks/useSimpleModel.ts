@@ -2,8 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
-import { useModelJob } from './useModelJob';
 import type { ExperimentState } from '../../../store/experiment/types';
+import { useModelJob } from './useModelJob';
 
 type SimpleModelType = 'exponential_smoothing' | 'moving_average';
 
@@ -41,7 +41,7 @@ interface SimpleModelResults {
 export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<T>) {
   const { state, updateState, productSalesData, setTrainingLock } = useExperiment();
   const location = useLocation();
-  const { isLoading, error, setError, retryCount, runJob, recordFailure, handleRetry, resetRetryCount } = useModelJob();
+  const { isLoading, error, setError, retryCount, runJob, handleRetry, resetRetryCount } = useModelJob();
 
   const [param, setParam] = useState<T>((state[config.stateKeys.param] as T) ?? '' as T);
   const [results, setResults] = useState<SimpleModelResults | null>(null);
@@ -74,34 +74,29 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
       [config.paramKey]: param,
     };
 
-    const result = await runJob<any>({
+    await runJob<any>({
       lockPath: location.pathname,
       setTrainingLock,
       request: (signal) => apiClient.post<any>(config.apiEndpoint, requestBody, { signal }),
-      getErrorMessage: (jobError) =>
-        jobError instanceof Error ? jobError.message : '计算失败，请稍后重试。',
-    });
+      onSuccess: async (result) => {
+        if (result.status !== "success") {
+          throw new Error(result.message || "模型计算返回失败状态");
+        }
 
-    if (!result) {
-      return;
-    }
+        const apiResults = result.results;
+        const months = productSalesData?.monthlySales
+          .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
+          .map(item => item.month) || [];
 
-    if (result.status === "success") {
-      const apiResults = result.results;
-      const months = productSalesData?.monthlySales
-        .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
-        .map(item => item.month) || [];
+        const modelResults: SimpleModelResults = {
+          predictions: months.map((month: string, index: number) => ({
+            date: month,
+            actual: apiResults.eval_y_true[index],
+            predicted: apiResults.eval_predictions[index],
+          })),
+          metrics: apiResults.metrics,
+        };
 
-      const modelResults: SimpleModelResults = {
-        predictions: months.map((month: string, index: number) => ({
-          date: month,
-          actual: apiResults.eval_y_true[index],
-          predicted: apiResults.eval_predictions[index],
-        })),
-        metrics: apiResults.metrics,
-      };
-
-      try {
         await updateState({
           [config.stateKeys.param]: param === '' ? null : param,
           [config.stateKeys.metricsRmse]: apiResults.metrics.rmse,
@@ -109,13 +104,10 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
           [config.stateKeys.metricsR2]: apiResults.metrics.r2,
         }, { forceSync: true });
         setResults(modelResults);
-      } catch (jobError) {
-        recordFailure(jobError, '实验进度同步失败，请稍后重试。');
-      }
-      return;
-    }
-
-    recordFailure(result.message || "模型计算返回失败状态");
+      },
+      getErrorMessage: (jobError) =>
+        jobError instanceof Error ? jobError.message : '计算失败，请稍后重试。',
+    });
   }, [
     param,
     state.selected_industry,
@@ -131,7 +123,6 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
     config.stateKeys,
     location.pathname,
     runJob,
-    recordFailure,
     setTrainingLock,
     updateState,
   ]);

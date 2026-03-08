@@ -58,7 +58,6 @@ const ARIMAStepper: React.FC = () => {
     retryCount: adfRetryCount,
     runJob: runAdfJob,
     setError: setAdfError,
-    recordFailure: recordAdfFailure,
     handleRetry: handleAdfRetry,
   } = adfJob;
   const {
@@ -67,7 +66,6 @@ const ARIMAStepper: React.FC = () => {
     retryCount: trainingRetryCount,
     runJob: runTrainingJob,
     setError: setTrainingError,
-    recordFailure: recordTrainingFailure,
     handleRetry: handleTrainingRetry,
     resetRetryCount: resetTrainingRetryCount,
   } = trainingJob;
@@ -146,7 +144,7 @@ const ARIMAStepper: React.FC = () => {
     }
 
     const trainingSeries = productSalesData.monthlySales.slice(startIndex, endIndex + 1);
-    const response = await runAdfJob<{ result: AdfStationarityRow[] }>({
+    await runAdfJob<{ result: AdfStationarityRow[] }>({
       request: (signal) => apiClient.post<{ result: AdfStationarityRow[] }>(
         "/tools/adf",
         {
@@ -154,27 +152,19 @@ const ARIMAStepper: React.FC = () => {
         },
         { signal }
       ),
+      onSuccess: async (response) => {
+        if (!response.result || response.result.length === 0) {
+          throw new Error("ADF检验未返回有效结果。");
+        }
+
+        const validResults = response.result.filter(r => r.stationary !== null);
+        await updateState({ arima_adf_stationarity: validResults }, { forceSync: true });
+        setAdfResults(validResults);
+      },
       getErrorMessage: (jobError) =>
         jobError instanceof Error ? jobError.message : 'ADF检验失败，请重试...',
     });
-
-    if (!response) {
-      return;
-    }
-
-    if (!response.result || response.result.length === 0) {
-      recordAdfFailure("ADF检验未返回有效结果。");
-      return;
-    }
-
-    const validResults = response.result.filter(r => r.stationary !== null);
-    try {
-      await updateState({ arima_adf_stationarity: validResults }, { forceSync: true });
-      setAdfResults(validResults);
-    } catch (jobError) {
-      recordAdfFailure(jobError, '实验进度同步失败，请稍后重试。');
-    }
-  }, [productSalesData, recordAdfFailure, runAdfJob, setAdfError, state, updateState]);
+  }, [productSalesData, runAdfJob, setAdfError, state, updateState]);
 
   const handleCalculate = useCallback(async () => {
     // 计算之前清除所有错误和已有结果
@@ -190,7 +180,7 @@ const ARIMAStepper: React.FC = () => {
       data_window_evaluate_end_index: state.data_window_evaluate_end_index,
       arimaD: selectedD,
     };
-    const response = await runTrainingJob<any>({
+    await runTrainingJob<any>({
       lockPath: location.pathname,
       setTrainingLock,
       request: (signal) => apiClient.post<any>(
@@ -198,31 +188,26 @@ const ARIMAStepper: React.FC = () => {
         requestBody,
         { signal }
       ),
-      getErrorMessage: (jobError) =>
-        jobError instanceof Error ? jobError.message : '遇到错误，请重试...',
-    });
+      onSuccess: async (response) => {
+        if (response.status !== "success") {
+          throw new Error(response.message || "计算失败，请重试...");
+        }
 
-    if (!response) {
-      return;
-    }
+        const apiResults = response.results;
+        const months = productSalesData?.monthlySales
+          .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
+          .map(item => item.month) || [];
 
-    if (response.status === "success") {
-      const apiResults = response.results;
-      const months = productSalesData?.monthlySales
-        .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
-        .map(item => item.month) || [];
+        const nextResults = {
+          predictions: months.map((month: string, index: number) => ({
+            date: month,
+            actual: apiResults.eval_y_true[index],
+            predicted: apiResults.eval_predictions[index],
+          })),
+          metrics: apiResults.metrics,
+          order: apiResults.best_order,
+        };
 
-      const nextResults = {
-        predictions: months.map((month: string, index: number) => ({
-          date: month,
-          actual: apiResults.eval_y_true[index],
-          predicted: apiResults.eval_predictions[index],
-        })),
-        metrics: apiResults.metrics,
-        order: apiResults.best_order,
-      };
-
-      try {
         await updateState({
           arima_p: apiResults.best_order.p,
           arima_q: apiResults.best_order.q,
@@ -231,13 +216,10 @@ const ARIMAStepper: React.FC = () => {
           arima_metrics_r2: apiResults.metrics.r2,
         }, { forceSync: true });
         setResults(nextResults);
-      } catch (jobError) {
-        recordTrainingFailure(jobError, '实验进度同步失败，请稍后重试。');
-      }
-      return;
-    }
-
-    recordTrainingFailure(response.message || "计算失败，请重试...");
+      },
+      getErrorMessage: (jobError) =>
+        jobError instanceof Error ? jobError.message : '遇到错误，请重试...',
+    });
   }, [
     location.pathname,
     state.selected_industry,
@@ -249,7 +231,6 @@ const ARIMAStepper: React.FC = () => {
     state.data_window_evaluate_end_index,
     selectedD,
     productSalesData,
-    recordTrainingFailure,
     runTrainingJob,
     setTrainingLock,
     updateState
