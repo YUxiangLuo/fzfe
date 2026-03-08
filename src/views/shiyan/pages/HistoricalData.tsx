@@ -315,9 +315,9 @@ const HistoricalData: React.FC = () => {
       // before the synchronous state updates and navigation potentially block the main thread.
       await new Promise(resolve => setTimeout(resolve, 50));
       await updateState({
-        highest_completed_step: CURRENT_STEP,
-        current_step: NEXT_STEP,
-      }, { throwOnSyncError: true });
+        highest_completed_step: Math.max(state.highest_completed_step, CURRENT_STEP),
+        current_step: Math.max(state.current_step, NEXT_STEP),
+      }, { forceSync: true, throwOnSyncError: true });
       navigate(PATHS.NEXT);
     } catch (error) {
       console.error('Failed to update step state:', error);
