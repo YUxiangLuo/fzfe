@@ -302,7 +302,7 @@ const NewStep1: React.FC = () => {
             </div>
             <div className="flex items-start space-x-2">
               <div className="w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
-              <div><strong>库存量与缺货量的计算：</strong>库存量或缺货量 = 产出量 - 实际需求量。根据实际需求量，计算第二个月的库存或缺货情况。</div>
+              <div><strong>库存量与缺货量的计算：</strong>期末库存 = 期初库存 + 产出量 - 实际需求量。根据实际需求量和期初库存，计算第二个月的库存或缺货情况。</div>
             </div>
             <div className="flex items-start space-x-2">
               <div className="w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">4</div>

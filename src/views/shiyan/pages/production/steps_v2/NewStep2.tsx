@@ -178,7 +178,7 @@ const NewStep2: React.FC = () => {
 
         <div className="space-y-3 text-sm text-gray-700">
           <p>
-            <strong>产出量</strong>是指在一个生产周期结束时，企业实际生产出来的产品数量。在前一步中我们提到，产出量与上个月的投入量密切相关。在我们的生产计划中，第二个月的产出量等于第一个月的投入量。因此，准确的投入量计算对于确保产出量满足市场需求非常关键。
+            <strong>产出量</strong>是指在一个生产周期结束时，企业实际生产出来的产品数量。在前一步中我们提到，产出量与上个月的投入量密切相关。在我们的生产计划中，第二个月的产出量等于第一个月的投入量（但不超过产能上限），即产出量 = min(上月投入量, 产能上限)。因此，准确的投入量计算对于确保产出量满足市场需求非常关键。
           </p>
           <div className="bg-amber-50 border-l-4 border-amber-400 rounded-lg p-4">
             <p className="text-amber-900">
@@ -398,9 +398,7 @@ const NewStep2: React.FC = () => {
                       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-3">
                         <div className="text-sm font-semibold text-purple-900 mb-2">库存量计算：</div>
                         <div className="font-mono text-sm text-purple-800 space-y-1">
-                          <div>库存量 = 产出量 - 实际需求量</div>
-                          <div className="ml-4">（注：需考虑期初库存）</div>
-                          <div className="ml-4">期末库存 = 期初库存 + 产出量 - 需求量</div>
+                          <div>期末库存 = 期初库存 + 产出量 - 实际需求量</div>
                           <div className="ml-4">= {period2BeginningInventory} + {productionOutput} - {period2Demand}</div>
                           <div className="ml-4">= {period2BeginningInventory + productionOutput - period2Demand}</div>
                           <div className="ml-4 font-bold text-purple-900">
@@ -416,11 +414,7 @@ const NewStep2: React.FC = () => {
                       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                         <div className="text-sm font-semibold text-red-900 mb-2">缺货量计算：</div>
                         <div className="font-mono text-sm text-red-800 space-y-1">
-                          <div>缺货量 = 实际需求量 - 产出量</div>
-                          <div className="ml-4">（注：需考虑期初库存）</div>
-                          <div className="ml-4">
-                            = max(0, 需求量 - (期初库存 + 产出量))
-                          </div>
+                          <div>缺货量 = max(0, 实际需求量 - 期初库存 - 产出量)</div>
                           <div className="ml-4">
                             = max(0, {period2Demand} - ({period2BeginningInventory} + {productionOutput}))
                           </div>
