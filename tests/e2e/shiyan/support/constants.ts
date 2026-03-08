@@ -2,6 +2,10 @@ export const STUDENT_USERNAME =
   process.env.E2E_STUDENT_USERNAME ?? "20240002";
 export const STUDENT_PASSWORD =
   process.env.E2E_STUDENT_PASSWORD ?? "StudentE2E!234";
+export const SECONDARY_STUDENT_USERNAME =
+  process.env.E2E_SHIYAN_SECONDARY_STUDENT_USERNAME ?? "20240001";
+export const SECONDARY_STUDENT_PASSWORD =
+  process.env.E2E_SHIYAN_SECONDARY_STUDENT_PASSWORD ?? "StudentE2E!345";
 
 export const BACKEND_ORIGIN =
   process.env.E2E_BACKEND_ORIGIN ??
