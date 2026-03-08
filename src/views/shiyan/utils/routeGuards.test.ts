@@ -84,6 +84,7 @@ describe("routeGuards", () => {
   it("allows report access only after the plan quiz, workflow completion, or a legacy report state", () => {
     expect(
       canAccessReport({
+        quiz_about_model_completed: true,
         quiz_about_plan_completed: true,
         current_step: 7,
         status: "In Progress",
@@ -92,6 +93,7 @@ describe("routeGuards", () => {
 
     expect(
       canAccessReport({
+        quiz_about_model_completed: false,
         quiz_about_plan_completed: false,
         current_step: 8,
         status: "In Progress",
@@ -100,16 +102,42 @@ describe("routeGuards", () => {
 
     expect(
       canAccessReport({
+        quiz_about_model_completed: false,
         quiz_about_plan_completed: false,
         current_step: 6,
         status: "In Progress",
       }),
     ).toBe(false);
+
+    expect(
+      canAccessReport({
+        quiz_about_model_completed: false,
+        quiz_about_plan_completed: true,
+        current_step: 7,
+        status: "In Progress",
+      }),
+    ).toBe(false);
   });
 
-  it("routes report fallback through quiz-plan after production, otherwise to the active step", () => {
-    expect(getReportFallbackPath({ current_step: 7 }, (step) => step <= 7)).toBe("/quiz-plan");
-    expect(getReportFallbackPath({ current_step: 4 }, () => false)).toBe("/data");
+  it("routes report fallback to the missing quiz before allowing report access", () => {
+    expect(
+      getReportFallbackPath(
+        { current_step: 7, quiz_about_model_completed: true, quiz_about_plan_completed: true },
+        (step) => step <= 7,
+      ),
+    ).toBe("/quiz-plan");
+    expect(
+      getReportFallbackPath(
+        { current_step: 7, quiz_about_model_completed: false, quiz_about_plan_completed: true },
+        (step) => step <= 7,
+      ),
+    ).toBe("/quiz");
+    expect(
+      getReportFallbackPath(
+        { current_step: 4, quiz_about_model_completed: true, quiz_about_plan_completed: false },
+        () => false,
+      ),
+    ).toBe("/data");
   });
 
   it("redirects locked navigation only when the current path differs from the lock path", () => {

@@ -39,17 +39,19 @@ export const getPlanQuizFallbackPath = (
 ): string => getStepPath(state.current_step);
 
 export const canAccessReport = (
-  state: Pick<ExperimentState, "quiz_about_plan_completed" | "current_step" | "status">,
+  state: Pick<ExperimentState, "quiz_about_model_completed" | "quiz_about_plan_completed" | "current_step" | "status">,
 ): boolean =>
-  state.quiz_about_plan_completed ||
+  (state.quiz_about_model_completed && state.quiz_about_plan_completed) ||
   hasReachedLegacyReportState(state) ||
   state.status === "Completed";
 
 export const getReportFallbackPath = (
-  state: Pick<ExperimentState, "current_step">,
+  state: Pick<ExperimentState, "current_step" | "quiz_about_model_completed" | "quiz_about_plan_completed">,
   isStepCompleted: (step: number) => boolean,
 ): string =>
-  isStepCompleted(STEPS.PRODUCTION)
+  !state.quiz_about_model_completed
+    ? ROUTES.QUIZ_MODEL
+    : isStepCompleted(STEPS.PRODUCTION) || state.quiz_about_plan_completed
     ? ROUTES.QUIZ_PLAN
     : getStepPath(state.current_step);
 

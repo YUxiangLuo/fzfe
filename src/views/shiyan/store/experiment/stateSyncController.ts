@@ -40,8 +40,13 @@ const shouldSyncState = (
     Object.prototype.hasOwnProperty.call(updates, "status") &&
     nextState.status === "Completed" &&
     previousState.status !== "Completed";
+  const experimentInitialized =
+    !!previousState.experiment_id &&
+    previousState.status === "Not Started" &&
+    nextState.status === "In Progress" &&
+    Object.keys(updates).length > 0;
 
-  return !skipSync && (forceSync || stepCompleted || experimentCompleted);
+  return !skipSync && (forceSync || stepCompleted || experimentCompleted || experimentInitialized);
 };
 
 const didProductSelectionChange = (

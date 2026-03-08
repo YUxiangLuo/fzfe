@@ -128,6 +128,35 @@ describe("stateSyncController", () => {
     expect(currentState.selected_company).toBe("acme");
   });
 
+  it("syncs when an existing experiment is initialized with its first persisted changes", async () => {
+    let currentState: ExperimentState = {
+      ...buildInitialState(),
+      experiment_id: 123,
+      status: "Not Started",
+    };
+    const repository = createRepositoryStub();
+
+    const controller = createExperimentStateSyncController({
+      repository,
+      getState: () => currentState,
+      setState: (state) => {
+        currentState = state;
+      },
+      onLocalStateChange: mock(() => {}),
+      onSyncSuccess: mock(() => {}),
+      onSyncError: mock(() => {}),
+      onIgnoreStaleResponse: mock(() => {}),
+      onRemoteProductSelectionChanged: mock(() => {}),
+      onCompletedStepRecordError: mock(() => {}),
+    });
+
+    await controller.updateState({ selected_industry: "electronics", current_step: 2 }, { throwOnSyncError: true });
+
+    expect(repository.save).toHaveBeenCalledTimes(1);
+    expect(currentState.selected_industry).toBe("electronics");
+    expect(currentState.current_step).toBe(2);
+  });
+
   it("ignores stale save responses before emitting sync success", async () => {
     let currentState = buildInitialState();
     let releaseFirstSave!: (state: ExperimentState) => void;
