@@ -128,6 +128,14 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
         return isScoreValid && isModelQualityScoreValid && areExpFlowScoresValid;
     }, [isScoreValid, isModelQualityScoreValid, areExpFlowScoresValid]);
 
+    const hasAnyScoringInput = useMemo(() => {
+        return Boolean(
+            tempScore.trim() ||
+            tempModelQualityScore.trim() ||
+            Object.values(expFlowScores).some((value) => value.trim())
+        );
+    }, [tempScore, tempModelQualityScore, expFlowScores]);
+
     // Save review
     const handleSaveReview = async () => {
         if (!report || !report.report_id) return;
@@ -174,6 +182,11 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
 
         if (payload.grade === undefined && !hasExperimentGrade && payload.feedback === undefined) {
             message.error('请至少填写一项成绩或评语');
+            return;
+        }
+
+        if (hasExperimentGrade && payload.grade === undefined) {
+            message.error('填写实验成绩时必须同时填写报告得分');
             return;
         }
 
@@ -453,12 +466,17 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                                 <Button
                                     type="primary"
                                     onClick={handleSaveReview}
-                                    disabled={!canSubmitReview}
+                                    disabled={!canSubmitReview || (hasAnyScoringInput && !tempScore.trim())}
                                     loading={isSaving}
                                     block
                                 >
                                     保存评阅结果
                                 </Button>
+                                {hasAnyScoringInput && !tempScore.trim() && (
+                                    <Text type="danger" style={{ fontSize: 12 }}>
+                                        填写实验成绩时必须同时填写报告得分
+                                    </Text>
+                                )}
                                 <Button onClick={onClose} block>
                                     取消
                                 </Button>

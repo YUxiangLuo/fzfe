@@ -109,6 +109,16 @@ function uniqValues(values: string[]): string[] {
     return Array.from(new Set(values));
 }
 
+function normalizeTagValues(values: unknown): string[] {
+    if (!Array.isArray(values)) return [];
+    return uniqValues(
+        values
+            .map(String)
+            .map(v => v.trim())
+            .filter(Boolean)
+    );
+}
+
 const QuestionBank: React.FC = () => {
     const [questions, setQuestions] = useState<Question[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -548,11 +558,13 @@ const QuestionBank: React.FC = () => {
                     <Form.Item
                         label="选项（每行一个）"
                         name="options"
+                        dependencies={['question_type']}
                         rules={[
                             {
                                 validator: (_, value) => {
                                     const type = form.getFieldValue('question_type');
-                                    if ((type === 'Single Choice' || type === 'Multiple Choice') && (!value || value.length < 2)) {
+                                    const normalizedOptions = normalizeTagValues(value);
+                                    if ((type === 'Single Choice' || type === 'Multiple Choice') && normalizedOptions.length < 2) {
                                         return Promise.reject(new Error('选择题至少需要 2 个选项'));
                                     }
                                     return Promise.resolve();
@@ -565,7 +577,36 @@ const QuestionBank: React.FC = () => {
                     <Form.Item
                         label="正确答案"
                         name="correct_answers"
-                        rules={[{ required: true, message: '请输入正确答案' }]}
+                        dependencies={['question_type', 'options']}
+                        rules={[
+                            { required: true, message: '请输入正确答案' },
+                            {
+                                validator: (_, value) => {
+                                    const type = form.getFieldValue('question_type') as QuestionTypeApi | undefined;
+                                    const normalizedAnswers = normalizeTagValues(value);
+
+                                    if (normalizedAnswers.length === 0) {
+                                        return Promise.resolve();
+                                    }
+
+                                    if (type === 'True/False') {
+                                        const invalidAnswer = normalizedAnswers.find(answer => answer !== '正确' && answer !== '错误');
+                                        if (invalidAnswer) {
+                                            return Promise.reject(new Error('判断题答案只能是“正确”或“错误”'));
+                                        }
+                                        return Promise.resolve();
+                                    }
+
+                                    const normalizedOptions = new Set(normalizeTagValues(form.getFieldValue('options')));
+                                    const invalidAnswer = normalizedAnswers.find(answer => !normalizedOptions.has(answer));
+                                    if (invalidAnswer) {
+                                        return Promise.reject(new Error('正确答案必须来自已填写选项'));
+                                    }
+
+                                    return Promise.resolve();
+                                },
+                            },
+                        ]}
                     >
                         <Select mode="tags" placeholder="输入正确答案，回车确认" />
                     </Form.Item>
