@@ -8,6 +8,8 @@ import type { RenderResult } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { createMockExperimentValue } from "../test-utils/mockExperiment";
 
+mock.restore();
+
 const r = (p: string) => resolve(import.meta.dir, p);
 
 let experimentValue = createMockExperimentValue({

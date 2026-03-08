@@ -1,11 +1,24 @@
 /// <reference types="bun-types" />
 
+import { resolve } from "path";
 import { afterEach, describe, expect, it, mock } from "bun:test";
-import { apiClient } from "../../../utils/apiClient";
+
+mock.restore();
+
+const apiClientModulePath = resolve(import.meta.dir, "../../../utils/apiClient.ts");
+let apiClientImportVersion = 0;
 
 const originalFetch = globalThis.fetch;
 const originalSetTimeout = globalThis.setTimeout;
 const originalClearTimeout = globalThis.clearTimeout;
+
+const loadApiClient = async () => {
+  apiClientImportVersion += 1;
+  const { apiClient } = await import(
+    `${apiClientModulePath}?api-client-test=${apiClientImportVersion}`
+  );
+  return apiClient;
+};
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
@@ -15,6 +28,8 @@ afterEach(() => {
 
 describe("apiClient timeout handling", () => {
   it("preserves external aborts instead of rewriting them as request timeouts", async () => {
+    const apiClient = await loadApiClient();
+
     globalThis.fetch = mock((_input: RequestInfo | URL, init?: RequestInit) => {
       const signal = init?.signal;
 
@@ -47,6 +62,8 @@ describe("apiClient timeout handling", () => {
   });
 
   it("still rewrites real timeout aborts into the timeout error message", async () => {
+    const apiClient = await loadApiClient();
+
     globalThis.setTimeout = ((handler: TimerHandler) => {
       queueMicrotask(() => {
         if (typeof handler === "function") {

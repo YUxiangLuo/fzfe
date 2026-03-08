@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
+mock.restore();
+
 const r = (p: string) => resolve(import.meta.dir, p);
 
 const apiGet = mock(async (): Promise<any> => ({

@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { act, render } from "@testing-library/react";
 import type { RenderResult } from "@testing-library/react";
 
+mock.restore();
+
 const r = (p: string) => resolve(import.meta.dir, p);
 
 type ToastListener = (event: { message: string; type: string; duration?: number }) => void;

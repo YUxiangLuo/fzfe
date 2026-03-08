@@ -7,6 +7,8 @@ import { render, waitFor } from '@testing-library/react';
 import type { RenderResult } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
+mock.restore();
+
 const r = (p: string) => resolve(import.meta.dir, p);
 
 let experimentValue = {
