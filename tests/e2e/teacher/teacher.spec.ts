@@ -37,6 +37,7 @@ import {
   computeScoreDistribution,
   // Assertions
   expectSuccessMessage,
+  expectErrorMessage,
   // Grade Weights
   setWeightByLabel,
   // Login
@@ -62,6 +63,7 @@ import {
   GradeOverviewSelectors,
   PersonalInfoSelectors,
   SuccessMessages,
+  ErrorMessages,
   ModalTitles,
 } from "../helpers";
 
@@ -199,6 +201,119 @@ test.describe("@teacher 班级管理", () => {
     await expect(studentsModal.locator(CommonSelectors.table)).toBeVisible();
     await studentsModal.getByRole("button", { name: /关\s*闭/ }).click();
   });
+
+  test("创建班级失败提示", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openTopLevelPage(page, "班级管理", "班级管理");
+
+    const className = makeRunId("E2E失败班级");
+    const classCode = `FAIL${Date.now()}`;
+
+    await page.route("**/api/v1/classes", async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "模拟创建失败" }),
+      });
+    });
+
+    await page.getByRole(ClassManagementSelectors.addClassBtn.role, { name: ClassManagementSelectors.addClassBtn.name }).click();
+    const createModal = await getVisibleModal(page, ModalTitles.createClass);
+    await fillFormField(createModal, ClassManagementSelectors.classNameInput, className);
+    await fillFormField(createModal, ClassManagementSelectors.classCodeInput, classCode);
+    await createModal.locator(ClassManagementSelectors.fileInput).setInputFiles({
+      name: `students-fail-${Date.now()}.csv`,
+      mimeType: "text/csv",
+      buffer: buildCsv([
+        ["学号", "姓名"],
+        [makeStudentNo(81), "创建失败学生"],
+      ]),
+    });
+    await createModal.getByRole("button", { name: /创\s*建/ }).click();
+
+    await expectErrorMessage(page, "模拟创建失败");
+    await expect(createModal).toBeVisible();
+    await page.unroute("**/api/v1/classes");
+    await createModal.getByRole("button", { name: /取\s*消/ }).click();
+  });
+
+  test("查看班级学生列表失败提示", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openTopLevelPage(page, "班级管理", "班级管理");
+
+    const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
+    const className = await firstRow.locator("td").first().innerText();
+
+    await page.route("**/api/v1/classes/*", async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "模拟学生列表失败" }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await firstRow.getByRole(ClassManagementSelectors.studentListBtn.role, { name: ClassManagementSelectors.studentListBtn.name }).click();
+
+    const studentsModal = await getVisibleModal(page, new RegExp(`学生列表\\s*-\\s*${className}`));
+    await expectErrorMessage(page, "模拟学生列表失败");
+    await expect(studentsModal.getByText("暂无学生")).toBeVisible();
+    await page.unroute("**/api/v1/classes/*");
+    await studentsModal.getByRole("button", { name: /关\s*闭/ }).click();
+  });
+
+  test("删除班级失败提示", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openTopLevelPage(page, "班级管理", "班级管理");
+
+    const className = await createTempClass(page);
+    const classRow = tableRowByText(page, className);
+    await expect(classRow).toBeVisible();
+
+    await page.route("**/api/v1/classes/*", async (route) => {
+      if (route.request().method() === "DELETE") {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "模拟删除失败" }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await classRow.getByRole(ClassManagementSelectors.deleteClassBtn.role, { name: ClassManagementSelectors.deleteClassBtn.name }).click();
+    const deleteModal = await getVisibleModal(page, ModalTitles.deleteClass);
+    await deleteModal.getByRole("button", { name: /删\s*除/ }).click();
+
+    await expectErrorMessage(page, "模拟删除失败");
+    await expect(tableRowByText(page, className)).toBeVisible();
+    await page.unroute("**/api/v1/classes/*");
+
+    await classRow.getByRole(ClassManagementSelectors.deleteClassBtn.role, { name: ClassManagementSelectors.deleteClassBtn.name }).click();
+    const cleanupModal = await getVisibleModal(page, ModalTitles.deleteClass);
+    await cleanupModal.getByRole("button", { name: /删\s*除/ }).click();
+    await expectSuccessMessage(page, SuccessMessages.classDeleted);
+  });
+
+  test("空班级显示暂无班级", async ({ page }) => {
+    await loginAsTeacher(page);
+
+    await page.route("**/api/v1/teachers/*/classes", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
+    });
+
+    await openTopLevelPage(page, "班级管理", "班级管理");
+    await expect(page.getByText("暂无班级")).toBeVisible();
+    await page.unroute("**/api/v1/teachers/*/classes");
+  });
 });
 
 test.describe("@teacher 学生管理", () => {
@@ -226,6 +341,59 @@ test.describe("@teacher 学生管理", () => {
 
     // Cleanup: remove student
     const studentRow = tableRowByText(page, studentName);
+    await studentRow.getByRole(StudentManagementSelectors.removeStudentBtn.role, { name: StudentManagementSelectors.removeStudentBtn.name }).click();
+    const removeModal = await getVisibleModal(page, ModalTitles.removeStudent);
+    await removeModal.getByRole("button", { name: /移\s*除/ }).click();
+    await expectSuccessMessage(page, SuccessMessages.studentRemoved);
+  });
+
+  test("添加学生冲突校验：重复学号与邮箱", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openTopLevelPage(page, "学生管理", "学生管理");
+
+    const studentNo = makeStudentNo(22);
+    const studentName = `Dup${makeLetters(5)}`;
+    const studentEmail = `${studentNo}@dup.e2e.test`;
+
+    await page.getByRole(StudentManagementSelectors.addStudentBtn.role, { name: StudentManagementSelectors.addStudentBtn.name }).click();
+    const addModal = await getVisibleModal(page, StudentManagementSelectors.addStudentBtn.name);
+    await fillFormField(addModal, StudentManagementSelectors.studentNoInput, studentNo);
+    await fillFormField(addModal, StudentManagementSelectors.studentNameInput, studentName);
+    await fillFormField(addModal, StudentManagementSelectors.passwordInput, "Student@123");
+    await fillFormField(addModal, "邮箱（可选）", studentEmail);
+    await addModal.getByRole("button", { name: /添\s*加/ }).click();
+    await expectSuccessMessage(page, SuccessMessages.studentAdded);
+
+    const searchInput = page.getByPlaceholder(StudentManagementSelectors.searchInput.placeholder);
+    await searchInput.fill(studentName);
+    const studentRow = tableRowByText(page, studentName);
+    await expect(studentRow).toBeVisible();
+
+    await page.getByRole(StudentManagementSelectors.addStudentBtn.role, { name: StudentManagementSelectors.addStudentBtn.name }).click();
+    const duplicateNoModal = await getVisibleModal(page, StudentManagementSelectors.addStudentBtn.name);
+    await fillFormField(duplicateNoModal, StudentManagementSelectors.studentNoInput, studentNo);
+    await fillFormField(duplicateNoModal, StudentManagementSelectors.studentNameInput, `${studentName}重复学号`);
+    await fillFormField(duplicateNoModal, StudentManagementSelectors.passwordInput, "Student@123");
+    await fillFormField(duplicateNoModal, "邮箱（可选）", `${studentNo}+dup@e2e.test`);
+    await duplicateNoModal.getByRole("button", { name: /添\s*加/ }).click();
+    await expectErrorMessage(page, "学号或邮箱已存在");
+    await expect(duplicateNoModal).toBeVisible();
+    await duplicateNoModal.getByRole("button", { name: /取\s*消/ }).click();
+
+    await page.getByRole(StudentManagementSelectors.addStudentBtn.role, { name: StudentManagementSelectors.addStudentBtn.name }).click();
+    const duplicateEmailModal = await getVisibleModal(page, StudentManagementSelectors.addStudentBtn.name);
+    await fillFormField(duplicateEmailModal, StudentManagementSelectors.studentNoInput, makeStudentNo(23));
+    await fillFormField(duplicateEmailModal, StudentManagementSelectors.studentNameInput, `${studentName}重复邮箱`);
+    await fillFormField(duplicateEmailModal, StudentManagementSelectors.passwordInput, "Student@123");
+    await fillFormField(duplicateEmailModal, "邮箱（可选）", studentEmail);
+    await duplicateEmailModal.getByRole("button", { name: /添\s*加/ }).click();
+    await expectErrorMessage(page, "学号或邮箱已存在");
+    await expect(duplicateEmailModal).toBeVisible();
+    await duplicateEmailModal.getByRole("button", { name: /取\s*消/ }).click();
+
+    await searchInput.fill(studentName);
+    await expect(page.locator("tr").filter({ hasText: studentName })).toHaveCount(1);
+
     await studentRow.getByRole(StudentManagementSelectors.removeStudentBtn.role, { name: StudentManagementSelectors.removeStudentBtn.name }).click();
     const removeModal = await getVisibleModal(page, ModalTitles.removeStudent);
     await removeModal.getByRole("button", { name: /移\s*除/ }).click();
@@ -279,6 +447,20 @@ test.describe("@teacher 学生管理", () => {
     await expect(tableRowByText(page, studentName)).toBeVisible();
   });
 
+  test("从学生库添加空搜索态", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openTopLevelPage(page, "学生管理", "学生管理");
+
+    await page.getByRole(StudentManagementSelectors.addFromLibraryBtn.role, { name: StudentManagementSelectors.addFromLibraryBtn.name }).click();
+    const selectModal = await getVisibleModal(page, "从学生库中添加");
+
+    await selectModal.locator("input[placeholder='按学号或姓名搜索']").fill("NO_MATCH_E2E_STUDENT");
+    await expect(selectModal.getByText("暂无可加入的学生")).toBeVisible();
+
+    await selectModal.getByRole("button", { name: /关\s*闭/ }).click();
+    await expect(selectModal).not.toBeVisible();
+  });
+
   test("重置学生密码", async ({ page }) => {
     await loginAsTeacher(page);
     await openTopLevelPage(page, "学生管理", "学生管理");
@@ -293,7 +475,7 @@ test.describe("@teacher 学生管理", () => {
     await fillFormField(resetModal, "确认密码", "Reset@123");
     await resetModal.getByRole("button", { name: /确\s*认重置/ }).click();
     
-    await expectSuccessMessage(page, SuccessMessages.passwordReset);
+    await expectSuccessMessage(page, "密码更新成功");
   });
 
   test("分页与搜索重置", async ({ page }) => {
@@ -321,6 +503,33 @@ async function getFirstClassName(page: Page): Promise<string> {
   await openTopLevelPage(page, "班级管理", "班级管理");
   const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
   return await firstRow.locator("td").first().innerText();
+}
+
+async function createTempClass(page: Page): Promise<string> {
+  await openTopLevelPage(page, "班级管理", "班级管理");
+
+  const className = makeRunId("E2E助教班级");
+  const classCode = `TA${Date.now()}`;
+
+  await page.getByRole(ClassManagementSelectors.addClassBtn.role, { name: ClassManagementSelectors.addClassBtn.name }).click();
+  const createModal = await getVisibleModal(page, ModalTitles.createClass);
+  await fillFormField(createModal, ClassManagementSelectors.classNameInput, className);
+  await fillFormField(createModal, ClassManagementSelectors.classCodeInput, classCode);
+  await createModal.locator(ClassManagementSelectors.fileInput).setInputFiles({
+    name: `assistant-class-${Date.now()}.csv`,
+    mimeType: "text/csv",
+    buffer: buildCsv([
+      ["学号", "姓名"],
+      [makeStudentNo(91), "助教分配学生"],
+    ]),
+  });
+  await createModal.getByRole("button", { name: /创\s*建/ }).click();
+  await expectSuccessMessage(page, SuccessMessages.classCreated);
+
+  const resultModal = await getVisibleModal(page, "创建结果");
+  await resultModal.getByRole("button", { name: /确\s*定/ }).click();
+  await expect(tableRowByText(page, className)).toBeVisible();
+  return className;
 }
 
 test.describe("@teacher 助教管理", () => {
@@ -385,6 +594,121 @@ test.describe("@teacher 助教管理", () => {
     await expectSuccessMessage(page, SuccessMessages.assistantAssigned);
     await expect(tableRowByText(page, "助教小赵")).toBeVisible();
   });
+
+  test("从库中选择助教时部分班级分配失败会提示 warning", async ({ page }) => {
+    await loginAsTeacher(page);
+    const firstClassName = await getFirstClassName(page);
+    await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
+
+    let postCount = 0;
+    await page.route("**/api/v1/classes/*/assistants", async (route) => {
+      postCount += 1;
+      if (postCount === 1) {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "模拟分配失败" }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.getByRole(AssistantManagementSelectors.selectFromLibraryBtn.role, { name: AssistantManagementSelectors.selectFromLibraryBtn.name }).click();
+    const selectModal = await getVisibleModal(page, ModalTitles.selectAssistant);
+    const assistantFormItem = selectModal.locator(CommonSelectors.formItem).filter({ hasText: "选择助教" }).first();
+    await assistantFormItem.getByRole("combobox").click();
+    const assistantDropdown = page.locator(".ant-select-dropdown").last();
+    await expect(assistantDropdown).toBeVisible();
+    const firstAvailableAssistant = assistantDropdown.locator(".ant-select-item-option-content").first();
+    const assistantOptionText = (await firstAvailableAssistant.innerText()).trim();
+    await firstAvailableAssistant.click();
+    await page.keyboard.press("Escape");
+
+    await selectOptionByLabel(page, selectModal, AssistantManagementSelectors.classSelectLabel, firstClassName);
+    await selectModal.getByRole("button", { name: /分\s*配/ }).click();
+
+    await expect(page.locator(CommonSelectors.warningMessage).filter({ hasText: "1 个班级分配失败" }).last()).toBeVisible();
+    await expectSuccessMessage(page, SuccessMessages.assistantAssigned);
+    await expect(page.locator(CommonSelectors.tableRow).filter({ hasText: assistantOptionText.split(" ")[0] ?? assistantOptionText })).toBeVisible();
+    await page.unroute("**/api/v1/classes/*/assistants");
+  });
+
+  test("重新分配助教班级时部分操作失败会提示 warning", async ({ page }) => {
+    await loginAsTeacher(page);
+    const extraClassName = await createTempClass(page);
+    await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
+
+    const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
+    await firstRow.getByRole(AssistantManagementSelectors.reassignBtn.role, { name: AssistantManagementSelectors.reassignBtn.name }).click();
+    const reassignModal = await getVisibleModal(page, ModalTitles.reassignAssistant);
+
+    await clearMultiSelectByLabel(reassignModal, AssistantManagementSelectors.classSelectLabel);
+    await selectOptionByLabel(page, reassignModal, AssistantManagementSelectors.classSelectLabel, extraClassName);
+
+    let failureInjected = false;
+    await page.route("**/api/v1/classes/*/assistants", async (route) => {
+      if (!failureInjected) {
+        failureInjected = true;
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "模拟更新失败" }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await reassignModal.getByRole("button", { name: /保\s*存/ }).click();
+    await expect(page.locator(CommonSelectors.warningMessage).filter({ hasText: "班级分配已更新，但 1 个操作失败" }).last()).toBeVisible();
+    await page.unroute("**/api/v1/classes/*/assistants");
+
+    await openTopLevelPage(page, "班级管理", "班级管理");
+    const extraClassRow = tableRowByText(page, extraClassName);
+    await extraClassRow.getByRole(ClassManagementSelectors.deleteClassBtn.role, { name: ClassManagementSelectors.deleteClassBtn.name }).click();
+    const deleteModal = await getVisibleModal(page, ModalTitles.deleteClass);
+    await deleteModal.getByRole("button", { name: /删\s*除/ }).click();
+    await expectSuccessMessage(page, SuccessMessages.classDeleted);
+  });
+
+  test("创建助教冲突校验：重复用户名与邮箱", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
+
+    const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
+    const existingUsername = await firstRow.locator("td").nth(1).innerText();
+    const existingEmail = await firstRow.locator("td").nth(3).innerText();
+    const firstClassName = await getFirstClassName(page);
+
+    await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
+    await page.getByRole(AssistantManagementSelectors.createAssistantBtn.role, { name: AssistantManagementSelectors.createAssistantBtn.name }).click();
+    const duplicateUsernameModal = await getVisibleModal(page, ModalTitles.createAssistant);
+    const duplicateUsername = `ta${Date.now().toString().slice(-8)}`;
+    await fillFormField(duplicateUsernameModal, AssistantManagementSelectors.usernameInput, existingUsername);
+    await fillFormField(duplicateUsernameModal, AssistantManagementSelectors.fullNameInput, `重复助教${makeLetters(4)}`);
+    await fillFormField(duplicateUsernameModal, AssistantManagementSelectors.emailInput, `${duplicateUsername}@e2e.test`);
+    await fillFormField(duplicateUsernameModal, AssistantManagementSelectors.phoneInput, makePhone(61));
+    await fillFormField(duplicateUsernameModal, AssistantManagementSelectors.passwordInput, "Assistant@123");
+    await selectOptionByLabel(page, duplicateUsernameModal, AssistantManagementSelectors.classSelectLabel, firstClassName);
+    await duplicateUsernameModal.getByRole("button", { name: /创\s*建/ }).click();
+    await expectErrorMessage(page, "用户名已存在");
+    await expect(duplicateUsernameModal).toBeVisible();
+    await duplicateUsernameModal.getByRole("button", { name: /取\s*消/ }).click();
+
+    await page.getByRole(AssistantManagementSelectors.createAssistantBtn.role, { name: AssistantManagementSelectors.createAssistantBtn.name }).click();
+    const duplicateEmailModal = await getVisibleModal(page, ModalTitles.createAssistant);
+    await fillFormField(duplicateEmailModal, AssistantManagementSelectors.usernameInput, `ta${(Date.now() + 1).toString().slice(-8)}`);
+    await fillFormField(duplicateEmailModal, AssistantManagementSelectors.fullNameInput, `重复邮箱助教${makeLetters(4)}`);
+    await fillFormField(duplicateEmailModal, AssistantManagementSelectors.emailInput, existingEmail);
+    await fillFormField(duplicateEmailModal, AssistantManagementSelectors.phoneInput, makePhone(62));
+    await fillFormField(duplicateEmailModal, AssistantManagementSelectors.passwordInput, "Assistant@123");
+    await selectOptionByLabel(page, duplicateEmailModal, AssistantManagementSelectors.classSelectLabel, firstClassName);
+    await duplicateEmailModal.getByRole("button", { name: /创\s*建/ }).click();
+    await expectErrorMessage(page, "邮箱已存在");
+    await expect(duplicateEmailModal).toBeVisible();
+    await duplicateEmailModal.getByRole("button", { name: /取\s*消/ }).click();
+  });
 });
 
 test.describe("@teacher 实验管理", () => {
@@ -439,6 +763,74 @@ test.describe("@teacher 实验管理", () => {
     
     await expectSuccessMessage(page, SuccessMessages.reviewSaved);
     await expect(tableRowByText(page, TEST_DATA.students.pendingTeacher).getByText(ExperimentReportSelectors.statusGraded)).toBeVisible();
+  });
+
+  test("实验报告评阅校验：未填报告得分时禁止仅提交实验步骤分数", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+
+    const reportRow = page
+      .locator(CommonSelectors.tableRow)
+      .filter({ hasText: ExperimentReportSelectors.statusSubmitted })
+      .first();
+    await expect(reportRow).toBeVisible();
+    await reportRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
+
+    const reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
+    await reviewModal.getByText("实验步骤评分（可选)").or(reviewModal.getByText("实验步骤评分（可选）")).click();
+    await reviewModal.getByPlaceholder("0-100").first().fill("85");
+
+    await expect(reviewModal.getByText("填写实验成绩时必须同时填写报告得分")).toBeVisible();
+    await expect(reviewModal.getByRole(ExperimentReportSelectors.saveReviewBtn.role, { name: ExperimentReportSelectors.saveReviewBtn.name })).toBeDisabled();
+    await reviewModal.getByRole("button", { name: /取\s*消/ }).click();
+  });
+
+  test("实验报告驳回后显示已驳回状态与原因", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+
+    const pendingRow = page
+      .locator(CommonSelectors.tableRow)
+      .filter({ hasText: ExperimentReportSelectors.statusSubmitted })
+      .first();
+    await expect(pendingRow).toBeVisible();
+
+    const studentId = (await pendingRow.locator("td").nth(3).innerText()).trim();
+    const rejectReason = `E2E驳回原因-${Date.now().toString().slice(-6)}`;
+
+    await pendingRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
+    const reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
+    await reviewModal.getByPlaceholder("请输入具体的修改建议...").fill(rejectReason);
+    await reviewModal.getByRole("button", { name: "驳回报告" }).click();
+
+    await expectSuccessMessage(page, "报告已驳回");
+
+    const rejectedRow = tableRowByText(page, studentId);
+    await expect(rejectedRow.getByText(ExperimentReportSelectors.statusRejected)).toBeVisible();
+
+    await rejectedRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
+    const rejectedModal = await getVisibleModal(page, ModalTitles.reviewReport);
+    await expect(rejectedModal.getByText("报告已驳回")).toBeVisible();
+    await expect(rejectedModal.getByText(rejectReason)).toBeVisible();
+    await rejectedModal.getByRole("button", { name: /关\s*闭/ }).click();
+  });
+
+  test("实验报告驳回校验：未填写原因时禁用驳回", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+
+    await page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder).fill(TEST_DATA.students.perfectScore);
+    const reviewableRow = tableRowByText(page, TEST_DATA.students.perfectScore);
+    await expect(reviewableRow).toBeVisible();
+    await reviewableRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
+
+    const reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
+    const rejectButton = reviewModal.getByRole("button", { name: "驳回报告" });
+    await expect(rejectButton).toBeDisabled();
+
+    await reviewModal.getByPlaceholder("请输入具体的修改建议...").fill("需要补充实验结论");
+    await expect(rejectButton).toBeEnabled();
+    await reviewModal.getByRole("button", { name: /取\s*消/ }).click();
   });
 
   test("导出 CSV 和报告归档", async ({ page }) => {
@@ -614,6 +1006,59 @@ test.describe("@teacher 考核管理", () => {
     await page.getByPlaceholder(GradeOverviewSelectors.searchInput.placeholder).fill(TEST_DATA.students.perfectScore);
     await expect(tableRowByText(page, TEST_DATA.students.perfectScore)).toBeVisible();
   });
+
+  test("成绩总览导出失败提示", async ({ page }) => {
+    await loginAsTeacher(page);
+
+    const summaryPromise = page.waitForResponse(
+      (r) => r.request().method() === "GET" && API.teacherGradeSummaries.test(r.url()),
+    );
+    await openSubMenuPage(page, "考核管理", "成绩总览", "成绩总览");
+    const summaryResponse = await summaryPromise;
+    expect(summaryResponse.ok()).toBeTruthy();
+
+    const allClassSummaries = unwrapDataEnvelope<TeacherClassSummary[]>(await summaryResponse.json());
+    expect(allClassSummaries.length).toBeGreaterThan(0);
+    const firstClass = allClassSummaries[0];
+
+    const classCard = page
+      .locator(CommonSelectors.card)
+      .filter({ hasText: firstClass.class_name })
+      .filter({ hasText: GradeOverviewSelectors.classCardClickHint })
+      .first();
+    await expect(classCard).toBeVisible();
+
+    const detailPromise = page.waitForResponse(
+      (r) => r.request().method() === "GET" && r.url().includes(`/api/v1/classes/${firstClass.class_id}/grade-summaries`),
+    );
+    await classCard.click();
+    expect((await detailPromise).ok()).toBeTruthy();
+
+    await page.route("**/api/v1/classes/*/grade-export.csv", async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "导出服务暂时不可用" }),
+      });
+    });
+
+    await page.getByRole(GradeOverviewSelectors.exportBtn.role, { name: GradeOverviewSelectors.exportBtn.name }).click();
+    await expectErrorMessage(page, "导出服务暂时不可用");
+    await expect(page.locator(CommonSelectors.alertMessage).filter({ hasText: "导出服务暂时不可用" })).toBeVisible();
+    await page.unroute("**/api/v1/classes/*/grade-export.csv");
+  });
+
+  test("成绩总览全部班级隐藏导出按钮", async ({ page }) => {
+    await loginAsTeacher(page);
+
+    const summaryPromise = page.waitForResponse(
+      (r) => r.request().method() === "GET" && API.teacherGradeSummaries.test(r.url()),
+    );
+    await openSubMenuPage(page, "考核管理", "成绩总览", "成绩总览");
+    expect((await summaryPromise).ok()).toBeTruthy();
+
+    await expect(page.getByRole(GradeOverviewSelectors.exportBtn.role, { name: GradeOverviewSelectors.exportBtn.name })).toHaveCount(0);
+  });
 });
 
 test.describe("@teacher 边缘情况", () => {
@@ -699,6 +1144,59 @@ test.describe("@teacher 个人信息", () => {
     await editModal.getByRole(PersonalInfoSelectors.saveBtn.role, { name: PersonalInfoSelectors.saveBtn.name }).click();
     
     await expectSuccessMessage(page, SuccessMessages.personalInfoSaved);
+  });
+
+  test("编辑个人信息冲突：重复邮箱与手机号", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openPersonalInfoPage(page);
+
+    await page.getByRole(PersonalInfoSelectors.editBtn.role, { name: PersonalInfoSelectors.editBtn.name }).click();
+    const duplicateEmailModal = await getVisibleModal(page, ModalTitles.editPersonalInfo);
+    await fillFormField(duplicateEmailModal, PersonalInfoSelectors.fullNameInput, `教师${makeLetters(4)}`);
+    await fillFormField(duplicateEmailModal, PersonalInfoSelectors.phoneInput, makePhone(71));
+    await fillFormField(duplicateEmailModal, PersonalInfoSelectors.emailInput, "teacher2@test.com");
+    await duplicateEmailModal.getByRole(PersonalInfoSelectors.saveBtn.role, { name: PersonalInfoSelectors.saveBtn.name }).click();
+
+    await expectErrorMessage(page, "邮箱已存在");
+    await expect(duplicateEmailModal).toBeVisible();
+    await duplicateEmailModal.getByRole("button", { name: /取\s*消/ }).click();
+
+    await page.getByRole(PersonalInfoSelectors.editBtn.role, { name: PersonalInfoSelectors.editBtn.name }).click();
+    const duplicatePhoneModal = await getVisibleModal(page, ModalTitles.editPersonalInfo);
+    await fillFormField(duplicatePhoneModal, PersonalInfoSelectors.fullNameInput, `教师${makeLetters(4)}`);
+    await fillFormField(duplicatePhoneModal, PersonalInfoSelectors.phoneInput, "13800000002");
+    await fillFormField(duplicatePhoneModal, PersonalInfoSelectors.emailInput, `teacher1+${Date.now()}@e2e.test`);
+    await duplicatePhoneModal.getByRole(PersonalInfoSelectors.saveBtn.role, { name: PersonalInfoSelectors.saveBtn.name }).click();
+
+    await expectErrorMessage(page, "手机号已存在");
+    await expect(duplicatePhoneModal).toBeVisible();
+    await duplicatePhoneModal.getByRole("button", { name: /取\s*消/ }).click();
+  });
+
+  test("修改密码失败：当前密码错误", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openPersonalInfoPage(page);
+
+    const passwordCard = page.locator(CommonSelectors.card).filter({ hasText: PersonalInfoSelectors.passwordCard }).first();
+    await passwordCard.getByPlaceholder(PersonalInfoSelectors.currentPasswordInput.placeholder).fill("WrongPassword!234");
+    await passwordCard.getByPlaceholder(PersonalInfoSelectors.newPasswordInput.placeholder).fill("TeacherE2E!890");
+    await passwordCard.getByPlaceholder(PersonalInfoSelectors.confirmPasswordInput.placeholder).fill("TeacherE2E!890");
+    await passwordCard.getByRole(PersonalInfoSelectors.savePasswordBtn.role, { name: PersonalInfoSelectors.savePasswordBtn.name }).click();
+
+    await expectErrorMessage(page, "当前密码错误");
+  });
+
+  test("修改密码校验：两次输入的密码不一致", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openPersonalInfoPage(page);
+
+    const passwordCard = page.locator(CommonSelectors.card).filter({ hasText: PersonalInfoSelectors.passwordCard }).first();
+    await passwordCard.getByPlaceholder(PersonalInfoSelectors.currentPasswordInput.placeholder).fill(ACCOUNTS.teacher.password);
+    await passwordCard.getByPlaceholder(PersonalInfoSelectors.newPasswordInput.placeholder).fill("TeacherE2E!890");
+    await passwordCard.getByPlaceholder(PersonalInfoSelectors.confirmPasswordInput.placeholder).fill("TeacherE2E!891");
+    await passwordCard.getByRole(PersonalInfoSelectors.savePasswordBtn.role, { name: PersonalInfoSelectors.savePasswordBtn.name }).click();
+
+    await expect(passwordCard.getByText(ErrorMessages.passwordMismatch)).toBeVisible();
   });
 
   test("修改密码并回滚", async ({ page }) => {

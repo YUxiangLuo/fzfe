@@ -11,6 +11,7 @@ export const CommonSelectors = {
   // Messages
   successMessage: ".ant-message-notice-content",
   errorMessage: ".ant-message-notice-content",
+  warningMessage: ".ant-message-notice-content",
   alertMessage: ".ant-alert",
   
   // Modals
