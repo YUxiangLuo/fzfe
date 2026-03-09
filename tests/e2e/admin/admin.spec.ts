@@ -461,6 +461,61 @@ test.describe("@admin 用户管理", () => {
     await expectSuccessMessage(page, SuccessMessages.userDeleted);
   });
 
+  test("添加教师冲突校验：重复用户名与手机号", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
+
+    const teacherUsername = `t${Date.now().toString().slice(-8)}`;
+    const teacherName = `E2E冲突教师${makeRunId("U")}`;
+    const teacherPhone = makePhone(21);
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.addTeacherBtn }).first().click();
+    const createModal = await getVisibleModal(page, ModalTitles.addTeacher);
+    await fillFormField(createModal, AdminUserSelectors.usernameInput, teacherUsername);
+    await fillFormField(createModal, AdminUserSelectors.fullNameInput, teacherName);
+    await fillFormField(createModal, AdminUserSelectors.emailInput, `${teacherUsername}@e2e.test`);
+    await fillFormField(createModal, AdminUserSelectors.phoneInput, teacherPhone);
+    await fillFormField(createModal, AdminUserSelectors.passwordInput, "Pass1234");
+    await confirmModal(createModal);
+
+    await expectSuccessMessage(page, SuccessMessages.teacherAdded);
+    await searchUsers(page, teacherName);
+    const teacherRow = tableRowByText(page, teacherName);
+    await expect(teacherRow).toBeVisible();
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.addTeacherBtn }).first().click();
+    const duplicateUsernameModal = await getVisibleModal(page, ModalTitles.addTeacher);
+    await fillFormField(duplicateUsernameModal, AdminUserSelectors.usernameInput, teacherUsername);
+    await fillFormField(duplicateUsernameModal, AdminUserSelectors.fullNameInput, `${teacherName}重复账号`);
+    await fillFormField(duplicateUsernameModal, AdminUserSelectors.emailInput, `${teacherUsername}dup@e2e.test`);
+    await fillFormField(duplicateUsernameModal, AdminUserSelectors.phoneInput, makePhone(22));
+    await fillFormField(duplicateUsernameModal, AdminUserSelectors.passwordInput, "Pass1234");
+    await confirmModal(duplicateUsernameModal);
+    await expectErrorMessage(page, "用户名已存在");
+    await expect(duplicateUsernameModal).toBeVisible();
+    await cancelModal(duplicateUsernameModal);
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.addTeacherBtn }).first().click();
+    const duplicatePhoneModal = await getVisibleModal(page, ModalTitles.addTeacher);
+    const duplicatePhoneUsername = `t${(Date.now() + 1).toString().slice(-8)}`;
+    await fillFormField(duplicatePhoneModal, AdminUserSelectors.usernameInput, duplicatePhoneUsername);
+    await fillFormField(duplicatePhoneModal, AdminUserSelectors.fullNameInput, `${teacherName}重复手机号`);
+    await fillFormField(duplicatePhoneModal, AdminUserSelectors.emailInput, `${duplicatePhoneUsername}@e2e.test`);
+    await fillFormField(duplicatePhoneModal, AdminUserSelectors.phoneInput, teacherPhone);
+    await fillFormField(duplicatePhoneModal, AdminUserSelectors.passwordInput, "Pass1234");
+    await confirmModal(duplicatePhoneModal);
+    await expectErrorMessage(page, "手机号已存在");
+    await expect(duplicatePhoneModal).toBeVisible();
+    await cancelModal(duplicatePhoneModal);
+
+    await expect(page.locator("tr").filter({ hasText: teacherName })).toHaveCount(1);
+    await expect(page.locator("tr").filter({ hasText: `${teacherName}重复手机号` })).toHaveCount(0);
+
+    await teacherRow.getByRole("button", { name: `删除用户 ${teacherUsername}` }).click();
+    await confirmDelete(page);
+    await expectSuccessMessage(page, SuccessMessages.userDeleted);
+  });
+
   test("批量添加教师（模板+上传）", async ({ page }) => {
     await loginAsAdmin(page);
     await openTopLevelPage(page, "用户管理", "用户列表");
@@ -597,6 +652,110 @@ test.describe("@admin 用户管理", () => {
     await tempRow.getByRole("button", { name: `删除用户 ${tempUsername}` }).click();
     await confirmDelete(page);
     await expectSuccessMessage(page, SuccessMessages.userDeleted);
+  });
+
+  test("批量添加教师失败场景：CSV重复手机号与现有用户冲突时整体回滚", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
+
+    const existingUsername = `t${Date.now().toString().slice(-8)}`;
+    const existingName = `E2E批量冲突教师${makeRunId("C")}`;
+    const existingPhone = makePhone(31);
+    const rollbackName = `批量回滚教师${makeRunId("R")}`;
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.addTeacherBtn }).first().click();
+    const createModal = await getVisibleModal(page, ModalTitles.addTeacher);
+    await fillFormField(createModal, AdminUserSelectors.usernameInput, existingUsername);
+    await fillFormField(createModal, AdminUserSelectors.fullNameInput, existingName);
+    await fillFormField(createModal, AdminUserSelectors.emailInput, `${existingUsername}@e2e.test`);
+    await fillFormField(createModal, AdminUserSelectors.phoneInput, existingPhone);
+    await fillFormField(createModal, AdminUserSelectors.passwordInput, "Pass1234");
+    await confirmModal(createModal);
+    await expectSuccessMessage(page, SuccessMessages.teacherAdded);
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.batchAddTeacherBtn }).first().click();
+    const invalidBatchModal = await getVisibleModal(page, ModalTitles.batchAddTeacher);
+    await invalidBatchModal.locator('input[type="file"]').setInputFiles({
+      name: "batch-duplicate-phone.csv",
+      mimeType: "text/csv",
+      buffer: buildCsv([
+        ["姓名", "手机号"],
+        ["重复手机号教师A", existingPhone],
+        ["重复手机号教师B", existingPhone],
+      ]),
+    });
+    await confirmModal(invalidBatchModal);
+    await expectErrorMessage(page, "CSV 文件包含无效记录");
+    await expect(invalidBatchModal).toBeVisible();
+    await cancelModal(invalidBatchModal);
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.batchAddTeacherBtn }).first().click();
+    const conflictBatchModal = await getVisibleModal(page, ModalTitles.batchAddTeacher);
+    await conflictBatchModal.locator('input[type="file"]').setInputFiles({
+      name: "batch-existing-conflict.csv",
+      mimeType: "text/csv",
+      buffer: buildCsv([
+        ["姓名", "手机号"],
+        [rollbackName, makePhone(32)],
+        ["已存在手机号教师", existingPhone],
+      ]),
+    });
+    await confirmModal(conflictBatchModal);
+    await expectErrorMessage(page, "部分教师信息已存在，批量创建已取消");
+    await expect(conflictBatchModal).toBeVisible();
+    await cancelModal(conflictBatchModal);
+
+    await searchUsers(page, rollbackName);
+    await expect(page.locator(".ant-empty").first()).toBeVisible();
+
+    await searchUsers(page, existingName);
+    const existingRow = tableRowByText(page, existingName);
+    await expect(existingRow).toBeVisible();
+    await expect(page.locator("tr").filter({ hasText: existingName })).toHaveCount(1);
+
+    await existingRow.getByRole("button", { name: `删除用户 ${existingUsername}` }).click();
+    await confirmDelete(page);
+    await expectSuccessMessage(page, SuccessMessages.userDeleted);
+  });
+
+  test("删除分页末项后自动回到上一页", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
+
+    const batchPrefix = `DEL${Date.now().toString().slice(-6)}`;
+    const csvRows: string[][] = [["姓名", "手机号"]];
+    for (let i = 0; i < 11; i++) {
+      csvRows.push([`${batchPrefix}教师${i}`, makePhone(200 + i)]);
+    }
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.batchAddTeacherBtn }).first().click();
+    const batchModal = await getVisibleModal(page, ModalTitles.batchAddTeacher);
+    await batchModal.locator('input[type="file"]').setInputFiles({
+      name: "batch-delete-pagination.csv",
+      mimeType: "text/csv",
+      buffer: buildCsv(csvRows),
+    });
+    await confirmModal(batchModal);
+    await expectSuccessMessage(page, SuccessMessages.batchTeacherAdded);
+
+    await searchUsers(page, batchPrefix);
+    const pagination = page.locator(".ant-pagination");
+    await expect(pagination).toBeVisible();
+    await pagination.locator(".ant-pagination-item").getByText("2").click();
+    await expect(pagination.locator(".ant-pagination-item-active")).toHaveText("2");
+
+    const lastTeacherName = `${batchPrefix}教师10`;
+    const lastTeacherUsername = `prof_${csvRows[11]?.[1]}`;
+    const lastTeacherRow = tableRowByText(page, lastTeacherName);
+    await expect(lastTeacherRow).toBeVisible();
+
+    await lastTeacherRow.getByRole("button", { name: `删除用户 ${lastTeacherUsername}` }).click();
+    await confirmDelete(page);
+    await expectSuccessMessage(page, SuccessMessages.userDeleted);
+
+    await expect(pagination.locator(".ant-pagination-item-active")).toHaveText("1");
+    await expect(tableRowByText(page, `${batchPrefix}教师0`)).toBeVisible();
+    await expect(page.locator("tr").filter({ hasText: lastTeacherName })).toHaveCount(0);
   });
 
   test("分页与搜索交互", async ({ page }) => {
