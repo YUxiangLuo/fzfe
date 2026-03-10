@@ -10,12 +10,12 @@
 
 import { expect, test, type APIResponse, type Page } from "@playwright/test";
 import {
-    // Generators
-    buildCsv,
-    makeRunId,
-    makePhone,
-    makeLetters,
-    makeStudentNo,
+  // Generators
+  buildCsv,
+  makeRunId,
+  makePhone,
+  makeLetters,
+  makeStudentNo,
   // Navigation
   openTopLevelPage,
   openSubMenuPage,
