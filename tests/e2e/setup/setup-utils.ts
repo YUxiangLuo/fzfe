@@ -45,7 +45,7 @@ export function runCommand(
   });
 }
 
-export async function resetDatabase(beDir: string) {
+export function resetDatabase(beDir: string) {
   if (process.env.E2E_SKIP_DB_RESET === "1" || process.env.E2E_SKIP_DB_SETUP === "1") return;
 
   runCommand("bun", ["run", "db:reset", "--force"], beDir, process.env);
