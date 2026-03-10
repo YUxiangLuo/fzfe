@@ -9,7 +9,7 @@ import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useSimpleModel } from '../hooks/useSimpleModel';
-import { EXPONENTIAL_SMOOTHING_CONSTANTS } from '../constants';
+import { EXPONENTIAL_SMOOTHING_CONSTANTS, MODEL_RETRY_LIMITS } from '../constants';
 import RetryExceededFallback from '../components/RetryExceededFallback';
 
 const MODEL_NAME = '指数平滑法';
@@ -177,7 +177,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
   };
 
   const renderContent = () => {
-    if (currentStep.id === 'results' && error && retryCount >= 3) {
+    if (currentStep.id === 'results' && error && retryCount >= MODEL_RETRY_LIMITS.maxFailures) {
       return <RetryExceededFallback navigate={navigate} />;
     }
     return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
@@ -190,7 +190,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      isPreviousDisabled={retryCount>=3 || isLoading}
+      isPreviousDisabled={retryCount >= MODEL_RETRY_LIMITS.maxFailures || isLoading}
       isNextDisabled={isLoading || !!error || (isValidationPage && !isValidAlpha)}
       nextButtonText={getNextButtonText()}
     >

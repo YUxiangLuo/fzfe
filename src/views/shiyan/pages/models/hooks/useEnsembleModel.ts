@@ -67,17 +67,12 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     return selectedModels.length >= ENSEMBLE_CONSTANTS.MIN_BASE_MODELS;
   }, [selectedModels]);
 
-  // Automatically clear the error when the selection becomes valid
+  // Any base-model change starts a new training attempt context.
   useEffect(() => {
-    if (isValidSelection) {
-      setError(null);
-    }
-  }, [isValidSelection, setError]);
-
-  // Reset retry count when model selection changes
-  useEffect(() => {
+    setResults(null);
+    setError(null);
     resetRetryCount();
-  }, [selectedModels, resetRetryCount]);
+  }, [selectedModels, resetRetryCount, setError]);
 
   // Handle model training
   const handleCalculate = useCallback(async () => {

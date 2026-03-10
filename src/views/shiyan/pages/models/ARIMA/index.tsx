@@ -13,7 +13,7 @@ import AutoParams from './AutoParams';
 import ModelComparison from './ModelComparison';
 import { useExperiment, type AdfStationarityRow } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
-import { ARIMA_CONSTANTS } from '../constants';
+import { ARIMA_CONSTANTS, MODEL_RETRY_LIMITS } from '../constants';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useModelJob } from '../hooks/useModelJob';
 import RetryExceededFallback from '../components/RetryExceededFallback';
@@ -58,7 +58,7 @@ const ARIMAStepper: React.FC = () => {
     retryCount: adfRetryCount,
     runJob: runAdfJob,
     setError: setAdfError,
-    handleRetry: handleAdfRetry,
+    resetRetryCount: resetAdfRetryCount,
   } = adfJob;
   const {
     isLoading: isTrainingLoading,
@@ -166,6 +166,14 @@ const ARIMAStepper: React.FC = () => {
     });
   }, [productSalesData, runAdfJob, setAdfError, state, updateState]);
 
+  const handleAdfRetry = useCallback(() => {
+    if (isAdfLoading || adfRetryCount >= MODEL_RETRY_LIMITS.maxFailures) {
+      return;
+    }
+
+    void handleRunAdf();
+  }, [adfRetryCount, handleRunAdf, isAdfLoading]);
+
   const handleCalculate = useCallback(async () => {
     // 计算之前清除所有错误和已有结果
     setTrainingError(null);
@@ -263,6 +271,13 @@ const ARIMAStepper: React.FC = () => {
   });
 
   useEffect(() => {
+    if (!isStationarityTablePage) {
+      setAdfError(null);
+      resetAdfRetryCount();
+    }
+  }, [isStationarityTablePage, resetAdfRetryCount, setAdfError]);
+
+  useEffect(() => {
     setResults(null);
     setTrainingError(null);
     resetTrainingRetryCount();
@@ -340,7 +355,6 @@ const ARIMAStepper: React.FC = () => {
 
     if (isStationarityTablePage) {
       // From stationarity table, go back to stationarity
-      setAdfError(null);
       const prevStep = STEPS[STATIONARITY_STEP_INDEX];
       if (prevStep) {
         navigate(prevStep.path);
@@ -441,10 +455,10 @@ const ARIMAStepper: React.FC = () => {
   };
 
   const renderContent = () => {
-    if (currentStep.id === 'stationarity-table' && adfError && adfRetryCount >= 3) {
+    if (currentStep.id === 'stationarity-table' && adfError && adfRetryCount >= MODEL_RETRY_LIMITS.maxFailures) {
       return <RetryExceededFallback navigate={navigate} />;
     }
-    if (currentStep.id === 'autoparams' && trainingError && trainingRetryCount >= 3) {
+    if (currentStep.id === 'autoparams' && trainingError && trainingRetryCount >= MODEL_RETRY_LIMITS.maxFailures) {
       return <RetryExceededFallback navigate={navigate} />;
     }
     return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
@@ -465,7 +479,7 @@ const ARIMAStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      isPreviousDisabled={currentRetryCount >= 3 || isLoading}
+      isPreviousDisabled={currentRetryCount >= MODEL_RETRY_LIMITS.maxFailures || isLoading}
       isNextDisabled={
         isLoading ||
         !!currentError ||

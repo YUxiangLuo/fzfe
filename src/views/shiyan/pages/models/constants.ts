@@ -10,6 +10,14 @@ export const MODEL_ID_MAP: Record<string, string> = {
   'lstm': 'lstm',
 } as const;
 
+// `retryCount` tracks failed attempts including the initial auto-triggered attempt.
+const MAX_MODEL_RETRIES = 1;
+
+export const MODEL_RETRY_LIMITS = {
+  maxRetries: MAX_MODEL_RETRIES,
+  maxFailures: MAX_MODEL_RETRIES + 1,
+} as const;
+
 // ARIMA model constants
 export const ARIMA_CONSTANTS = {
   MAX_DIFFERENCING_ORDER: 2,

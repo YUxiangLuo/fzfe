@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAbortableRequest } from './useAbortableRequest';
+import { MODEL_RETRY_LIMITS } from '../constants';
 
 type TrainingLockSetter = (isLocked: boolean, lockPath?: string | null) => void;
 
@@ -10,6 +11,43 @@ interface RunModelJobOptions<T> {
   getErrorMessage?: (error: unknown) => string;
   onSuccess?: (result: T) => Promise<void> | void;
 }
+
+const isRetryCountExemptError = (jobError: unknown): boolean => {
+  if (!jobError || typeof jobError !== 'object') {
+    return false;
+  }
+
+  const maybeError = jobError as {
+    status?: unknown;
+    payload?: unknown;
+    message?: unknown;
+  };
+
+  if (maybeError.status === 429) {
+    return true;
+  }
+
+  const payloadMessage =
+    maybeError.payload && typeof maybeError.payload === 'object'
+      ? (() => {
+          const payload = maybeError.payload as Record<string, unknown>;
+          if (typeof payload.error === 'string') return payload.error;
+          if (typeof payload.message === 'string') return payload.message;
+          return null;
+        })()
+      : null;
+
+  const errorMessage =
+    typeof maybeError.message === 'string'
+      ? maybeError.message
+      : jobError instanceof Error
+        ? jobError.message
+        : null;
+
+  return [payloadMessage, errorMessage].some(
+    (message) => typeof message === 'string' && message.includes('模型服务繁忙'),
+  );
+};
 
 export function useModelJob() {
   const { executeRequest } = useAbortableRequest();
@@ -67,7 +105,11 @@ export function useModelJob() {
     }
   }, []);
 
-  const recordFailure = useCallback((jobError: unknown, fallbackMessage = '模型任务执行失败') => {
+  const recordFailure = useCallback((
+    jobError: unknown,
+    fallbackMessage = '模型任务执行失败',
+    countTowardsRetryLimit = true,
+  ) => {
     if (!isMountedRef.current) {
       return;
     }
@@ -80,7 +122,9 @@ export function useModelJob() {
           : fallbackMessage;
 
     setError(errorMessage);
-    setRetryCount((previous) => previous + 1);
+    if (countTowardsRetryLimit) {
+      setRetryCount((previous) => previous + 1);
+    }
   }, []);
 
   const getResolvedErrorMessage = useCallback((jobError: unknown, getErrorMessage?: (error: unknown) => string) => {
@@ -139,7 +183,11 @@ export function useModelJob() {
 
       return result;
     } catch (jobError) {
-      recordFailure(getResolvedErrorMessage(jobError, getErrorMessage));
+      recordFailure(
+        getResolvedErrorMessage(jobError, getErrorMessage),
+        undefined,
+        !isRetryCountExemptError(jobError),
+      );
 
       return null;
     } finally {
@@ -150,7 +198,7 @@ export function useModelJob() {
   }, [clearInFlightJob, clearLoadingState, executeRequest, getResolvedErrorMessage, recordFailure, releaseLock]);
 
   const handleRetry = useCallback(() => {
-    if (retryCount < 3) {
+    if (retryCount <= MODEL_RETRY_LIMITS.maxRetries) {
       setError(null);
     }
   }, [retryCount]);
