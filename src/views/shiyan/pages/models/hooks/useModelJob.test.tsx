@@ -101,6 +101,33 @@ describe("useModelJob", () => {
     expect(setTrainingLock).toHaveBeenLastCalledWith(false, null);
   });
 
+  it("does not count backend busy responses toward the retry limit", async () => {
+    const busyError = Object.assign(
+      new Error("HTTP 429 Too Many Requests - 模型服务繁忙，请稍后再试"),
+      { status: 429, payload: { error: "模型服务繁忙，请稍后再试" } },
+    );
+    const request = mock(async () => {
+      throw busyError;
+    });
+    const setTrainingLock = mock(() => {});
+
+    const view = render(
+      <Harness
+        request={request}
+        setTrainingLock={setTrainingLock}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "run" }));
+
+    await waitFor(() =>
+      expect(view.getByTestId("error").textContent).toContain("模型服务繁忙"),
+    );
+    expect(view.getByTestId("retry-count").textContent).toBe("0");
+    expect(view.getByTestId("loading").textContent).toBe("false");
+    expect(setTrainingLock).toHaveBeenLastCalledWith(false, null);
+  });
+
   it("ignores a duplicate start while the current job is still in flight", async () => {
     const deferred = createDeferred();
     const request = mock(async () => {

@@ -9,7 +9,7 @@ import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useSimpleModel } from '../hooks/useSimpleModel';
-import { MOVING_AVERAGE_CONSTANTS } from '../constants';
+import { MODEL_RETRY_LIMITS, MOVING_AVERAGE_CONSTANTS } from '../constants';
 import RetryExceededFallback from '../components/RetryExceededFallback';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 
@@ -205,7 +205,7 @@ const MovingAverageStepper: React.FC = () => {
 
   const renderContent = () => {
     // 如果达到错误上限就不再渲染功能组件
-    if (currentStep.id === 'results' && error && retryCount >= 3) {
+    if (currentStep.id === 'results' && error && retryCount >= MODEL_RETRY_LIMITS.maxFailures) {
       return <RetryExceededFallback navigate={navigate} />;
     }
     return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
@@ -218,7 +218,7 @@ const MovingAverageStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      isPreviousDisabled={retryCount>=3 || isLoading}
+      isPreviousDisabled={retryCount >= MODEL_RETRY_LIMITS.maxFailures || isLoading}
       // 计算请求loading的时候 计算请求返回错误的时候 window验证失败的时候不能点击下一步
       isNextDisabled={isLoading || !!error || (isValidationPage && !isValidWindowSize)}
       nextButtonText={getNextButtonText()}

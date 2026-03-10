@@ -5,6 +5,7 @@ import Intro from './Intro';
 import SelectModels, { type SelectModelsProps } from './SelectModels';
 import Results, { type ResultsProps } from './Results';
 import ModelMetricsComparison, { type ModelMetricsComparisonProps } from './ModelMetricsComparison';
+import { MODEL_RETRY_LIMITS } from '../constants';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useEnsembleModel } from '../hooks/useEnsembleModel';
 import RetryExceededFallback from '../components/RetryExceededFallback';
@@ -146,7 +147,7 @@ const StackingEnsembleStepper: React.FC = () => {
   };
 
   const renderContent = () => {
-    if (currentStep.id === 'results' && error && retryCount >= 3) {
+    if (currentStep.id === 'results' && error && retryCount >= MODEL_RETRY_LIMITS.maxFailures) {
       return <RetryExceededFallback navigate={navigate} />;
     }
     return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
@@ -159,7 +160,7 @@ const StackingEnsembleStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      isPreviousDisabled={isLoading || retryCount>=3}
+      isPreviousDisabled={isLoading || retryCount >= MODEL_RETRY_LIMITS.maxFailures}
       isNextDisabled={isLoading || !!error || (currentStep.id==="select-models"&&!(selectedModels.length>1))}
       nextButtonText={
         currentStep?.id === 'model-metrics-comparison' ? '完成' : '下一步'

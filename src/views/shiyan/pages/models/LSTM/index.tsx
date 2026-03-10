@@ -10,6 +10,7 @@ import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
+import { MODEL_RETRY_LIMITS } from '../constants';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useModelJob } from '../hooks/useModelJob';
 import RetryExceededFallback from '../components/RetryExceededFallback';
@@ -50,6 +51,7 @@ const LSTMStepper: React.FC = () => {
     retryCount,
     runJob,
     handleRetry,
+    resetRetryCount,
   } = useModelJob();
 
   const isNormalizationInfoPage = useMemo(() => location.pathname === NORMALIZATION_INFO_PATH, [location.pathname]);
@@ -70,6 +72,12 @@ const LSTMStepper: React.FC = () => {
       setFeatures(prev => prev.includes(target) ? prev.filter(f => f !== target) : prev);
     }
   }, [target]);
+
+  useEffect(() => {
+    setResults(null);
+    setError(null);
+    resetRetryCount();
+  }, [features, normalization, resetRetryCount, setError, target]);
 
   const currentStepIndex = useMemo(() => {
     if (isNormalizationInfoPage) {
@@ -305,7 +313,7 @@ const LSTMStepper: React.FC = () => {
   };
 
   const renderContent = () => {
-    if (currentStep.id === 'results' && error && retryCount >= 3) {
+    if (currentStep.id === 'results' && error && retryCount >= MODEL_RETRY_LIMITS.maxFailures) {
       return <RetryExceededFallback navigate={navigate} />;
     }
     return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
@@ -318,7 +326,7 @@ const LSTMStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      isPreviousDisabled={retryCount>=3 || isLoading}
+      isPreviousDisabled={retryCount >= MODEL_RETRY_LIMITS.maxFailures || isLoading}
       isNextDisabled={isLoading || !!error || isNormalizationInfoPage || isLSTMMethodInfoPage || (currentStep?.id === 'preprocessing'&&!normSelected) || (currentStep?.id === 'build'&&!areParamsValid)}
       nextButtonText={isComparisonPage ? '完成' : '下一步'}
     >

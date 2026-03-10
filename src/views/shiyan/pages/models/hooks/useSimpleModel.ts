@@ -49,17 +49,12 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
   // Validate parameter
   const isValidParam = config.validateParam(param);
 
-  // Clear results when param changes to trigger recalculation
+  // Any parameter change starts a new training attempt context.
   useEffect(() => {
     setResults(null);
-  }, [param]);
-
-  // Reset retry count when parameters are reset
-  useEffect(() => {
-    if (param === '') {
-      resetRetryCount();
-    }
-  }, [param, resetRetryCount]);
+    setError(null);
+    resetRetryCount();
+  }, [param, resetRetryCount, setError]);
 
   // Handle model training
   const handleCalculate = useCallback(async () => {

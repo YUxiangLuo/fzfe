@@ -142,7 +142,7 @@ test.describe("@shiyan model training step", () => {
     await expect(page.getByRole("button", { name: "下一步" })).toBeEnabled();
   });
 
-  test("moving-average training falls back after three failed retries", async ({
+  test("moving-average training falls back after the single allowed retry fails", async ({
     page,
     studentApi,
     studentApp,
@@ -173,13 +173,11 @@ test.describe("@shiyan model training step", () => {
     await expect(retryButton).toBeVisible();
 
     await retryButton.click();
-    await expect(retryButton).toBeVisible();
-    await retryButton.click();
 
     await expect(
-      page.getByText("我们尝试了多次，但仍然无法成功计算。"),
+      page.getByText("我们已经重试一次，但仍然无法成功计算。"),
     ).toBeVisible({ timeout: 30_000 });
-    expect(attempts).toBe(3);
+    expect(attempts).toBe(2);
 
     await page.getByRole("button", { name: "重新选择数据时段" }).click();
     await studentApp.expectHash("/model/window");
@@ -207,6 +205,160 @@ test.describe("@shiyan model training step", () => {
 
     await studentApp.clickEnabledButton("上一步");
     await studentApp.expectHash("/model/moving-average/params");
+  });
+
+  test("moving-average validation blocks window values below the minimum size", async ({
+    page,
+    studentApi,
+    studentApp,
+  }) => {
+    await prepareModelStageExperiment(studentApi);
+
+    await studentApp.open("/model/moving-average/params");
+    await studentApp.expectHash("/model/moving-average/params");
+
+    await page.locator("#window-size").fill("1");
+    await studentApp.clickEnabledButton("下一步");
+
+    await studentApp.expectHash("/model/moving-average/validation");
+    await expect(page.getByText("未通过合法性检验")).toBeVisible();
+    await expect(page.getByText("时间窗口大小至少为 2")).toBeVisible();
+    await expect(page.getByRole("button", { name: "下一步" })).toBeDisabled();
+  });
+
+  test("moving-average results recover even after repeated backend busy responses", async ({
+    page,
+    studentApi,
+    studentApp,
+  }) => {
+    await prepareModelStageExperiment(studentApi, {
+      moving_average_window: 6,
+    });
+
+    let attempts = 0;
+    await page.route("**/api/v1/models/ma/training", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+
+      attempts += 1;
+
+      if (attempts <= 3) {
+        await route.fulfill({
+          status: 429,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "模型服务繁忙，请稍后再试" }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "success",
+          results: {
+            metrics: { rmse: 7.4, mae: 5.6, r2: 0.91 },
+            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+            eval_predictions: [101, 109, 121, 129, 141, 148, 162, 169],
+          },
+        }),
+      });
+    });
+
+    await studentApp.open("/model/moving-average/results");
+    await studentApp.expectHash("/model/moving-average/results");
+
+    await expect(page.getByText(/模型服务繁忙，请稍后再试/)).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await page.getByRole("button", { name: "重试" }).click();
+    await expect(page.getByText(/模型服务繁忙，请稍后再试/)).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await page.getByRole("button", { name: "重试" }).click();
+    await expect(page.getByText(/模型服务繁忙，请稍后再试/)).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await page.getByRole("button", { name: "重试" }).click();
+
+    await expect(
+      page.getByRole("heading", { name: "移动平均法 - 计算结果" }),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.getByText("我们已经重试一次，但仍然无法成功计算。"),
+    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "下一步" })).toBeEnabled();
+    expect(attempts).toBe(4);
+  });
+
+  test("moving-average allows parameter changes to clear stale errors and retry budget", async ({
+    page,
+    studentApi,
+    studentApp,
+  }) => {
+    await prepareModelStageExperiment(studentApi, {
+      moving_average_window: 6,
+    });
+
+    let attempts = 0;
+    await page.route("**/api/v1/models/ma/training", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      attempts += 1;
+
+      if (body.moving_average_window === 6) {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "forced ma failure for window 6" }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "success",
+          results: {
+            metrics: { rmse: 6.1, mae: 4.7, r2: 0.92 },
+            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+            eval_predictions: [99, 111, 121, 129, 141, 149, 161, 168],
+          },
+        }),
+      });
+    });
+
+    await studentApp.open("/model/moving-average/results");
+    await studentApp.expectHash("/model/moving-average/results");
+    await expect(page.getByText("forced ma failure for window 6")).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await studentApp.clickEnabledButton("上一步");
+    await studentApp.expectHash("/model/moving-average/params");
+
+    await page.locator("#window-size").fill("4");
+    await expect(page.getByText("forced ma failure for window 6")).toHaveCount(0);
+    await studentApp.clickEnabledButton("下一步");
+    await studentApp.expectHash("/model/moving-average/validation");
+    await studentApp.clickEnabledButton("下一步");
+    await studentApp.expectHash("/model/moving-average/results");
+
+    await expect(
+      page.getByRole("heading", { name: "移动平均法 - 计算结果" }),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("forced ma failure for window 6")).toHaveCount(0);
+    expect(attempts).toBe(2);
   });
 
   test("moving-average training persists parameter, metrics, and completion state", async ({
@@ -296,6 +448,27 @@ test.describe("@shiyan model training step", () => {
 
     await studentApp.clickEnabledButton("上一步");
     await studentApp.expectHash("/model/exponential-smoothing/params");
+  });
+
+  test("exponential-smoothing validation blocks non-positive alpha values", async ({
+    page,
+    studentApi,
+    studentApp,
+  }) => {
+    await prepareModelStageExperiment(studentApi);
+
+    await studentApp.open("/model/exponential-smoothing/params");
+    await studentApp.expectHash("/model/exponential-smoothing/params");
+
+    await page.locator("#alpha-input").fill("0");
+    await studentApp.clickEnabledButton("下一步");
+
+    await studentApp.expectHash("/model/exponential-smoothing/validation");
+    await expect(page.getByText("未通过合法性检验")).toBeVisible();
+    await expect(
+      page.getByText("请输入一个有效的平滑系数（α > 0）"),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "下一步" })).toBeDisabled();
   });
 
   test("exponential-smoothing training persists alpha, metrics, and completion state", async ({
@@ -423,7 +596,149 @@ test.describe("@shiyan model training step", () => {
     await studentApp.expectHash("/model/window");
   });
 
-  test("ARIMA falls back after three failed ADF retries", async ({
+  test("ARIMA recovers when ADF succeeds after a retry", async ({
+    page,
+    studentApi,
+    studentApp,
+  }) => {
+    await prepareModelStageExperiment(studentApi);
+
+    let attempts = 0;
+    await page.route("**/api/v1/tools/adf", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+
+      attempts += 1;
+      if (attempts === 1) {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "forced adf failure" }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          result: [
+            {
+              diff_order: 0,
+              statistic: -1.12,
+              p_value: 0.71,
+              stationary: false,
+              critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
+            },
+            {
+              diff_order: 1,
+              statistic: -3.84,
+              p_value: 0.018,
+              stationary: true,
+              critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
+            },
+            {
+              diff_order: 2,
+              statistic: -4.22,
+              p_value: 0.006,
+              stationary: true,
+              critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
+            },
+          ],
+        }),
+      });
+    });
+
+    await studentApp.open("/model/arima/stationarity-table");
+    await studentApp.expectHash("/model/arima/stationarity-table");
+
+    const retryButton = page.getByRole("button", { name: "重试" });
+    await expect(retryButton).toBeVisible();
+
+    await retryButton.click();
+
+    await expect(page.getByText("平稳性检验表")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("d = 1")).toBeVisible();
+    await expect(
+      page
+        .getByRole("row")
+        .filter({ has: page.getByText("d = 1") })
+        .getByText("平稳", { exact: true }),
+    ).toBeVisible();
+    expect(attempts).toBe(2);
+  });
+
+  test("ARIMA resets the ADF retry budget after leaving the stationarity table", async ({
+    page,
+    studentApi,
+    studentApp,
+  }) => {
+    await prepareModelStageExperiment(studentApi);
+
+    let attempts = 0;
+    await page.route("**/api/v1/tools/adf", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+
+      attempts += 1;
+      if (attempts <= 2) {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: `forced adf failure ${attempts}` }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          result: [
+            {
+              diff_order: 0,
+              statistic: -1.12,
+              p_value: 0.71,
+              stationary: false,
+              critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
+            },
+            {
+              diff_order: 1,
+              statistic: -3.84,
+              p_value: 0.018,
+              stationary: true,
+              critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
+            },
+          ],
+        }),
+      });
+    });
+
+    await studentApp.open("/model/arima/stationarity-table");
+    await studentApp.expectHash("/model/arima/stationarity-table");
+
+    const retryButton = page.getByRole("button", { name: "重试" });
+    await expect(retryButton).toBeVisible();
+
+    await studentApp.clickEnabledButton("上一步");
+    await studentApp.expectHash("/model/arima/stationarity");
+
+    await studentApp.clickEnabledButton("下一步");
+    await studentApp.expectHash("/model/arima/stationarity-table");
+    await expect(retryButton).toBeVisible();
+
+    await retryButton.click();
+
+    await expect(page.getByText("平稳性检验表")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("d = 1")).toBeVisible();
+    expect(attempts).toBe(3);
+  });
+
+  test("ARIMA falls back after the single allowed ADF retry fails", async ({
     page,
     studentApi,
     studentApp,
@@ -452,19 +767,17 @@ test.describe("@shiyan model training step", () => {
     await expect(retryButton).toBeVisible();
 
     await retryButton.click();
-    await expect(retryButton).toBeVisible();
-    await retryButton.click();
 
     await expect(
-      page.getByText("我们尝试了多次，但仍然无法成功计算。"),
+      page.getByText("我们已经重试一次，但仍然无法成功计算。"),
     ).toBeVisible({ timeout: 30_000 });
-    expect(attempts).toBe(3);
+    expect(attempts).toBe(2);
 
     await page.getByRole("button", { name: "重新选择产品" }).click();
     await studentApp.expectHash("/product");
   });
 
-  test("ARIMA training falls back after three failed auto-parameter retries", async ({
+  test("ARIMA training falls back after the single allowed auto-parameter retry fails", async ({
     page,
     studentApi,
     studentApp,
@@ -511,13 +824,11 @@ test.describe("@shiyan model training step", () => {
     await expect(retryButton).toBeVisible();
 
     await retryButton.click();
-    await expect(retryButton).toBeVisible();
-    await retryButton.click();
 
     await expect(
-      page.getByText("我们尝试了多次，但仍然无法成功计算。"),
+      page.getByText("我们已经重试一次，但仍然无法成功计算。"),
     ).toBeVisible({ timeout: 30_000 });
-    expect(attempts).toBe(3);
+    expect(attempts).toBe(2);
 
     await page.getByRole("button", { name: "重新选择数据时段" }).click();
     await studentApp.expectHash("/model/window");
@@ -734,6 +1045,92 @@ test.describe("@shiyan model training step", () => {
     expect(activeExperiment?.lstm_metrics_rmse).toBe(7.6);
     expect(activeExperiment?.lstm_metrics_mae).toBe(5.4);
     expect(activeExperiment?.lstm_metrics_r2).toBe(0.93);
+  });
+
+  test("LSTM gates navigation until normalization and features are selected, while keeping the target field excluded", async ({
+    page,
+    studentApi,
+    studentApp,
+  }) => {
+    await prepareModelStageExperiment(studentApi);
+
+    await studentApp.open("/model/lstm/preprocessing");
+    await studentApp.expectHash("/model/lstm/preprocessing");
+
+    const nextButton = page.getByRole("button", { name: "下一步" });
+    await expect(nextButton).toBeDisabled();
+
+    await page.getByRole("button", { name: "什么是标准化？" }).click();
+    await studentApp.expectHash("/model/lstm/normalization-info");
+    await expect(nextButton).toBeDisabled();
+
+    await studentApp.clickEnabledButton("上一步");
+    await studentApp.expectHash("/model/lstm/preprocessing");
+
+    await page.locator("#z-score").check({ force: true });
+    await expect(nextButton).toBeEnabled();
+    await nextButton.click();
+
+    await studentApp.expectHash("/model/lstm/build");
+    await expect(page.getByText("请选择需求预测时所使用的特征")).toBeVisible();
+
+    await page.getByRole("button", { name: "构建LSTM方法" }).click();
+    await studentApp.expectHash("/model/lstm/lstm-method-info");
+    await expect(nextButton).toBeDisabled();
+
+    await studentApp.clickEnabledButton("上一步");
+    await studentApp.expectHash("/model/lstm/build");
+
+    const targetCheckbox = page.locator("#feature-销售数量");
+    await expect(targetCheckbox).toBeDisabled();
+    await expect(page.getByText("(目标字段)")).toBeVisible();
+    await expect(nextButton).toBeDisabled();
+
+    await page.getByRole("checkbox", { name: "价格指数" }).check({ force: true });
+    await expect(nextButton).toBeEnabled();
+  });
+
+  test("LSTM training falls back after the single allowed retry fails", async ({
+    page,
+    studentApi,
+    studentApp,
+  }) => {
+    await prepareModelStageExperiment(studentApi, {
+      lstm_normalization: "minmax",
+      lstm_features: ["价格指数", "产能利用率"],
+      lstm_target_field: "销售数量",
+    });
+
+    let attempts = 0;
+    await page.route("**/api/v1/models/lstm/training", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+
+      attempts += 1;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "forced lstm training failure" }),
+      });
+    });
+
+    await studentApp.open("/model/lstm/results");
+    await studentApp.expectHash("/model/lstm/results");
+
+    const retryButton = page.getByRole("button", { name: "重试" });
+    await expect(retryButton).toBeVisible();
+
+    await retryButton.click();
+
+    await expect(
+      page.getByText("我们已经重试一次，但仍然无法成功计算。"),
+    ).toBeVisible({ timeout: 30_000 });
+    expect(attempts).toBe(2);
+
+    await page.getByRole("button", { name: "重新选择数据时段" }).click();
+    await studentApp.expectHash("/model/window");
   });
 
   test("boosting ensemble completes training and persists metrics against the experiment state", async ({
@@ -1034,5 +1431,148 @@ test.describe("@shiyan model training step", () => {
     expect(activeExperiment?.ensemble_weighted_metrics_rmse).toBe(9.1);
     expect(activeExperiment?.ensemble_weighted_metrics_mae).toBe(7.2);
     expect(activeExperiment?.ensemble_weighted_metrics_r2).toBe(0.9);
+  });
+
+  test("weighted-ensemble select page shows the empty-state warning when no completed base models are available", async ({
+    page,
+    studentApi,
+    studentApp,
+  }) => {
+    await prepareModelStageExperiment(studentApi);
+
+    await studentApp.open("/model/weighted-ensemble/select-models");
+    await studentApp.expectHash("/model/weighted-ensemble/select-models");
+
+    await expect(
+      page.getByText("没有已完成的基础模型可供选择。请先完成至少两个基础模型的训练。"),
+    ).toBeVisible();
+    await expect(page.locator('input[name="basemodel"]')).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "下一步" })).toBeDisabled();
+  });
+
+  test("weighted-ensemble lets users switch to another valid model set after a failed run", async ({
+    page,
+    studentApi,
+    studentApp,
+  }) => {
+    await prepareEnsembleReadyExperiment(studentApi, {
+      arima_d: 1,
+      arima_p: 2,
+      arima_q: 1,
+      arima_completed: true,
+      arima_metrics_rmse: 10.8,
+      arima_metrics_mae: 8.1,
+      arima_metrics_r2: 0.86,
+    });
+
+    const seenModelSets: string[] = [];
+    await page.route("**/api/v1/models/weighted_avg/training", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      const models = String(body.models ?? "");
+      seenModelSets.push(models);
+
+      if (models === "ma,es") {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "forced weighted failure for ma,es" }),
+        });
+        return;
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          status: "success",
+          results: {
+            metrics: { rmse: 7.9, mae: 6.1, r2: 0.9 },
+            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+            eval_predictions: [100, 109, 121, 128, 142, 149, 160, 170],
+            weights: [0.62, 0.38],
+            model_names: ["ma", "arima"],
+          },
+        }),
+      });
+    });
+
+    await studentApp.open("/model/weighted-ensemble/select-models");
+    await studentApp.expectHash("/model/weighted-ensemble/select-models");
+
+    await page.getByRole("checkbox", { name: "移动平均法" }).check();
+    await page.getByRole("checkbox", { name: "指数平滑法" }).check();
+    await studentApp.clickEnabledButton("下一步");
+    await studentApp.expectHash("/model/weighted-ensemble/results");
+    await expect(page.getByText("forced weighted failure for ma,es")).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await studentApp.clickEnabledButton("上一步");
+    await studentApp.expectHash("/model/weighted-ensemble/select-models");
+
+    await page.getByRole("checkbox", { name: "指数平滑法" }).uncheck();
+    await page.getByRole("checkbox", { name: "ARIMA模型" }).check();
+    await expect(page.getByText("forced weighted failure for ma,es")).toHaveCount(0);
+
+    const nextButton = page.getByRole("button", { name: "下一步" });
+    await expect(nextButton).toBeEnabled();
+    await nextButton.click();
+
+    await studentApp.expectHash("/model/weighted-ensemble/results");
+    await expect(page.getByText("加权平均融合 - 计算结果")).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.getByRole("button", { name: "表格" }).click();
+    await expect(page.getByText("移动平均法")).toBeVisible();
+    await expect(page.getByText("ARIMA模型")).toBeVisible();
+    expect(seenModelSets).toEqual(["ma,es", "ma,arima"]);
+  });
+
+  test("boosting ensemble falls back after the single allowed retry fails", async ({
+    page,
+    studentApi,
+    studentApp,
+  }) => {
+    await prepareEnsembleReadyExperiment(studentApi);
+
+    let attempts = 0;
+    await page.route("**/api/v1/models/boosting/training", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+
+      attempts += 1;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "forced boosting training failure" }),
+      });
+    });
+
+    await studentApp.open("/model/boosting-ensemble/select-models");
+    await studentApp.expectHash("/model/boosting-ensemble/select-models");
+
+    await page.getByRole("checkbox", { name: "移动平均法" }).check();
+    await page.getByRole("checkbox", { name: "指数平滑法" }).check();
+    await studentApp.clickEnabledButton("下一步");
+
+    const retryButton = page.getByRole("button", { name: "重试" });
+    await expect(retryButton).toBeVisible({ timeout: 30_000 });
+
+    await retryButton.click();
+
+    await expect(
+      page.getByText("我们已经重试一次，但仍然无法成功计算。"),
+    ).toBeVisible({ timeout: 30_000 });
+    expect(attempts).toBe(2);
+
+    await page.getByRole("button", { name: "重新选择产品" }).click();
+    await studentApp.expectHash("/product");
   });
 });
