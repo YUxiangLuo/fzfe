@@ -117,7 +117,7 @@ kill <PID>
 
 ```bash
 cd ../be
-bun run db:setup
+bun run db:reset --force
 ```
 
 ## 编写新测试
