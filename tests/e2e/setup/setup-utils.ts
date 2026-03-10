@@ -45,41 +45,10 @@ export function runCommand(
   });
 }
 
-async function parseEnvValue(filePath: string, key: string): Promise<string | null> {
-  try {
-    const content = await fs.readFile(filePath, "utf8");
-    for (const rawLine of content.split(/\r?\n/)) {
-      const line = rawLine.trim();
-      if (!line || line.startsWith("#")) continue;
-      if (!line.startsWith(`${key}=`)) continue;
-      let value = line.slice(key.length + 1).trim();
-      if (
-        (value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))
-      ) {
-        value = value.slice(1, -1);
-      }
-      return value;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 export async function resetDatabase(beDir: string) {
-  if (process.env.E2E_SKIP_DB_SETUP === "1") return;
+  if (process.env.E2E_SKIP_DB_RESET === "1" || process.env.E2E_SKIP_DB_SETUP === "1") return;
 
-  const dbName =
-    process.env.E2E_DB_NAME ??
-    (await parseEnvValue(path.resolve(beDir, ".env"), "DB_DATABASE")) ??
-    "fangzhen001";
-  const dbSetupConfirm = process.env.E2E_DB_SETUP_CONFIRM ?? `RESET:${dbName}`;
-
-  runCommand("bun", ["run", "db:setup"], beDir, {
-    ...process.env,
-    DB_SETUP_CONFIRM: dbSetupConfirm,
-  });
+  runCommand("bun", ["run", "db:reset", "--force"], beDir, process.env);
 }
 
 export async function cleanupUploadArtifacts(beDir: string) {
