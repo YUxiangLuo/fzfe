@@ -34,6 +34,11 @@ const getTimeoutForEndpoint = (endpoint: string): number | undefined => {
     return 60000;
   }
 
+  // 报告提交 - 需要后端生成 PDF，可能排队等待
+  if (/\/experiment-runs\/\d+\/report$/.test(lowerEndpoint)) {
+    return 120000;
+  }
+
   // 文件上传（CSV导入等）- 30秒
   if (lowerEndpoint.includes('/upload') || lowerEndpoint.includes('/import')) {
     return 30000;
