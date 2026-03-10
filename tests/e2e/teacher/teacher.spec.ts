@@ -12,7 +12,7 @@
  * - Edge cases (perfect score, zero score, special content)
  */
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIResponse, type Page } from "@playwright/test";
 import {
   // Generators
   makeRunId,
@@ -71,11 +71,110 @@ import {
 
 const BACKEND_PORT = process.env.E2E_BACKEND_PORT ?? "54102";
 const BACKEND_ORIGIN = process.env.E2E_BACKEND_ORIGIN ?? `http://127.0.0.1:${BACKEND_PORT}`;
+const EMPTY_TEACHER = {
+  username: process.env.E2E_EMPTY_TEACHER_USERNAME ?? "teacher_empty",
+  password: process.env.E2E_EMPTY_TEACHER_PASSWORD ?? "TeacherE2E!234",
+} as const;
+
+interface CurrentUser {
+  user_id: number;
+  username: string;
+  full_name: string;
+  email: string;
+  phone_number: string | null;
+  role: string;
+  created_at: string;
+}
+
+interface ManagedClassRecord {
+  class_id: number;
+  class_name: string;
+  class_code: string | null;
+}
 
 // ===== Setup =====
 
 async function loginAsTeacher(page: Page, password = ACCOUNTS.teacher.password): Promise<void> {
   await loginAs(page, { username: ACCOUNTS.teacher.username, password, role: "teacher" });
+}
+
+async function loginAsTeacherWithNoClasses(page: Page): Promise<void> {
+  await loginAs(page, { username: EMPTY_TEACHER.username, password: EMPTY_TEACHER.password, role: "teacher" });
+}
+
+async function getAuthToken(page: Page): Promise<string> {
+  const token = await page.evaluate(() => localStorage.getItem("token"));
+  expect(token).not.toBeNull();
+  return token!;
+}
+
+async function getJson<T>(page: Page, path: string): Promise<T> {
+  const token = await getAuthToken(page);
+  const response = await page.request.get(`${BACKEND_ORIGIN}${path}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  return unwrapDataEnvelope<T>(await response.json());
+}
+
+async function deleteJson(page: Page, path: string): Promise<APIResponse> {
+  const token = await getAuthToken(page);
+  return page.request.delete(`${BACKEND_ORIGIN}${path}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+async function postJson(page: Page, path: string, data: unknown): Promise<APIResponse> {
+  const token = await getAuthToken(page);
+  return page.request.post(`${BACKEND_ORIGIN}${path}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    data,
+  });
+}
+
+async function getCurrentUser(page: Page): Promise<CurrentUser> {
+  return getJson<CurrentUser>(page, "/api/v1/users/me");
+}
+
+async function getManagedClasses(page: Page): Promise<ManagedClassRecord[]> {
+  const currentUser = await getCurrentUser(page);
+  return getJson<ManagedClassRecord[]>(page, `/api/v1/teachers/${currentUser.user_id}/classes`);
+}
+
+async function getManagedClassByName(page: Page, className: string): Promise<ManagedClassRecord> {
+  const classes = await getManagedClasses(page);
+  const classRecord = classes.find((item) => item.class_name === className);
+  expect(classRecord).toBeDefined();
+  return classRecord!;
+}
+
+async function deleteClassViaApi(page: Page, classId: number): Promise<APIResponse> {
+  return deleteJson(page, `/api/v1/classes/${classId}`);
+}
+
+async function removeAssistantAssignmentViaApi(
+  page: Page,
+  classId: number,
+  assistantId: number,
+): Promise<APIResponse> {
+  return deleteJson(page, `/api/v1/classes/${classId}/assistants/${assistantId}`);
+}
+
+async function addAssistantAssignmentViaApi(
+  page: Page,
+  classId: number,
+  assistantId: number,
+): Promise<APIResponse> {
+  return postJson(page, `/api/v1/classes/${classId}/assistants`, {
+    assistant_id: assistantId,
+  });
 }
 
 // ===== Test Suite =====
@@ -206,21 +305,17 @@ test.describe("@teacher 班级管理", () => {
     await loginAsTeacher(page);
     await openTopLevelPage(page, "班级管理", "班级管理");
 
-    const className = makeRunId("E2E失败班级");
-    const classCode = `FAIL${Date.now()}`;
+    const existingClassName = await createTempClass(page);
+    const existingRow = tableRowByText(page, existingClassName);
+    await expect(existingRow).toBeVisible();
+    const duplicateClassCode = (await existingRow.locator("td").nth(1).innerText()).trim();
 
-    await page.route("**/api/v1/classes", async (route) => {
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "模拟创建失败" }),
-      });
-    });
+    const className = makeRunId("E2E失败班级");
 
     await page.getByRole(ClassManagementSelectors.addClassBtn.role, { name: ClassManagementSelectors.addClassBtn.name }).click();
     const createModal = await getVisibleModal(page, ModalTitles.createClass);
     await fillFormField(createModal, ClassManagementSelectors.classNameInput, className);
-    await fillFormField(createModal, ClassManagementSelectors.classCodeInput, classCode);
+    await fillFormField(createModal, ClassManagementSelectors.classCodeInput, duplicateClassCode);
     await createModal.locator(ClassManagementSelectors.fileInput).setInputFiles({
       name: `students-fail-${Date.now()}.csv`,
       mimeType: "text/csv",
@@ -231,37 +326,32 @@ test.describe("@teacher 班级管理", () => {
     });
     await createModal.getByRole("button", { name: /创\s*建/ }).click();
 
-    await expectErrorMessage(page, "模拟创建失败");
+    await expectErrorMessage(page, "班级代码已存在");
     await expect(createModal).toBeVisible();
-    await page.unroute("**/api/v1/classes");
     await createModal.getByRole("button", { name: /取\s*消/ }).click();
+
+    await existingRow.getByRole(ClassManagementSelectors.deleteClassBtn.role, { name: ClassManagementSelectors.deleteClassBtn.name }).click();
+    const cleanupModal = await getVisibleModal(page, ModalTitles.deleteClass);
+    await cleanupModal.getByRole("button", { name: /删\s*除/ }).click();
+    await expectSuccessMessage(page, SuccessMessages.classDeleted);
   });
 
   test("查看班级学生列表失败提示", async ({ page }) => {
     await loginAsTeacher(page);
     await openTopLevelPage(page, "班级管理", "班级管理");
 
-    const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
-    const className = await firstRow.locator("td").first().innerText();
+    const className = await createTempClass(page);
+    const classRow = tableRowByText(page, className);
+    await expect(classRow).toBeVisible();
+    const classRecord = await getManagedClassByName(page, className);
+    const deleteResponse = await deleteClassViaApi(page, classRecord.class_id);
+    expect(deleteResponse.ok()).toBeTruthy();
 
-    await page.route("**/api/v1/classes/*", async (route) => {
-      if (route.request().method() === "GET") {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "模拟学生列表失败" }),
-        });
-        return;
-      }
-      await route.continue();
-    });
-
-    await firstRow.getByRole(ClassManagementSelectors.studentListBtn.role, { name: ClassManagementSelectors.studentListBtn.name }).click();
+    await classRow.getByRole(ClassManagementSelectors.studentListBtn.role, { name: ClassManagementSelectors.studentListBtn.name }).click();
 
     const studentsModal = await getVisibleModal(page, new RegExp(`学生列表\\s*-\\s*${className}`));
-    await expectErrorMessage(page, "模拟学生列表失败");
+    await expectErrorMessage(page, "班级不存在");
     await expect(studentsModal.getByText("暂无学生")).toBeVisible();
-    await page.unroute("**/api/v1/classes/*");
     await studentsModal.getByRole("button", { name: /关\s*闭/ }).click();
   });
 
@@ -272,47 +362,23 @@ test.describe("@teacher 班级管理", () => {
     const className = await createTempClass(page);
     const classRow = tableRowByText(page, className);
     await expect(classRow).toBeVisible();
-
-    await page.route("**/api/v1/classes/*", async (route) => {
-      if (route.request().method() === "DELETE") {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "模拟删除失败" }),
-        });
-        return;
-      }
-      await route.continue();
-    });
+    const classRecord = await getManagedClassByName(page, className);
+    const deleteResponse = await deleteClassViaApi(page, classRecord.class_id);
+    expect(deleteResponse.ok()).toBeTruthy();
 
     await classRow.getByRole(ClassManagementSelectors.deleteClassBtn.role, { name: ClassManagementSelectors.deleteClassBtn.name }).click();
     const deleteModal = await getVisibleModal(page, ModalTitles.deleteClass);
     await deleteModal.getByRole("button", { name: /删\s*除/ }).click();
 
-    await expectErrorMessage(page, "模拟删除失败");
+    await expectErrorMessage(page, "班级不存在");
     await expect(tableRowByText(page, className)).toBeVisible();
-    await page.unroute("**/api/v1/classes/*");
-
-    await classRow.getByRole(ClassManagementSelectors.deleteClassBtn.role, { name: ClassManagementSelectors.deleteClassBtn.name }).click();
-    const cleanupModal = await getVisibleModal(page, ModalTitles.deleteClass);
-    await cleanupModal.getByRole("button", { name: /删\s*除/ }).click();
-    await expectSuccessMessage(page, SuccessMessages.classDeleted);
   });
 
   test("空班级显示暂无班级", async ({ page }) => {
-    await loginAsTeacher(page);
-
-    await page.route("**/api/v1/teachers/*/classes", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: [] }),
-      });
-    });
+    await loginAsTeacherWithNoClasses(page);
 
     await openTopLevelPage(page, "班级管理", "班级管理");
     await expect(page.getByText("暂无班级")).toBeVisible();
-    await page.unroute("**/api/v1/teachers/*/classes");
   });
 });
 
@@ -505,24 +571,34 @@ async function getFirstClassName(page: Page): Promise<string> {
   return await firstRow.locator("td").first().innerText();
 }
 
-async function createTempClass(page: Page): Promise<string> {
+async function createTempClass(
+  page: Page,
+  options?: {
+    withStudents?: boolean;
+    prefix?: string;
+    codePrefix?: string;
+  },
+): Promise<string> {
   await openTopLevelPage(page, "班级管理", "班级管理");
 
-  const className = makeRunId("E2E助教班级");
-  const classCode = `TA${Date.now()}`;
+  const className = makeRunId(options?.prefix ?? "E2E助教班级");
+  const classCode = `${options?.codePrefix ?? "TA"}${Date.now()}`;
+  const withStudents = options?.withStudents ?? true;
 
   await page.getByRole(ClassManagementSelectors.addClassBtn.role, { name: ClassManagementSelectors.addClassBtn.name }).click();
   const createModal = await getVisibleModal(page, ModalTitles.createClass);
   await fillFormField(createModal, ClassManagementSelectors.classNameInput, className);
   await fillFormField(createModal, ClassManagementSelectors.classCodeInput, classCode);
-  await createModal.locator(ClassManagementSelectors.fileInput).setInputFiles({
-    name: `assistant-class-${Date.now()}.csv`,
-    mimeType: "text/csv",
-    buffer: buildCsv([
-      ["学号", "姓名"],
-      [makeStudentNo(91), "助教分配学生"],
-    ]),
-  });
+  if (withStudents) {
+    await createModal.locator(ClassManagementSelectors.fileInput).setInputFiles({
+      name: `assistant-class-${Date.now()}.csv`,
+      mimeType: "text/csv",
+      buffer: buildCsv([
+        ["学号", "姓名"],
+        [makeStudentNo(91), "助教分配学生"],
+      ]),
+    });
+  }
   await createModal.getByRole("button", { name: /创\s*建/ }).click();
   await expectSuccessMessage(page, SuccessMessages.classCreated);
 
@@ -597,79 +673,61 @@ test.describe("@teacher 助教管理", () => {
 
   test("从库中选择助教时部分班级分配失败会提示 warning", async ({ page }) => {
     await loginAsTeacher(page);
-    const firstClassName = await getFirstClassName(page);
+    const managedClasses = await getManagedClasses(page);
+    const existingAssignmentClass = managedClasses.find((item) => item.class_id === TEST_DATA.teacherClassId);
+    const additionalClass = managedClasses.find((item) => item.class_id !== existingAssignmentClass?.class_id);
+    expect(existingAssignmentClass).toBeDefined();
+    expect(additionalClass).toBeDefined();
     await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
-
-    let postCount = 0;
-    await page.route("**/api/v1/classes/*/assistants", async (route) => {
-      postCount += 1;
-      if (postCount === 1) {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "模拟分配失败" }),
-        });
-        return;
-      }
-      await route.continue();
-    });
 
     await page.getByRole(AssistantManagementSelectors.selectFromLibraryBtn.role, { name: AssistantManagementSelectors.selectFromLibraryBtn.name }).click();
     const selectModal = await getVisibleModal(page, ModalTitles.selectAssistant);
-    const assistantFormItem = selectModal.locator(CommonSelectors.formItem).filter({ hasText: "选择助教" }).first();
-    await assistantFormItem.getByRole("combobox").click();
-    const assistantDropdown = page.locator(".ant-select-dropdown").last();
-    await expect(assistantDropdown).toBeVisible();
-    const firstAvailableAssistant = assistantDropdown.locator(".ant-select-item-option-content").first();
-    const assistantOptionText = (await firstAvailableAssistant.innerText()).trim();
-    await firstAvailableAssistant.click();
+    await selectOptionByLabel(page, selectModal, "选择助教", "助教小孙");
+    await selectOptionByLabel(page, selectModal, AssistantManagementSelectors.classSelectLabel, existingAssignmentClass!.class_name);
+    const classFormItem = selectModal.locator(CommonSelectors.formItem).filter({ hasText: AssistantManagementSelectors.classSelectLabel }).first();
+    await classFormItem.getByRole("combobox").click();
+    const classDropdown = page.locator(".ant-select-dropdown").last();
+    const additionalClassOption = classDropdown
+      .locator(".ant-select-item-option")
+      .filter({ hasText: additionalClass!.class_name })
+      .first();
+    await additionalClassOption.evaluate((element) => {
+      element.scrollIntoView({ block: "center" });
+    });
+    await additionalClassOption.click();
     await page.keyboard.press("Escape");
-
-    await selectOptionByLabel(page, selectModal, AssistantManagementSelectors.classSelectLabel, firstClassName);
+    const injectDuplicateAssignment = await addAssistantAssignmentViaApi(page, existingAssignmentClass!.class_id, 203);
+    expect([201, 409]).toContain(injectDuplicateAssignment.status());
     await selectModal.getByRole("button", { name: /分\s*配/ }).click();
 
     await expect(page.locator(CommonSelectors.warningMessage).filter({ hasText: "1 个班级分配失败" }).last()).toBeVisible();
     await expectSuccessMessage(page, SuccessMessages.assistantAssigned);
-    await expect(page.locator(CommonSelectors.tableRow).filter({ hasText: assistantOptionText.split(" ")[0] ?? assistantOptionText })).toBeVisible();
-    await page.unroute("**/api/v1/classes/*/assistants");
+    await expect(tableRowByText(page, "助教小孙")).toBeVisible();
   });
 
   test("重新分配助教班级时部分操作失败会提示 warning", async ({ page }) => {
     await loginAsTeacher(page);
     const extraClassName = await createTempClass(page);
+    const extraClassRecord = await getManagedClassByName(page, extraClassName);
+    const ensureAssignmentResponse = await addAssistantAssignmentViaApi(page, TEST_DATA.teacherClassId, 203);
+    expect([201, 409]).toContain(ensureAssignmentResponse.status());
     await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
 
-    const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
-    await firstRow.getByRole(AssistantManagementSelectors.reassignBtn.role, { name: AssistantManagementSelectors.reassignBtn.name }).click();
+    const assistantRow = tableRowByText(page, "助教小孙");
+    await expect(assistantRow).toBeVisible();
+    await assistantRow.getByRole(AssistantManagementSelectors.reassignBtn.role, { name: AssistantManagementSelectors.reassignBtn.name }).click();
     const reassignModal = await getVisibleModal(page, ModalTitles.reassignAssistant);
 
     await clearMultiSelectByLabel(reassignModal, AssistantManagementSelectors.classSelectLabel);
     await selectOptionByLabel(page, reassignModal, AssistantManagementSelectors.classSelectLabel, extraClassName);
-
-    let failureInjected = false;
-    await page.route("**/api/v1/classes/*/assistants", async (route) => {
-      if (!failureInjected) {
-        failureInjected = true;
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "模拟更新失败" }),
-        });
-        return;
-      }
-      await route.continue();
-    });
+    const removeResponse = await removeAssistantAssignmentViaApi(page, TEST_DATA.teacherClassId, 203);
+    expect(removeResponse.ok()).toBeTruthy();
 
     await reassignModal.getByRole("button", { name: /保\s*存/ }).click();
     await expect(page.locator(CommonSelectors.warningMessage).filter({ hasText: "班级分配已更新，但 1 个操作失败" }).last()).toBeVisible();
-    await page.unroute("**/api/v1/classes/*/assistants");
 
-    await openTopLevelPage(page, "班级管理", "班级管理");
-    const extraClassRow = tableRowByText(page, extraClassName);
-    await extraClassRow.getByRole(ClassManagementSelectors.deleteClassBtn.role, { name: ClassManagementSelectors.deleteClassBtn.name }).click();
-    const deleteModal = await getVisibleModal(page, ModalTitles.deleteClass);
-    await deleteModal.getByRole("button", { name: /删\s*除/ }).click();
-    await expectSuccessMessage(page, SuccessMessages.classDeleted);
+    const deleteResponse = await deleteClassViaApi(page, extraClassRecord.class_id);
+    expect(deleteResponse.ok()).toBeTruthy();
   });
 
   test("创建助教冲突校验：重复用户名与邮箱", async ({ page }) => {
@@ -1009,6 +1067,14 @@ test.describe("@teacher 考核管理", () => {
 
   test("成绩总览导出失败提示", async ({ page }) => {
     await loginAsTeacher(page);
+    await openTopLevelPage(page, "班级管理", "班级管理");
+
+    const emptyClassName = await createTempClass(page, {
+      withStudents: false,
+      prefix: "E2E空导出班级",
+      codePrefix: "EMPTY",
+    });
+    const emptyClassRecord = await getManagedClassByName(page, emptyClassName);
 
     const summaryPromise = page.waitForResponse(
       (r) => r.request().method() === "GET" && API.teacherGradeSummaries.test(r.url()),
@@ -1017,35 +1083,25 @@ test.describe("@teacher 考核管理", () => {
     const summaryResponse = await summaryPromise;
     expect(summaryResponse.ok()).toBeTruthy();
 
-    const allClassSummaries = unwrapDataEnvelope<TeacherClassSummary[]>(await summaryResponse.json());
-    expect(allClassSummaries.length).toBeGreaterThan(0);
-    const firstClass = allClassSummaries[0];
-
     const classCard = page
       .locator(CommonSelectors.card)
-      .filter({ hasText: firstClass.class_name })
+      .filter({ hasText: emptyClassName })
       .filter({ hasText: GradeOverviewSelectors.classCardClickHint })
       .first();
     await expect(classCard).toBeVisible();
 
     const detailPromise = page.waitForResponse(
-      (r) => r.request().method() === "GET" && r.url().includes(`/api/v1/classes/${firstClass.class_id}/grade-summaries`),
+      (r) => r.request().method() === "GET" && r.url().includes(`/api/v1/classes/${emptyClassRecord.class_id}/grade-summaries`),
     );
     await classCard.click();
     expect((await detailPromise).ok()).toBeTruthy();
 
-    await page.route("**/api/v1/classes/*/grade-export.csv", async (route) => {
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "导出服务暂时不可用" }),
-      });
-    });
-
     await page.getByRole(GradeOverviewSelectors.exportBtn.role, { name: GradeOverviewSelectors.exportBtn.name }).click();
-    await expectErrorMessage(page, "导出服务暂时不可用");
-    await expect(page.locator(CommonSelectors.alertMessage).filter({ hasText: "导出服务暂时不可用" })).toBeVisible();
-    await page.unroute("**/api/v1/classes/*/grade-export.csv");
+    await expectErrorMessage(page, "该班级未找到已加入的学生");
+    await expect(page.locator(CommonSelectors.alertMessage).filter({ hasText: "该班级未找到已加入的学生" })).toBeVisible();
+
+    const deleteResponse = await deleteClassViaApi(page, emptyClassRecord.class_id);
+    expect(deleteResponse.ok()).toBeTruthy();
   });
 
   test("成绩总览全部班级隐藏导出按钮", async ({ page }) => {
