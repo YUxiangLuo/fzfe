@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 import { MODEL_ID_MAP, ENSEMBLE_CONSTANTS } from '../constants';
+import { alignPredictionRows } from '../resultAlignment';
 import { useModelJob } from './useModelJob';
 import type { ExperimentState } from '../../../store/experiment/types';
 
@@ -115,11 +116,12 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
 
         const apiResults = result.results;
         const ensembleResults: EnsembleResults = {
-          predictions: evaluateMonths.map((month: string, index: number) => ({
-            date: month,
-            actual: apiResults.eval_y_true[index],
-            predicted: apiResults.eval_predictions[index],
-          })),
+          predictions: alignPredictionRows({
+            actualValues: apiResults.eval_y_true,
+            predictedValues: apiResults.eval_predictions,
+            backendMonths: apiResults.evaluate_months,
+            fallbackMonths: evaluateMonths,
+          }),
           metrics: apiResults.metrics,
         };
 
