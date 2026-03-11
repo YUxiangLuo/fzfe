@@ -96,6 +96,125 @@ console.log(\`Password reset for e2e user: \${username}\`);
   });
 }
 
+export async function ensureE2EUser(
+  beDir: string,
+  input: {
+    username: string;
+    password: string;
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    role: "Teacher" | "Assistant" | "Student" | "Admin";
+  },
+) {
+  const script = `
+import mysql from "mysql2/promise";
+
+const {
+  DB_HOST,
+  DB_USER,
+  DB_PASSWORD,
+  DB_DATABASE,
+  E2E_TARGET_USERNAME,
+  E2E_TARGET_PASSWORD,
+  E2E_TARGET_FULL_NAME,
+  E2E_TARGET_EMAIL,
+  E2E_TARGET_PHONE,
+  E2E_TARGET_ROLE,
+} = process.env;
+
+if (!E2E_TARGET_USERNAME) throw new Error("E2E_TARGET_USERNAME is required");
+if (!E2E_TARGET_PASSWORD) throw new Error("E2E_TARGET_PASSWORD is required");
+if (!E2E_TARGET_FULL_NAME) throw new Error("E2E_TARGET_FULL_NAME is required");
+if (!E2E_TARGET_EMAIL) throw new Error("E2E_TARGET_EMAIL is required");
+if (!E2E_TARGET_PHONE) throw new Error("E2E_TARGET_PHONE is required");
+if (!E2E_TARGET_ROLE) throw new Error("E2E_TARGET_ROLE is required");
+
+const conn = await mysql.createConnection({
+  host: DB_HOST,
+  user: DB_USER,
+  password: DB_PASSWORD,
+  database: DB_DATABASE,
+  charset: "utf8mb4",
+});
+
+const hash = await Bun.password.hash(E2E_TARGET_PASSWORD, { algorithm: "bcrypt", cost: 10 });
+
+try {
+  await conn.beginTransaction();
+
+  const [existingUsers] = await conn.query(
+    "SELECT user_id FROM users WHERE username = ? LIMIT 1",
+    [E2E_TARGET_USERNAME],
+  );
+  const existingUser = Array.isArray(existingUsers) ? existingUsers[0] : undefined;
+
+  const [emailUsers] = await conn.query(
+    "SELECT user_id, username FROM users WHERE email = ? LIMIT 1",
+    [E2E_TARGET_EMAIL],
+  );
+  const existingEmailUser = Array.isArray(emailUsers) ? emailUsers[0] : undefined;
+
+  if (
+    existingEmailUser &&
+    (!existingUser || existingEmailUser.user_id !== existingUser.user_id)
+  ) {
+    throw new Error(
+      \`Email \${E2E_TARGET_EMAIL} is already used by \${existingEmailUser.username}; refusing to mutate a different user\`,
+    );
+  }
+
+  if (existingUser) {
+    await conn.query(
+      \`UPDATE users
+       SET password_hash = ?, full_name = ?, email = ?, phone_number = ?, role = ?
+       WHERE user_id = ?\`,
+      [
+        hash,
+        E2E_TARGET_FULL_NAME,
+        E2E_TARGET_EMAIL,
+        E2E_TARGET_PHONE,
+        E2E_TARGET_ROLE,
+        existingUser.user_id,
+      ],
+    );
+  } else {
+    await conn.query(
+      \`INSERT INTO users (username, password_hash, full_name, email, phone_number, role)
+       VALUES (?, ?, ?, ?, ?, ?)\`,
+      [
+        E2E_TARGET_USERNAME,
+        hash,
+        E2E_TARGET_FULL_NAME,
+        E2E_TARGET_EMAIL,
+        E2E_TARGET_PHONE,
+        E2E_TARGET_ROLE,
+      ],
+    );
+  }
+
+  await conn.commit();
+} catch (error) {
+  await conn.rollback();
+  throw error;
+} finally {
+  await conn.end();
+}
+
+console.log(\`Ensured e2e user: \${E2E_TARGET_USERNAME}\`);
+`;
+
+  runCommand("bun", ["-e", script], beDir, {
+    ...process.env,
+    E2E_TARGET_USERNAME: input.username,
+    E2E_TARGET_PASSWORD: input.password,
+    E2E_TARGET_FULL_NAME: input.fullName,
+    E2E_TARGET_EMAIL: input.email,
+    E2E_TARGET_PHONE: input.phoneNumber,
+    E2E_TARGET_ROLE: input.role,
+  });
+}
+
 export async function seedTeacherCoreFixtures(beDir: string, options?: {
   reportFixtureName?: string;
   teacherId?: number;
