@@ -173,7 +173,7 @@ const ExperimentReports: React.FC = () => {
         const rejectedReports = reports.filter(r => r.status === 'rejected');
 
         const averageGrade = gradedReports.length
-            ? Math.round(gradedReports.reduce((acc, report) => acc + (report.grade ?? 0), 0) / gradedReports.length).toString()
+            ? (gradedReports.reduce((acc, report) => acc + (report.grade ?? 0), 0) / gradedReports.length).toFixed(1)
             : '--';
 
         return {
