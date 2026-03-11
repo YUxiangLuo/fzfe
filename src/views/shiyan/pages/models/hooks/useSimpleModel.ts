@@ -4,6 +4,7 @@ import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
 import type { ExperimentState } from '../../../store/experiment/types';
 import { useModelJob } from './useModelJob';
+import { alignPredictionRows } from '../resultAlignment';
 
 type SimpleModelType = 'exponential_smoothing' | 'moving_average';
 
@@ -27,6 +28,17 @@ interface SimpleModelResults {
     actual: number;
     predicted: number;
   }>;
+  metrics: {
+    rmse: number;
+    mae: number;
+    r2: number;
+  };
+}
+
+interface SimpleModelApiResults {
+  eval_y_true?: unknown;
+  eval_predictions?: unknown;
+  evaluate_months?: unknown;
   metrics: {
     rmse: number;
     mae: number;
@@ -75,26 +87,31 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
       [config.paramKey]: param,
     };
 
-    await runJob<any>({
+    await runJob<{
+      status: string;
+      message?: string;
+      results: SimpleModelApiResults;
+    }>({
       lockPath: location.pathname,
       setTrainingLock,
-      request: (signal) => apiClient.post<any>(config.apiEndpoint, requestBody, { signal }),
+      request: (signal) => apiClient.post(config.apiEndpoint, requestBody, { signal }),
       onSuccess: async (result) => {
         if (result.status !== "success") {
           throw new Error(result.message || "模型计算返回失败状态");
         }
 
         const apiResults = result.results;
-        const months = productSalesData?.monthlySales
+        const fallbackMonths = productSalesData?.monthlySales
           .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
           .map(item => item.month) || [];
 
         const modelResults: SimpleModelResults = {
-          predictions: months.map((month: string, index: number) => ({
-            date: month,
-            actual: apiResults.eval_y_true[index],
-            predicted: apiResults.eval_predictions[index],
-          })),
+          predictions: alignPredictionRows({
+            actualValues: apiResults.eval_y_true,
+            predictedValues: apiResults.eval_predictions,
+            backendMonths: apiResults.evaluate_months,
+            fallbackMonths,
+          }),
           metrics: apiResults.metrics,
         };
 

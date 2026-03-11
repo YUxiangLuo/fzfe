@@ -17,6 +17,7 @@ import { ARIMA_CONSTANTS, MODEL_RETRY_LIMITS } from '../constants';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useModelJob } from '../hooks/useModelJob';
 import RetryExceededFallback from '../components/RetryExceededFallback';
+import { alignPredictionRows } from '../resultAlignment';
 
 const MODEL_NAME = 'ARIMA 模型';
 const BASE_PATH = '/model/arima';
@@ -208,16 +209,17 @@ const ARIMAStepper: React.FC = () => {
         }
 
         const apiResults = response.results;
-        const months = productSalesData?.monthlySales
+        const fallbackMonths = productSalesData?.monthlySales
           .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
           .map(item => item.month) || [];
 
         const nextResults = {
-          predictions: months.map((month: string, index: number) => ({
-            date: month,
-            actual: apiResults.eval_y_true[index],
-            predicted: apiResults.eval_predictions[index],
-          })),
+          predictions: alignPredictionRows({
+            actualValues: apiResults.eval_y_true,
+            predictedValues: apiResults.eval_predictions,
+            backendMonths: apiResults.evaluate_months,
+            fallbackMonths,
+          }),
           metrics: apiResults.metrics,
           order: apiResults.best_order,
         };
