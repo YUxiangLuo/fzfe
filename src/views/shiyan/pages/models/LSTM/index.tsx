@@ -14,6 +14,7 @@ import { MODEL_RETRY_LIMITS } from '../constants';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useModelJob } from '../hooks/useModelJob';
 import RetryExceededFallback from '../components/RetryExceededFallback';
+import { alignPredictionRows } from '../resultAlignment';
 
 const MODEL_NAME = 'LSTM模型';
 const BASE_PATH = '/model/lstm';
@@ -159,11 +160,12 @@ const LSTMStepper: React.FC = () => {
 
         const apiResults = response.results;
         const nextResults = {
-          predictions: evaluateMonths.map((month: string, index: number) => ({
-            date: month,
-            actual: apiResults.eval_y_true[index],
-            predicted: apiResults.eval_predictions[index],
-          })),
+          predictions: alignPredictionRows({
+            actualValues: apiResults.eval_y_true,
+            predictedValues: apiResults.eval_predictions,
+            backendMonths: apiResults.evaluate_months,
+            fallbackMonths: evaluateMonths,
+          }),
           metrics: apiResults.metrics,
         };
 
