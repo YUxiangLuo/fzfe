@@ -195,7 +195,7 @@ const ExperimentLogs: React.FC = () => {
     const totalStudents = summaries.length;
     const totalExperiments = summaries.reduce((sum, s) => sum + s.totalExperiments, 0);
     const totalDurationSeconds = summaries.reduce((sum, s) => sum + s.totalDurationSeconds, 0);
-    const averageDurationPerStudent = totalStudents > 0 ? Math.round(totalDurationSeconds / totalStudents) : 0;
+    const averageDurationPerExperiment = totalExperiments > 0 ? Math.round(totalDurationSeconds / totalExperiments) : 0;
 
     // Map status
     const mapStatus = (status: string) => {
@@ -377,8 +377,8 @@ const ExperimentLogs: React.FC = () => {
                 <Col xs={24} sm={12} lg={6}>
                     <Card>
                         <Statistic
-                            title="平均每生时长"
-                            value={formatDuration(averageDurationPerStudent)}
+                            title="平均每次实验时长"
+                            value={formatDuration(averageDurationPerExperiment)}
                             styles={{ content: { color: '#faad14' } }}
                             prefix={<FieldTimeOutlined />}
                         />

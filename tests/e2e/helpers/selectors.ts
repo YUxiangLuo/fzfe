@@ -142,7 +142,7 @@ export const ExperimentLogSelectors = {
   totalExperimentsStat: "总实验次数",
   totalStudentsStat: "总学生数",
   totalDurationStat: "总时长",
-  avgDurationStat: "平均每生时长",
+  avgDurationStat: "平均每次实验时长",
 } as const;
 
 export const QuestionBankSelectors = {
