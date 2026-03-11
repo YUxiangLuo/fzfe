@@ -871,23 +871,25 @@ const GradesOverview: React.FC = () => {
                         </Col>
                     </Row>
 
-                    {/* Filter Input */}
-                    <div className="flex justify-end mb-4">
-                        <Input
-                            prefix={<SearchOutlined />}
-                            placeholder="搜索学号或姓名"
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            style={{ width: 250 }}
-                            allowClear
-                        />
-                    </div>
-
                     {/* Charts */}
                     {filteredGrades.length > 0 && renderGradeCharts()}
 
                     {/* Grades Table */}
-                    <Card bordered={false} className="mt-6">
+                    <Card
+                        bordered={false}
+                        className="mt-6"
+                        title="学生成绩明细"
+                        extra={(
+                            <Input
+                                prefix={<SearchOutlined />}
+                                placeholder="搜索学号或姓名"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                style={{ width: 250, maxWidth: '100%' }}
+                                allowClear
+                            />
+                        )}
+                    >
                         <Table
                             dataSource={filteredGrades}
                             columns={columns}
