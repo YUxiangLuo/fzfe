@@ -7,6 +7,8 @@
  * - 提供清晰的警告信息
  */
 
+import { MPS_CALCULATION } from '../config/mpsConstants';
+
 export interface ValidationResult {
   value: number;
   warnings: string[];
@@ -33,9 +35,9 @@ export const validateAndFixStdDev = (
   // 1. 检查是否为负数或非法值（必须修正，否则会导致NaN）
   if (stdDev < 0 || !isFinite(stdDev) || isNaN(stdDev)) {
     warnings.push(
-      `期 ${periodIndex + 1} 的std_dev非法: ${stdDev}，使用需求的5%作为替代`
+      `期 ${periodIndex + 1} 的std_dev非法: ${stdDev}，使用需求的${MPS_CALCULATION.DEFAULT_STD_DEV_RATIO * 100}%作为替代`
     );
-    value = demandForecast * 0.05;
+    value = demandForecast * MPS_CALCULATION.DEFAULT_STD_DEV_RATIO;
     isModified = true;
     return { value, warnings, isModified };
   }

@@ -397,12 +397,12 @@ const NewStep4: React.FC = () => {
                     <div>
                       <div className="flex justify-between text-xs text-gray-600 mb-1">
                         <span>需求预测结果</span>
-                        <span>{period2Demand} ({((period2Demand / forecastQuantity) * 100).toFixed(1)}%)</span>
+                        <span>{period2Demand} ({forecastQuantity > 0 ? ((period2Demand / forecastQuantity) * 100).toFixed(1) : '0.0'}%)</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-6 overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white"
-                          style={{ width: `${(period2Demand / forecastQuantity) * 100}%` }}
+                          style={{ width: `${forecastQuantity > 0 ? (period2Demand / forecastQuantity) * 100 : 0}%` }}
                         >
                           需求预测 {period2Demand}
                         </div>
@@ -413,12 +413,12 @@ const NewStep4: React.FC = () => {
                     <div>
                       <div className="flex justify-between text-xs text-gray-600 mb-1">
                         <span>安全库存（应对不确定性）</span>
-                        <span>{safetyStock} ({((safetyStock / forecastQuantity) * 100).toFixed(1)}%)</span>
+                        <span>{safetyStock} ({forecastQuantity > 0 ? ((safetyStock / forecastQuantity) * 100).toFixed(1) : '0.0'}%)</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-6 overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-amber-500 to-orange-600 flex items-center justify-center text-xs font-bold text-white"
-                          style={{ width: `${(safetyStock / forecastQuantity) * 100}%` }}
+                          style={{ width: `${forecastQuantity > 0 ? (safetyStock / forecastQuantity) * 100 : 0}%` }}
                         >
                           安全库存 {safetyStock}
                         </div>
