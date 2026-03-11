@@ -108,10 +108,7 @@ test.describe("@shiyan model training api", () => {
 
     expect(response.status()).toBe(400);
     expect(await readJson(response)).toMatchObject({
-      error: {
-        name: "ZodError",
-        message: expect.stringContaining("训练起始索引必须小于等于训练结束索引"),
-      },
+      error: "训练起始索引必须小于等于训练结束索引",
     });
   });
 
@@ -223,7 +220,9 @@ test.describe("@shiyan model training api", () => {
       `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
       {
         headers: authHeaders(studentToken),
-        data: buildMinimalTrainingBody(experiment.experiment_id),
+        data: buildMinimalTrainingBody(experiment.experiment_id, {
+          moving_average_window: 6,
+        }),
       },
     );
 
@@ -253,7 +252,7 @@ test.describe("@shiyan model training api", () => {
 
     expect(response.status()).toBe(400);
     expect(await readJson(response)).toMatchObject({
-      error: "Weighted Average requires at least 2 base models.",
+      error: "融合模型至少需要选择两个有效且不重复的基础模型",
     });
   });
 
@@ -276,7 +275,9 @@ test.describe("@shiyan model training api", () => {
       `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
       {
         headers: authHeaders(studentToken),
-        data: buildMinimalTrainingBody(experiment.experiment_id),
+        data: buildMinimalTrainingBody(experiment.experiment_id, {
+          moving_average_window: 6,
+        }),
       },
     );
 
@@ -304,7 +305,9 @@ test.describe("@shiyan model training api", () => {
       `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
       {
         headers: authHeaders(studentToken),
-        data: buildMinimalTrainingBody(experiment.experiment_id),
+        data: buildMinimalTrainingBody(experiment.experiment_id, {
+          moving_average_window: 6,
+        }),
       },
     );
 
@@ -382,10 +385,7 @@ test.describe("@shiyan model training api", () => {
 
     expect(response.status()).toBe(400);
     expect(await readJson(response)).toMatchObject({
-      error: {
-        name: "ZodError",
-        message: expect.stringContaining("评估起始索引必须小于等于评估结束索引"),
-      },
+      error: "评估起始索引必须小于等于评估结束索引",
     });
   });
 
@@ -411,7 +411,9 @@ test.describe("@shiyan model training api", () => {
       `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
       {
         headers: authHeaders(studentToken),
-        data: buildMinimalTrainingBody(experiment.experiment_id),
+        data: buildMinimalTrainingBody(experiment.experiment_id, {
+          moving_average_window: 6,
+        }),
       },
     );
 
@@ -443,7 +445,9 @@ test.describe("@shiyan model training api", () => {
       `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
       {
         headers: authHeaders(studentToken),
-        data: buildMinimalTrainingBody(experiment.experiment_id),
+        data: buildMinimalTrainingBody(experiment.experiment_id, {
+          moving_average_window: 6,
+        }),
       },
     );
 
