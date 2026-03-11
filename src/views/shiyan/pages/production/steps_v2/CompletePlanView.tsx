@@ -260,7 +260,7 @@ const CompletePlanView: React.FC = () => {
           <div className="bg-white border-2 border-blue-200 rounded-lg p-5">
             <h4 className="font-semibold text-gray-800 mb-3">(1) 第二个月的成功案例</h4>
             <p className="text-sm text-gray-700 mb-3">
-              在第二个月中，我们运用前几步中学到的公式和逻辑，成功制定了第二个月的生产计划。这一步不仅为奠定了坚实的基础，也为未来的生产计划提供了一个清晰的模板。
+              在第二个月中，我们运用前几步中学到的公式和逻辑，成功制定了第二个月的生产计划。这一步不仅为我们奠定了坚实的基础，也为未来的生产计划提供了一个清晰的模板。
             </p>
             <div className="bg-green-50 border border-green-300 rounded-lg p-4">
               <div className="text-sm text-green-800 space-y-2">
