@@ -256,15 +256,20 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
             title={`评阅报告 - ${report?.full_name || ''}`}
             open={open}
             onCancel={onClose}
-            width={1000}
+            width="calc(100vw - 48px)"
             footer={null}
-            styles={{ body: { padding: 0 } }}
+            style={{ top: 24, paddingBottom: 24, maxWidth: '1600px' }}
+            styles={{
+                header: { padding: '16px 24px', marginBottom: 0, borderBottom: '1px solid #f0f0f0' },
+                content: { height: 'calc(100vh - 48px)', padding: 0 },
+                body: { padding: 0, height: 'calc(100vh - 105px)', overflow: 'hidden' }
+            }}
         >
-            <Row>
+            <Row style={{ height: '100%' }}>
                 {/* Left side - PDF Preview */}
-                <Col span={16} style={{ padding: 24, borderRight: '1px solid #f0f0f0' }}>
+                <Col span={16} style={{ height: '100%', padding: 24, borderRight: '1px solid #f0f0f0' }}>
                     {pdfFilePath && !isPreviewLoadError ? (
-                        <div style={{ height: 700, background: '#f5f5f5', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
+                        <div style={{ height: '100%', background: '#f5f5f5', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
                             <iframe
                                 src={pdfPreviewUrl ?? undefined}
                                 title="report-preview"
@@ -273,7 +278,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                             />
                         </div>
                     ) : pdfFilePath ? (
-                        <div style={{ height: 700, background: '#f5f5f5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ height: '100%', background: '#f5f5f5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <div style={{ textAlign: 'center', color: '#999' }}>
                                 <FileTextOutlined style={{ fontSize: 48, marginBottom: 16 }} />
                                 <p>PDF 加载失败</p>
@@ -291,7 +296,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                             </div>
                         </div>
                     ) : (
-                        <div style={{ height: 700, background: '#f5f5f5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ height: '100%', background: '#f5f5f5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <div style={{ textAlign: 'center', color: '#999' }}>
                                 <FileTextOutlined style={{ fontSize: 48, marginBottom: 16 }} />
                                 <p>该报告没有可预览的文件</p>
@@ -301,7 +306,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                 </Col>
 
                 {/* Right side - Review Form */}
-                <Col span={8} style={{ padding: 24, background: '#fafafa', maxHeight: 700, overflowY: 'auto' }}>
+                <Col span={8} style={{ height: '100%', padding: 24, background: '#fafafa', overflowY: 'auto' }}>
                     {/* Rejected Status */}
                     {report.status === 'rejected' ? (
                         <div style={{ textAlign: 'center', padding: '40px 0' }}>
