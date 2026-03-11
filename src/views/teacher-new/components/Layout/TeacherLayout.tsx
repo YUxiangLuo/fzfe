@@ -101,6 +101,9 @@ const TeacherLayout: React.FC = () => {
         ? getRoleByBackendValue(currentUser.role)?.displayName ?? currentUser.role
         : null;
 
+    const portalTitle = currentRoleId === 'assistant' ? '助教端' : '教师端';
+    const collapsedPortalTitle = currentRoleId === 'assistant' ? '助' : '教';
+
     // Menu items with nested structure - filtered by role
     const menuItems = React.useMemo<MenuItemType[]>(() => {
         const items: MenuItemType[] = [
@@ -254,8 +257,8 @@ const TeacherLayout: React.FC = () => {
                     justifyContent: 'center',
                     borderBottom: '1px solid #f0f0f0'
                 }}>
-                    {!collapsed && <Title level={4} style={{ margin: 0, color: '#1890ff' }}>Teacher Portal</Title>}
-                    {collapsed && <Title level={4} style={{ margin: 0, color: '#1890ff' }}>T</Title>}
+                    {!collapsed && <Title level={4} style={{ margin: 0, color: '#1890ff' }}>{portalTitle}</Title>}
+                    {collapsed && <Title level={4} style={{ margin: 0, color: '#1890ff' }}>{collapsedPortalTitle}</Title>}
                 </div>
                 <Menu
                     theme="light"

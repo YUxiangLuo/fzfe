@@ -144,8 +144,8 @@ const AdminLayout: React.FC = () => {
             }}>
                 <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0' }}>
                     {/* Logo area, can be added later */}
-                    {!collapsed && <Title level={4} style={{ margin: 0, color: '#1890ff' }}>Admin Portal</Title>}
-                    {collapsed && <Title level={4} style={{ margin: 0, color: '#1890ff' }}>A</Title>}
+                    {!collapsed && <Title level={4} style={{ margin: 0, color: '#1890ff' }}>管理员端</Title>}
+                    {collapsed && <Title level={4} style={{ margin: 0, color: '#1890ff' }}>管</Title>}
                 </div>
                 <Menu
                     theme="light"
