@@ -288,6 +288,21 @@ export async function completeBaseModelIntroAndSelectTwo(page: Page) {
   await expectHashPath(page, "/model/model-select");
 }
 
+export async function completeBaseModelIntroAndSelectMAAndLSTM(page: Page) {
+  for (let i = 0; i < 4; i += 1) {
+    await clickLastEnabledButton(page, /下一个模型|选择基础模型/);
+  }
+
+  await expect(
+    page.getByText("选择基础模型", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("checkbox", { name: "移动平均法" }).check();
+  await page.getByRole("checkbox", { name: "LSTM模型" }).check();
+
+  await clickLastEnabledButton(page, "下一步");
+  await expectHashPath(page, "/model/model-select");
+}
+
 // ── Individual base models ─────────────────────────────────────────
 
 export async function completeMovingAverage(page: Page) {
@@ -496,6 +511,44 @@ export async function completeWeightedEnsemble(page: Page) {
   await expectHashPath(page, "/model/weighted-ensemble/results");
   await expect(page.getByText("加权平均融合 - 计算结果")).toBeVisible({
     timeout: 180_000,
+  });
+  await clickLastEnabledButton(page, "下一步");
+
+  await expectHashPath(page, "/model/weighted-ensemble/prediction-comparison");
+  await expect(
+    page
+      .getByRole("heading", { name: "加权平均融合 - 预测结果" })
+      .first(),
+  ).toBeVisible();
+  await clickLastEnabledButton(page, "下一步");
+
+  await expectHashPath(
+    page,
+    "/model/weighted-ensemble/model-metrics-comparison",
+  );
+  await expect(page.getByText("模型指标对比")).toBeVisible();
+  await clickLastEnabledButton(page, "完成");
+  await expectHashPath(page, "/model/ensemble-select");
+}
+
+export async function completeWeightedEnsembleWithLSTM(page: Page) {
+  await page
+    .locator("div.cursor-pointer")
+    .filter({ hasText: "加权平均融合" })
+    .first()
+    .click();
+
+  await expectHashPath(page, "/model/weighted-ensemble/intro");
+  await clickLastEnabledButton(page, "下一步");
+
+  await expectHashPath(page, "/model/weighted-ensemble/select-models");
+  await page.getByRole("checkbox", { name: "移动平均法" }).check();
+  await page.getByRole("checkbox", { name: "LSTM模型" }).check();
+  await clickLastEnabledButton(page, "下一步");
+
+  await expectHashPath(page, "/model/weighted-ensemble/results");
+  await expect(page.getByText("加权平均融合 - 计算结果")).toBeVisible({
+    timeout: 300_000,
   });
   await clickLastEnabledButton(page, "下一步");
 
