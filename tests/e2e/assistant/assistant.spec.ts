@@ -8,11 +8,14 @@
  * - Personal info management
  */
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type APIResponse, type Page } from "@playwright/test";
 import {
   // Generators
+  buildCsv,
+  makeRunId,
   makePhone,
   makeLetters,
+  makeStudentNo,
   // Navigation
   openTopLevelPage,
   openSubMenuPage,
@@ -53,10 +56,180 @@ import {
   ModalTitles,
 } from "../helpers";
 
+const BACKEND_PORT = process.env.E2E_BACKEND_PORT ?? "54103";
+const BACKEND_ORIGIN = process.env.E2E_BACKEND_ORIGIN ?? `http://127.0.0.1:${BACKEND_PORT}`;
+
+interface CurrentUser {
+  user_id: number;
+  username: string;
+  full_name: string;
+  email: string;
+  phone_number: string | null;
+  role: string;
+  created_at: string;
+}
+
+interface ManagedClassRecord {
+  class_id: number;
+  class_name: string;
+  class_code: string | null;
+}
+
+interface CsvUploadPart {
+  name: string;
+  mimeType: string;
+  buffer: Buffer;
+}
+
+interface TempStudentSeed {
+  studentId: string;
+  fullName: string;
+  upload: CsvUploadPart;
+}
+
 // ===== Setup =====
 
 async function loginAsAssistant(page: Page, password = ACCOUNTS.assistant.password): Promise<void> {
   await loginAs(page, { username: ACCOUNTS.assistant.username, password, role: "assistant" });
+}
+
+async function loginViaApi(page: Page, username: string, password: string): Promise<string> {
+  const response = await page.request.post(`${BACKEND_ORIGIN}/api/v1/sessions`, {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    data: {
+      username,
+      password,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const payload = unwrapDataEnvelope<{ token: string }>(await response.json());
+  expect(payload.token).toBeTruthy();
+  return payload.token;
+}
+
+async function getPageToken(page: Page): Promise<string> {
+  const token = await page.evaluate(() => localStorage.getItem("token"));
+  expect(token).not.toBeNull();
+  return token!;
+}
+
+async function getCurrentUser(page: Page): Promise<CurrentUser> {
+  const token = await getPageToken(page);
+  const response = await page.request.get(`${BACKEND_ORIGIN}/api/v1/users/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  return unwrapDataEnvelope<CurrentUser>(await response.json());
+}
+
+async function createClassViaTeacherApi(
+  page: Page,
+  teacherToken: string,
+  className: string,
+  classCode: string,
+  studentCsv?: CsvUploadPart,
+): Promise<ManagedClassRecord> {
+  const multipart: Record<string, string | CsvUploadPart> = {
+    class_name: className,
+    class_code: classCode,
+  };
+  if (studentCsv) {
+    multipart.student_list = studentCsv;
+  }
+
+  const response = await page.request.post(`${BACKEND_ORIGIN}/api/v1/classes`, {
+    headers: {
+      Authorization: `Bearer ${teacherToken}`,
+    },
+    multipart,
+  });
+  expect(response.ok()).toBeTruthy();
+  const payload = unwrapDataEnvelope<{ class: ManagedClassRecord }>(await response.json());
+  expect(payload.class).toBeDefined();
+  return payload.class;
+}
+
+async function assignAssistantToClassViaTeacherApi(
+  page: Page,
+  teacherToken: string,
+  classId: number,
+  assistantId: number,
+): Promise<APIResponse> {
+  return page.request.post(`${BACKEND_ORIGIN}/api/v1/classes/${classId}/assistants`, {
+    headers: {
+      Authorization: `Bearer ${teacherToken}`,
+      "Content-Type": "application/json",
+    },
+    data: {
+      assistant_id: assistantId,
+    },
+  });
+}
+
+async function deleteClassViaTeacherApi(
+  page: Page,
+  teacherToken: string,
+  classId: number,
+): Promise<APIResponse> {
+  return page.request.delete(`${BACKEND_ORIGIN}/api/v1/classes/${classId}`, {
+    headers: {
+      Authorization: `Bearer ${teacherToken}`,
+    },
+  });
+}
+
+function buildTempStudentSeed(prefix: string): TempStudentSeed {
+  const studentId = makeStudentNo(Math.floor(Math.random() * 10_000));
+  const fullName = `${prefix}${studentId.slice(-4)}`;
+  return {
+    studentId,
+    fullName,
+    upload: {
+      name: `${studentId}.csv`,
+      mimeType: "text/csv",
+      buffer: buildCsv([
+        ["学号", "姓名"],
+        [studentId, fullName],
+      ]),
+    },
+  };
+}
+
+async function createAssistantTempClass(
+  page: Page,
+  prefix: string,
+  options?: { withStudent?: boolean },
+): Promise<{ teacherToken: string; classRecord: ManagedClassRecord; tempStudent?: TempStudentSeed }> {
+  const assistant = await getCurrentUser(page);
+  const teacherToken = await loginViaApi(page, ACCOUNTS.teacher.username, ACCOUNTS.teacher.password);
+  const tempStudent = options?.withStudent ? buildTempStudentSeed("助教临时学生") : undefined;
+  const classRecord = await createClassViaTeacherApi(
+    page,
+    teacherToken,
+    makeRunId(prefix),
+    `AUX${Date.now()}`,
+    tempStudent?.upload,
+  );
+  const assignResponse = await assignAssistantToClassViaTeacherApi(page, teacherToken, classRecord.class_id, assistant.user_id);
+  expect(assignResponse.ok()).toBeTruthy();
+  return { teacherToken, classRecord, tempStudent };
+}
+
+async function selectClassFromTopFilter(page: Page, className: string): Promise<void> {
+  const classSelect = page.locator(".ant-select").first();
+  await classSelect.click();
+  const dropdown = page.locator(".ant-select-dropdown").last();
+  await expect(dropdown).toBeVisible();
+  const option = dropdown
+    .locator(".ant-select-item-option")
+    .filter({ hasText: className })
+    .first();
+  await option.scrollIntoViewIfNeeded();
+  await option.click();
 }
 
 // ===== Test Suite =====
@@ -181,87 +354,108 @@ test.describe("@assistant 实验报告", () => {
 
   test("导出 CSV 失败提示", async ({ page }) => {
     await loginAsAssistant(page);
-    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+    const { teacherToken, classRecord } = await createAssistantTempClass(page, "Assistant导出CSV失效班级", { withStudent: true });
 
-    await page.route("**/api/v1/classes/*/report-export.csv", async (route) => {
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "模拟 CSV 导出失败" }),
-      });
-    });
+    try {
+      await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+      const reportsResponsePromise = page.waitForResponse(
+        (r) => r.request().method() === "GET" && r.url().includes(`/api/v1/classes/${classRecord.class_id}/reports`),
+      );
+      await selectClassFromTopFilter(page, classRecord.class_name);
+      expect((await reportsResponsePromise).ok()).toBeTruthy();
 
-    await page.getByRole(ExperimentReportSelectors.exportCsvBtn.role, { name: ExperimentReportSelectors.exportCsvBtn.name }).click();
-    await expectErrorMessage(page, "模拟 CSV 导出失败");
-    await page.unroute("**/api/v1/classes/*/report-export.csv");
+      const exportCsvButton = page.getByRole(ExperimentReportSelectors.exportCsvBtn.role, { name: ExperimentReportSelectors.exportCsvBtn.name });
+      await expect(exportCsvButton).toBeEnabled();
+
+      const deleteResponse = await deleteClassViaTeacherApi(page, teacherToken, classRecord.class_id);
+      expect(deleteResponse.ok()).toBeTruthy();
+
+      await exportCsvButton.click();
+      await expectErrorMessage(page, "班级不存在");
+    } finally {
+      const deleteResponse = await deleteClassViaTeacherApi(page, teacherToken, classRecord.class_id);
+      expect([200, 404]).toContain(deleteResponse.status());
+    }
   });
 
   test("导出所有报告失败提示", async ({ page }) => {
     await loginAsAssistant(page);
-    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+    const { teacherToken, classRecord } = await createAssistantTempClass(page, "Assistant导出归档空班级", { withStudent: true });
 
-    await page.route("**/api/v1/classes/*/report-archive", async (route) => {
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "模拟报告归档导出失败" }),
-      });
-    });
+    try {
+      await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+      const reportsResponsePromise = page.waitForResponse(
+        (r) => r.request().method() === "GET" && r.url().includes(`/api/v1/classes/${classRecord.class_id}/reports`),
+      );
+      await selectClassFromTopFilter(page, classRecord.class_name);
+      expect((await reportsResponsePromise).ok()).toBeTruthy();
 
-    await page.getByRole(ExperimentReportSelectors.exportAllBtn.role, { name: ExperimentReportSelectors.exportAllBtn.name }).click();
-    await expectErrorMessage(page, "模拟报告归档导出失败");
-    await page.unroute("**/api/v1/classes/*/report-archive");
+      const exportAllButton = page.getByRole(ExperimentReportSelectors.exportAllBtn.role, { name: ExperimentReportSelectors.exportAllBtn.name });
+      await expect(exportAllButton).toBeEnabled();
+      await exportAllButton.click();
+
+      await expectErrorMessage(page, "未找到该班级的有效报告");
+    } finally {
+      const deleteResponse = await deleteClassViaTeacherApi(page, teacherToken, classRecord.class_id);
+      expect([200, 404]).toContain(deleteResponse.status());
+    }
   });
 
   test("报告数据空态显示暂无数据", async ({ page }) => {
     await loginAsAssistant(page);
+    const { teacherToken, classRecord } = await createAssistantTempClass(page, "Assistant空报告班级");
 
-    await page.route("**/api/v1/classes/*/reports", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: [] }),
-      });
-    });
-
-    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
-    await expect(page.getByText("暂无数据")).toBeVisible();
-
-    await page.unroute("**/api/v1/classes/*/reports");
+    try {
+      await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+      const reportsResponsePromise = page.waitForResponse(
+        (r) => r.request().method() === "GET" && r.url().includes(`/api/v1/classes/${classRecord.class_id}/reports`),
+      );
+      await selectClassFromTopFilter(page, classRecord.class_name);
+      expect((await reportsResponsePromise).ok()).toBeTruthy();
+      await expect(page.getByText("暂无数据")).toBeVisible();
+    } finally {
+      const deleteResponse = await deleteClassViaTeacherApi(page, teacherToken, classRecord.class_id);
+      expect(deleteResponse.ok()).toBeTruthy();
+    }
   });
 
   test("获取报告数据失败提示", async ({ page }) => {
     await loginAsAssistant(page);
+    const { teacherToken, classRecord } = await createAssistantTempClass(page, "Assistant失效报告班级");
 
-    await page.route("**/api/v1/classes/*/reports", async (route) => {
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "模拟获取报告数据失败" }),
-      });
-    });
+    try {
+      const classListPromise = page.waitForResponse(
+        (r) => r.request().method() === "GET" && /\/api\/v1\/assistants\/\d+\/classes$/.test(r.url()),
+      );
+      await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+      expect((await classListPromise).ok()).toBeTruthy();
 
-    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
-    await expect(page.locator(CommonSelectors.alertMessage).filter({ hasText: "模拟获取报告数据失败" })).toBeVisible();
-    await page.unroute("**/api/v1/classes/*/reports");
+      const deleteResponse = await deleteClassViaTeacherApi(page, teacherToken, classRecord.class_id);
+      expect(deleteResponse.ok()).toBeTruthy();
+
+      const reportsResponsePromise = page.waitForResponse(
+        (r) => r.request().method() === "GET" && r.url().includes(`/api/v1/classes/${classRecord.class_id}/reports`),
+      );
+      await selectClassFromTopFilter(page, classRecord.class_name);
+      expect((await reportsResponsePromise).status()).toBe(404);
+      await expect(page.locator(CommonSelectors.alertMessage).filter({ hasText: "班级不存在" })).toBeVisible();
+    } finally {
+      const deleteResponse = await deleteClassViaTeacherApi(page, teacherToken, classRecord.class_id);
+      expect([200, 404]).toContain(deleteResponse.status());
+    }
   });
 });
 
 test.describe("@assistant 考核管理", () => {
   test("题库获取失败提示", async ({ page }) => {
     await loginAsAssistant(page);
-
-    await page.route("**/api/v1/question-bank/questions", async (route) => {
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "模拟获取题库失败" }),
-      });
-    });
+    const studentToken = await loginViaApi(page, ACCOUNTS.student.username, ACCOUNTS.student.password);
+    await page.evaluate((token) => {
+      localStorage.setItem("token", token);
+    }, studentToken);
 
     await openSubMenuPage(page, "考核管理", "题库管理", "题库管理");
-    await expect(page.locator(CommonSelectors.alertMessage).filter({ hasText: "模拟获取题库失败" })).toBeVisible();
-    await page.unroute("**/api/v1/question-bank/questions");
+    await expect(page.locator(CommonSelectors.alertMessage).filter({ hasText: "权限不足" })).toBeVisible();
   });
 
   test("题库删除失败提示", async ({ page }) => {
@@ -271,25 +465,12 @@ test.describe("@assistant 考核管理", () => {
     const questionRow = page.locator(CommonSelectors.tableRow).nth(1);
     await expect(questionRow).toBeVisible();
 
-    await page.route("**/api/v1/question-bank/questions/*", async (route) => {
-      if (route.request().method() === "DELETE") {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "模拟删除题目失败" }),
-        });
-        return;
-      }
-      await route.continue();
-    });
-
     await questionRow.getByRole(QuestionBankSelectors.deleteBtn.role).nth(2).click();
     const deletePopover = page.locator(".ant-popover").filter({ hasText: "确定删除该题目？" }).last();
     await expect(deletePopover).toBeVisible();
     await deletePopover.getByRole("button", { name: /确\s*定/ }).click();
 
-    await expectErrorMessage(page, "模拟删除题目失败");
-    await page.unroute("**/api/v1/question-bank/questions/*");
+    await expectErrorMessage(page, "权限不足");
   });
 
   test("题库保存失败提示", async ({ page }) => {
@@ -299,26 +480,13 @@ test.describe("@assistant 考核管理", () => {
     const questionRow = page.locator(CommonSelectors.tableRow).nth(1);
     await expect(questionRow).toBeVisible();
 
-    await page.route("**/api/v1/question-bank/questions/*", async (route) => {
-      if (route.request().method() === "PUT") {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "模拟保存题目失败" }),
-        });
-        return;
-      }
-      await route.continue();
-    });
-
     await questionRow.getByRole(QuestionBankSelectors.editBtn.role).nth(1).click();
     const editorModal = await getVisibleModal(page, "编辑题目");
     await fillFormField(editorModal, QuestionBankSelectors.questionTextInput, `Assistant编辑失败题目${Date.now()}`);
     await editorModal.getByRole("button", { name: /保\s*存/ }).click();
 
-    await expectErrorMessage(page, "模拟保存题目失败");
+    await expectErrorMessage(page, "权限不足");
     await expect(editorModal).toBeVisible();
-    await page.unroute("**/api/v1/question-bank/questions/*");
     await editorModal.getByRole("button", { name: /取\s*消/ }).click();
   });
 
@@ -496,33 +664,23 @@ test.describe("@assistant 考核管理", () => {
 
   test("成绩总览导出失败提示", async ({ page }) => {
     await loginAsAssistant(page);
-    await openSubMenuPage(page, "考核管理", "成绩总览", "成绩总览");
+    const { teacherToken, classRecord } = await createAssistantTempClass(page, "Assistant空成绩班级");
 
-    const classCard = page
-      .locator(CommonSelectors.card)
-      .filter({ hasText: TEST_DATA.defaultClassName })
-      .filter({ hasText: GradeOverviewSelectors.classCardClickHint })
-      .first();
-    await expect(classCard).toBeVisible();
+    try {
+      await openSubMenuPage(page, "考核管理", "成绩总览", "成绩总览");
+      const detailPromise = page.waitForResponse(
+        (r) => r.request().method() === "GET" && r.url().includes(`/api/v1/classes/${classRecord.class_id}/grade-summaries`),
+      );
+      await selectClassFromTopFilter(page, classRecord.class_name);
+      expect((await detailPromise).ok()).toBeTruthy();
 
-    const detailPromise = page.waitForResponse(
-      (r) => r.request().method() === "GET" && API.classGradeSummaries.test(r.url()),
-    );
-    await classCard.click();
-    expect((await detailPromise).ok()).toBeTruthy();
-
-    await page.route("**/api/v1/classes/*/grade-export.csv", async (route) => {
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "导出服务暂时不可用" }),
-      });
-    });
-
-    await page.getByRole(GradeOverviewSelectors.exportBtn.role, { name: GradeOverviewSelectors.exportBtn.name }).click();
-    await expectErrorMessage(page, "导出服务暂时不可用");
-    await expect(page.locator(CommonSelectors.alertMessage).filter({ hasText: "导出服务暂时不可用" })).toBeVisible();
-    await page.unroute("**/api/v1/classes/*/grade-export.csv");
+      await page.getByRole(GradeOverviewSelectors.exportBtn.role, { name: GradeOverviewSelectors.exportBtn.name }).click();
+      await expectErrorMessage(page, "该班级未找到已加入的学生");
+      await expect(page.locator(CommonSelectors.alertMessage).filter({ hasText: "该班级未找到已加入的学生" })).toBeVisible();
+    } finally {
+      const deleteResponse = await deleteClassViaTeacherApi(page, teacherToken, classRecord.class_id);
+      expect(deleteResponse.ok()).toBeTruthy();
+    }
   });
 
   test("成绩总览全部班级隐藏导出按钮", async ({ page }) => {
@@ -539,26 +697,39 @@ test.describe("@assistant 考核管理", () => {
 
   test("成绩总览获取失败提示", async ({ page }) => {
     await loginAsAssistant(page);
-    await openSubMenuPage(page, "考核管理", "成绩总览", "成绩总览");
+    const { teacherToken, classRecord } = await createAssistantTempClass(page, "Assistant失效成绩班级");
 
-    const classCard = page
-      .locator(CommonSelectors.card)
-      .filter({ hasText: TEST_DATA.defaultClassName })
-      .filter({ hasText: GradeOverviewSelectors.classCardClickHint })
-      .first();
-    await expect(classCard).toBeVisible();
+    try {
+      const classListPromise = page.waitForResponse(
+        (r) => r.request().method() === "GET" && /\/api\/v1\/assistants\/\d+\/classes$/.test(r.url()),
+      );
+      const summaryPromise = page.waitForResponse(
+        (r) => r.request().method() === "GET" && API.assistantGradeSummaries.test(r.url()),
+      );
+      await openSubMenuPage(page, "考核管理", "成绩总览", "成绩总览");
+      expect((await classListPromise).ok()).toBeTruthy();
+      expect((await summaryPromise).ok()).toBeTruthy();
 
-    await page.route("**/api/v1/classes/*/grade-summaries", async (route) => {
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "模拟获取成绩数据失败" }),
-      });
-    });
+      const classCard = page
+        .locator(CommonSelectors.card)
+        .filter({ hasText: classRecord.class_name })
+        .filter({ hasText: GradeOverviewSelectors.classCardClickHint })
+        .first();
+      await expect(classCard).toBeVisible();
 
-    await classCard.click();
-    await expect(page.locator(CommonSelectors.alertMessage).filter({ hasText: "模拟获取成绩数据失败" })).toBeVisible();
-    await page.unroute("**/api/v1/classes/*/grade-summaries");
+      const deleteResponse = await deleteClassViaTeacherApi(page, teacherToken, classRecord.class_id);
+      expect(deleteResponse.ok()).toBeTruthy();
+
+      const detailResponsePromise = page.waitForResponse(
+        (r) => r.request().method() === "GET" && r.url().includes(`/api/v1/classes/${classRecord.class_id}/grade-summaries`),
+      );
+      await classCard.click();
+      expect((await detailResponsePromise).status()).toBe(404);
+      await expect(page.locator(CommonSelectors.alertMessage).filter({ hasText: "班级不存在" })).toBeVisible();
+    } finally {
+      const deleteResponse = await deleteClassViaTeacherApi(page, teacherToken, classRecord.class_id);
+      expect([200, 404]).toContain(deleteResponse.status());
+    }
   });
 });
 
