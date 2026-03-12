@@ -67,7 +67,7 @@ describe("buildInitialProductionPlanState", () => {
     expect(state.isFullPlanGenerated).toBe(true);
     expect(state.capacityMode).toBe("custom");
     expect(state.capacityScenario).toBe("abundant");
-    expect(state.productionCapacity).toBe(300);
+    expect(state.productionCapacity).toBe(280);
     expect(state.customCapacity).toBe(280);
     expect(state.hasSavedToGlobal).toBe(true);
   });
@@ -87,5 +87,21 @@ describe("buildInitialProductionPlanState", () => {
     expect(state.isFullPlanGenerated).toBe(false);
     expect(state.productionCapacity).toBe(130);
     expect(state.hasSavedToGlobal).toBe(false);
+  });
+
+  it("ignores persisted custom capacity when the saved mode is not custom", () => {
+    const state = buildInitialProductionPlanState({
+      avgDemand: 100,
+      persistedState: {
+        ...buildInitialState(),
+        production_capacity_mode: "scenario",
+        production_capacity: 180,
+        production_custom_capacity: 260,
+      },
+    });
+
+    expect(state.capacityMode).toBe("scenario");
+    expect(state.productionCapacity).toBe(180);
+    expect(state.customCapacity).toBeNull();
   });
 });

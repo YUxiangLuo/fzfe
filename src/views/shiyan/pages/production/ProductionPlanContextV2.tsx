@@ -218,9 +218,12 @@ export const buildInitialProductionPlanState = ({
   const completedSteps = hasPersistedPlan ? [1, 2, 3, 4, 5] : [];
   const currentStep = hasPersistedPlan ? 5 : 1;
   const capacityMode = persistedState?.production_capacity_mode ?? 'scenario';
-  const productionCapacity = persistedState?.production_capacity
-    ?? persistedState?.production_custom_capacity
-    ?? defaultCapacity;
+  const productionCapacity = capacityMode === 'custom'
+    ? (persistedState?.production_custom_capacity
+        ?? persistedState?.production_capacity
+        ?? defaultCapacity)
+    : (persistedState?.production_capacity
+        ?? defaultCapacity);
   const forecastPeriods = persistedState?.production_forecast_periods
     ?? (hasPersistedPlan ? persistedMpsTable.length : DEFAULT_PARAMETERS.forecastPeriods);
 
@@ -240,7 +243,7 @@ export const buildInitialProductionPlanState = ({
     productionCapacity,
     customCapacity: capacityMode === 'custom'
       ? (persistedState?.production_custom_capacity ?? productionCapacity)
-      : (persistedState?.production_custom_capacity ?? null),
+      : null,
 
     // 初始估算值（用于默认显示和 fallback 计算）
     avgDemand: defaultAvgDemand,
