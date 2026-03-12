@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Button, Typography, Avatar, Dropdown, Modal, Spin } from 'antd';
+import type { MenuProps } from 'antd';
 import {
     BookOutlined,
     DatabaseOutlined,
@@ -9,51 +10,36 @@ import {
     MenuUnfoldOutlined,
     MenuFoldOutlined,
 } from '@ant-design/icons';
-import ExperimentManualView from './ExperimentManual';
-import ExperimentDataView from './ExperimentData';
-import UserManagement from './UserManagement';
-import ClassManagement from './ClassManagement';
-import { decodeToken, type DecodedToken } from '../../../utils/auth';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import type { DecodedToken } from '../../../utils/auth';
 import { getRoleByBackendValue } from '../../../config/roles';
+import {
+    clearSessionAndRedirect,
+    getSessionUser,
+    hasSessionRole,
+    isSessionExpired,
+} from '../../../utils/session';
+import { ADMIN_DEFAULT_ROUTE, ADMIN_ROUTES } from '../routes';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
 
 const AdminLayout: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
-    const [activeView, setActiveView] = useState('experiment-data');
     const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
     const [isAuthorizing, setIsAuthorizing] = useState(true);
+    const location = useLocation();
+    const navigate = useNavigate();
 
     useEffect(() => {
-        const redirectToLogin = () => {
-            window.location.href = '/login.html';
-        };
-
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                redirectToLogin();
-                return;
-            }
-
-            const decoded = decodeToken(token);
-            if (!decoded || (decoded.role ?? '').toLowerCase() !== 'admin') {
-                redirectToLogin();
-                return;
-            }
-
-            if (decoded.exp && decoded.exp * 1000 < Date.now()) {
-                redirectToLogin();
-                return;
-            }
-
-            setCurrentUser(decoded);
-            setIsAuthorizing(false);
-        } catch (err) {
-            console.error('Failed to read token from localStorage:', err);
-            redirectToLogin();
+        const user = getSessionUser();
+        if (!user || isSessionExpired(user) || !hasSessionRole(user, ['admin'])) {
+            clearSessionAndRedirect();
+            return;
         }
+
+        setCurrentUser(user);
+        setIsAuthorizing(false);
     }, []);
 
     if (isAuthorizing) {
@@ -72,12 +58,7 @@ const AdminLayout: React.FC = () => {
             okType: 'danger',
             cancelText: '取消',
             onOk: () => {
-                try {
-                    localStorage.removeItem('token');
-                } catch (err) {
-                    console.error('Failed to remove token from localStorage:', err);
-                }
-                window.location.href = '/login.html';
+                clearSessionAndRedirect();
             },
         });
     };
@@ -86,43 +67,32 @@ const AdminLayout: React.FC = () => {
         ? getRoleByBackendValue(currentUser.role)?.displayName ?? currentUser.role
         : null;
 
-    const menuItems = [
+    const menuItems: Required<MenuProps>['items'] = [
         {
-            key: 'experiment-manual',
+            key: ADMIN_ROUTES.EXPERIMENT_MANUAL,
             icon: <BookOutlined />,
             label: '实验手册管理',
         },
         {
-            key: 'experiment-data',
+            key: ADMIN_ROUTES.EXPERIMENT_DATA,
             icon: <DatabaseOutlined />,
             label: '实验数据管理',
         },
         {
-            key: 'user-management',
+            key: ADMIN_ROUTES.USER_MANAGEMENT,
             icon: <UserOutlined />,
             label: '用户管理',
         },
         {
-            key: 'class-management',
+            key: ADMIN_ROUTES.CLASS_MANAGEMENT,
             icon: <TeamOutlined />,
             label: '班级管理',
         },
     ];
 
-    const renderContent = () => {
-        switch (activeView) {
-            case 'experiment-manual':
-                return <ExperimentManualView />;
-            case 'experiment-data':
-                return <ExperimentDataView />;
-            case 'user-management':
-                return <UserManagement />;
-            case 'class-management':
-                return <ClassManagement />;
-            default:
-                return <ExperimentDataView />;
-        }
-    };
+    const selectedMenuKey = location.pathname === ADMIN_ROUTES.ROOT
+        ? ADMIN_DEFAULT_ROUTE
+        : location.pathname;
 
     const userMenu = {
         items: [
@@ -150,8 +120,8 @@ const AdminLayout: React.FC = () => {
                 <Menu
                     theme="light"
                     mode="inline"
-                    selectedKeys={[activeView]}
-                    onClick={({ key }) => setActiveView(key)}
+                    selectedKeys={[selectedMenuKey]}
+                    onClick={({ key }) => navigate(String(key))}
                     items={menuItems}
                     style={{ borderRight: 0 }}
                 />
@@ -193,7 +163,7 @@ const AdminLayout: React.FC = () => {
                         overflow: 'auto',
                     }}
                 >
-                    {renderContent()}
+                    <Outlet />
                 </Content>
             </Layout>
         </Layout>

@@ -27,6 +27,7 @@ import { apiClient } from '../../../../utils/apiClient';
 import type { User, Class } from '../../types';
 import { formatDate } from '../../utils/format';
 import { isAbortError, getErrorMessage, isFormValidationError } from '../../utils/error';
+import { listManagedClasses } from '../../utils/portalApi';
 
 const { Title, Text } = Typography;
 
@@ -72,7 +73,7 @@ const PersonalInfo: React.FC = () => {
                 try {
                     setIsClassesLoading(true);
                     setClassesError(null);
-                    const classesData = await apiClient.get(`/teachers/${userData.user_id}/classes`, { signal: controller.signal });
+                    const classesData = await listManagedClasses({ signal: controller.signal });
 
                     if (!controller.signal.aborted) {
                         setManagedClasses(classesData || []);

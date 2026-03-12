@@ -12,6 +12,22 @@ export interface ApiResponse<T> {
   code?: number;
 }
 
+export interface CurrentUserProfile {
+  user_id: number;
+  username: string;
+  full_name: string;
+  email: string;
+  phone_number: string | null;
+  role: string;
+  created_at: string;
+}
+
+export interface ManagedClassRecord {
+  class_id: number;
+  class_name: string;
+  class_code: string | null;
+}
+
 // ===== Teacher/Class Types =====
 
 export interface TeacherClassSummary {
@@ -103,6 +119,18 @@ export interface StudentGradeOverview {
 export interface TestCredentials {
   username: string;
   password: string;
+}
+
+export interface CsvUploadPart {
+  name: string;
+  mimeType: string;
+  buffer: Buffer;
+}
+
+export interface TempStudentSeed {
+  studentId: string;
+  fullName: string;
+  upload: CsvUploadPart;
 }
 
 export interface TestUser {

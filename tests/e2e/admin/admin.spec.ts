@@ -27,12 +27,13 @@ import {
   cancelModal,
   confirmDelete,
   // Assertions
+  expectStoredTokenCleared,
   expectSuccessMessage,
   expectErrorMessage,
-  // Login
-  loginAs,
-  // Fixtures & Constants
-  ACCOUNTS,
+  // Portal
+  expectGuestRedirect,
+  loginAsAdminAccount,
+  togglePortalMenuAndAssert,
   // Selectors
   AdminManualSelectors,
   AdminDatasetSelectors,
@@ -103,11 +104,7 @@ async function waitForAuthedFileResponse(
 // ===== Setup =====
 
 async function loginAsAdmin(page: Page): Promise<void> {
-  await loginAs(page, {
-    username: ACCOUNTS.admin.username,
-    password: ACCOUNTS.admin.password,
-    role: "admin",
-  });
+  await loginAsAdminAccount(page);
 }
 
 // ===== Test Suite =====
@@ -116,24 +113,23 @@ test.describe("@admin 布局与会话", () => {
   test("菜单导航与退出登录", async ({ page }) => {
     await loginAsAdmin(page);
 
-    const menuToggle = page.locator("header button").first();
-    await menuToggle.click();
-    await expect(page.getByRole("heading", { level: 4, name: "A" })).toBeVisible();
-
-    await menuToggle.click();
-    await expect(page.getByRole("heading", { level: 4, name: "Admin Portal" })).toBeVisible();
+    await togglePortalMenuAndAssert(page, "admin");
 
     await openTopLevelPage(page, "实验手册管理", "实验手册管理");
+    await expect(page).toHaveURL(/\/admin\.html#\/experiment-manual$/);
     await openTopLevelPage(page, "实验数据管理", "实验数据管理");
+    await expect(page).toHaveURL(/\/admin\.html#\/experiment-data$/);
     await openTopLevelPage(page, "用户管理", "用户列表");
+    await expect(page).toHaveURL(/\/admin\.html#\/user-management$/);
     await openTopLevelPage(page, "班级管理", "班级管理");
+    await expect(page).toHaveURL(/\/admin\.html#\/class-management$/);
 
     await page.locator(".ant-avatar").first().click();
     await page.getByRole("menuitem", { name: "退出登录" }).click();
 
     const logoutModal = await getVisibleModal(page, ModalTitles.logoutConfirm);
     await cancelModal(logoutModal);
-    await expect(page).toHaveURL(/\/admin\.html$/);
+    await expect(page).toHaveURL(/\/admin\.html(?:#\/[a-z-]+)?$/);
 
     await page.locator(".ant-avatar").first().click();
     await page.getByRole("menuitem", { name: "退出登录" }).click();
@@ -141,8 +137,7 @@ test.describe("@admin 布局与会话", () => {
     await logoutConfirm.getByRole("button", { name: /退\s*出/ }).click();
 
     await expect(page).toHaveURL(/\/login\.html$/);
-    const token = await page.evaluate(() => localStorage.getItem("token"));
-    expect(token).toBeNull();
+    await expectStoredTokenCleared(page);
   });
 });
 
@@ -830,11 +825,11 @@ test.describe("@admin 班级管理", () => {
 test.describe("@admin 认证与边缘测试", () => {
   test("认证守卫：无token或非admin角色重定向", async ({ page }) => {
     // No token → redirect to login
-    await page.goto("/admin.html");
-    await expect(page).toHaveURL(/\/login\.html$/);
+    await expectGuestRedirect(page, "/admin.html");
 
     // Non-admin role token → redirect to login
     const studentToken = buildFakeToken("Student");
+    await page.goto("/login.html");
     await page.evaluate((t) => localStorage.setItem("token", t), studentToken);
     await page.goto("/admin.html");
     await expect(page).toHaveURL(/\/login\.html$/);

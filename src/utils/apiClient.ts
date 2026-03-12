@@ -1,3 +1,8 @@
+import {
+  clearSessionAndRedirect,
+  getStoredToken,
+} from "./session";
+
 export const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 if (!API_BASE_URL) {
@@ -154,8 +159,7 @@ const unwrapSuccessPayload = <T = any>(payload: unknown): T => {
 
 const handleResponse = async <T = any>(response: Response, endpoint: string): Promise<T> => {
   if (response.status === 401 && endpoint !== '/users/me/password') {
-    localStorage.removeItem("token");
-    window.location.href = "/login.html";
+    clearSessionAndRedirect();
     throw new Error("会话已过期，请重新登录");
   }
 
@@ -200,44 +204,12 @@ const handleResponse = async <T = any>(response: Response, endpoint: string): Pr
   return unwrapSuccessPayload<T>(parsedBody) ?? (null as T);
 };
 
-import { decodeToken, type DecodedToken } from './auth';
-
-// Helper to get user info from token
-const getUserInfo = (): DecodedToken | null => {
-  const token = localStorage.getItem('token');
-  if (!token) return null;
-  return decodeToken(token);
-};
-
-// Centralized logic for rewriting endpoints based on role
-const rewriteEndpointForRole = (endpoint: string): string => {
-  const userInfo = getUserInfo();
-  if (!userInfo || userInfo.role !== 'Assistant') {
-    return endpoint;
-  }
-
-  // Only rewrite teacher-class listing to the assistant equivalent route.
-  // Keep this as a strict whitelist to avoid rewriting unrelated teacher endpoints.
-  const teacherClassesPattern = /^\/teachers\/\d+\/classes\/?(\?.*)?$/;
-  const match = endpoint.match(teacherClassesPattern);
-  if (match) {
-    const query = match[1] ?? "";
-    return `/assistants/${userInfo.sub}/classes${query}`;
-  }
-
-  return endpoint;
-};
-
-
 const request = async <T = any>(
   endpoint: string,
   options: RequestInit = {},
   isFormData = false,
 ): Promise<T> => {
-  // Rewrite the endpoint before making the request
-  const finalEndpoint = rewriteEndpointForRole(endpoint);
-
-  const token = localStorage.getItem("token");
+  const token = getStoredToken();
   const headers: HeadersInit = isFormData
     ? {}
     : { "Content-Type": "application/json" };
@@ -255,18 +227,18 @@ const request = async <T = any>(
   };
 
   // 自动确定超时时间
-  const timeout = getTimeoutForEndpoint(finalEndpoint);
+  const timeout = getTimeoutForEndpoint(endpoint);
 
   // 如果需要超时控制
   if (timeout !== undefined) {
     const abortContext = createRequestAbortContext(timeout, options.signal ?? undefined);
 
     try {
-      const response = await fetch(buildUrl(finalEndpoint), {
+      const response = await fetch(buildUrl(endpoint), {
         ...config,
         signal: abortContext.signal,
       });
-      return handleResponse<T>(response, finalEndpoint);
+      return handleResponse<T>(response, endpoint);
     } catch (err: unknown) {
       if (abortContext.didTimeout() && err instanceof Error && err.name === 'AbortError') {
         throw new Error(`请求超时（${timeout / 1000}秒），请检查网络连接后重试`);
@@ -279,8 +251,8 @@ const request = async <T = any>(
   }
 
   // 无超时的默认行为（用于模型训练等长时间操作）
-  const response = await fetch(buildUrl(finalEndpoint), config);
-  return handleResponse<T>(response, finalEndpoint);
+  const response = await fetch(buildUrl(endpoint), config);
+  return handleResponse<T>(response, endpoint);
 };
 
 export const apiClient = {

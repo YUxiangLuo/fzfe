@@ -27,15 +27,13 @@ import {
     ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import { decodeToken } from '../../../../utils/auth';
 import type { Class, Student } from '../../types';
 import { formatDate } from '../../utils/format';
 import { getErrorMessage } from '../../utils/error';
+import { getTeacherPortalUserOrThrow, isAssistantTeacherPortalUser, listManagedClasses } from '../../utils/portalApi';
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
-
-const ROLE_ASSISTANT = 'Assistant';
 
 interface CreateClassResponse {
     class: Class;
@@ -101,14 +99,10 @@ const ClassManagement: React.FC = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const token = localStorage.getItem('token');
-            if (!token) throw new Error('未找到登录凭据');
-            const decoded = decodeToken(token);
-            if (!decoded) throw new Error('登录信息已失效');
-            setIsAssistantView(decoded.role === ROLE_ASSISTANT);
+            const currentUser = getTeacherPortalUserOrThrow();
+            setIsAssistantView(isAssistantTeacherPortalUser(currentUser));
 
-            const teacherId = decoded.sub;
-            const data = await apiClient.get(`/teachers/${teacherId}/classes`);
+            const data = await listManagedClasses();
             setClasses(data || []);
         } catch (err: unknown) {
             setError(getErrorMessage(err, '获取班级列表失败'));

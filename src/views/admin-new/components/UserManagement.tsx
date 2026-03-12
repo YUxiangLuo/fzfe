@@ -27,7 +27,7 @@ import {
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { User } from "../types";
 import { apiClient } from "../../../utils/apiClient";
-import { decodeToken } from "../../../utils/auth";
+import { getSessionUser } from "../../../utils/session";
 import { validatePassword } from "../utils/validation";
 
 const { Title, Text } = Typography;
@@ -154,14 +154,9 @@ const UserManagement: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        try {
-            const token = localStorage.getItem("token");
-            if (token) {
-                const decoded = decodeToken(token);
-                if (decoded) setCurrentAdminId(decoded.sub);
-            }
-        } catch (err) {
-            console.error('Failed to read token from localStorage:', err);
+        const currentUser = getSessionUser();
+        if (currentUser) {
+            setCurrentAdminId(currentUser.sub);
         }
     }, []);
 

@@ -17,9 +17,15 @@ import {
     MenuUnfoldOutlined,
     MenuFoldOutlined,
 } from '@ant-design/icons';
-import { decodeToken, type DecodedToken } from '../../../../utils/auth';
+import type { DecodedToken } from '../../../../utils/auth';
 import { getRoleByBackendValue } from '../../../../config/roles';
 import { useRole } from '../../contexts/RoleContext';
+import {
+    clearSessionAndRedirect,
+    getSessionUser,
+    hasSessionRole,
+    isSessionExpired,
+} from '../../../../utils/session';
 
 const PersonalInfo = lazy(() => import('../Account/PersonalInfo'));
 const AssistantManagement = lazy(() => import('../Account/AssistantManagement'));
@@ -71,30 +77,14 @@ const TeacherLayout: React.FC = () => {
     }, [currentUser?.role, role?.id]);
 
     useEffect(() => {
-        const redirectToLogin = () => {
-            window.location.href = '/login.html';
-        };
-
-        try {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                redirectToLogin();
-                return;
-            }
-
-            const decoded = decodeToken(token);
-            const normalizedRole = (decoded?.role ?? '').toLowerCase();
-            if (!decoded || (normalizedRole !== 'teacher' && normalizedRole !== 'assistant')) {
-                redirectToLogin();
-                return;
-            }
-
-            setCurrentUser(decoded);
-            setIsAuthorizing(false);
-        } catch (err) {
-            console.error('Failed to read token from localStorage:', err);
-            window.location.href = '/login.html';
+        const user = getSessionUser();
+        if (!user || isSessionExpired(user) || !hasSessionRole(user, ['teacher', 'assistant'])) {
+            clearSessionAndRedirect();
+            return;
         }
+
+        setCurrentUser(user);
+        setIsAuthorizing(false);
     }, []);
 
     const roleDisplay = currentUser
@@ -204,12 +194,7 @@ const TeacherLayout: React.FC = () => {
             okType: 'danger',
             cancelText: '取消',
             onOk: () => {
-                try {
-                    localStorage.removeItem('token');
-                } catch (err) {
-                    console.error('Failed to remove token from localStorage:', err);
-                }
-                window.location.href = '/login.html';
+                clearSessionAndRedirect();
             },
         });
     };

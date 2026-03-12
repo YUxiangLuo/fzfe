@@ -5,9 +5,32 @@
  * to reduce code duplication and improve maintainability.
  */
 
-import { expect, type Locator, type Page } from "@playwright/test";
-import { CommonSelectors, LoginSelectors, LayoutSelectors, ModalTitles } from "./selectors";
-import type { ApiResponse, TeacherClassSummary, GradeSummaryRow } from "./types";
+import { expect, type APIResponse as PlaywrightAPIResponse, type Locator, type Page } from "@playwright/test";
+import { ACCOUNTS } from "../fixtures";
+import {
+  AssistantManagementSelectors,
+  ClassManagementSelectors,
+  CommonSelectors,
+  ExperimentReportSelectors,
+  GradeOverviewSelectors,
+  LoginSelectors,
+  LayoutSelectors,
+  ModalTitles,
+  PersonalInfoSelectors,
+  QuestionBankSelectors,
+  StudentManagementSelectors,
+  SuccessMessages,
+} from "./selectors";
+import type {
+  ApiResponse,
+  CsvUploadPart,
+  CurrentUserProfile,
+  ManagedClassRecord,
+  TeacherClassSummary,
+  GradeSummaryRow,
+  TempStudentSeed,
+  TestCredentials,
+} from "./types";
 
 // ===== Re-exports =====
 
@@ -53,6 +76,30 @@ export function makeStudentNo(offset: number = 0): string {
  */
 export function buildCsv(rows: string[][]): Buffer {
   return Buffer.from(rows.map((row) => row.join(",")).join("\n"), "utf8");
+}
+
+export function buildCsvUploadPart(
+  name: string,
+  rows: string[][],
+  mimeType = "text/csv",
+): CsvUploadPart {
+  return {
+    name,
+    mimeType,
+    buffer: buildCsv(rows),
+  };
+}
+
+export function buildTempStudentSeed(prefix: string): TempStudentSeed {
+  const studentId = makeStudentNo(Math.floor(Math.random() * 10_000));
+  return {
+    studentId,
+    fullName: `${prefix}${studentId.slice(-4)}`,
+    upload: buildCsvUploadPart(`${studentId}.csv`, [
+      ["学号", "姓名"],
+      [studentId, `${prefix}${studentId.slice(-4)}`],
+    ]),
+  };
 }
 
 // ===== Page Navigation =====
@@ -119,6 +166,159 @@ export async function openSubMenuPage(
   await expect(heading).toBeVisible();
 }
 
+export async function getFirstManagedClassName(page: Page): Promise<string> {
+  await openTopLevelPage(page, "班级管理", "班级管理");
+  const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
+  return firstRow.locator("td").first().innerText();
+}
+
+export async function createManagedClassViaUi(
+  page: Page,
+  options?: {
+    withStudents?: boolean;
+    prefix?: string;
+    codePrefix?: string;
+    studentPrefix?: string;
+  },
+): Promise<string> {
+  await openClassManagementPage(page);
+
+  const className = makeRunId(options?.prefix ?? "E2E助教班级");
+  const classCode = `${options?.codePrefix ?? "TA"}${Date.now()}`;
+  const withStudents = options?.withStudents ?? true;
+
+  const createModal = await openCreateClassModal(page);
+  const studentCsv = withStudents
+    ? buildTempStudentSeed(options?.studentPrefix ?? "助教分配学生").upload
+    : undefined;
+  await fillClassForm(createModal, {
+    className,
+    classCode,
+    studentCsv,
+  });
+
+  await createModal.getByRole("button", { name: /创\s*建/ }).click();
+  await expectSuccessMessage(page, SuccessMessages.classCreated);
+
+  const resultModal = await getVisibleModal(page, "创建结果");
+  await resultModal.getByRole("button", { name: /确\s*定/ }).click();
+  await expect(tableRowByText(page, className)).toBeVisible();
+
+  return className;
+}
+
+export async function openClassManagementPage(page: Page): Promise<void> {
+  const heading = page.getByRole("heading", { name: "班级管理", level: 3 });
+  if (await heading.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    return;
+  }
+
+  await page.goto("/teacher.html#/class-management");
+  await expect(page).toHaveURL(/\/teacher\.html#\/class-management/);
+  await expect(heading).toBeVisible({ timeout: 20_000 });
+}
+
+export async function openTeacherAssistantManagementPage(page: Page): Promise<void> {
+  const heading = page.getByRole("heading", { name: "助教管理", level: 3 });
+  if (await heading.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    return;
+  }
+
+  await page.goto("/teacher.html#/account-assistant");
+  await expect(page).toHaveURL(/\/teacher\.html#\/account-assistant/);
+  await expect(heading).toBeVisible({ timeout: 20_000 });
+}
+
+export async function openStudentManagementPage(page: Page): Promise<void> {
+  const heading = page.getByRole("heading", { name: "学生管理", level: 3 });
+  if (await heading.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    return;
+  }
+
+  await page.goto("/teacher.html#/student-management");
+  await expect(page).toHaveURL(/\/teacher\.html#\/student-management/);
+  await expect(heading).toBeVisible({ timeout: 20_000 });
+}
+
+export async function openExperimentReportsPage(page: Page): Promise<void> {
+  const heading = page.getByRole("heading", { name: "实验报告", level: 3 });
+  if (await heading.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    return;
+  }
+
+  await page.goto("/teacher.html#/experiment-reports");
+  await expect(page).toHaveURL(/\/teacher\.html#\/experiment-reports/);
+  await expect(heading).toBeVisible({ timeout: 20_000 });
+}
+
+export async function openExperimentProgressPage(page: Page): Promise<void> {
+  const heading = page.getByRole("heading", { name: "实验进度", level: 3 });
+  if (await heading.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    return;
+  }
+
+  await page.goto("/teacher.html#/experiment-progress");
+  await expect(page).toHaveURL(/\/teacher\.html#\/experiment-progress/);
+  await expect(heading).toBeVisible({ timeout: 20_000 });
+}
+
+export async function openExperimentLogsPage(page: Page): Promise<void> {
+  const heading = page.getByRole("heading", { name: "实验日志", level: 3 });
+  if (await heading.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    return;
+  }
+
+  await page.goto("/teacher.html#/experiment-logs");
+  await expect(page).toHaveURL(/\/teacher\.html#\/experiment-logs/);
+  await expect(heading).toBeVisible({ timeout: 20_000 });
+}
+
+export async function openQuestionBankPage(page: Page): Promise<void> {
+  const heading = page.getByRole("heading", { name: "题库管理", level: 3 });
+  if (await heading.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    return;
+  }
+
+  await page.goto("/teacher.html#/assessment-questions");
+  await expect(page).toHaveURL(/\/teacher\.html#\/assessment-questions/);
+  await expect(heading).toBeVisible({ timeout: 20_000 });
+}
+
+export async function openGradeWeightsPage(page: Page): Promise<void> {
+  const heading = page.getByRole("heading", { name: "成绩权重设置", level: 3 });
+  if (await heading.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    return;
+  }
+
+  await page.goto("/teacher.html#/assessment-weights");
+  await expect(page).toHaveURL(/\/teacher\.html#\/assessment-weights/);
+  await expect(heading).toBeVisible({ timeout: 20_000 });
+}
+
+export async function openGradeOverviewPage(page: Page): Promise<void> {
+  const heading = page.getByRole("heading", { name: "成绩总览", level: 3 });
+  if (await heading.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    return;
+  }
+
+  await page.goto("/teacher.html#/assessment-grades");
+  await expect(page).toHaveURL(/\/teacher\.html#\/assessment-grades/);
+  await expect(heading).toBeVisible({ timeout: 20_000 });
+}
+
+export async function selectTopFilterOption(page: Page, optionText: string): Promise<void> {
+  const topLevelSelect = page.locator(".ant-select").first();
+  await topLevelSelect.click();
+  const dropdown = page.locator(".ant-select-dropdown").last();
+  await expect(dropdown).toBeVisible();
+  const option = dropdown
+    .locator(".ant-select-item-option")
+    .filter({ hasText: optionText })
+    .first();
+  await option.scrollIntoViewIfNeeded();
+  await option.click();
+}
+
 // ===== Locator Helpers =====
 
 /**
@@ -128,6 +328,49 @@ export function tableRowByText(page: Page, text: string): Locator {
   return page.locator(CommonSelectors.tableRow).filter({ hasText: text }).first();
 }
 
+export function getGradeOverviewClassCard(page: Page, className: string): Locator {
+  return page
+    .locator(CommonSelectors.card)
+    .filter({ hasText: className })
+    .filter({ hasText: GradeOverviewSelectors.classCardClickHint })
+    .first();
+}
+
+export async function openGradeOverviewClassDetail(page: Page, className: string): Promise<Locator> {
+  const classCard = getGradeOverviewClassCard(page, className);
+  await expect(classCard).toBeVisible();
+  await classCard.click();
+  return classCard;
+}
+
+export function getGradeOverviewDetailToggle(row: Locator): Locator {
+  return row.getByRole("button", { name: /详情|收起/ }).first();
+}
+
+export async function expandGradeOverviewRowDetail(row: Locator): Promise<Locator> {
+  const toggle = getGradeOverviewDetailToggle(row);
+  await expect(toggle).toBeVisible();
+
+  if ((await toggle.textContent())?.includes(GradeOverviewSelectors.detailBtn.name)) {
+    await toggle.click();
+  }
+
+  await expect(toggle).toContainText(GradeOverviewSelectors.collapseBtn.name);
+  return toggle;
+}
+
+export async function collapseGradeOverviewRowDetail(row: Locator): Promise<Locator> {
+  const toggle = getGradeOverviewDetailToggle(row);
+  await expect(toggle).toBeVisible();
+
+  if ((await toggle.textContent())?.includes(GradeOverviewSelectors.collapseBtn.name)) {
+    await toggle.click();
+  }
+
+  await expect(toggle).toContainText(GradeOverviewSelectors.detailBtn.name);
+  return toggle;
+}
+
 /**
  * Get a visible modal by its title
  */
@@ -135,6 +378,29 @@ export async function getVisibleModal(page: Page, title: RegExp | string): Promi
   const modal = page.getByRole("dialog", { name: title }).first();
   await expect(modal).toBeVisible();
   return modal;
+}
+
+async function getVisibleActionTrigger(actions: Locator, preferredIndex?: number): Promise<Locator> {
+  const count = await actions.count();
+  if (count === 0) {
+    throw new Error("No matching action trigger found");
+  }
+
+  if (preferredIndex !== undefined && preferredIndex < count) {
+    const preferred = actions.nth(preferredIndex);
+    if (await preferred.isVisible().catch(() => false)) {
+      return preferred;
+    }
+  }
+
+  for (let index = 0; index < count; index += 1) {
+    const candidate = actions.nth(index);
+    if (await candidate.isVisible().catch(() => false)) {
+      return candidate;
+    }
+  }
+
+  return actions.first();
 }
 
 /**
@@ -169,6 +435,43 @@ export async function selectOptionByLabel(
   await page.keyboard.press("Escape");
 }
 
+export async function selectMultiOptionsByLabel(
+  page: Page,
+  modal: Locator,
+  label: string,
+  optionTexts: string[],
+): Promise<void> {
+  if (optionTexts.length === 0) {
+    return;
+  }
+
+  if (optionTexts.length === 1) {
+    await selectOptionByLabel(page, modal, label, optionTexts[0]);
+    return;
+  }
+
+  await selectOptionByLabel(page, modal, label, optionTexts[0]);
+
+  const formItem = modal.locator(CommonSelectors.formItem).filter({ hasText: label }).first();
+  await expect(formItem).toBeVisible();
+
+  for (const optionText of optionTexts.slice(1)) {
+    await formItem.getByRole("combobox").first().click();
+    const dropdown = page.locator(".ant-select-dropdown").last();
+    await expect(dropdown).toBeVisible();
+
+    const option = dropdown
+      .locator(".ant-select-item-option")
+      .filter({ hasText: optionText })
+      .first();
+    await option.evaluate((element) => {
+      element.scrollIntoView({ block: "center" });
+    });
+    await option.click();
+    await page.keyboard.press("Escape");
+  }
+}
+
 /**
  * Clear a multi-select field
  */
@@ -191,6 +494,275 @@ export async function clearMultiSelectByLabel(modal: Locator, label: string): Pr
     await removeButtons.first().click();
     count = await removeButtons.count();
   }
+}
+
+export async function openCreateAssistantModal(page: Page): Promise<Locator> {
+  await page.getByRole(AssistantManagementSelectors.createAssistantBtn.role, {
+    name: AssistantManagementSelectors.createAssistantBtn.name,
+  }).click();
+  return getVisibleModal(page, ModalTitles.createAssistant);
+}
+
+export async function openCreateClassModal(page: Page): Promise<Locator> {
+  await page.getByRole(ClassManagementSelectors.addClassBtn.role, {
+    name: ClassManagementSelectors.addClassBtn.name,
+  }).click();
+  return getVisibleModal(page, ModalTitles.createClass);
+}
+
+export async function openAddStudentModal(page: Page): Promise<Locator> {
+  await page.getByRole(StudentManagementSelectors.addStudentBtn.role, {
+    name: StudentManagementSelectors.addStudentBtn.name,
+  }).click();
+  return getVisibleModal(page, StudentManagementSelectors.addStudentBtn.name);
+}
+
+export async function openEditClassModal(classRow: Locator): Promise<Locator> {
+  await classRow.getByRole(ClassManagementSelectors.editClassBtn.role, {
+    name: ClassManagementSelectors.editClassBtn.name,
+  }).click();
+  return getVisibleModal(classRow.page(), ModalTitles.editClass);
+}
+
+export async function openClassStudentListModal(
+  classRow: Locator,
+  className: string,
+): Promise<Locator> {
+  await classRow.getByRole(ClassManagementSelectors.studentListBtn.role, {
+    name: ClassManagementSelectors.studentListBtn.name,
+  }).click();
+  return getVisibleModal(classRow.page(), new RegExp(`学生列表\\s*-\\s*${className}`));
+}
+
+export async function openDeleteClassModal(classRow: Locator): Promise<Locator> {
+  await classRow.getByRole(ClassManagementSelectors.deleteClassBtn.role, {
+    name: ClassManagementSelectors.deleteClassBtn.name,
+  }).click();
+  return getVisibleModal(classRow.page(), ModalTitles.deleteClass);
+}
+
+export async function openReportReviewModal(reportRow: Locator): Promise<Locator> {
+  await reportRow.getByRole(ExperimentReportSelectors.reviewBtn.role, {
+    name: ExperimentReportSelectors.reviewBtn.name,
+  }).click();
+  return getVisibleModal(reportRow.page(), ModalTitles.reviewReport);
+}
+
+export async function openQuestionEditModal(questionRow: Locator): Promise<Locator> {
+  const trigger = await getVisibleActionTrigger(
+    questionRow.getByRole(QuestionBankSelectors.editBtn.role, {
+      name: QuestionBankSelectors.editBtn.name,
+    }),
+    1,
+  );
+  await trigger.click();
+  return getVisibleModal(questionRow.page(), "编辑题目");
+}
+
+export async function openQuestionPreviewModal(questionRow: Locator): Promise<Locator> {
+  const trigger = await getVisibleActionTrigger(
+    questionRow.getByRole(QuestionBankSelectors.previewBtn.role, {
+      name: QuestionBankSelectors.previewBtn.name,
+    }),
+    0,
+  );
+  await trigger.click();
+  return getVisibleModal(questionRow.page(), "题目预览");
+}
+
+export async function confirmQuestionDelete(questionRow: Locator): Promise<void> {
+  const trigger = await getVisibleActionTrigger(
+    questionRow.getByRole(QuestionBankSelectors.deleteBtn.role, {
+      name: QuestionBankSelectors.deleteBtn.name,
+    }),
+    2,
+  );
+  await trigger.click();
+
+  const deletePopover = questionRow.page().locator(".ant-popover").filter({ hasText: "确定删除该题目？" }).last();
+  await expect(deletePopover).toBeVisible();
+  await deletePopover.getByRole("button", { name: /确\s*定/ }).click();
+}
+
+export async function openEditPersonalInfoModal(page: Page): Promise<Locator> {
+  await page.getByRole(PersonalInfoSelectors.editBtn.role, {
+    name: PersonalInfoSelectors.editBtn.name,
+  }).click();
+  return getVisibleModal(page, ModalTitles.editPersonalInfo);
+}
+
+export async function getPasswordCard(page: Page): Promise<Locator> {
+  const card = page.locator(CommonSelectors.card).filter({ hasText: PersonalInfoSelectors.passwordCard }).first();
+  await expect(card).toBeVisible();
+  return card;
+}
+
+export async function fillAssistantCreationForm(
+  page: Page,
+  modal: Locator,
+  values: {
+    username: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+    classNames?: string[];
+  },
+): Promise<void> {
+  await fillFormField(modal, AssistantManagementSelectors.usernameInput, values.username);
+  await fillFormField(modal, AssistantManagementSelectors.fullNameInput, values.fullName);
+  await fillFormField(modal, AssistantManagementSelectors.emailInput, values.email);
+  await fillFormField(modal, AssistantManagementSelectors.phoneInput, values.phone);
+  await fillFormField(modal, AssistantManagementSelectors.passwordInput, values.password);
+
+  if (values.classNames?.length) {
+    await selectMultiOptionsByLabel(page, modal, AssistantManagementSelectors.classSelectLabel, values.classNames);
+  }
+}
+
+export async function fillStudentCreationForm(
+  modal: Locator,
+  values: {
+    studentNo: string;
+    studentName: string;
+    password: string;
+    email?: string;
+  },
+): Promise<void> {
+  await fillFormField(modal, StudentManagementSelectors.studentNoInput, values.studentNo);
+  await fillFormField(modal, StudentManagementSelectors.studentNameInput, values.studentName);
+  await fillFormField(modal, StudentManagementSelectors.passwordInput, values.password);
+  if (values.email) {
+    await fillFormField(modal, "邮箱（可选）", values.email);
+  }
+}
+
+export async function fillClassForm(
+  modal: Locator,
+  values: {
+    className: string;
+    classCode: string;
+    studentCsv?: CsvUploadPart;
+  },
+): Promise<void> {
+  await fillFormField(modal, ClassManagementSelectors.classNameInput, values.className);
+  await fillFormField(modal, ClassManagementSelectors.classCodeInput, values.classCode);
+
+  if (values.studentCsv) {
+    await modal.locator(ClassManagementSelectors.fileInput).setInputFiles(values.studentCsv);
+  }
+}
+
+export async function fillReportReviewForm(
+  modal: Locator,
+  values: {
+    reportScore?: string;
+    modelScore?: string;
+    feedback?: string;
+  },
+): Promise<void> {
+  if (values.reportScore !== undefined) {
+    await modal.getByPlaceholder(ExperimentReportSelectors.reportScoreInput.placeholder).fill(values.reportScore);
+  }
+  if (values.modelScore !== undefined) {
+    await modal.getByPlaceholder(ExperimentReportSelectors.modelScoreInput.placeholder).fill(values.modelScore);
+  }
+  if (values.feedback !== undefined) {
+    await modal.getByPlaceholder(ExperimentReportSelectors.feedbackInput.placeholder).fill(values.feedback);
+  }
+}
+
+export async function fillReportRejectReason(modal: Locator, reason: string): Promise<void> {
+  await modal.getByPlaceholder("请输入具体的修改建议...").fill(reason);
+}
+
+export async function fillPersonalInfoForm(
+  modal: Locator,
+  values: {
+    fullName: string;
+    phone: string;
+    email: string;
+  },
+): Promise<void> {
+  await fillFormField(modal, PersonalInfoSelectors.fullNameInput, values.fullName);
+  await fillFormField(modal, PersonalInfoSelectors.phoneInput, values.phone);
+  await fillFormField(modal, PersonalInfoSelectors.emailInput, values.email);
+}
+
+export async function fillPasswordChangeForm(
+  card: Locator,
+  values: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  },
+): Promise<void> {
+  await card.getByPlaceholder(PersonalInfoSelectors.currentPasswordInput.placeholder).fill(values.currentPassword);
+  await card.getByPlaceholder(PersonalInfoSelectors.newPasswordInput.placeholder).fill(values.newPassword);
+  await card.getByPlaceholder(PersonalInfoSelectors.confirmPasswordInput.placeholder).fill(values.confirmPassword);
+}
+
+export async function submitPasswordChange(card: Locator): Promise<void> {
+  await card.getByRole(PersonalInfoSelectors.savePasswordBtn.role, {
+    name: PersonalInfoSelectors.savePasswordBtn.name,
+  }).click();
+}
+
+export async function closeModalWithCloseButton(modal: Locator): Promise<void> {
+  const namedCloseButton = modal.getByRole("button", { name: "Close" }).first();
+  if (await namedCloseButton.isVisible().catch(() => false)) {
+    await namedCloseButton.click();
+    return;
+  }
+
+  await modal.locator(CommonSelectors.modalCloseBtn).first().click();
+}
+
+export async function expandFirstTableRow(page: Page): Promise<void> {
+  const expandIcon = page.locator(".ant-table-row-expand-icon").first();
+  await expect(expandIcon).toBeVisible();
+  await expandIcon.click();
+}
+
+export async function openAssistantLibrarySelectionModal(page: Page): Promise<Locator> {
+  await page.getByRole(AssistantManagementSelectors.selectFromLibraryBtn.role, {
+    name: AssistantManagementSelectors.selectFromLibraryBtn.name,
+  }).click();
+  return getVisibleModal(page, ModalTitles.selectAssistant);
+}
+
+export async function openStudentLibrarySelectionModal(page: Page): Promise<Locator> {
+  await page.getByRole(StudentManagementSelectors.addFromLibraryBtn.role, {
+    name: StudentManagementSelectors.addFromLibraryBtn.name,
+  }).click();
+  return getVisibleModal(page, "从学生库中添加");
+}
+
+export async function assignAssistantFromLibrary(
+  page: Page,
+  modal: Locator,
+  assistantName: string,
+  classNames: string[],
+): Promise<void> {
+  await selectOptionByLabel(page, modal, "选择助教", assistantName);
+  await selectMultiOptionsByLabel(page, modal, AssistantManagementSelectors.classSelectLabel, classNames);
+}
+
+export async function openAssistantReassignModal(assistantRow: Locator): Promise<Locator> {
+  await assistantRow.getByRole(AssistantManagementSelectors.reassignBtn.role, {
+    name: AssistantManagementSelectors.reassignBtn.name,
+  }).click();
+  const page = assistantRow.page();
+  return getVisibleModal(page, ModalTitles.reassignAssistant);
+}
+
+export async function replaceAssistantAssignments(
+  page: Page,
+  modal: Locator,
+  classNames: string[],
+): Promise<void> {
+  await clearMultiSelectByLabel(modal, AssistantManagementSelectors.classSelectLabel);
+  await selectMultiOptionsByLabel(page, modal, AssistantManagementSelectors.classSelectLabel, classNames);
 }
 
 // ===== Modal Action Helpers =====
@@ -254,6 +826,189 @@ export function unwrapDataEnvelope<T>(payload: unknown): T {
     return (payload as ApiResponse<T>).data;
   }
   return payload as T;
+}
+
+function buildApiUrl(backendOrigin: string, path: string): string {
+  return new URL(path, backendOrigin).toString();
+}
+
+export async function getStoredToken(page: Page): Promise<string> {
+  const token = await page.evaluate(() => localStorage.getItem("token"));
+  expect(token).not.toBeNull();
+  return token!;
+}
+
+export async function expectStoredTokenCleared(page: Page): Promise<void> {
+  const token = await page.evaluate(() => localStorage.getItem("token"));
+  expect(token).toBeNull();
+}
+
+export async function requestSessionToken(
+  page: Page,
+  backendOrigin: string,
+  credentials: TestCredentials,
+): Promise<string> {
+  const response = await page.request.post(buildApiUrl(backendOrigin, "/api/v1/sessions"), {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    data: credentials,
+  });
+  expect(response.ok()).toBeTruthy();
+  const payload = unwrapDataEnvelope<{ token: string }>(await response.json());
+  expect(payload.token).toBeTruthy();
+  return payload.token;
+}
+
+async function resolveAuthToken(page: Page, explicitToken?: string): Promise<string> {
+  return explicitToken ?? getStoredToken(page);
+}
+
+export async function getAuthedJson<T>(
+  page: Page,
+  backendOrigin: string,
+  path: string,
+  token?: string,
+): Promise<T> {
+  const resolvedToken = await resolveAuthToken(page, token);
+  const response = await page.request.get(buildApiUrl(backendOrigin, path), {
+    headers: {
+      Authorization: `Bearer ${resolvedToken}`,
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  return unwrapDataEnvelope<T>(await response.json());
+}
+
+export async function postAuthedJson(
+  page: Page,
+  backendOrigin: string,
+  path: string,
+  data: unknown,
+  token?: string,
+): Promise<PlaywrightAPIResponse> {
+  const resolvedToken = await resolveAuthToken(page, token);
+  return page.request.post(buildApiUrl(backendOrigin, path), {
+    headers: {
+      Authorization: `Bearer ${resolvedToken}`,
+      "Content-Type": "application/json",
+    },
+    data,
+  });
+}
+
+export async function deleteAuthed(
+  page: Page,
+  backendOrigin: string,
+  path: string,
+  token?: string,
+): Promise<PlaywrightAPIResponse> {
+  const resolvedToken = await resolveAuthToken(page, token);
+  return page.request.delete(buildApiUrl(backendOrigin, path), {
+    headers: {
+      Authorization: `Bearer ${resolvedToken}`,
+    },
+  });
+}
+
+export async function getCurrentUserProfile(
+  page: Page,
+  backendOrigin: string,
+  token?: string,
+): Promise<CurrentUserProfile> {
+  return getAuthedJson<CurrentUserProfile>(page, backendOrigin, "/api/v1/users/me", token);
+}
+
+export async function createClassWithTeacherToken(
+  page: Page,
+  backendOrigin: string,
+  teacherToken: string,
+  className: string,
+  classCode: string,
+  studentCsv?: CsvUploadPart,
+): Promise<ManagedClassRecord> {
+  const multipart: Record<string, string | CsvUploadPart> = {
+    class_name: className,
+    class_code: classCode,
+  };
+  if (studentCsv) {
+    multipart.student_list = studentCsv;
+  }
+
+  const response = await page.request.post(buildApiUrl(backendOrigin, "/api/v1/classes"), {
+    headers: {
+      Authorization: `Bearer ${teacherToken}`,
+    },
+    multipart,
+  });
+  expect(response.ok()).toBeTruthy();
+  const payload = unwrapDataEnvelope<{ class: ManagedClassRecord }>(await response.json());
+  expect(payload.class).toBeDefined();
+  return payload.class;
+}
+
+export async function assignAssistantToClassWithTeacherToken(
+  page: Page,
+  backendOrigin: string,
+  teacherToken: string,
+  classId: number,
+  assistantId: number,
+): Promise<PlaywrightAPIResponse> {
+  return postAuthedJson(
+    page,
+    backendOrigin,
+    `/api/v1/classes/${classId}/assistants`,
+    { assistant_id: assistantId },
+    teacherToken,
+  );
+}
+
+export async function deleteClassWithTeacherToken(
+  page: Page,
+  backendOrigin: string,
+  teacherToken: string,
+  classId: number,
+): Promise<PlaywrightAPIResponse> {
+  return deleteAuthed(page, backendOrigin, `/api/v1/classes/${classId}`, teacherToken);
+}
+
+export async function createAssistantManagedTempClass(
+  page: Page,
+  backendOrigin: string,
+  assistantId: number,
+  options: {
+    classPrefix: string;
+    classCodePrefix?: string;
+    withStudent?: boolean;
+    studentPrefix?: string;
+    teacherCredentials?: TestCredentials;
+  },
+): Promise<{ teacherToken: string; classRecord: ManagedClassRecord }> {
+  const teacherCredentials = options.teacherCredentials ?? {
+    username: ACCOUNTS.teacher.username,
+    password: ACCOUNTS.teacher.password,
+  };
+  const teacherToken = await requestSessionToken(page, backendOrigin, teacherCredentials);
+  const tempStudent = options.withStudent
+    ? buildTempStudentSeed(options.studentPrefix ?? "助教临时学生")
+    : undefined;
+  const classRecord = await createClassWithTeacherToken(
+    page,
+    backendOrigin,
+    teacherToken,
+    makeRunId(options.classPrefix),
+    `${options.classCodePrefix ?? "AUX"}${Date.now()}`,
+    tempStudent?.upload,
+  );
+  const assignResponse = await assignAssistantToClassWithTeacherToken(
+    page,
+    backendOrigin,
+    teacherToken,
+    classRecord.class_id,
+    assistantId,
+  );
+  expect(assignResponse.ok()).toBeTruthy();
+  return { teacherToken, classRecord };
 }
 
 // ===== Assertion Helpers =====
@@ -370,6 +1125,83 @@ export interface LoginOptions {
   role: "teacher" | "assistant" | "admin";
 }
 
+export type PortalRole = LoginOptions["role"];
+
+export const PORTAL_UI = {
+  teacher: {
+    landingUrlPattern: /\/teacher\.html(?:#\/experiment-progress)?$/,
+    landingHeading: "实验进度",
+    expandedTitle: "教师端",
+    collapsedTitle: "教",
+    protectedPath: "/teacher.html#/student-management",
+  },
+  assistant: {
+    landingUrlPattern: /\/teacher\.html(?:#\/experiment-progress)?$/,
+    landingHeading: "实验进度",
+    expandedTitle: "助教端",
+    collapsedTitle: "助",
+    protectedPath: "/teacher.html#/assessment-grades",
+  },
+  admin: {
+    landingUrlPattern: /\/admin\.html(?:#\/experiment-data)?$/,
+    landingHeading: "实验数据管理",
+    expandedTitle: "管理员端",
+    collapsedTitle: "管",
+    protectedPath: "/admin.html#/user-management",
+  },
+} as const;
+
+export async function expectPortalLanding(page: Page, role: PortalRole): Promise<void> {
+  const portal = PORTAL_UI[role];
+  await expect(page).toHaveURL(portal.landingUrlPattern);
+  await expect(page.getByRole("heading", { name: portal.landingHeading, level: 3 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: portal.expandedTitle, level: 4 })).toBeVisible();
+}
+
+export async function togglePortalMenuAndAssert(page: Page, role: PortalRole): Promise<void> {
+  const portal = PORTAL_UI[role];
+  const menuToggle = page.locator(LayoutSelectors.menuToggleBtn).first();
+  await menuToggle.click();
+  await expect(page.getByRole("heading", { level: 4, name: portal.collapsedTitle })).toBeVisible();
+  await menuToggle.click();
+  await expect(page.getByRole("heading", { level: 4, name: portal.expandedTitle })).toBeVisible();
+}
+
+export async function expectGuestRedirect(page: Page, path: string): Promise<void> {
+  await page.goto(path);
+  await expect(page).toHaveURL(/\/login\.html$/);
+}
+
+export async function loginAsTeacherAccount(
+  page: Page,
+  password = ACCOUNTS.teacher.password,
+): Promise<void> {
+  await loginAs(page, {
+    username: ACCOUNTS.teacher.username,
+    password,
+    role: "teacher",
+  });
+}
+
+export async function loginAsAssistantAccount(
+  page: Page,
+  password = ACCOUNTS.assistant.password,
+): Promise<void> {
+  await loginAs(page, {
+    username: ACCOUNTS.assistant.username,
+    password,
+    role: "assistant",
+  });
+}
+
+export async function loginAsAdminAccount(page: Page): Promise<void> {
+  await loginAs(page, {
+    username: ACCOUNTS.admin.username,
+    password: ACCOUNTS.admin.password,
+    role: "admin",
+  });
+}
+
 /**
  * Login as a specific role
  */
@@ -387,14 +1219,7 @@ export async function loginAs(page: Page, options: LoginOptions): Promise<void> 
   await page.locator(LoginSelectors.usernameInput).fill(options.username);
   await page.locator(LoginSelectors.passwordInput).fill(options.password);
   await page.getByRole(LoginSelectors.loginBtn.role, { name: LoginSelectors.loginBtn.name }).click();
-
-  if (options.role === "admin") {
-    await expect(page).toHaveURL(/\/admin\.html$/);
-    await expect(page.getByRole("heading", { name: "实验数据管理", level: 3 })).toBeVisible();
-  } else {
-    await expect(page).toHaveURL(/\/teacher\.html/);
-    await expect(page.getByRole("heading", { name: "实验进度", level: 3 })).toBeVisible();
-  }
+  await expectPortalLanding(page, options.role);
 }
 
 /**

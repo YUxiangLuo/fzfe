@@ -7,6 +7,7 @@ import { Toast } from "./Toast";
 import { API_BASE_URL } from "../../../utils/apiClient";
 import { getRedirectPath } from "../constants/routes";
 import { useToast } from "../hooks/useToast";
+import { persistSession } from "../../../utils/session";
 
 export const LoginContainer: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState("student");
@@ -74,11 +75,10 @@ export const LoginContainer: React.FC = () => {
         : (typeof data?.token === "string" ? data.token : null);
 
       if (token) {
-        localStorage.setItem("token", token);
-        // Only store the role for the main SPA (teacher/assistant)
-        if (selectedRole === "teacher" || selectedRole === "assistant") {
-          localStorage.setItem("userRole", selectedRole);
-        }
+        persistSession(
+          token,
+          selectedRole === "teacher" || selectedRole === "assistant" ? selectedRole : null,
+        );
         const redirectPath = getRedirectPath(selectedRole as any);
         window.location.href = redirectPath;
       } else {

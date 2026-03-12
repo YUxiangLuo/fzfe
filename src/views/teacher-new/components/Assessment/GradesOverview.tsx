@@ -51,11 +51,11 @@ import {
 import { apiClient } from '../../../../utils/apiClient';
 import { createAuthObjectUrl } from '../../../../utils/authFile';
 import { useObjectUrl } from '../../../../hooks/useObjectUrl';
-import { decodeToken } from '../../../../utils/auth';
 import type { Class, StudentGradeOverview } from '../../types';
 import FinalBreakdown from './FinalBreakdown';
 import { getProgressStatus, getEvaluationBadge, getScoreLevel, SCORE_COLORS } from '../../utils/gradeStatus';
 import { isAbortError, getErrorMessage } from '../../utils/error';
+import { listManagedClassGradeSummaries, listManagedClasses } from '../../utils/portalApi';
 
 const { Title, Text } = Typography;
 
@@ -104,12 +104,7 @@ const GradesOverview: React.FC = () => {
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
-                const token = localStorage.getItem('token');
-                if (!token) throw new Error('未找到登录凭据');
-                const decoded = decodeToken(token);
-                if (!decoded) throw new Error('登录信息已失效');
-
-                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`, { signal: controller.signal });
+                const data = await listManagedClasses({ signal: controller.signal });
                 if (controller.signal.aborted) return;
                 setClasses(data || []);
             } catch (err: unknown) {
@@ -140,19 +135,7 @@ const GradesOverview: React.FC = () => {
             setError(null);
             try {
                 if (selectedClassId === ALL_CLASSES) {
-                    const token = localStorage.getItem('token');
-                    if (!token) throw new Error('未找到登录凭据');
-                    const decoded = decodeToken(token);
-                    if (!decoded) throw new Error('登录信息已失效');
-                    let endpoint: string | null = null;
-                    if (decoded.role === 'Teacher') endpoint = `/teachers/${decoded.sub}/grade-summaries`;
-                    if (decoded.role === 'Assistant') endpoint = `/assistants/${decoded.sub}/grade-summaries`;
-
-                    if (!endpoint) {
-                        throw new Error('当前角色不支持查看全部班级成绩总览');
-                    }
-
-                    const summaries = await apiClient.get<ClassSummary[]>(endpoint, { signal: controller.signal });
+                    const summaries = await listManagedClassGradeSummaries<ClassSummary[]>({ signal: controller.signal });
                     if (requestId !== fetchRequestIdRef.current) return;
                     setClassSummaries(Array.isArray(summaries) ? summaries : []);
                     setGrades([]);

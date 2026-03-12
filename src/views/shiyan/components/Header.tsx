@@ -6,6 +6,7 @@ import { getRoleByBackendValue } from "../../../config/roles";
 import { ROUTES, getLogoutRedirectPath, TRAINING_LOCK_MESSAGE } from "../constants/routes";
 import { useConfirm } from "../shared/contexts/ConfirmContext";
 import { useExperiment } from "../contexts/ExperimentContext.zustand";
+import { clearSession } from "../../../utils/session";
 
 interface UserSummary {
   user_id: number;
@@ -71,11 +72,7 @@ const Header: React.FC = () => {
 
     if (!isConfirmed) return;
 
-    try {
-      localStorage.removeItem("token");
-    } catch (error) {
-      console.error("Failed to remove token from localStorage:", error);
-    }
+    clearSession();
     window.location.href = getLogoutRedirectPath();
   };
 

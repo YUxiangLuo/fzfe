@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import Button from '../shared/components/common/Button';
 import { useConfirm } from "../shared/contexts/ConfirmContext";
+import { clearSessionAndRedirect } from "../../../utils/session";
 
 interface Manual {
   file_name: string;
@@ -99,28 +100,12 @@ const Introduction: React.FC = () => {
 
     if (!isConfirmed) return;
 
-    try {
-      localStorage.removeItem("token");
-      // Redirect to login page
-      window.location.href = "/login.html";
-    } catch (error) {
-      console.error("Failed to remove token from localStorage:", error);
-      // Even if token removal fails, try to redirect
-      window.location.href = "/login.html";
-    }
+    clearSessionAndRedirect();
   };
 
-    // Logout function
+  // Logout function
   const handleLogoutNoConfirm = async () => {
-    try {
-      localStorage.removeItem("token");
-      // Redirect to login page
-      window.location.href = "/login.html";
-    } catch (error) {
-      console.error("Failed to remove token from localStorage:", error);
-      // Even if token removal fails, try to redirect
-      window.location.href = "/login.html";
-    }
+    clearSessionAndRedirect();
   };
 
   // 计算返回路径

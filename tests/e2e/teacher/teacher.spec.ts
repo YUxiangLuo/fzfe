@@ -21,33 +21,79 @@ import {
   makeStudentNo,
   buildCsv,
   // Navigation
+  createManagedClassViaUi,
+  getFirstManagedClassName,
+  openClassManagementPage,
+  openExperimentLogsPage,
+  openExperimentProgressPage,
+  openGradeOverviewPage,
+  openGradeOverviewClassDetail,
+  openGradeWeightsPage,
+  openQuestionEditModal,
+  openQuestionBankPage,
+  openQuestionPreviewModal,
   openTopLevelPage,
   openSubMenuPage,
+  openEditPersonalInfoModal,
+  openExperimentReportsPage,
   openPersonalInfoPage,
+  openTeacherAssistantManagementPage,
+  openStudentManagementPage,
   // Locators
+  fillPersonalInfoForm,
+  fillPasswordChangeForm,
+  getPasswordCard,
   tableRowByText,
   getVisibleModal,
   fillFormField,
-  selectOptionByLabel,
-  clearMultiSelectByLabel,
+  fillClassForm,
+  closeModalWithCloseButton,
+  confirmQuestionDelete,
+  fillReportRejectReason,
+  fillReportReviewForm,
+  openCreateClassModal,
+  openCreateAssistantModal,
+  openDeleteClassModal,
+  openEditClassModal,
+  expandFirstTableRow,
+  fillAssistantCreationForm,
+  openAssistantLibrarySelectionModal,
+  openAddStudentModal,
+  fillStudentCreationForm,
+  openStudentLibrarySelectionModal,
+  assignAssistantFromLibrary,
+  openClassStudentListModal,
+  openAssistantReassignModal,
+  openReportReviewModal,
+  replaceAssistantAssignments,
+  submitPasswordChange,
   // Stats & API
   getStatisticValue,
   unwrapDataEnvelope,
   computeClassGradeStats,
   computeScoreDistribution,
+  getAuthedJson,
+  getCurrentUserProfile,
+  getStoredToken,
+  deleteAuthed,
+  postAuthedJson,
   // Assertions
+  expectStoredTokenCleared,
   expectSuccessMessage,
   expectErrorMessage,
   // Grade Weights
   setWeightByLabel,
-  // Login
+  // Portal
   loginAs,
+  loginAsTeacherAccount,
   logout,
+  togglePortalMenuAndAssert,
   // Fixtures & Constants
   ACCOUNTS,
   TEST_DATA,
   API,
   // Types
+  type ManagedClassRecord,
   type GradeSummaryRow,
   type TeacherClassSummary,
   // Selectors
@@ -76,76 +122,23 @@ const EMPTY_TEACHER = {
   password: process.env.E2E_EMPTY_TEACHER_PASSWORD ?? "TeacherE2E!234",
 } as const;
 
-interface CurrentUser {
-  user_id: number;
-  username: string;
-  full_name: string;
-  email: string;
-  phone_number: string | null;
-  role: string;
-  created_at: string;
-}
-
-interface ManagedClassRecord {
-  class_id: number;
-  class_name: string;
-  class_code: string | null;
-}
-
 // ===== Setup =====
 
 async function loginAsTeacher(page: Page, password = ACCOUNTS.teacher.password): Promise<void> {
-  await loginAs(page, { username: ACCOUNTS.teacher.username, password, role: "teacher" });
+  await loginAsTeacherAccount(page, password);
 }
 
 async function loginAsTeacherWithNoClasses(page: Page): Promise<void> {
   await loginAs(page, { username: EMPTY_TEACHER.username, password: EMPTY_TEACHER.password, role: "teacher" });
 }
 
-async function getAuthToken(page: Page): Promise<string> {
-  const token = await page.evaluate(() => localStorage.getItem("token"));
-  expect(token).not.toBeNull();
-  return token!;
-}
-
-async function getJson<T>(page: Page, path: string): Promise<T> {
-  const token = await getAuthToken(page);
-  const response = await page.request.get(`${BACKEND_ORIGIN}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  expect(response.ok()).toBeTruthy();
-  return unwrapDataEnvelope<T>(await response.json());
-}
-
-async function deleteJson(page: Page, path: string): Promise<APIResponse> {
-  const token = await getAuthToken(page);
-  return page.request.delete(`${BACKEND_ORIGIN}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-}
-
-async function postJson(page: Page, path: string, data: unknown): Promise<APIResponse> {
-  const token = await getAuthToken(page);
-  return page.request.post(`${BACKEND_ORIGIN}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    data,
-  });
-}
-
-async function getCurrentUser(page: Page): Promise<CurrentUser> {
-  return getJson<CurrentUser>(page, "/api/v1/users/me");
-}
-
 async function getManagedClasses(page: Page): Promise<ManagedClassRecord[]> {
-  const currentUser = await getCurrentUser(page);
-  return getJson<ManagedClassRecord[]>(page, `/api/v1/teachers/${currentUser.user_id}/classes`);
+  const currentUser = await getCurrentUserProfile(page, BACKEND_ORIGIN);
+  return getAuthedJson<ManagedClassRecord[]>(
+    page,
+    BACKEND_ORIGIN,
+    `/api/v1/teachers/${currentUser.user_id}/classes`,
+  );
 }
 
 async function getManagedClassByName(page: Page, className: string): Promise<ManagedClassRecord> {
@@ -156,7 +149,7 @@ async function getManagedClassByName(page: Page, className: string): Promise<Man
 }
 
 async function deleteClassViaApi(page: Page, classId: number): Promise<APIResponse> {
-  return deleteJson(page, `/api/v1/classes/${classId}`);
+  return deleteAuthed(page, BACKEND_ORIGIN, `/api/v1/classes/${classId}`);
 }
 
 async function removeAssistantAssignmentViaApi(
@@ -164,7 +157,7 @@ async function removeAssistantAssignmentViaApi(
   classId: number,
   assistantId: number,
 ): Promise<APIResponse> {
-  return deleteJson(page, `/api/v1/classes/${classId}/assistants/${assistantId}`);
+  return deleteAuthed(page, BACKEND_ORIGIN, `/api/v1/classes/${classId}/assistants/${assistantId}`);
 }
 
 async function addAssistantAssignmentViaApi(
@@ -172,7 +165,7 @@ async function addAssistantAssignmentViaApi(
   classId: number,
   assistantId: number,
 ): Promise<APIResponse> {
-  return postJson(page, `/api/v1/classes/${classId}/assistants`, {
+  return postAuthedJson(page, BACKEND_ORIGIN, `/api/v1/classes/${classId}/assistants`, {
     assistant_id: assistantId,
   });
 }
@@ -184,11 +177,7 @@ test.describe("@teacher 布局与导航", () => {
     await loginAsTeacher(page);
 
     // Toggle menu
-    const menuToggle = page.locator("header button").first();
-    await menuToggle.click();
-    await expect(page.getByRole("heading", { level: 4, name: "T" })).toBeVisible();
-    await menuToggle.click();
-    await expect(page.getByRole("heading", { level: 4, name: "Teacher Portal" })).toBeVisible();
+    await togglePortalMenuAndAssert(page, "teacher");
 
     // Navigate through menus
     await openTopLevelPage(page, "班级管理", "班级管理");
@@ -201,21 +190,19 @@ test.describe("@teacher 布局与导航", () => {
     await logout(page);
     
     // Verify token cleared
-    const token = await page.evaluate(() => localStorage.getItem("token"));
-    expect(token).toBeNull();
+    await expectStoredTokenCleared(page);
   });
 });
 
 test.describe("@teacher 班级管理", () => {
   test("创建班级", async ({ page }) => {
     await loginAsTeacher(page);
-    await openTopLevelPage(page, "班级管理", "班级管理");
+    await openClassManagementPage(page);
 
     const className = makeRunId("E2E班级");
     const classCode = `TC${Date.now()}`;
 
-    await page.getByRole(ClassManagementSelectors.addClassBtn.role, { name: ClassManagementSelectors.addClassBtn.name }).click();
-    const createModal = await getVisibleModal(page, ModalTitles.createClass);
+    const createModal = await openCreateClassModal(page);
 
     // Download template
     const [templateDownload] = await Promise.all([
@@ -225,15 +212,17 @@ test.describe("@teacher 班级管理", () => {
     expect(templateDownload.suggestedFilename()).toContain("学生名单导入模板");
 
     // Fill form and upload
-    await fillFormField(createModal, ClassManagementSelectors.classNameInput, className);
-    await fillFormField(createModal, ClassManagementSelectors.classCodeInput, classCode);
-    await createModal.locator(ClassManagementSelectors.fileInput).setInputFiles({
-      name: `students-${Date.now()}.csv`,
-      mimeType: "text/csv",
-      buffer: buildCsv([
-        ["学号", "姓名"],
-        [makeStudentNo(11), "班级导入学生"],
-      ]),
+    await fillClassForm(createModal, {
+      className,
+      classCode,
+      studentCsv: {
+        name: `students-${Date.now()}.csv`,
+        mimeType: "text/csv",
+        buffer: buildCsv([
+          ["学号", "姓名"],
+          [makeStudentNo(11), "班级导入学生"],
+        ]),
+      },
     });
     await createModal.getByRole("button", { name: /创\s*建/ }).click();
 
@@ -249,15 +238,14 @@ test.describe("@teacher 班级管理", () => {
     await expect(classRow).toBeVisible();
 
     // Cleanup: delete the created class
-    await classRow.getByRole(ClassManagementSelectors.deleteClassBtn.role, { name: ClassManagementSelectors.deleteClassBtn.name }).click();
-    const deleteModal = await getVisibleModal(page, ModalTitles.deleteClass);
+    const deleteModal = await openDeleteClassModal(classRow);
     await deleteModal.getByRole("button", { name: /删\s*除/ }).click();
     await expectSuccessMessage(page, SuccessMessages.classDeleted);
   });
 
   test("编辑班级", async ({ page }) => {
     await loginAsTeacher(page);
-    await openTopLevelPage(page, "班级管理", "班级管理");
+    await openClassManagementPage(page);
 
     const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
     const originalClassName = await firstRow.locator("td").first().innerText();
@@ -267,11 +255,11 @@ test.describe("@teacher 班级管理", () => {
     const updatedClassCode = `EDIT${Date.now()}`;
 
     // Edit first class
-    await firstRow.getByRole(ClassManagementSelectors.editClassBtn.role, { name: ClassManagementSelectors.editClassBtn.name }).click();
-    
-    const editModal = await getVisibleModal(page, ModalTitles.editClass);
-    await fillFormField(editModal, ClassManagementSelectors.classNameInput, updatedClassName);
-    await fillFormField(editModal, ClassManagementSelectors.classCodeInput, updatedClassCode);
+    const editModal = await openEditClassModal(firstRow);
+    await fillClassForm(editModal, {
+      className: updatedClassName,
+      classCode: updatedClassCode,
+    });
     await editModal.getByRole("button", { name: /保\s*存/ }).click();
     
     await expectSuccessMessage(page, SuccessMessages.classUpdated);
@@ -279,50 +267,49 @@ test.describe("@teacher 班级管理", () => {
 
     // Cleanup: restore original class name
     const updatedRow = tableRowByText(page, updatedClassName);
-    await updatedRow.getByRole(ClassManagementSelectors.editClassBtn.role, { name: ClassManagementSelectors.editClassBtn.name }).click();
-    const restoreModal = await getVisibleModal(page, ModalTitles.editClass);
-    await fillFormField(restoreModal, ClassManagementSelectors.classNameInput, originalClassName);
-    await fillFormField(restoreModal, ClassManagementSelectors.classCodeInput, originalClassCode);
+    const restoreModal = await openEditClassModal(updatedRow);
+    await fillClassForm(restoreModal, {
+      className: originalClassName,
+      classCode: originalClassCode,
+    });
     await restoreModal.getByRole("button", { name: /保\s*存/ }).click();
     await expectSuccessMessage(page, SuccessMessages.classUpdated);
   });
 
   test("查看班级学生列表", async ({ page }) => {
     await loginAsTeacher(page);
-    await openTopLevelPage(page, "班级管理", "班级管理");
+    await openClassManagementPage(page);
 
     const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
     const className = await firstRow.locator("td").first().innerText();
-    
-    await firstRow.getByRole(ClassManagementSelectors.studentListBtn.role, { name: ClassManagementSelectors.studentListBtn.name }).click();
-    
-    const studentsModal = await getVisibleModal(page, new RegExp(`学生列表\\s*-\\s*${className}`));
+    const studentsModal = await openClassStudentListModal(firstRow, className);
     await expect(studentsModal.locator(CommonSelectors.table)).toBeVisible();
     await studentsModal.getByRole("button", { name: /关\s*闭/ }).click();
   });
 
   test("创建班级失败提示", async ({ page }) => {
     await loginAsTeacher(page);
-    await openTopLevelPage(page, "班级管理", "班级管理");
+    await openClassManagementPage(page);
 
-    const existingClassName = await createTempClass(page);
+    const existingClassName = await createManagedClassViaUi(page);
     const existingRow = tableRowByText(page, existingClassName);
     await expect(existingRow).toBeVisible();
     const duplicateClassCode = (await existingRow.locator("td").nth(1).innerText()).trim();
 
     const className = makeRunId("E2E失败班级");
 
-    await page.getByRole(ClassManagementSelectors.addClassBtn.role, { name: ClassManagementSelectors.addClassBtn.name }).click();
-    const createModal = await getVisibleModal(page, ModalTitles.createClass);
-    await fillFormField(createModal, ClassManagementSelectors.classNameInput, className);
-    await fillFormField(createModal, ClassManagementSelectors.classCodeInput, duplicateClassCode);
-    await createModal.locator(ClassManagementSelectors.fileInput).setInputFiles({
-      name: `students-fail-${Date.now()}.csv`,
-      mimeType: "text/csv",
-      buffer: buildCsv([
-        ["学号", "姓名"],
-        [makeStudentNo(81), "创建失败学生"],
-      ]),
+    const createModal = await openCreateClassModal(page);
+    await fillClassForm(createModal, {
+      className,
+      classCode: duplicateClassCode,
+      studentCsv: {
+        name: `students-fail-${Date.now()}.csv`,
+        mimeType: "text/csv",
+        buffer: buildCsv([
+          ["学号", "姓名"],
+          [makeStudentNo(81), "创建失败学生"],
+        ]),
+      },
     });
     await createModal.getByRole("button", { name: /创\s*建/ }).click();
 
@@ -330,26 +317,23 @@ test.describe("@teacher 班级管理", () => {
     await expect(createModal).toBeVisible();
     await createModal.getByRole("button", { name: /取\s*消/ }).click();
 
-    await existingRow.getByRole(ClassManagementSelectors.deleteClassBtn.role, { name: ClassManagementSelectors.deleteClassBtn.name }).click();
-    const cleanupModal = await getVisibleModal(page, ModalTitles.deleteClass);
+    const cleanupModal = await openDeleteClassModal(existingRow);
     await cleanupModal.getByRole("button", { name: /删\s*除/ }).click();
     await expectSuccessMessage(page, SuccessMessages.classDeleted);
   });
 
   test("查看班级学生列表失败提示", async ({ page }) => {
     await loginAsTeacher(page);
-    await openTopLevelPage(page, "班级管理", "班级管理");
+    await openClassManagementPage(page);
 
-    const className = await createTempClass(page);
+    const className = await createManagedClassViaUi(page);
     const classRow = tableRowByText(page, className);
     await expect(classRow).toBeVisible();
     const classRecord = await getManagedClassByName(page, className);
     const deleteResponse = await deleteClassViaApi(page, classRecord.class_id);
     expect(deleteResponse.ok()).toBeTruthy();
 
-    await classRow.getByRole(ClassManagementSelectors.studentListBtn.role, { name: ClassManagementSelectors.studentListBtn.name }).click();
-
-    const studentsModal = await getVisibleModal(page, new RegExp(`学生列表\\s*-\\s*${className}`));
+    const studentsModal = await openClassStudentListModal(classRow, className);
     await expectErrorMessage(page, "班级不存在");
     await expect(studentsModal.getByText("暂无学生")).toBeVisible();
     await studentsModal.getByRole("button", { name: /关\s*闭/ }).click();
@@ -357,17 +341,16 @@ test.describe("@teacher 班级管理", () => {
 
   test("删除班级失败提示", async ({ page }) => {
     await loginAsTeacher(page);
-    await openTopLevelPage(page, "班级管理", "班级管理");
+    await openClassManagementPage(page);
 
-    const className = await createTempClass(page);
+    const className = await createManagedClassViaUi(page);
     const classRow = tableRowByText(page, className);
     await expect(classRow).toBeVisible();
     const classRecord = await getManagedClassByName(page, className);
     const deleteResponse = await deleteClassViaApi(page, classRecord.class_id);
     expect(deleteResponse.ok()).toBeTruthy();
 
-    await classRow.getByRole(ClassManagementSelectors.deleteClassBtn.role, { name: ClassManagementSelectors.deleteClassBtn.name }).click();
-    const deleteModal = await getVisibleModal(page, ModalTitles.deleteClass);
+    const deleteModal = await openDeleteClassModal(classRow);
     await deleteModal.getByRole("button", { name: /删\s*除/ }).click();
 
     await expectErrorMessage(page, "班级不存在");
@@ -377,7 +360,7 @@ test.describe("@teacher 班级管理", () => {
   test("空班级显示暂无班级", async ({ page }) => {
     await loginAsTeacherWithNoClasses(page);
 
-    await openTopLevelPage(page, "班级管理", "班级管理");
+    await openClassManagementPage(page);
     await expect(page.getByText("暂无班级")).toBeVisible();
   });
 });
@@ -385,17 +368,17 @@ test.describe("@teacher 班级管理", () => {
 test.describe("@teacher 学生管理", () => {
   test("添加新学生", async ({ page }) => {
     await loginAsTeacher(page);
-    await openTopLevelPage(page, "学生管理", "学生管理");
+    await openStudentManagementPage(page);
 
     const studentNo = makeStudentNo(21);
     const studentName = `Student${makeLetters(6)}`;
 
-    await page.getByRole(StudentManagementSelectors.addStudentBtn.role, { name: StudentManagementSelectors.addStudentBtn.name }).click();
-    const addModal = await getVisibleModal(page, StudentManagementSelectors.addStudentBtn.name);
-    
-    await fillFormField(addModal, StudentManagementSelectors.studentNoInput, studentNo);
-    await fillFormField(addModal, StudentManagementSelectors.studentNameInput, studentName);
-    await fillFormField(addModal, StudentManagementSelectors.passwordInput, "Student@123");
+    const addModal = await openAddStudentModal(page);
+    await fillStudentCreationForm(addModal, {
+      studentNo,
+      studentName,
+      password: "Student@123",
+    });
     await addModal.getByRole("button", { name: /添\s*加/ }).click();
     
     await expectSuccessMessage(page, SuccessMessages.studentAdded);
@@ -415,18 +398,19 @@ test.describe("@teacher 学生管理", () => {
 
   test("添加学生冲突校验：重复学号与邮箱", async ({ page }) => {
     await loginAsTeacher(page);
-    await openTopLevelPage(page, "学生管理", "学生管理");
+    await openStudentManagementPage(page);
 
     const studentNo = makeStudentNo(22);
     const studentName = `Dup${makeLetters(5)}`;
     const studentEmail = `${studentNo}@dup.e2e.test`;
 
-    await page.getByRole(StudentManagementSelectors.addStudentBtn.role, { name: StudentManagementSelectors.addStudentBtn.name }).click();
-    const addModal = await getVisibleModal(page, StudentManagementSelectors.addStudentBtn.name);
-    await fillFormField(addModal, StudentManagementSelectors.studentNoInput, studentNo);
-    await fillFormField(addModal, StudentManagementSelectors.studentNameInput, studentName);
-    await fillFormField(addModal, StudentManagementSelectors.passwordInput, "Student@123");
-    await fillFormField(addModal, "邮箱（可选）", studentEmail);
+    const addModal = await openAddStudentModal(page);
+    await fillStudentCreationForm(addModal, {
+      studentNo,
+      studentName,
+      password: "Student@123",
+      email: studentEmail,
+    });
     await addModal.getByRole("button", { name: /添\s*加/ }).click();
     await expectSuccessMessage(page, SuccessMessages.studentAdded);
 
@@ -435,23 +419,25 @@ test.describe("@teacher 学生管理", () => {
     const studentRow = tableRowByText(page, studentName);
     await expect(studentRow).toBeVisible();
 
-    await page.getByRole(StudentManagementSelectors.addStudentBtn.role, { name: StudentManagementSelectors.addStudentBtn.name }).click();
-    const duplicateNoModal = await getVisibleModal(page, StudentManagementSelectors.addStudentBtn.name);
-    await fillFormField(duplicateNoModal, StudentManagementSelectors.studentNoInput, studentNo);
-    await fillFormField(duplicateNoModal, StudentManagementSelectors.studentNameInput, `${studentName}重复学号`);
-    await fillFormField(duplicateNoModal, StudentManagementSelectors.passwordInput, "Student@123");
-    await fillFormField(duplicateNoModal, "邮箱（可选）", `${studentNo}+dup@e2e.test`);
+    const duplicateNoModal = await openAddStudentModal(page);
+    await fillStudentCreationForm(duplicateNoModal, {
+      studentNo,
+      studentName: `${studentName}重复学号`,
+      password: "Student@123",
+      email: `${studentNo}+dup@e2e.test`,
+    });
     await duplicateNoModal.getByRole("button", { name: /添\s*加/ }).click();
     await expectErrorMessage(page, "学号或邮箱已存在");
     await expect(duplicateNoModal).toBeVisible();
     await duplicateNoModal.getByRole("button", { name: /取\s*消/ }).click();
 
-    await page.getByRole(StudentManagementSelectors.addStudentBtn.role, { name: StudentManagementSelectors.addStudentBtn.name }).click();
-    const duplicateEmailModal = await getVisibleModal(page, StudentManagementSelectors.addStudentBtn.name);
-    await fillFormField(duplicateEmailModal, StudentManagementSelectors.studentNoInput, makeStudentNo(23));
-    await fillFormField(duplicateEmailModal, StudentManagementSelectors.studentNameInput, `${studentName}重复邮箱`);
-    await fillFormField(duplicateEmailModal, StudentManagementSelectors.passwordInput, "Student@123");
-    await fillFormField(duplicateEmailModal, "邮箱（可选）", studentEmail);
+    const duplicateEmailModal = await openAddStudentModal(page);
+    await fillStudentCreationForm(duplicateEmailModal, {
+      studentNo: makeStudentNo(23),
+      studentName: `${studentName}重复邮箱`,
+      password: "Student@123",
+      email: studentEmail,
+    });
     await duplicateEmailModal.getByRole("button", { name: /添\s*加/ }).click();
     await expectErrorMessage(page, "学号或邮箱已存在");
     await expect(duplicateEmailModal).toBeVisible();
@@ -468,17 +454,18 @@ test.describe("@teacher 学生管理", () => {
 
   test("从学生库添加", async ({ page }) => {
     await loginAsTeacher(page);
-    await openTopLevelPage(page, "学生管理", "学生管理");
+    await openStudentManagementPage(page);
 
     // Add a student first
     const studentNo = makeStudentNo(31);
     const studentName = `Library${makeLetters(4)}`;
     
-    await page.getByRole(StudentManagementSelectors.addStudentBtn.role, { name: StudentManagementSelectors.addStudentBtn.name }).click();
-    const addModal = await getVisibleModal(page, StudentManagementSelectors.addStudentBtn.name);
-    await fillFormField(addModal, StudentManagementSelectors.studentNoInput, studentNo);
-    await fillFormField(addModal, StudentManagementSelectors.studentNameInput, studentName);
-    await fillFormField(addModal, StudentManagementSelectors.passwordInput, "Student@123");
+    const addModal = await openAddStudentModal(page);
+    await fillStudentCreationForm(addModal, {
+      studentNo,
+      studentName,
+      password: "Student@123",
+    });
     await addModal.getByRole("button", { name: /添\s*加/ }).click();
     await expectSuccessMessage(page, SuccessMessages.studentAdded);
     // Modal auto-closes after success
@@ -500,8 +487,7 @@ test.describe("@teacher 学生管理", () => {
     await page.waitForTimeout(500);
 
     // Add back from library
-    await page.getByRole(StudentManagementSelectors.addFromLibraryBtn.role, { name: StudentManagementSelectors.addFromLibraryBtn.name }).click();
-    const selectModal = await getVisibleModal(page, "从学生库中添加");
+    const selectModal = await openStudentLibrarySelectionModal(page);
     await selectModal.locator("input[placeholder='按学号或姓名搜索']").fill(studentNo);
     await expect(selectModal.getByText(studentName)).toBeVisible({ timeout: 10_000 });
     await selectModal.getByRole("button", { name: "添加到班级" }).click();
@@ -515,10 +501,9 @@ test.describe("@teacher 学生管理", () => {
 
   test("从学生库添加空搜索态", async ({ page }) => {
     await loginAsTeacher(page);
-    await openTopLevelPage(page, "学生管理", "学生管理");
+    await openStudentManagementPage(page);
 
-    await page.getByRole(StudentManagementSelectors.addFromLibraryBtn.role, { name: StudentManagementSelectors.addFromLibraryBtn.name }).click();
-    const selectModal = await getVisibleModal(page, "从学生库中添加");
+    const selectModal = await openStudentLibrarySelectionModal(page);
 
     await selectModal.locator("input[placeholder='按学号或姓名搜索']").fill("NO_MATCH_E2E_STUDENT");
     await expect(selectModal.getByText("暂无可加入的学生")).toBeVisible();
@@ -529,7 +514,7 @@ test.describe("@teacher 学生管理", () => {
 
   test("重置学生密码", async ({ page }) => {
     await loginAsTeacher(page);
-    await openTopLevelPage(page, "学生管理", "学生管理");
+    await openStudentManagementPage(page);
 
     const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
     const studentName = await firstRow.locator("td").nth(1).innerText();
@@ -546,7 +531,7 @@ test.describe("@teacher 学生管理", () => {
 
   test("分页与搜索重置", async ({ page }) => {
     await loginAsTeacher(page);
-    await openTopLevelPage(page, "学生管理", "学生管理");
+    await openStudentManagementPage(page);
 
     const pagination = page.locator(CommonSelectors.pagination).first();
     await expect(pagination).toBeVisible();
@@ -562,74 +547,25 @@ test.describe("@teacher 学生管理", () => {
   });
 });
 
-/**
- * Get the first available class name from the class management page
- */
-async function getFirstClassName(page: Page): Promise<string> {
-  await openTopLevelPage(page, "班级管理", "班级管理");
-  const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
-  return await firstRow.locator("td").first().innerText();
-}
-
-async function createTempClass(
-  page: Page,
-  options?: {
-    withStudents?: boolean;
-    prefix?: string;
-    codePrefix?: string;
-  },
-): Promise<string> {
-  await openTopLevelPage(page, "班级管理", "班级管理");
-
-  const className = makeRunId(options?.prefix ?? "E2E助教班级");
-  const classCode = `${options?.codePrefix ?? "TA"}${Date.now()}`;
-  const withStudents = options?.withStudents ?? true;
-
-  await page.getByRole(ClassManagementSelectors.addClassBtn.role, { name: ClassManagementSelectors.addClassBtn.name }).click();
-  const createModal = await getVisibleModal(page, ModalTitles.createClass);
-  await fillFormField(createModal, ClassManagementSelectors.classNameInput, className);
-  await fillFormField(createModal, ClassManagementSelectors.classCodeInput, classCode);
-  if (withStudents) {
-    await createModal.locator(ClassManagementSelectors.fileInput).setInputFiles({
-      name: `assistant-class-${Date.now()}.csv`,
-      mimeType: "text/csv",
-      buffer: buildCsv([
-        ["学号", "姓名"],
-        [makeStudentNo(91), "助教分配学生"],
-      ]),
-    });
-  }
-  await createModal.getByRole("button", { name: /创\s*建/ }).click();
-  await expectSuccessMessage(page, SuccessMessages.classCreated);
-
-  const resultModal = await getVisibleModal(page, "创建结果");
-  await resultModal.getByRole("button", { name: /确\s*定/ }).click();
-  await expect(tableRowByText(page, className)).toBeVisible();
-  return className;
-}
-
 test.describe("@teacher 助教管理", () => {
   test("创建助教", async ({ page }) => {
     await loginAsTeacher(page);
-    
-    // Get the first available class name dynamically
-    const firstClassName = await getFirstClassName(page);
-    
-    await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
+    const firstClassName = await getFirstManagedClassName(page);
+    await openTeacherAssistantManagementPage(page);
 
     const assistantUsername = `ta${Date.now().toString().slice(-8)}`;
     const assistantName = `Assistant${makeLetters(6)}`;
     const assistantEmail = `${assistantUsername}@e2e.test`;
 
-    await page.getByRole(AssistantManagementSelectors.createAssistantBtn.role, { name: AssistantManagementSelectors.createAssistantBtn.name }).click();
-    const createModal = await getVisibleModal(page, ModalTitles.createAssistant);
-    
-    await fillFormField(createModal, AssistantManagementSelectors.usernameInput, assistantUsername);
-    await fillFormField(createModal, AssistantManagementSelectors.fullNameInput, assistantName);
-    await fillFormField(createModal, AssistantManagementSelectors.emailInput, assistantEmail);
-    await fillFormField(createModal, AssistantManagementSelectors.phoneInput, makePhone(31));
-    await fillFormField(createModal, AssistantManagementSelectors.passwordInput, "Assistant@123");
-    await selectOptionByLabel(page, createModal, AssistantManagementSelectors.classSelectLabel, firstClassName);
+    const createModal = await openCreateAssistantModal(page);
+    await fillAssistantCreationForm(page, createModal, {
+      username: assistantUsername,
+      fullName: assistantName,
+      email: assistantEmail,
+      phone: makePhone(31),
+      password: "Assistant@123",
+      classNames: [firstClassName],
+    });
     await createModal.getByRole("button", { name: /创\s*建/ }).click();
 
     await expectSuccessMessage(page, SuccessMessages.assistantCreated);
@@ -638,15 +574,12 @@ test.describe("@teacher 助教管理", () => {
 
   test("重新分配助教班级", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
+    await openTeacherAssistantManagementPage(page);
 
     // Find first assistant
     const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
-    const assistantName = await firstRow.locator("td").first().innerText();
-
-    await firstRow.getByRole(AssistantManagementSelectors.reassignBtn.role, { name: AssistantManagementSelectors.reassignBtn.name }).click();
-    const reassignModal = await getVisibleModal(page, ModalTitles.reassignAssistant);
-    await clearMultiSelectByLabel(reassignModal, AssistantManagementSelectors.classSelectLabel);
+    const reassignModal = await openAssistantReassignModal(firstRow);
+    await replaceAssistantAssignments(page, reassignModal, []);
     await reassignModal.getByRole("button", { name: /保\s*存/ }).click();
     
     await expectSuccessMessage(page, SuccessMessages.assistantUnassigned);
@@ -654,17 +587,11 @@ test.describe("@teacher 助教管理", () => {
 
   test("从库中选择助教", async ({ page }) => {
     await loginAsTeacher(page);
-    
-    // Get the first available class name dynamically
-    const firstClassName = await getFirstClassName(page);
-    
-    await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
+    const firstClassName = await getFirstManagedClassName(page);
+    await openTeacherAssistantManagementPage(page);
 
-    await page.getByRole(AssistantManagementSelectors.selectFromLibraryBtn.role, { name: AssistantManagementSelectors.selectFromLibraryBtn.name }).click();
-    const selectModal = await getVisibleModal(page, ModalTitles.selectAssistant);
-    
-    await selectOptionByLabel(page, selectModal, "选择助教", "助教小赵");
-    await selectOptionByLabel(page, selectModal, AssistantManagementSelectors.classSelectLabel, firstClassName);
+    const selectModal = await openAssistantLibrarySelectionModal(page);
+    await assignAssistantFromLibrary(page, selectModal, "助教小赵", [firstClassName]);
     await selectModal.getByRole("button", { name: /分\s*配/ }).click();
 
     await expectSuccessMessage(page, SuccessMessages.assistantAssigned);
@@ -678,24 +605,13 @@ test.describe("@teacher 助教管理", () => {
     const additionalClass = managedClasses.find((item) => item.class_id !== existingAssignmentClass?.class_id);
     expect(existingAssignmentClass).toBeDefined();
     expect(additionalClass).toBeDefined();
-    await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
+    await openTeacherAssistantManagementPage(page);
 
-    await page.getByRole(AssistantManagementSelectors.selectFromLibraryBtn.role, { name: AssistantManagementSelectors.selectFromLibraryBtn.name }).click();
-    const selectModal = await getVisibleModal(page, ModalTitles.selectAssistant);
-    await selectOptionByLabel(page, selectModal, "选择助教", "助教小孙");
-    await selectOptionByLabel(page, selectModal, AssistantManagementSelectors.classSelectLabel, existingAssignmentClass!.class_name);
-    const classFormItem = selectModal.locator(CommonSelectors.formItem).filter({ hasText: AssistantManagementSelectors.classSelectLabel }).first();
-    await classFormItem.getByRole("combobox").click();
-    const classDropdown = page.locator(".ant-select-dropdown").last();
-    const additionalClassOption = classDropdown
-      .locator(".ant-select-item-option")
-      .filter({ hasText: additionalClass!.class_name })
-      .first();
-    await additionalClassOption.evaluate((element) => {
-      element.scrollIntoView({ block: "center" });
-    });
-    await additionalClassOption.click();
-    await page.keyboard.press("Escape");
+    const selectModal = await openAssistantLibrarySelectionModal(page);
+    await assignAssistantFromLibrary(page, selectModal, "助教小孙", [
+      existingAssignmentClass!.class_name,
+      additionalClass!.class_name,
+    ]);
     const injectDuplicateAssignment = await addAssistantAssignmentViaApi(page, existingAssignmentClass!.class_id, 203);
     expect([201, 409]).toContain(injectDuplicateAssignment.status());
     await selectModal.getByRole("button", { name: /分\s*配/ }).click();
@@ -707,19 +623,16 @@ test.describe("@teacher 助教管理", () => {
 
   test("重新分配助教班级时部分操作失败会提示 warning", async ({ page }) => {
     await loginAsTeacher(page);
-    const extraClassName = await createTempClass(page);
+    const extraClassName = await createManagedClassViaUi(page);
     const extraClassRecord = await getManagedClassByName(page, extraClassName);
     const ensureAssignmentResponse = await addAssistantAssignmentViaApi(page, TEST_DATA.teacherClassId, 203);
     expect([201, 409]).toContain(ensureAssignmentResponse.status());
-    await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
+    await openTeacherAssistantManagementPage(page);
 
     const assistantRow = tableRowByText(page, "助教小孙");
     await expect(assistantRow).toBeVisible();
-    await assistantRow.getByRole(AssistantManagementSelectors.reassignBtn.role, { name: AssistantManagementSelectors.reassignBtn.name }).click();
-    const reassignModal = await getVisibleModal(page, ModalTitles.reassignAssistant);
-
-    await clearMultiSelectByLabel(reassignModal, AssistantManagementSelectors.classSelectLabel);
-    await selectOptionByLabel(page, reassignModal, AssistantManagementSelectors.classSelectLabel, extraClassName);
+    const reassignModal = await openAssistantReassignModal(assistantRow);
+    await replaceAssistantAssignments(page, reassignModal, [extraClassName]);
     const removeResponse = await removeAssistantAssignmentViaApi(page, TEST_DATA.teacherClassId, 203);
     expect(removeResponse.ok()).toBeTruthy();
 
@@ -732,36 +645,38 @@ test.describe("@teacher 助教管理", () => {
 
   test("创建助教冲突校验：重复用户名与邮箱", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
+    await openTeacherAssistantManagementPage(page);
 
     const firstRow = page.locator(CommonSelectors.tableRow).nth(1);
     const existingUsername = await firstRow.locator("td").nth(1).innerText();
     const existingEmail = await firstRow.locator("td").nth(3).innerText();
-    const firstClassName = await getFirstClassName(page);
+    const firstClassName = await getFirstManagedClassName(page);
+    await openTeacherAssistantManagementPage(page);
 
-    await openSubMenuPage(page, "账户设置", "助教管理", "助教管理");
-    await page.getByRole(AssistantManagementSelectors.createAssistantBtn.role, { name: AssistantManagementSelectors.createAssistantBtn.name }).click();
-    const duplicateUsernameModal = await getVisibleModal(page, ModalTitles.createAssistant);
+    const duplicateUsernameModal = await openCreateAssistantModal(page);
     const duplicateUsername = `ta${Date.now().toString().slice(-8)}`;
-    await fillFormField(duplicateUsernameModal, AssistantManagementSelectors.usernameInput, existingUsername);
-    await fillFormField(duplicateUsernameModal, AssistantManagementSelectors.fullNameInput, `重复助教${makeLetters(4)}`);
-    await fillFormField(duplicateUsernameModal, AssistantManagementSelectors.emailInput, `${duplicateUsername}@e2e.test`);
-    await fillFormField(duplicateUsernameModal, AssistantManagementSelectors.phoneInput, makePhone(61));
-    await fillFormField(duplicateUsernameModal, AssistantManagementSelectors.passwordInput, "Assistant@123");
-    await selectOptionByLabel(page, duplicateUsernameModal, AssistantManagementSelectors.classSelectLabel, firstClassName);
+    await fillAssistantCreationForm(page, duplicateUsernameModal, {
+      username: existingUsername,
+      fullName: `重复助教${makeLetters(4)}`,
+      email: `${duplicateUsername}@e2e.test`,
+      phone: makePhone(61),
+      password: "Assistant@123",
+      classNames: [firstClassName],
+    });
     await duplicateUsernameModal.getByRole("button", { name: /创\s*建/ }).click();
     await expectErrorMessage(page, "用户名已存在");
     await expect(duplicateUsernameModal).toBeVisible();
     await duplicateUsernameModal.getByRole("button", { name: /取\s*消/ }).click();
 
-    await page.getByRole(AssistantManagementSelectors.createAssistantBtn.role, { name: AssistantManagementSelectors.createAssistantBtn.name }).click();
-    const duplicateEmailModal = await getVisibleModal(page, ModalTitles.createAssistant);
-    await fillFormField(duplicateEmailModal, AssistantManagementSelectors.usernameInput, `ta${(Date.now() + 1).toString().slice(-8)}`);
-    await fillFormField(duplicateEmailModal, AssistantManagementSelectors.fullNameInput, `重复邮箱助教${makeLetters(4)}`);
-    await fillFormField(duplicateEmailModal, AssistantManagementSelectors.emailInput, existingEmail);
-    await fillFormField(duplicateEmailModal, AssistantManagementSelectors.phoneInput, makePhone(62));
-    await fillFormField(duplicateEmailModal, AssistantManagementSelectors.passwordInput, "Assistant@123");
-    await selectOptionByLabel(page, duplicateEmailModal, AssistantManagementSelectors.classSelectLabel, firstClassName);
+    const duplicateEmailModal = await openCreateAssistantModal(page);
+    await fillAssistantCreationForm(page, duplicateEmailModal, {
+      username: `ta${(Date.now() + 1).toString().slice(-8)}`,
+      fullName: `重复邮箱助教${makeLetters(4)}`,
+      email: existingEmail,
+      phone: makePhone(62),
+      password: "Assistant@123",
+      classNames: [firstClassName],
+    });
     await duplicateEmailModal.getByRole("button", { name: /创\s*建/ }).click();
     await expectErrorMessage(page, "邮箱已存在");
     await expect(duplicateEmailModal).toBeVisible();
@@ -772,7 +687,7 @@ test.describe("@teacher 助教管理", () => {
 test.describe("@teacher 实验管理", () => {
   test("实验进度查看", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "实验管理", "实验进度", "实验进度");
+    await openExperimentProgressPage(page);
     
     // Verify page loaded with statistics
     await expect(page.getByText(ExperimentProgressSelectors.avgCompletionStat)).toBeVisible();
@@ -783,13 +698,13 @@ test.describe("@teacher 实验管理", () => {
     await expect(tableRowByText(page, TEST_DATA.students.pendingTeacher)).toBeVisible();
 
     // Expand row to see step completion
-    await page.locator(ExperimentProgressSelectors.expandIcon).first().click();
+    await expandFirstTableRow(page);
     await expect(page.getByText(ExperimentProgressSelectors.stepCompletionText)).toBeVisible();
   });
 
   test("实验日志查看", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "实验管理", "实验日志", "实验日志");
+    await openExperimentLogsPage(page);
     
     await expect(page.getByText(ExperimentLogSelectors.totalExperimentsStat)).toBeVisible();
     
@@ -800,7 +715,7 @@ test.describe("@teacher 实验管理", () => {
 
   test("实验报告评阅", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+    await openExperimentReportsPage(page);
     
     await expect(page.getByText("报告平均得分")).toBeVisible();
 
@@ -811,12 +726,12 @@ test.describe("@teacher 实验管理", () => {
     await expect(reportRow.getByText(ExperimentReportSelectors.statusSubmitted)).toBeVisible();
 
     // Review
-    await reportRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
-    const reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
-    
-    await reviewModal.getByPlaceholder(ExperimentReportSelectors.reportScoreInput.placeholder).fill("88");
-    await reviewModal.getByPlaceholder(ExperimentReportSelectors.modelScoreInput.placeholder).fill("92");
-    await reviewModal.getByPlaceholder(ExperimentReportSelectors.feedbackInput.placeholder).fill("E2E 自动评阅通过。");
+    const reviewModal = await openReportReviewModal(reportRow);
+    await fillReportReviewForm(reviewModal, {
+      reportScore: "88",
+      modelScore: "92",
+      feedback: "E2E 自动评阅通过。",
+    });
     await reviewModal.getByRole(ExperimentReportSelectors.saveReviewBtn.role, { name: ExperimentReportSelectors.saveReviewBtn.name }).click();
     
     await expectSuccessMessage(page, SuccessMessages.reviewSaved);
@@ -825,16 +740,14 @@ test.describe("@teacher 实验管理", () => {
 
   test("实验报告评阅校验：未填报告得分时禁止仅提交实验步骤分数", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+    await openExperimentReportsPage(page);
 
     const reportRow = page
       .locator(CommonSelectors.tableRow)
       .filter({ hasText: ExperimentReportSelectors.statusSubmitted })
       .first();
     await expect(reportRow).toBeVisible();
-    await reportRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
-
-    const reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
+    const reviewModal = await openReportReviewModal(reportRow);
     await reviewModal.getByText("实验步骤评分（可选)").or(reviewModal.getByText("实验步骤评分（可选）")).click();
     await reviewModal.getByPlaceholder("0-100").first().fill("85");
 
@@ -845,7 +758,7 @@ test.describe("@teacher 实验管理", () => {
 
   test("实验报告驳回后显示已驳回状态与原因", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+    await openExperimentReportsPage(page);
 
     const pendingRow = page
       .locator(CommonSelectors.tableRow)
@@ -856,9 +769,8 @@ test.describe("@teacher 实验管理", () => {
     const studentId = (await pendingRow.locator("td").nth(3).innerText()).trim();
     const rejectReason = `E2E驳回原因-${Date.now().toString().slice(-6)}`;
 
-    await pendingRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
-    const reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
-    await reviewModal.getByPlaceholder("请输入具体的修改建议...").fill(rejectReason);
+    const reviewModal = await openReportReviewModal(pendingRow);
+    await fillReportRejectReason(reviewModal, rejectReason);
     await reviewModal.getByRole("button", { name: "驳回报告" }).click();
 
     await expectSuccessMessage(page, "报告已驳回");
@@ -866,8 +778,7 @@ test.describe("@teacher 实验管理", () => {
     const rejectedRow = tableRowByText(page, studentId);
     await expect(rejectedRow.getByText(ExperimentReportSelectors.statusRejected)).toBeVisible();
 
-    await rejectedRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
-    const rejectedModal = await getVisibleModal(page, ModalTitles.reviewReport);
+    const rejectedModal = await openReportReviewModal(rejectedRow);
     await expect(rejectedModal.getByText("报告已驳回")).toBeVisible();
     await expect(rejectedModal.getByText(rejectReason)).toBeVisible();
     await rejectedModal.getByRole("button", { name: /关\s*闭/ }).click();
@@ -875,25 +786,23 @@ test.describe("@teacher 实验管理", () => {
 
   test("实验报告驳回校验：未填写原因时禁用驳回", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+    await openExperimentReportsPage(page);
 
     await page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder).fill(TEST_DATA.students.perfectScore);
     const reviewableRow = tableRowByText(page, TEST_DATA.students.perfectScore);
     await expect(reviewableRow).toBeVisible();
-    await reviewableRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
-
-    const reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
+    const reviewModal = await openReportReviewModal(reviewableRow);
     const rejectButton = reviewModal.getByRole("button", { name: "驳回报告" });
     await expect(rejectButton).toBeDisabled();
 
-    await reviewModal.getByPlaceholder("请输入具体的修改建议...").fill("需要补充实验结论");
+    await fillReportRejectReason(reviewModal, "需要补充实验结论");
     await expect(rejectButton).toBeEnabled();
     await reviewModal.getByRole("button", { name: /取\s*消/ }).click();
   });
 
   test("导出 CSV 和报告归档", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+    await openExperimentReportsPage(page);
 
     // Export CSV
     await page.getByRole(ExperimentReportSelectors.exportCsvBtn.role, { name: ExperimentReportSelectors.exportCsvBtn.name }).click();
@@ -908,7 +817,7 @@ test.describe("@teacher 实验管理", () => {
 
   test("实验报告分页", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+    await openExperimentReportsPage(page);
 
     const pagination = page.locator(CommonSelectors.pagination).first();
     await expect(pagination).toBeVisible();
@@ -927,28 +836,26 @@ test.describe("@teacher 实验管理", () => {
 test.describe("@teacher 考核管理", () => {
   test("题库增改删", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "考核管理", "题库管理", "题库管理");
+    await openQuestionBankPage(page);
 
     const createdQuestionText = `E2E题目${Date.now()}`;
     const updatedQuestionText = `${createdQuestionText}-更新`;
 
     // Create via API
-    const token = await page.evaluate(() => localStorage.getItem("token"));
-    expect(token).not.toBeNull();
-
-    const createResponse = await page.request.post(`${BACKEND_ORIGIN}/api/v1/question-bank/questions`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      data: {
+    const token = await getStoredToken(page);
+    const createResponse = await postAuthedJson(
+      page,
+      BACKEND_ORIGIN,
+      "/api/v1/question-bank/questions",
+      {
         question_text: createdQuestionText,
         question_type: "Single Choice",
         knowledge_point: "时间序列基础",
         options: ["选项A", "选项B"],
         correct_answers: ["选项A"],
       },
-    });
+      token,
+    );
     expect(createResponse.ok()).toBeTruthy();
 
     // Verify and edit
@@ -959,8 +866,7 @@ test.describe("@teacher 考核管理", () => {
     await expect(createdRow).toBeVisible();
 
     // Edit
-    await createdRow.getByRole(QuestionBankSelectors.editBtn.role).nth(1).click();
-    const editQuestionModal = await getVisibleModal(page, "编辑题目");
+    const editQuestionModal = await openQuestionEditModal(createdRow);
     await fillFormField(editQuestionModal, QuestionBankSelectors.questionTextInput, updatedQuestionText);
     await editQuestionModal.getByRole("button", { name: /保\s*存/ }).click();
     await expectSuccessMessage(page, SuccessMessages.questionUpdated);
@@ -968,22 +874,18 @@ test.describe("@teacher 考核管理", () => {
     // Preview
     await questionSearchInput.fill(updatedQuestionText);
     const updatedRow = tableRowByText(page, updatedQuestionText);
-    await updatedRow.getByRole(QuestionBankSelectors.previewBtn.role).nth(0).click();
-    const previewModal = await getVisibleModal(page, "题目预览");
+    const previewModal = await openQuestionPreviewModal(updatedRow);
     await expect(previewModal.getByText(updatedQuestionText)).toBeVisible();
-    await previewModal.getByRole("button", { name: "Close" }).click();
+    await closeModalWithCloseButton(previewModal);
 
     // Delete
-    await updatedRow.getByRole(QuestionBankSelectors.deleteBtn.role).nth(2).click();
-    const deletePopover = page.locator(".ant-popover").filter({ hasText: "确定删除该题目？" }).last();
-    await expect(deletePopover).toBeVisible();
-    await deletePopover.getByRole("button", { name: /确\s*定/ }).click();
+    await confirmQuestionDelete(updatedRow);
     await expectSuccessMessage(page, SuccessMessages.questionDeleted);
   });
 
   test("成绩权重设置", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "考核管理", "成绩权重", "成绩权重设置");
+    await openGradeWeightsPage(page);
     
     await expect(page.getByText(GradeWeightSelectors.topLevelWeightTitle)).toBeVisible();
 
@@ -1026,7 +928,7 @@ test.describe("@teacher 考核管理", () => {
     const summaryPromise = page.waitForResponse(
       (r) => r.request().method() === "GET" && API.teacherGradeSummaries.test(r.url()),
     );
-    await openSubMenuPage(page, "考核管理", "成绩总览", "成绩总览");
+    await openGradeOverviewPage(page);
     
     const summaryResponse = await summaryPromise;
     expect(summaryResponse.ok()).toBeTruthy();
@@ -1044,17 +946,10 @@ test.describe("@teacher 考核管理", () => {
     await expect(page.getByText("各班级提交率对比")).toBeVisible();
 
     // Click to view details
-    const classCard = page
-      .locator(CommonSelectors.card)
-      .filter({ hasText: firstClassName })
-      .filter({ hasText: GradeOverviewSelectors.classCardClickHint })
-      .first();
-    await expect(classCard).toBeVisible();
-
     const detailPromise = page.waitForResponse(
       (r) => r.request().method() === "GET" && r.url().includes(`/api/v1/classes/${firstClassId}/grade-summaries`),
     );
-    await classCard.click();
+    await openGradeOverviewClassDetail(page, firstClassName);
     expect((await detailPromise).ok()).toBeTruthy();
 
     // Verify statistics
@@ -1069,7 +964,7 @@ test.describe("@teacher 考核管理", () => {
     await loginAsTeacher(page);
     await openTopLevelPage(page, "班级管理", "班级管理");
 
-    const emptyClassName = await createTempClass(page, {
+    const emptyClassName = await createManagedClassViaUi(page, {
       withStudents: false,
       prefix: "E2E空导出班级",
       codePrefix: "EMPTY",
@@ -1079,21 +974,14 @@ test.describe("@teacher 考核管理", () => {
     const summaryPromise = page.waitForResponse(
       (r) => r.request().method() === "GET" && API.teacherGradeSummaries.test(r.url()),
     );
-    await openSubMenuPage(page, "考核管理", "成绩总览", "成绩总览");
+    await openGradeOverviewPage(page);
     const summaryResponse = await summaryPromise;
     expect(summaryResponse.ok()).toBeTruthy();
-
-    const classCard = page
-      .locator(CommonSelectors.card)
-      .filter({ hasText: emptyClassName })
-      .filter({ hasText: GradeOverviewSelectors.classCardClickHint })
-      .first();
-    await expect(classCard).toBeVisible();
 
     const detailPromise = page.waitForResponse(
       (r) => r.request().method() === "GET" && r.url().includes(`/api/v1/classes/${emptyClassRecord.class_id}/grade-summaries`),
     );
-    await classCard.click();
+    await openGradeOverviewClassDetail(page, emptyClassName);
     expect((await detailPromise).ok()).toBeTruthy();
 
     await page.getByRole(GradeOverviewSelectors.exportBtn.role, { name: GradeOverviewSelectors.exportBtn.name }).click();
@@ -1110,7 +998,7 @@ test.describe("@teacher 考核管理", () => {
     const summaryPromise = page.waitForResponse(
       (r) => r.request().method() === "GET" && API.teacherGradeSummaries.test(r.url()),
     );
-    await openSubMenuPage(page, "考核管理", "成绩总览", "成绩总览");
+    await openGradeOverviewPage(page);
     expect((await summaryPromise).ok()).toBeTruthy();
 
     await expect(page.getByRole(GradeOverviewSelectors.exportBtn.role, { name: GradeOverviewSelectors.exportBtn.name })).toHaveCount(0);
@@ -1120,14 +1008,9 @@ test.describe("@teacher 考核管理", () => {
 test.describe("@teacher 边缘情况", () => {
   test("成绩边缘值", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "考核管理", "成绩总览", "成绩总览");
+    await openGradeOverviewPage(page);
 
-    const classCard = page
-      .locator(CommonSelectors.card)
-      .filter({ hasText: TEST_DATA.teacherClassName })
-      .filter({ hasText: GradeOverviewSelectors.classCardClickHint })
-      .first();
-    await classCard.click();
+    await openGradeOverviewClassDetail(page, TEST_DATA.teacherClassName);
 
     // Perfect score - verify student exists with 100 score
     await page.getByPlaceholder(GradeOverviewSelectors.searchInput.placeholder).fill(TEST_DATA.students.perfectScore);
@@ -1161,7 +1044,7 @@ test.describe("@teacher 边缘情况", () => {
 
   test("特殊内容处理", async ({ page }) => {
     await loginAsTeacher(page);
-    await openSubMenuPage(page, "实验管理", "实验报告", "实验报告");
+    await openExperimentReportsPage(page);
 
     // XSS content
     await page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder).fill(TEST_DATA.students.xssTest);
@@ -1177,10 +1060,11 @@ test.describe("@teacher 边缘情况", () => {
     await page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder).clear();
     await page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder).fill(TEST_DATA.students.longText);
     const longRow = tableRowByText(page, TEST_DATA.students.longText);
-    await longRow.getByRole(ExperimentReportSelectors.reviewBtn.role, { name: ExperimentReportSelectors.reviewBtn.name }).click();
-    const reviewModal = await getVisibleModal(page, ModalTitles.reviewReport);
-    await reviewModal.getByPlaceholder(ExperimentReportSelectors.reportScoreInput.placeholder).fill("75");
-    await reviewModal.getByPlaceholder(ExperimentReportSelectors.modelScoreInput.placeholder).fill("78");
+    const reviewModal = await openReportReviewModal(longRow);
+    await fillReportReviewForm(reviewModal, {
+      reportScore: "75",
+      modelScore: "78",
+    });
     await reviewModal.getByRole(ExperimentReportSelectors.saveReviewBtn.role, { name: ExperimentReportSelectors.saveReviewBtn.name }).click();
     await expectSuccessMessage(page, SuccessMessages.reviewSaved);
   });
@@ -1191,12 +1075,12 @@ test.describe("@teacher 个人信息", () => {
     await loginAsTeacher(page);
     await openPersonalInfoPage(page);
 
-    await page.getByRole(PersonalInfoSelectors.editBtn.role, { name: PersonalInfoSelectors.editBtn.name }).click();
-    const editModal = await getVisibleModal(page, ModalTitles.editPersonalInfo);
-    
-    await fillFormField(editModal, PersonalInfoSelectors.fullNameInput, `张教授${Date.now().toString().slice(-4)}`);
-    await fillFormField(editModal, PersonalInfoSelectors.phoneInput, makePhone(41));
-    await fillFormField(editModal, PersonalInfoSelectors.emailInput, `teacher1+${Date.now()}@e2e.test`);
+    const editModal = await openEditPersonalInfoModal(page);
+    await fillPersonalInfoForm(editModal, {
+      fullName: `张教授${Date.now().toString().slice(-4)}`,
+      phone: makePhone(41),
+      email: `teacher1+${Date.now()}@e2e.test`,
+    });
     await editModal.getByRole(PersonalInfoSelectors.saveBtn.role, { name: PersonalInfoSelectors.saveBtn.name }).click();
     
     await expectSuccessMessage(page, SuccessMessages.personalInfoSaved);
@@ -1206,22 +1090,24 @@ test.describe("@teacher 个人信息", () => {
     await loginAsTeacher(page);
     await openPersonalInfoPage(page);
 
-    await page.getByRole(PersonalInfoSelectors.editBtn.role, { name: PersonalInfoSelectors.editBtn.name }).click();
-    const duplicateEmailModal = await getVisibleModal(page, ModalTitles.editPersonalInfo);
-    await fillFormField(duplicateEmailModal, PersonalInfoSelectors.fullNameInput, `教师${makeLetters(4)}`);
-    await fillFormField(duplicateEmailModal, PersonalInfoSelectors.phoneInput, makePhone(71));
-    await fillFormField(duplicateEmailModal, PersonalInfoSelectors.emailInput, "teacher2@test.com");
+    const duplicateEmailModal = await openEditPersonalInfoModal(page);
+    await fillPersonalInfoForm(duplicateEmailModal, {
+      fullName: `教师${makeLetters(4)}`,
+      phone: makePhone(71),
+      email: "teacher2@test.com",
+    });
     await duplicateEmailModal.getByRole(PersonalInfoSelectors.saveBtn.role, { name: PersonalInfoSelectors.saveBtn.name }).click();
 
     await expectErrorMessage(page, "邮箱已存在");
     await expect(duplicateEmailModal).toBeVisible();
     await duplicateEmailModal.getByRole("button", { name: /取\s*消/ }).click();
 
-    await page.getByRole(PersonalInfoSelectors.editBtn.role, { name: PersonalInfoSelectors.editBtn.name }).click();
-    const duplicatePhoneModal = await getVisibleModal(page, ModalTitles.editPersonalInfo);
-    await fillFormField(duplicatePhoneModal, PersonalInfoSelectors.fullNameInput, `教师${makeLetters(4)}`);
-    await fillFormField(duplicatePhoneModal, PersonalInfoSelectors.phoneInput, "13800000002");
-    await fillFormField(duplicatePhoneModal, PersonalInfoSelectors.emailInput, `teacher1+${Date.now()}@e2e.test`);
+    const duplicatePhoneModal = await openEditPersonalInfoModal(page);
+    await fillPersonalInfoForm(duplicatePhoneModal, {
+      fullName: `教师${makeLetters(4)}`,
+      phone: "13800000002",
+      email: `teacher1+${Date.now()}@e2e.test`,
+    });
     await duplicatePhoneModal.getByRole(PersonalInfoSelectors.saveBtn.role, { name: PersonalInfoSelectors.saveBtn.name }).click();
 
     await expectErrorMessage(page, "手机号已存在");
@@ -1233,11 +1119,13 @@ test.describe("@teacher 个人信息", () => {
     await loginAsTeacher(page);
     await openPersonalInfoPage(page);
 
-    const passwordCard = page.locator(CommonSelectors.card).filter({ hasText: PersonalInfoSelectors.passwordCard }).first();
-    await passwordCard.getByPlaceholder(PersonalInfoSelectors.currentPasswordInput.placeholder).fill("WrongPassword!234");
-    await passwordCard.getByPlaceholder(PersonalInfoSelectors.newPasswordInput.placeholder).fill("TeacherE2E!890");
-    await passwordCard.getByPlaceholder(PersonalInfoSelectors.confirmPasswordInput.placeholder).fill("TeacherE2E!890");
-    await passwordCard.getByRole(PersonalInfoSelectors.savePasswordBtn.role, { name: PersonalInfoSelectors.savePasswordBtn.name }).click();
+    const passwordCard = await getPasswordCard(page);
+    await fillPasswordChangeForm(passwordCard, {
+      currentPassword: "WrongPassword!234",
+      newPassword: "TeacherE2E!890",
+      confirmPassword: "TeacherE2E!890",
+    });
+    await submitPasswordChange(passwordCard);
 
     await expectErrorMessage(page, "当前密码错误");
   });
@@ -1246,11 +1134,13 @@ test.describe("@teacher 个人信息", () => {
     await loginAsTeacher(page);
     await openPersonalInfoPage(page);
 
-    const passwordCard = page.locator(CommonSelectors.card).filter({ hasText: PersonalInfoSelectors.passwordCard }).first();
-    await passwordCard.getByPlaceholder(PersonalInfoSelectors.currentPasswordInput.placeholder).fill(ACCOUNTS.teacher.password);
-    await passwordCard.getByPlaceholder(PersonalInfoSelectors.newPasswordInput.placeholder).fill("TeacherE2E!890");
-    await passwordCard.getByPlaceholder(PersonalInfoSelectors.confirmPasswordInput.placeholder).fill("TeacherE2E!891");
-    await passwordCard.getByRole(PersonalInfoSelectors.savePasswordBtn.role, { name: PersonalInfoSelectors.savePasswordBtn.name }).click();
+    const passwordCard = await getPasswordCard(page);
+    await fillPasswordChangeForm(passwordCard, {
+      currentPassword: ACCOUNTS.teacher.password,
+      newPassword: "TeacherE2E!890",
+      confirmPassword: "TeacherE2E!891",
+    });
+    await submitPasswordChange(passwordCard);
 
     await expect(passwordCard.getByText(ErrorMessages.passwordMismatch)).toBeVisible();
   });
@@ -1260,11 +1150,13 @@ test.describe("@teacher 个人信息", () => {
     await openPersonalInfoPage(page);
 
     // Change password
-    const passwordCard = page.locator(CommonSelectors.card).filter({ hasText: PersonalInfoSelectors.passwordCard }).first();
-    await passwordCard.getByPlaceholder(PersonalInfoSelectors.currentPasswordInput.placeholder).fill(ACCOUNTS.teacher.password);
-    await passwordCard.getByPlaceholder(PersonalInfoSelectors.newPasswordInput.placeholder).fill(ACCOUNTS.teacher.tempPassword);
-    await passwordCard.getByPlaceholder(PersonalInfoSelectors.confirmPasswordInput.placeholder).fill(ACCOUNTS.teacher.tempPassword);
-    await passwordCard.getByRole(PersonalInfoSelectors.savePasswordBtn.role, { name: PersonalInfoSelectors.savePasswordBtn.name }).click();
+    const passwordCard = await getPasswordCard(page);
+    await fillPasswordChangeForm(passwordCard, {
+      currentPassword: ACCOUNTS.teacher.password,
+      newPassword: ACCOUNTS.teacher.tempPassword,
+      confirmPassword: ACCOUNTS.teacher.tempPassword,
+    });
+    await submitPasswordChange(passwordCard);
     await expectSuccessMessage(page, SuccessMessages.passwordChanged);
 
     // Logout and login with new password
@@ -1273,11 +1165,13 @@ test.describe("@teacher 个人信息", () => {
     await openPersonalInfoPage(page);
 
     // Rollback password
-    const rollbackCard = page.locator(CommonSelectors.card).filter({ hasText: PersonalInfoSelectors.passwordCard }).first();
-    await rollbackCard.getByPlaceholder(PersonalInfoSelectors.currentPasswordInput.placeholder).fill(ACCOUNTS.teacher.tempPassword);
-    await rollbackCard.getByPlaceholder(PersonalInfoSelectors.newPasswordInput.placeholder).fill(ACCOUNTS.teacher.password);
-    await rollbackCard.getByPlaceholder(PersonalInfoSelectors.confirmPasswordInput.placeholder).fill(ACCOUNTS.teacher.password);
-    await rollbackCard.getByRole(PersonalInfoSelectors.savePasswordBtn.role, { name: PersonalInfoSelectors.savePasswordBtn.name }).click();
+    const rollbackCard = await getPasswordCard(page);
+    await fillPasswordChangeForm(rollbackCard, {
+      currentPassword: ACCOUNTS.teacher.tempPassword,
+      newPassword: ACCOUNTS.teacher.password,
+      confirmPassword: ACCOUNTS.teacher.password,
+    });
+    await submitPasswordChange(rollbackCard);
     await expectSuccessMessage(page, SuccessMessages.passwordChanged);
   });
 });

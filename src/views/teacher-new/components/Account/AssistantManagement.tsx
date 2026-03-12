@@ -20,9 +20,9 @@ import {
     SwapOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import { decodeToken } from '../../../../utils/auth';
 import type { User, Class } from '../../types';
 import { isAbortError, getErrorMessage } from '../../utils/error';
+import { getSessionUserOrThrow } from '../../../../utils/session';
 
 const { Title } = Typography;
 
@@ -56,12 +56,7 @@ const AssistantManagement: React.FC = () => {
             setIsLoading(true);
             setError(null);
             try {
-                const token = localStorage.getItem('token');
-                if (!token) throw new Error('未找到登录凭据');
-                const decoded = decodeToken(token);
-                if (!decoded) throw new Error('登录信息已失效');
-
-                const teacherId = decoded.sub;
+                const teacherId = getSessionUserOrThrow().sub;
 
                 const [assistantsData, classesData] = await Promise.all([
                     apiClient.get(`/teachers/${teacherId}/assistants`, { signal: controller.signal }),
@@ -104,12 +99,7 @@ const AssistantManagement: React.FC = () => {
     // Fetch class assignments for an assistant
     const fetchClassAssignments = useCallback(async (assistantId: number) => {
         try {
-            const token = localStorage.getItem('token');
-            if (!token) return;
-            const decoded = decodeToken(token);
-            if (!decoded) return;
-
-            const teacherId = decoded.sub;
+            const teacherId = getSessionUserOrThrow().sub;
             const data = await apiClient.get(`/teachers/${teacherId}/assistants/${assistantId}/classes`);
             setClassAssignments(prev => ({ ...prev, [assistantId]: data?.map((c: Class) => c.class_id) || [] }));
             return data?.map((c: Class) => c.class_id) || [];
@@ -185,12 +175,7 @@ const AssistantManagement: React.FC = () => {
 
         setIsSaving(true);
         try {
-            const token = localStorage.getItem('token');
-            if (!token) throw new Error('未找到登录凭据');
-            const decoded = decodeToken(token);
-            if (!decoded) throw new Error('登录信息已失效');
-
-            const teacherId = decoded.sub;
+            const teacherId = getSessionUserOrThrow().sub;
             const currentClasses = classAssignments[assistantToReassign.user_id] || [];
             const newClasses = values.class_ids || [];
 

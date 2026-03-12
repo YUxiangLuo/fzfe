@@ -24,9 +24,9 @@ import {
     ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import { decodeToken } from '../../../../utils/auth';
 import type { Student, Class } from '../../types';
 import { isAbortError, getErrorMessage } from '../../utils/error';
+import { listManagedClasses } from '../../utils/portalApi';
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
@@ -36,7 +36,6 @@ const StudentManagement: React.FC = () => {
     const [students, setStudents] = useState<Student[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [teacherId, setTeacherId] = useState<number | null>(null);
 
     const [isLoadingClasses, setIsLoadingClasses] = useState(true);
     const [isLoadingStudents, setIsLoadingStudents] = useState(false);
@@ -58,32 +57,20 @@ const StudentManagement: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
 
-    // Get teacher ID from token
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            const decoded = decodeToken(token);
-            if (decoded) {
-                setTeacherId(decoded.sub);
-            }
-        }
-    }, []);
-
     // Fetch classes
     useEffect(() => {
-        if (!teacherId) return;
-
         const controller = new AbortController();
 
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
-                const data = await apiClient.get(`/teachers/${teacherId}/classes`, { signal: controller.signal });
+                const data = await listManagedClasses({ signal: controller.signal });
                 if (controller.signal.aborted) return;
                 const classList = data || [];
                 setClasses(classList);
-                if (classList.length > 0) {
-                    setSelectedClassId(classList[0].class_id);
+                const firstClass = classList[0];
+                if (firstClass) {
+                    setSelectedClassId(firstClass.class_id);
                 }
             } catch (err: unknown) {
                 if (isAbortError(err)) return;
@@ -99,7 +86,7 @@ const StudentManagement: React.FC = () => {
 
         fetchClasses();
         return () => { controller.abort(); };
-    }, [teacherId]);
+    }, []);
 
     // Fetch students when class changes
     const loadStudents = useCallback(async (classId: number) => {

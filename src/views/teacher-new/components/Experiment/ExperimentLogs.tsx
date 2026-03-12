@@ -21,10 +21,10 @@ import {
     FieldTimeOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import { decodeToken } from '../../../../utils/auth';
 import type { Class, StudentExperimentLog } from '../../types';
 import { formatDateTime, formatDuration } from '../../utils/format';
 import { isAbortError, getErrorMessage } from '../../utils/error';
+import { listManagedClasses } from '../../utils/portalApi';
 
 const { Title, Text } = Typography;
 
@@ -84,17 +84,13 @@ const ExperimentLogs: React.FC = () => {
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
-                const token = localStorage.getItem('token');
-                if (!token) throw new Error('未找到登录凭据');
-                const decoded = decodeToken(token);
-                if (!decoded) throw new Error('登录信息已失效');
-
-                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`, { signal: controller.signal });
+                const data = await listManagedClasses({ signal: controller.signal });
                 if (controller.signal.aborted) return;
                 const classList = data || [];
                 setClasses(classList);
-                if (classList.length > 0) {
-                    setSelectedClassId(String(classList[0].class_id));
+                const firstClass = classList[0];
+                if (firstClass) {
+                    setSelectedClassId(String(firstClass.class_id));
                 }
             } catch (err: unknown) {
                 if (isAbortError(err)) return;

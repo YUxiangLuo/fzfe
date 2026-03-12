@@ -4,12 +4,13 @@ import { RoleProvider, useRole } from './contexts/RoleContext';
 import { getRoleById } from '../../config/roles';
 import TeacherLayout from './components/Layout/TeacherLayout';
 import ErrorBoundary from './components/ErrorBoundary';
+import { getStoredTeacherPortalRole } from '../../utils/session';
 
 function AppContent() {
     const { setRole } = useRole();
 
     useEffect(() => {
-        const storedRole = localStorage.getItem('userRole');
+        const storedRole = getStoredTeacherPortalRole();
         if (storedRole) {
             const roleObject = getRoleById(storedRole);
             if (roleObject) {

@@ -29,11 +29,11 @@ import {
 import { apiClient } from '../../../../utils/apiClient';
 import { createAuthObjectUrl, openFileWithAuth } from '../../../../utils/authFile';
 import { useObjectUrl } from '../../../../hooks/useObjectUrl';
-import { decodeToken } from '../../../../utils/auth';
 import type { Class, ExperimentReport } from '../../types';
 import { formatDateTime } from '../../utils/format';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import ReviewReportModal from './ReviewReportModal';
+import { listManagedClasses } from '../../utils/portalApi';
 
 const { Title, Text } = Typography;
 
@@ -76,17 +76,13 @@ const ExperimentReports: React.FC = () => {
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
-                const token = localStorage.getItem('token');
-                if (!token) throw new Error('未找到登录凭据');
-                const decoded = decodeToken(token);
-                if (!decoded) throw new Error('登录信息已失效');
-
-                const data = await apiClient.get(`/teachers/${decoded.sub}/classes`, { signal: controller.signal });
+                const data = await listManagedClasses({ signal: controller.signal });
                 if (controller.signal.aborted) return;
                 const classList = data || [];
                 setClasses(classList);
-                if (classList.length > 0) {
-                    setSelectedClassId(String(classList[0].class_id));
+                const firstClass = classList[0];
+                if (firstClass) {
+                    setSelectedClassId(String(firstClass.class_id));
                 }
             } catch (err: unknown) {
                 if (isAbortError(err)) return;

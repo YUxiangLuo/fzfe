@@ -10,6 +10,7 @@ import {
   type ReportAnalysisValues,
   type ReportUserSummary,
 } from '../utils/reportBuilder';
+import { clearSession, clearSessionAndRedirect, redirectToLogin } from '../../../utils/session';
 
 import { ExperimentOverview } from './report_components/ExperimentOverview';
 import { ModelComparison } from './report_components/ModelComparison';
@@ -38,13 +39,13 @@ const ExperimentReport: React.FC = () => {
 
   useEffect(() => {
     if (showCompletionModal) {
-      localStorage.removeItem('token');
+      clearSession();
       setCountdown(8);
       const timer = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
-            window.location.href = '/login.html';
+            redirectToLogin();
             return 0;
           }
           return prev - 1;
@@ -131,7 +132,7 @@ const ExperimentReport: React.FC = () => {
   };
 
   const handleLogout = () => {
-    window.location.href = '/login.html';
+    clearSessionAndRedirect();
   };
 
   const renderValue = (value: string | number | null | undefined) => {

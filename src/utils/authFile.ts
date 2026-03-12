@@ -1,14 +1,7 @@
 import { resolveFileUrl } from "./fileUrl";
+import { getSessionTokenOrThrow } from "./session";
 
 const DEFAULT_OBJECT_URL_REVOKE_DELAY_MS = 120000;
-
-const getAuthToken = (): string => {
-  const token = localStorage.getItem("token");
-  if (!token) {
-    throw new Error("未找到登录凭据");
-  }
-  return token;
-};
 
 const readErrorMessage = async (response: Response): Promise<string> => {
   const text = await response.text();
@@ -31,7 +24,7 @@ export const fetchFileBlob = async (filePath: string): Promise<Blob> => {
   const url = resolveFileUrl(filePath);
   if (!url) throw new Error("无效的文件地址");
 
-  const token = getAuthToken();
+  const token = getSessionTokenOrThrow();
   const response = await fetch(url, {
     method: "GET",
     headers: {
