@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import { toastEventBus } from '../../utils/toastEventBus';
+import { normalizeBaseModelSelection } from '../../utils/modelCatalog';
 import {
   LineChart,
   ChartSpline,
@@ -326,10 +327,12 @@ type View = 'introduction' | 'selection';
 const ModelIntroductionFlow: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { updateState } = useExperiment();
+  const { state, updateState } = useExperiment();
   const [currentModelIndex, setCurrentModelIndex] = useState(0);
   const [view, setView] = useState<View>('introduction');
-  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [selectedModels, setSelectedModels] = useState<string[]>(() =>
+    normalizeBaseModelSelection(state.selected_base_models),
+  );
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // On mount, check if we should jump to the last step
@@ -345,6 +348,10 @@ const ModelIntroductionFlow: React.FC = () => {
       scrollContainerRef.current.scrollTop = 0;
     }
   }, [currentModelIndex]);
+
+  useEffect(() => {
+    setSelectedModels(normalizeBaseModelSelection(state.selected_base_models));
+  }, [state.selected_base_models]);
 
   const activeModel = baseModels[currentModelIndex];
   if (!activeModel) return null;
@@ -362,7 +369,7 @@ const ModelIntroductionFlow: React.FC = () => {
     } else if (view === 'selection') {
       if (selectedModels.length >= 2) {
         try {
-          await updateState({ selected_base_models: selectedModels }, { forceSync: true, throwOnSyncError: true });
+          await updateState({ selected_base_models: normalizeBaseModelSelection(selectedModels) }, { forceSync: true, throwOnSyncError: true });
           navigate('/model/model-select');
         } catch (error) {
           console.error('保存基础模型选择失败:', error);
@@ -388,9 +395,11 @@ const ModelIntroductionFlow: React.FC = () => {
 
   const handleModelToggle = (modelId: string) => {
     setSelectedModels(prev =>
-      prev.includes(modelId)
-        ? prev.filter(id => id !== modelId)
-        : [...prev, modelId]
+      normalizeBaseModelSelection(
+        prev.includes(modelId)
+          ? prev.filter(id => id !== modelId)
+          : [...prev, modelId],
+      )
     );
   };
 

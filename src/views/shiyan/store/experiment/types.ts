@@ -66,6 +66,8 @@ export interface PersistedExperimentState {
   selected_industry: string | null;
   selected_company: string | null;
   selected_product: string | null;
+  selected_base_models: string[];
+  selected_ensemble_models: string[];
 
   data_window_train_start_index: number | null;
   data_window_train_end_index: number | null;

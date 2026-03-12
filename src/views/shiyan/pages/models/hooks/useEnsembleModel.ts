@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
@@ -6,6 +6,7 @@ import { MODEL_ID_MAP, ENSEMBLE_CONSTANTS } from '../constants';
 import { alignPredictionRows } from '../resultAlignment';
 import { useModelJob } from './useModelJob';
 import type { ExperimentState } from '../../../store/experiment/types';
+import { normalizeBaseModelSelection } from '../../../utils/modelCatalog';
 
 type EnsembleType = 'weighted' | 'boosting' | 'stacking';
 
@@ -45,11 +46,37 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
   const { state, updateState, productSalesData, setTrainingLock } = useExperiment();
   const location = useLocation();
   const { isLoading, error, setError, retryCount, runJob, handleRetry, resetRetryCount } = useModelJob();
+  const persistedSelectedModels = (state[config.stateKey.baseModels] as string[]) ?? [];
+  const normalizedPersistedSelectedModels = useMemo(
+    () => normalizeBaseModelSelection(persistedSelectedModels),
+    [persistedSelectedModels],
+  );
+  const persistedSelectionSignature = useMemo(
+    () => normalizedPersistedSelectedModels.join('|'),
+    [normalizedPersistedSelectedModels],
+  );
 
   const [selectedModels, setSelectedModels] = useState<string[]>(
-    (state[config.stateKey.baseModels] as string[]) ?? []
+    normalizedPersistedSelectedModels
   );
   const [results, setResults] = useState<EnsembleResults | null>(null);
+  const lastSelectionSignatureRef = useRef(
+    normalizeBaseModelSelection(selectedModels).join('|'),
+  );
+
+  const selectedSelectionSignature = useMemo(
+    () => normalizeBaseModelSelection(selectedModels).join('|'),
+    [selectedModels],
+  );
+
+  useEffect(() => {
+    setSelectedModels((previousSelectedModels) => {
+      const previousSignature = normalizeBaseModelSelection(previousSelectedModels).join('|');
+      return previousSignature === persistedSelectionSignature
+        ? previousSelectedModels
+        : normalizedPersistedSelectedModels;
+    });
+  }, [normalizedPersistedSelectedModels, persistedSelectionSignature]);
 
   // Calculate evaluate months
   const evaluateMonths = useMemo(() => {
@@ -70,10 +97,15 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
 
   // Any base-model change starts a new training attempt context.
   useEffect(() => {
+    if (lastSelectionSignatureRef.current === selectedSelectionSignature) {
+      return;
+    }
+
+    lastSelectionSignatureRef.current = selectedSelectionSignature;
     setResults(null);
     setError(null);
     resetRetryCount();
-  }, [selectedModels, resetRetryCount, setError]);
+  }, [selectedSelectionSignature, resetRetryCount, setError]);
 
   // Handle model training
   const handleCalculate = useCallback(async () => {
@@ -82,7 +114,8 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       return;
     }
 
-    const backendModels = selectedModels.map(id => MODEL_ID_MAP[id] || id);
+    const normalizedSelectedModels = normalizeBaseModelSelection(selectedModels);
+    const backendModels = normalizedSelectedModels.map(id => MODEL_ID_MAP[id] || id);
 
     const requestBody: Record<string, any> = {
       experiment_id: state.experiment_id,
@@ -133,7 +166,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
         }
 
         await updateState({
-          [config.stateKey.baseModels]: selectedModels,
+          [config.stateKey.baseModels]: normalizedSelectedModels,
           [config.stateKey.metricsRmse]: apiResults.metrics.rmse,
           [config.stateKey.metricsMae]: apiResults.metrics.mae,
           [config.stateKey.metricsR2]: apiResults.metrics.r2,

@@ -3,6 +3,10 @@ import {
   buildInitialSessionState,
   buildInitialState,
 } from "../store/experiment/initialState";
+import {
+  normalizeBaseModelSelection,
+  normalizeEnsembleModelSelection,
+} from "../utils/modelCatalog";
 import type {
   AdfStationarityRow,
   ExperimentState,
@@ -85,17 +89,19 @@ export const fromExperimentApi = (state: ExperimentApiState | null | undefined):
 
   return {
     ...basePersistedState,
-    ...state,
     ...baseSessionState,
+    ...state,
+    selected_base_models: normalizeBaseModelSelection(state.selected_base_models),
+    selected_ensemble_models: normalizeEnsembleModelSelection(state.selected_ensemble_models),
     arima_adf_stationarity: normalizeAdfRows(state.arima_adf_stationarity),
     lstm_features: normalizeStringArray(state.lstm_features),
-    ensemble_weighted_base_models: normalizeStringArray(
+    ensemble_weighted_base_models: normalizeBaseModelSelection(
       state.ensemble_weighted_base_models,
     ),
-    ensemble_boosting_base_models: normalizeStringArray(
+    ensemble_boosting_base_models: normalizeBaseModelSelection(
       state.ensemble_boosting_base_models,
     ),
-    ensemble_stacking_base_models: normalizeStringArray(
+    ensemble_stacking_base_models: normalizeBaseModelSelection(
       state.ensemble_stacking_base_models,
     ),
     production_forecast_results: normalizeForecastResults(
@@ -108,11 +114,19 @@ export const fromExperimentApi = (state: ExperimentApiState | null | undefined):
 export const toExperimentUpdatePayload = (
   state: ExperimentState,
 ): ExperimentUpdatePayload => {
-  const {
-    selected_base_models: _selectedBaseModels,
-    selected_ensemble_models: _selectedEnsembleModels,
-    ...payload
-  } = state;
+  const payload = { ...state };
+
+  payload.selected_base_models = normalizeBaseModelSelection(state.selected_base_models);
+  payload.selected_ensemble_models = normalizeEnsembleModelSelection(state.selected_ensemble_models);
+  payload.ensemble_weighted_base_models = normalizeBaseModelSelection(
+    state.ensemble_weighted_base_models,
+  );
+  payload.ensemble_boosting_base_models = normalizeBaseModelSelection(
+    state.ensemble_boosting_base_models,
+  );
+  payload.ensemble_stacking_base_models = normalizeBaseModelSelection(
+    state.ensemble_stacking_base_models,
+  );
 
   for (const field of SERVER_MANAGED_UPDATE_FIELDS) {
     delete payload[field];

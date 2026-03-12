@@ -19,6 +19,11 @@ const getTimeoutForEndpoint = (endpoint: string): number | undefined => {
     return undefined;
   }
 
+  // 模型生产准备 - 无超时（会重新拟合生产预测所需模型）
+  if (lowerEndpoint.includes('/models/') && lowerEndpoint.includes('/prepare-production')) {
+    return undefined;
+  }
+
   // ADF检验会拉起 Python 进程，真实数据集下可能超过默认 CRUD 超时
   if (lowerEndpoint.includes('/tools/adf')) {
     return 120000;

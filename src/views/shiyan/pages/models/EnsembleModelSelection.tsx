@@ -48,7 +48,7 @@ const ModelCard: React.FC<{ model: any; isCompleted: boolean; onClick: () => voi
 
 const EnsembleModelSelection: React.FC = () => {
   const navigate = useNavigate();
-  const { state, ui, updateState, handleEnterEvaluation } = useExperiment();
+  const { state, ui, handleEnterEvaluation } = useExperiment();
 
   // Filter the models to be displayed based on user's selection
   const selectedModelDetails = allEnsembleModels.filter(model => state.selected_ensemble_models.includes(model.id));
@@ -69,15 +69,19 @@ const EnsembleModelSelection: React.FC = () => {
 
   const handleNext = async () => {
     if (allSelectedCompleted) {
-      try {
-        await handleEnterEvaluation();
-      } catch (error) {
-        console.error('更新评估步骤失败:', error);
-        toastEventBus.error('更新评估步骤失败，请稍后重试');
-        return;
-      }
-      navigate('/evaluation');
+      await handleEnterEvaluationClick();
     }
+  };
+
+  const handleEnterEvaluationClick = async () => {
+    try {
+      await handleEnterEvaluation();
+    } catch (error) {
+      console.error('更新评估步骤失败:', error);
+      toastEventBus.error('更新评估步骤失败，请稍后重试');
+      return;
+    }
+    navigate('/evaluation');
   };
 
   const renderModelExecutionView = () => (
@@ -112,7 +116,12 @@ const EnsembleModelSelection: React.FC = () => {
           <p className="text-sm text-gray-600">
             请完成所有已选模型的学习与训练
           </p>
-          <div style={{ width: '120px' }}></div>
+          <button
+            onClick={handleEnterEvaluationClick}
+            className="px-5 py-3 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+          >
+            暂不训练融合模型，直接评估
+          </button>
         </div>
       </div>
     </>

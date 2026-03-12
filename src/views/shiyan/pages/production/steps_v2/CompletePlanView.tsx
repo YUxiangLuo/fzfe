@@ -2,19 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
-import { apiClient } from '../../../../../utils/apiClient';
 import { validatePredictions } from '../utils/predictionValidator';
-
-// 模型类型映射：前端模型ID -> 后端API参数
-const MODEL_TYPE_MAP: Record<string, string> = {
-  'ma': 'ma',
-  'exp': 'es',
-  'arima': 'arima',
-  'lstm': 'lstm',
-  'ensemble_weighted': 'weighted_average',
-  'ensemble_boosting': 'boosting',
-  'ensemble_stacking': 'stacking',
-};
+import { predictWithBestModel } from '../../../services/modelLifecycle';
 
 /**
  * 完整计划表（结果视图）
@@ -70,18 +59,11 @@ const CompletePlanView: React.FC = () => {
           throw new Error('实验状态未初始化，无法进行需求预测');
         }
 
-        const modelType = MODEL_TYPE_MAP[state.selectedBestModel];
-        if (!modelType) {
-          throw new Error(`无效的模型类型: ${state.selectedBestModel}`);
-        }
-
-        const response = await apiClient.post<{
-          status: string;
-          results: { predictions: Array<{ prediction: number; std_dev: number }> };
-        }>(`/models/${modelType==="weighted_average"?"weighted_avg":modelType}/predict`, {
-          experiment_id: experimentState.experiment_id,
-          forecast_steps: state.forecastPeriods,
-        });
+        const response = await predictWithBestModel(
+          state.selectedBestModel,
+          experimentState.experiment_id,
+          state.forecastPeriods,
+        );
 
         if (response.status === 'success' && response.results?.predictions) {
           const validation = validatePredictions(response.results.predictions);

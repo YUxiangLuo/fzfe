@@ -2,23 +2,12 @@ import React, { useState } from 'react';
 import { Factory, ArrowRight, Info, Loader2, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
-import { apiClient } from '../../../../../utils/apiClient';
 import { MPS_CALCULATION, SERVICE_LEVELS, CAPACITY_CONFIG } from '../config/mpsConstants';
 import { validatePredictions } from '../utils/predictionValidator';
+import { predictWithBestModel } from '../../../services/modelLifecycle';
 
 // 固定预测期数为6期（不在UI显示）
 const FIXED_FORECAST_PERIODS = 6;
-
-// 模型类型映射：前端模型ID -> 后端API参数
-const MODEL_TYPE_MAP: Record<string, string> = {
-  'ma': 'ma',
-  'exp': 'es',
-  'arima': 'arima',
-  'lstm': 'lstm',
-  'ensemble_weighted': 'weighted_average',
-  'ensemble_boosting': 'boosting',
-  'ensemble_stacking': 'stacking',
-};
 
 // 模型名称映射：前端模型ID -> 显示名称
 const MODEL_NAME_MAP: Record<string, string> = {
@@ -67,19 +56,11 @@ const NewStep1: React.FC = () => {
         throw new Error('实验状态未初始化，无法进行需求预测');
       }
 
-      // 🚀 调用预测接口获取需求预测
-      const modelType = MODEL_TYPE_MAP[state.selectedBestModel];
-      if (!modelType) {
-        throw new Error(`无效的模型类型: ${state.selectedBestModel}`);
-      }
-
-      const response = await apiClient.post<{
-        status: string;
-        results: { predictions: Array<{ prediction: number; std_dev: number }> };
-      }>(`/models/${modelType==="weighted_average"?"weighted_avg":modelType}/predict`, {
-        experiment_id: experimentState.experiment_id,
-        forecast_steps: FIXED_FORECAST_PERIODS,
-      });
+      const response = await predictWithBestModel(
+        state.selectedBestModel,
+        experimentState.experiment_id,
+        FIXED_FORECAST_PERIODS,
+      );
 
       if (response.status !== 'success' || !response.results?.predictions) {
         throw new Error('预测API返回数据格式错误');
