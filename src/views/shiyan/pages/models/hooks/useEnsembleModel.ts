@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
@@ -47,15 +47,36 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
   const location = useLocation();
   const { isLoading, error, setError, retryCount, runJob, handleRetry, resetRetryCount } = useModelJob();
   const persistedSelectedModels = (state[config.stateKey.baseModels] as string[]) ?? [];
+  const normalizedPersistedSelectedModels = useMemo(
+    () => normalizeBaseModelSelection(persistedSelectedModels),
+    [persistedSelectedModels],
+  );
+  const persistedSelectionSignature = useMemo(
+    () => normalizedPersistedSelectedModels.join('|'),
+    [normalizedPersistedSelectedModels],
+  );
 
   const [selectedModels, setSelectedModels] = useState<string[]>(
-    normalizeBaseModelSelection(persistedSelectedModels)
+    normalizedPersistedSelectedModels
   );
   const [results, setResults] = useState<EnsembleResults | null>(null);
+  const lastSelectionSignatureRef = useRef(
+    normalizeBaseModelSelection(selectedModels).join('|'),
+  );
+
+  const selectedSelectionSignature = useMemo(
+    () => normalizeBaseModelSelection(selectedModels).join('|'),
+    [selectedModels],
+  );
 
   useEffect(() => {
-    setSelectedModels(normalizeBaseModelSelection(persistedSelectedModels));
-  }, [persistedSelectedModels]);
+    setSelectedModels((previousSelectedModels) => {
+      const previousSignature = normalizeBaseModelSelection(previousSelectedModels).join('|');
+      return previousSignature === persistedSelectionSignature
+        ? previousSelectedModels
+        : normalizedPersistedSelectedModels;
+    });
+  }, [normalizedPersistedSelectedModels, persistedSelectionSignature]);
 
   // Calculate evaluate months
   const evaluateMonths = useMemo(() => {
@@ -76,10 +97,15 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
 
   // Any base-model change starts a new training attempt context.
   useEffect(() => {
+    if (lastSelectionSignatureRef.current === selectedSelectionSignature) {
+      return;
+    }
+
+    lastSelectionSignatureRef.current = selectedSelectionSignature;
     setResults(null);
     setError(null);
     resetRetryCount();
-  }, [selectedModels, resetRetryCount, setError]);
+  }, [selectedSelectionSignature, resetRetryCount, setError]);
 
   // Handle model training
   const handleCalculate = useCallback(async () => {
