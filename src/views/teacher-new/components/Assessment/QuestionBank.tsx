@@ -185,7 +185,7 @@ const QuestionBank: React.FC = () => {
     const knowledgePointOptions = useMemo(() => {
         const groups = new Set<string>(Object.keys(KNOWLEDGE_POINT_GROUPS));
         questions.forEach((q) => {
-            const group = q.knowledge_point?.split('-')[0]?.trim();
+            const { group } = parseKnowledgePoint(q.knowledge_point);
             if (group) groups.add(group);
         });
         return Array.from(groups);
@@ -196,12 +196,9 @@ const QuestionBank: React.FC = () => {
         if (!selectedKnowledgePoint) return [];
         const staticDetails = KNOWLEDGE_POINT_GROUPS[selectedKnowledgePoint] || [];
         const details = new Set<string>(staticDetails);
-        const prefix = selectedKnowledgePoint + '-';
         questions.forEach((q) => {
-            if (q.knowledge_point?.startsWith(prefix)) {
-                const detail = q.knowledge_point.slice(prefix.length).trim();
-                if (detail) details.add(detail);
-            }
+            const { group, detail } = parseKnowledgePoint(q.knowledge_point);
+            if (group === selectedKnowledgePoint && detail) details.add(detail);
         });
         return Array.from(details);
     }, [selectedKnowledgePoint, questions]);
@@ -220,12 +217,12 @@ const QuestionBank: React.FC = () => {
         }
 
         // Knowledge point filter
-        if (selectedKnowledgeDetail) {
-            const full = selectedKnowledgePoint + '-' + selectedKnowledgeDetail;
-            result = result.filter(q => q.knowledge_point === full);
-        } else if (selectedKnowledgePoint) {
-            const prefix = selectedKnowledgePoint + '-';
-            result = result.filter(q => q.knowledge_point?.startsWith(prefix));
+        if (selectedKnowledgePoint) {
+            result = result.filter(q => {
+                const { group, detail } = parseKnowledgePoint(q.knowledge_point);
+                if (group !== selectedKnowledgePoint) return false;
+                return !selectedKnowledgeDetail || detail === selectedKnowledgeDetail;
+            });
         }
 
         return result;
@@ -590,7 +587,31 @@ const QuestionBank: React.FC = () => {
                 cancelText="取消"
                 width={700}
             >
-                <Form form={form} layout="vertical" onFinish={handleSave}>
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onFinish={handleSave}
+                    onValuesChange={(changed) => {
+                        if ('options' in changed) {
+                            const type = form.getFieldValue('question_type') as QuestionTypeApi | undefined;
+                            if (type === 'True/False' || !type) return;
+                            const validOptions = new Set(normalizeTagValues(form.getFieldValue('options')));
+                            const currentAnswers = form.getFieldValue('correct_answers');
+                            if (type === 'Multiple Choice') {
+                                if (Array.isArray(currentAnswers)) {
+                                    const valid = currentAnswers.filter((a: string) => validOptions.has(a));
+                                    if (valid.length !== currentAnswers.length) {
+                                        form.setFieldValue('correct_answers', valid.length > 0 ? valid : undefined);
+                                    }
+                                }
+                            } else {
+                                if (currentAnswers && !validOptions.has(currentAnswers as string)) {
+                                    form.setFieldValue('correct_answers', undefined);
+                                }
+                            }
+                        }
+                    }}
+                >
                     <Form.Item
                         label="题目内容"
                         name="question_text"
@@ -699,23 +720,6 @@ const QuestionBank: React.FC = () => {
                             }
 
                             const options = normalizeTagValues(getFieldValue('options'));
-                            const optionSet = new Set(options);
-                            const currentAnswers = getFieldValue('correct_answers');
-
-                            // Clear stale answers when options change
-                            if (type === 'Multiple Choice') {
-                                if (Array.isArray(currentAnswers)) {
-                                    const valid = currentAnswers.filter((a: string) => optionSet.has(a));
-                                    if (valid.length !== currentAnswers.length) {
-                                        setTimeout(() => form.setFieldValue('correct_answers', valid.length > 0 ? valid : undefined), 0);
-                                    }
-                                }
-                            } else {
-                                if (currentAnswers && !optionSet.has(currentAnswers as string)) {
-                                    setTimeout(() => form.setFieldValue('correct_answers', undefined), 0);
-                                }
-                            }
-
                             return (
                                 <Form.Item
                                     label="正确答案"
