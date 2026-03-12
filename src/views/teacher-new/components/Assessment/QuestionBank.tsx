@@ -32,7 +32,9 @@ const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 
-// Match teacher's knowledge point grouping
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+// Two-level knowledge point taxonomy matching the teacher portal curriculum
 const KNOWLEDGE_POINT_GROUPS: Record<string, string[]> = {
     '预测模型': [
         '时间序列基础',
@@ -53,200 +55,220 @@ const KNOWLEDGE_POINT_GROUPS: Record<string, string[]> = {
     ],
 };
 
-// Search debounce delay (ms)
-const SEARCH_DEBOUNCE_DELAY = 250;
+const SEARCH_DEBOUNCE_MS = 250;
 
-const QUESTION_TYPES: Record<string, { label: string; color: string }> = {
+const QUESTION_TYPE_CONFIG: Record<QuestionTypeApi, { label: string; color: string }> = {
     'Single Choice': { label: '单选题', color: 'blue' },
     'Multiple Choice': { label: '多选题', color: 'purple' },
     'True/False': { label: '判断题', color: 'green' },
 };
 
-const CANONICAL_KNOWLEDGE_POINTS = new Set(
-    Object.values(KNOWLEDGE_POINT_GROUPS).flat()
-);
+// Flat set of all valid detail-level knowledge points for quick lookup
+const ALL_KNOWLEDGE_DETAILS = new Set(Object.values(KNOWLEDGE_POINT_GROUPS).flat());
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type QuestionOptions = Record<string, string> | string[] | null | undefined;
 
-function normalizeKnowledgePoint(value: string | null | undefined): string | null {
-    if (!value) return null;
-    const trimmed = value.trim();
-    if (CANONICAL_KNOWLEDGE_POINTS.has(trimmed)) return trimmed;
-
-    const tail = trimmed.split('-').pop()?.trim() ?? trimmed;
-    if (CANONICAL_KNOWLEDGE_POINTS.has(tail)) return tail;
-
-    return trimmed;
+// Form values for the create/edit modal
+interface QuestionFormValues {
+    question_text: string;
+    question_type: QuestionTypeApi;
+    knowledge_point_group: string;
+    knowledge_point_detail: string;
+    options?: string[];
+    correct_answers: string | string[];
 }
 
+// ─── Pure helper functions ────────────────────────────────────────────────────
+
+/**
+ * Parse a knowledge_point string into {group, detail}.
+ * Handles "group-detail" (stored format) and bare "detail" (legacy format).
+ */
 function parseKnowledgePoint(value: string | null | undefined): { group: string | null; detail: string | null } {
     if (!value) return { group: null, detail: null };
     const trimmed = value.trim();
 
+    // "预测模型-ARIMA模型" → { group: "预测模型", detail: "ARIMA模型" }
     for (const group of Object.keys(KNOWLEDGE_POINT_GROUPS)) {
         if (trimmed.startsWith(group + '-')) {
             return { group, detail: trimmed.slice(group.length + 1) };
         }
     }
 
-    for (const [group, points] of Object.entries(KNOWLEDGE_POINT_GROUPS)) {
-        if (points.includes(trimmed)) return { group, detail: trimmed };
+    // "ARIMA模型" (legacy bare format) → { group: "预测模型", detail: "ARIMA模型" }
+    for (const [group, details] of Object.entries(KNOWLEDGE_POINT_GROUPS)) {
+        if (details.includes(trimmed)) return { group, detail: trimmed };
     }
 
     return { group: null, detail: trimmed };
 }
 
-function toOptionMap(options: QuestionOptions): Record<string, string> | null {
+/**
+ * Normalize a raw knowledge_point to its canonical detail string for display.
+ * Strips any group prefix; returns the raw value when unrecognized.
+ */
+function normalizeKnowledgePoint(value: string | null | undefined): string | null {
+    if (!value) return null;
+    const trimmed = value.trim();
+    if (ALL_KNOWLEDGE_DETAILS.has(trimmed)) return trimmed;
+
+    // Strip "group-" prefix (e.g. "预测模型-ARIMA模型" → "ARIMA模型")
+    const tail = trimmed.split('-').pop()?.trim() ?? trimmed;
+    if (ALL_KNOWLEDGE_DETAILS.has(tail)) return tail;
+
+    return trimmed;
+}
+
+/**
+ * Convert Record-format options (key → value) to a key map.
+ * Returns null for array-format or absent options.
+ */
+function toOptionKeyMap(options: QuestionOptions): Record<string, string> | null {
     if (!options || Array.isArray(options)) return null;
-    return Object.entries(options).reduce<Record<string, string>>((acc, [key, val]) => {
-        acc[String(key)] = String(val);
-        return acc;
-    }, {});
-}
-
-function normalizeOptionsForForm(options: QuestionOptions): string[] {
-    if (!options) return [];
-    if (Array.isArray(options)) {
-        return options.map(String).map(v => v.trim()).filter(Boolean);
-    }
-    return Object.values(options).map(String).map(v => v.trim()).filter(Boolean);
-}
-
-function normalizeAnswersForForm(correctAnswers: unknown, options: QuestionOptions): string[] {
-    const answers = Array.isArray(correctAnswers)
-        ? correctAnswers.map(String).map(v => v.trim()).filter(Boolean)
-        : [];
-    const optionMap = toOptionMap(options);
-    if (!optionMap) return answers;
-
-    return answers.map((ans) => optionMap[ans] ?? ans);
-}
-
-function uniqValues(values: string[]): string[] {
-    return Array.from(new Set(values));
-}
-
-function normalizeTagValues(values: unknown): string[] {
-    if (!Array.isArray(values)) return [];
-    return uniqValues(
-        values
-            .map(String)
-            .map(v => v.trim())
-            .filter(Boolean)
+    return Object.fromEntries(
+        Object.entries(options).map(([k, v]) => [String(k), String(v)])
     );
 }
 
+/**
+ * Normalize API options (Record or string[]) to a plain string array for the form.
+ */
+function normalizeOptionsToArray(options: QuestionOptions): string[] {
+    if (!options) return [];
+    const values = Array.isArray(options) ? options : Object.values(options);
+    return values.map(String).map(v => v.trim()).filter(Boolean);
+}
+
+/**
+ * When options are Record-format (key → value), map stored answer keys to their
+ * display values so the form shows human-readable text.
+ * Falls through unchanged for string-array options.
+ */
+function resolveAnswerValues(answers: string[], options: QuestionOptions): string[] {
+    const keyMap = toOptionKeyMap(options);
+    if (!keyMap) return answers;
+    return answers.map(ans => keyMap[ans] ?? ans);
+}
+
+/**
+ * Safely cast an unknown form value (scalar or array) to a deduplicated string array.
+ */
+function toStringArray(value: unknown): string[] {
+    const arr = Array.isArray(value) ? value : value != null ? [value] : [];
+    return Array.from(new Set(arr.map(String).map(v => v.trim()).filter(Boolean)));
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 const QuestionBank: React.FC = () => {
+
+    // ── Data state ──────────────────────────────────────────────────────────
     const [questions, setQuestions] = useState<Question[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-    const [filterType, setFilterType] = useState<string>('');
-    const [selectedKnowledgePoint, setSelectedKnowledgePoint] = useState<string | null>(null);
-    const [selectedKnowledgeDetail, setSelectedKnowledgeDetail] = useState<string | null>(null);
+    const [fetchError, setFetchError] = useState<string | null>(null);
 
-    // Modal states
-    const [previewModalOpen, setPreviewModalOpen] = useState(false);
-    const [editorModalOpen, setEditorModalOpen] = useState(false);
-    const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
-    const [isEditing, setIsEditing] = useState(false);
-    const [form] = Form.useForm();
+    // ── Filter state ─────────────────────────────────────────────────────────
+    const [searchInput, setSearchInput] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');   // debounced, lower-cased
+    const [typeFilter, setTypeFilter] = useState('');
+    const [groupFilter, setGroupFilter] = useState<string | null>(null);
+    const [detailFilter, setDetailFilter] = useState<string | null>(null);
+
+    // ── Modal / form state ────────────────────────────────────────────────────
+    const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
+    const [editingQuestion, setEditingQuestion] = useState<Question | null>(null); // null = create mode
+    const [editorOpen, setEditorOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [form] = Form.useForm<QuestionFormValues>();
 
-    // Debounced search
+    // Derived: true when the editor is in edit-mode, false for create-mode
+    const isEditing = editingQuestion !== null;
+
+    // ── Effects ──────────────────────────────────────────────────────────────
+
+    // Debounce the search input before applying it to the filter
     useEffect(() => {
-        const handler = window.setTimeout(() => {
-            setDebouncedSearchTerm(searchTerm.trim().toLowerCase());
-        }, SEARCH_DEBOUNCE_DELAY);
+        const timer = window.setTimeout(() => {
+            setSearchTerm(searchInput.trim().toLowerCase());
+        }, SEARCH_DEBOUNCE_MS);
+        return () => window.clearTimeout(timer);
+    }, [searchInput]);
 
-        return () => window.clearTimeout(handler);
-    }, [searchTerm]);
-
-    // Fetch questions
     const fetchQuestions = useCallback(async () => {
         setIsLoading(true);
-        setError(null);
+        setFetchError(null);
         try {
             const data = await apiClient.get('/question-bank/questions');
             setQuestions(data || []);
         } catch (err: unknown) {
-            setError(getErrorMessage(err, '获取题目失败'));
+            setFetchError(getErrorMessage(err, '获取题目失败'));
         } finally {
             setIsLoading(false);
         }
     }, []);
 
-    useEffect(() => {
-        fetchQuestions();
-    }, [fetchQuestions]);
+    useEffect(() => { fetchQuestions(); }, [fetchQuestions]);
 
-    // First-level knowledge point options for filtering
-    const knowledgePointOptions = useMemo(() => {
-        const groups = new Set<string>(Object.keys(KNOWLEDGE_POINT_GROUPS));
-        questions.forEach((q) => {
+    // ── Derived filter options ────────────────────────────────────────────────
+
+    /**
+     * First-level group options for the filter dropdown.
+     * Includes groups from KNOWLEDGE_POINT_GROUPS plus any additional groups
+     * that can be parsed from existing question data via parseKnowledgePoint.
+     */
+    const groupFilterOptions = useMemo(() => {
+        const groups = new Set(Object.keys(KNOWLEDGE_POINT_GROUPS));
+        for (const q of questions) {
             const { group } = parseKnowledgePoint(q.knowledge_point);
             if (group) groups.add(group);
-        });
+        }
         return Array.from(groups);
     }, [questions]);
 
-    // Second-level options based on selected first-level group
-    const knowledgeDetailOptions = useMemo(() => {
-        if (!selectedKnowledgePoint) return [];
-        const staticDetails = KNOWLEDGE_POINT_GROUPS[selectedKnowledgePoint] || [];
-        const details = new Set<string>(staticDetails);
-        questions.forEach((q) => {
+    /** Second-level detail options for the currently selected group filter. */
+    const detailFilterOptions = useMemo(() => {
+        if (!groupFilter) return [];
+        const details = new Set<string>(KNOWLEDGE_POINT_GROUPS[groupFilter] ?? []);
+        for (const q of questions) {
             const { group, detail } = parseKnowledgePoint(q.knowledge_point);
-            if (group === selectedKnowledgePoint && detail) details.add(detail);
-        });
+            if (group === groupFilter && detail) details.add(detail);
+        }
         return Array.from(details);
-    }, [selectedKnowledgePoint, questions]);
+    }, [groupFilter, questions]);
 
+    /** Questions after applying all active filters. */
     const filteredQuestions = useMemo(() => {
-        let result = questions;
-
-        // Text search (debounced)
-        if (debouncedSearchTerm) {
-            result = result.filter(q => q.question_text.toLowerCase().includes(debouncedSearchTerm));
-        }
-
-        // Question type filter
-        if (filterType) {
-            result = result.filter(q => q.question_type === filterType);
-        }
-
-        // Knowledge point filter
-        if (selectedKnowledgePoint) {
-            result = result.filter(q => {
+        return questions.filter(q => {
+            if (searchTerm && !q.question_text.toLowerCase().includes(searchTerm)) return false;
+            if (typeFilter && q.question_type !== typeFilter) return false;
+            if (groupFilter) {
                 const { group, detail } = parseKnowledgePoint(q.knowledge_point);
-                if (group !== selectedKnowledgePoint) return false;
-                return !selectedKnowledgeDetail || detail === selectedKnowledgeDetail;
-            });
-        }
+                if (group !== groupFilter) return false;
+                if (detailFilter && detail !== detailFilter) return false;
+            }
+            return true;
+        });
+    }, [questions, searchTerm, typeFilter, groupFilter, detailFilter]);
 
-        return result;
-    }, [questions, debouncedSearchTerm, filterType, selectedKnowledgePoint, selectedKnowledgeDetail]);
+    // ── Handlers ─────────────────────────────────────────────────────────────
 
-    // Preview question
     const openPreview = (question: Question) => {
-        setSelectedQuestion(question);
-        setPreviewModalOpen(true);
+        setPreviewQuestion(question);
     };
 
-    // Edit question
     const openEditor = (question: Question | null) => {
-        setSelectedQuestion(question);
-        setIsEditing(!!question);
+        setEditingQuestion(question);
         if (question) {
-            const parsed = parseKnowledgePoint(question.knowledge_point);
-            const answers = normalizeAnswersForForm(question.correct_answers, question.options);
+            const { group, detail } = parseKnowledgePoint(question.knowledge_point);
+            const answers = resolveAnswerValues(question.correct_answers, question.options);
             form.setFieldsValue({
                 question_text: question.question_text,
                 question_type: question.question_type,
-                knowledge_point_group: parsed.group,
-                knowledge_point_detail: parsed.detail,
-                options: normalizeOptionsForForm(question.options),
+                knowledge_point_group: group ?? undefined,
+                knowledge_point_detail: detail ?? undefined,
+                options: normalizeOptionsToArray(question.options),
                 correct_answers: question.question_type === 'Multiple Choice'
                     ? answers
                     : answers[0] ?? undefined,
@@ -254,65 +276,64 @@ const QuestionBank: React.FC = () => {
         } else {
             form.resetFields();
         }
-        setEditorModalOpen(true);
+        setEditorOpen(true);
     };
 
-    // Save question
-    interface QuestionFormValues {
-        question_text: string;
-        question_type: QuestionTypeApi;
-        knowledge_point_group: string;
-        knowledge_point_detail: string;
-        options?: string[];
-        correct_answers: string | string[];
-    }
+    const closeEditor = () => {
+        setEditorOpen(false);
+        setEditingQuestion(null);
+        form.resetFields();
+    };
+
+    /**
+     * When the options list changes, drop any selected correct_answers that are
+     * no longer present in the options so the form stays consistent.
+     */
+    const handleOptionsChange = () => {
+        const type = form.getFieldValue('question_type') as QuestionTypeApi | undefined;
+        if (!type || type === 'True/False') return;
+
+        const validOptions = new Set(toStringArray(form.getFieldValue('options')));
+        const currentAnswers = form.getFieldValue('correct_answers');
+
+        if (type === 'Multiple Choice') {
+            const retained = Array.isArray(currentAnswers)
+                ? currentAnswers.filter((a: string) => validOptions.has(a))
+                : [];
+            // Only update if the selection actually changed to avoid unnecessary re-renders
+            const current = Array.isArray(currentAnswers) ? currentAnswers : [];
+            const unchanged =
+                current.length === retained.length &&
+                current.every((a: string, i: number) => a === retained[i]);
+            if (!unchanged) {
+                form.setFieldValue('correct_answers', retained.length > 0 ? retained : undefined);
+            }
+        } else {
+            if (currentAnswers && !validOptions.has(currentAnswers as string)) {
+                form.setFieldValue('correct_answers', undefined);
+            }
+        }
+    };
 
     const handleSave = async (values: QuestionFormValues) => {
         setIsSaving(true);
         try {
-            const questionType = values.question_type as QuestionTypeApi;
-            const optionMap = toOptionMap(selectedQuestion?.options);
-            const rawOptions: unknown[] = Array.isArray(values.options) ? values.options : [];
-            const normalizedOptions = uniqValues(
-                rawOptions
-                    .map(String)
-                    .map((v: string) => v.trim())
-                    .filter(Boolean)
-            );
-            const rawAnswers: unknown[] = Array.isArray(values.correct_answers)
-                ? values.correct_answers
-                : values.correct_answers ? [values.correct_answers] : [];
-            const normalizedAnswersRaw = uniqValues(
-                rawAnswers
-                    .map(String)
-                    .map((v: string) => v.trim())
-                    .filter(Boolean)
-            );
-            const normalizedAnswers =
-                optionMap && normalizedAnswersRaw.every((ans) => optionMap[ans])
-                    ? normalizedAnswersRaw.map((ans) => optionMap[ans]!)
-                    : normalizedAnswersRaw;
-
-            const payload: {
-                question_text: string;
-                question_type: QuestionTypeApi;
-                knowledge_point?: string;
-                options?: string[];
-                correct_answers: string[];
-            } = {
-                question_text: String(values.question_text ?? '').trim(),
-                question_type: questionType,
+            const isTrueFalse = values.question_type === 'True/False';
+            const payload = {
+                question_text: values.question_text.trim(),
+                question_type: values.question_type,
                 knowledge_point: values.knowledge_point_group && values.knowledge_point_detail
                     ? `${values.knowledge_point_group}-${values.knowledge_point_detail}`
                     : undefined,
-                options: questionType === 'True/False' ? undefined : normalizedOptions,
-                correct_answers: normalizedAnswers,
+                // True/False options are managed by the backend; omit them from the payload
+                options: isTrueFalse ? undefined : toStringArray(values.options),
+                correct_answers: toStringArray(values.correct_answers),
             };
 
-            if (isEditing && selectedQuestion) {
-                await apiClient.put(`/question-bank/questions/${selectedQuestion.question_id}`, payload);
+            if (isEditing && editingQuestion) {
+                await apiClient.put(`/question-bank/questions/${editingQuestion.question_id}`, payload);
                 setQuestions(prev => prev.map(q =>
-                    q.question_id === selectedQuestion.question_id
+                    q.question_id === editingQuestion.question_id
                         ? {
                             ...q,
                             ...payload,
@@ -323,13 +344,11 @@ const QuestionBank: React.FC = () => {
                 ));
                 message.success('题目更新成功');
             } else {
-                const newQuestion = await apiClient.post<Question>('/question-bank/questions', payload);
-                setQuestions(prev => [...prev, newQuestion]);
+                const created = await apiClient.post<Question>('/question-bank/questions', payload);
+                setQuestions(prev => [...prev, created]);
                 message.success('题目创建成功');
             }
-            setEditorModalOpen(false);
-            form.resetFields();
-            setSelectedQuestion(null);
+            closeEditor();
         } catch (err: unknown) {
             message.error(getErrorMessage(err, '保存失败'));
         } finally {
@@ -337,7 +356,6 @@ const QuestionBank: React.FC = () => {
         }
     };
 
-    // Delete question
     const handleDelete = async (questionId: number) => {
         try {
             await apiClient.delete(`/question-bank/questions/${questionId}`);
@@ -348,13 +366,8 @@ const QuestionBank: React.FC = () => {
         }
     };
 
-    // Format correct answers for display
-    const formatCorrectAnswers = (question: Question): string => {
-        if (!question.correct_answers || question.correct_answers.length === 0) return '—';
-        return question.correct_answers.join(', ');
-    };
+    // ── Table columns ─────────────────────────────────────────────────────────
 
-    // Table columns
     const columns = [
         {
             title: 'ID',
@@ -369,7 +382,7 @@ const QuestionBank: React.FC = () => {
             ellipsis: true,
             render: (text: string) => (
                 <Tooltip title={text}>
-                    <span>{text.length > 50 ? text.slice(0, 50) + '...' : text}</span>
+                    <span>{text.length > 50 ? `${text.slice(0, 50)}…` : text}</span>
                 </Tooltip>
             ),
         },
@@ -378,9 +391,9 @@ const QuestionBank: React.FC = () => {
             dataIndex: 'question_type',
             key: 'question_type',
             width: 100,
-            render: (type: string) => {
-                const config = QUESTION_TYPES[type];
-                return <Tag color={config?.color || 'default'}>{config?.label || type}</Tag>;
+            render: (type: QuestionTypeApi) => {
+                const cfg = QUESTION_TYPE_CONFIG[type];
+                return <Tag color={cfg?.color ?? 'default'}>{cfg?.label ?? type}</Tag>;
             },
         },
         {
@@ -388,13 +401,14 @@ const QuestionBank: React.FC = () => {
             dataIndex: 'knowledge_point',
             key: 'knowledge_point',
             width: 150,
-            render: (text: string | null) => normalizeKnowledgePoint(text) || '—',
+            render: (kp: string | null) => normalizeKnowledgePoint(kp) ?? '—',
         },
         {
             title: '正确答案',
             key: 'correct_answer',
             width: 100,
-            render: (_: unknown, record: Question) => formatCorrectAnswers(record),
+            render: (_: unknown, q: Question) =>
+                q.correct_answers?.length ? q.correct_answers.join(', ') : '—',
         },
         {
             title: '操作',
@@ -433,6 +447,8 @@ const QuestionBank: React.FC = () => {
         },
     ];
 
+    // ── Render ────────────────────────────────────────────────────────────────
+
     if (isLoading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
@@ -445,6 +461,7 @@ const QuestionBank: React.FC = () => {
 
     return (
         <div>
+            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Title level={3} style={{ marginBottom: 0 }}>题库管理</Title>
                 <Space>
@@ -463,8 +480,8 @@ const QuestionBank: React.FC = () => {
                         <Input
                             prefix={<SearchOutlined />}
                             placeholder="输入题目内容"
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
+                            value={searchInput}
+                            onChange={e => setSearchInput(e.target.value)}
                             style={{ width: 200 }}
                             allowClear
                         />
@@ -472,13 +489,13 @@ const QuestionBank: React.FC = () => {
                     <div>
                         <Text strong style={{ marginRight: 8 }}>题目类型</Text>
                         <Select
-                            value={filterType}
-                            onChange={setFilterType}
+                            value={typeFilter}
+                            onChange={setTypeFilter}
                             style={{ width: 120 }}
                             placeholder="全部"
                             allowClear
                         >
-                            {Object.entries(QUESTION_TYPES).map(([key, val]) => (
+                            {Object.entries(QUESTION_TYPE_CONFIG).map(([key, val]) => (
                                 <Option key={key} value={key}>{val.label}</Option>
                             ))}
                         </Select>
@@ -486,39 +503,39 @@ const QuestionBank: React.FC = () => {
                     <div>
                         <Text strong style={{ marginRight: 8 }}>一级知识点</Text>
                         <Select
-                            value={selectedKnowledgePoint || undefined}
+                            value={groupFilter ?? undefined}
                             onChange={(val) => {
-                                setSelectedKnowledgePoint(val || null);
-                                setSelectedKnowledgeDetail(null);
+                                setGroupFilter(val ?? null);
+                                setDetailFilter(null);
                             }}
                             style={{ width: 140 }}
                             placeholder="全部"
                             allowClear
                         >
-                            {knowledgePointOptions.map((point) => (
-                                <Option key={point} value={point}>{point}</Option>
+                            {groupFilterOptions.map((g) => (
+                                <Option key={g} value={g}>{g}</Option>
                             ))}
                         </Select>
                     </div>
                     <div>
                         <Text strong style={{ marginRight: 8 }}>二级知识点</Text>
                         <Select
-                            value={selectedKnowledgeDetail || undefined}
-                            onChange={(val) => setSelectedKnowledgeDetail(val || null)}
+                            value={detailFilter ?? undefined}
+                            onChange={(val) => setDetailFilter(val ?? null)}
                             style={{ width: 180 }}
                             placeholder="全部"
                             allowClear
-                            disabled={!selectedKnowledgePoint}
+                            disabled={!groupFilter}
                         >
-                            {knowledgeDetailOptions.map((point) => (
-                                <Option key={point} value={point}>{point}</Option>
+                            {detailFilterOptions.map((d) => (
+                                <Option key={d} value={d}>{d}</Option>
                             ))}
                         </Select>
                     </div>
                 </Space>
             </Card>
 
-            {error && <Alert description={error} type="error" showIcon style={{ marginBottom: 16 }} />}
+            {fetchError && <Alert description={fetchError} type="error" showIcon style={{ marginBottom: 16 }} />}
 
             {/* Questions Table */}
             <Card>
@@ -533,29 +550,31 @@ const QuestionBank: React.FC = () => {
             {/* Preview Modal */}
             <Modal
                 title="题目预览"
-                open={previewModalOpen}
-                onCancel={() => setPreviewModalOpen(false)}
+                open={previewQuestion !== null}
+                onCancel={() => setPreviewQuestion(null)}
                 footer={null}
                 width={600}
             >
-                {selectedQuestion && (
+                {previewQuestion && (
                     <div>
                         <Paragraph>
-                            <Tag color={QUESTION_TYPES[selectedQuestion.question_type]?.color}>
-                                {QUESTION_TYPES[selectedQuestion.question_type]?.label || selectedQuestion.question_type}
+                            <Tag color={QUESTION_TYPE_CONFIG[previewQuestion.question_type]?.color}>
+                                {QUESTION_TYPE_CONFIG[previewQuestion.question_type]?.label ?? previewQuestion.question_type}
                             </Tag>
-                            {selectedQuestion.knowledge_point && <Tag>{selectedQuestion.knowledge_point}</Tag>}
+                            {previewQuestion.knowledge_point && (
+                                <Tag>{previewQuestion.knowledge_point}</Tag>
+                            )}
                         </Paragraph>
-                        <Title level={5}>{selectedQuestion.question_text}</Title>
-                        {selectedQuestion.options && typeof selectedQuestion.options === 'object' && (
+                        <Title level={5}>{previewQuestion.question_text}</Title>
+                        {previewQuestion.options && typeof previewQuestion.options === 'object' && (
                             <div style={{ marginTop: 16 }}>
-                                {Array.isArray(selectedQuestion.options)
-                                    ? selectedQuestion.options.map((opt: string, idx: number) => (
+                                {Array.isArray(previewQuestion.options)
+                                    ? previewQuestion.options.map((opt: string, idx: number) => (
                                         <div key={idx} style={{ marginBottom: 8 }}>
                                             <Text>{String.fromCharCode(65 + idx)}. {opt}</Text>
                                         </div>
                                     ))
-                                    : Object.entries(selectedQuestion.options).map(([key, val]) => (
+                                    : Object.entries(previewQuestion.options).map(([key, val]) => (
                                         <div key={key} style={{ marginBottom: 8 }}>
                                             <Text>{key}. {val}</Text>
                                         </div>
@@ -564,7 +583,7 @@ const QuestionBank: React.FC = () => {
                             </div>
                         )}
                         <Alert
-                            message={`正确答案：${formatCorrectAnswers(selectedQuestion)}`}
+                            message={`正确答案：${previewQuestion.correct_answers?.length ? previewQuestion.correct_answers.join(', ') : '—'}`}
                             type="success"
                             style={{ marginTop: 16 }}
                         />
@@ -572,15 +591,11 @@ const QuestionBank: React.FC = () => {
                 )}
             </Modal>
 
-            {/* Editor Modal */}
+            {/* Editor Modal (create or edit) */}
             <Modal
                 title={isEditing ? '编辑题目' : '新增题目'}
-                open={editorModalOpen}
-                onCancel={() => {
-                    setEditorModalOpen(false);
-                    form.resetFields();
-                    setSelectedQuestion(null);
-                }}
+                open={editorOpen}
+                onCancel={closeEditor}
                 onOk={() => form.submit()}
                 confirmLoading={isSaving}
                 okText="保存"
@@ -592,24 +607,7 @@ const QuestionBank: React.FC = () => {
                     layout="vertical"
                     onFinish={handleSave}
                     onValuesChange={(changed) => {
-                        if ('options' in changed) {
-                            const type = form.getFieldValue('question_type') as QuestionTypeApi | undefined;
-                            if (type === 'True/False' || !type) return;
-                            const validOptions = new Set(normalizeTagValues(form.getFieldValue('options')));
-                            const currentAnswers = form.getFieldValue('correct_answers');
-                            if (type === 'Multiple Choice') {
-                                if (Array.isArray(currentAnswers)) {
-                                    const valid = currentAnswers.filter((a: string) => validOptions.has(a));
-                                    if (valid.length !== currentAnswers.length) {
-                                        form.setFieldValue('correct_answers', valid.length > 0 ? valid : undefined);
-                                    }
-                                }
-                            } else {
-                                if (currentAnswers && !validOptions.has(currentAnswers as string)) {
-                                    form.setFieldValue('correct_answers', undefined);
-                                }
-                            }
-                        }
+                        if ('options' in changed) handleOptionsChange();
                     }}
                 >
                     <Form.Item
@@ -619,6 +617,7 @@ const QuestionBank: React.FC = () => {
                     >
                         <TextArea rows={3} placeholder="请输入题目内容" />
                     </Form.Item>
+
                     <Form.Item
                         label="题目类型"
                         name="question_type"
@@ -628,11 +627,12 @@ const QuestionBank: React.FC = () => {
                             placeholder="请选择"
                             onChange={() => form.setFieldsValue({ options: [], correct_answers: undefined })}
                         >
-                            {Object.entries(QUESTION_TYPES).map(([key, val]) => (
+                            {Object.entries(QUESTION_TYPE_CONFIG).map(([key, val]) => (
                                 <Option key={key} value={key}>{val.label}</Option>
                             ))}
                         </Select>
                     </Form.Item>
+
                     <Form.Item
                         label="一级知识点"
                         name="knowledge_point_group"
@@ -647,13 +647,15 @@ const QuestionBank: React.FC = () => {
                             ))}
                         </Select>
                     </Form.Item>
+
+                    {/* 二级知识点 — cascades from 一级 selection */}
                     <Form.Item
                         noStyle
                         shouldUpdate={(prev, cur) => prev.knowledge_point_group !== cur.knowledge_point_group}
                     >
                         {({ getFieldValue }) => {
-                            const group = getFieldValue('knowledge_point_group');
-                            const detailOptions = group ? (KNOWLEDGE_POINT_GROUPS[group] || []) : [];
+                            const group = getFieldValue('knowledge_point_group') as string | undefined;
+                            const detailOptions = group ? (KNOWLEDGE_POINT_GROUPS[group] ?? []) : [];
                             return (
                                 <Form.Item
                                     label="二级知识点"
@@ -669,6 +671,8 @@ const QuestionBank: React.FC = () => {
                             );
                         }}
                     </Form.Item>
+
+                    {/* Options — hidden for True/False (options are fixed on the backend) */}
                     <Form.Item
                         noStyle
                         shouldUpdate={(prev, cur) => prev.question_type !== cur.question_type}
@@ -682,7 +686,7 @@ const QuestionBank: React.FC = () => {
                                     name="options"
                                     rules={[{
                                         validator: (_, value) => {
-                                            if (normalizeTagValues(value).length < 2) {
+                                            if (toStringArray(value).length < 2) {
                                                 return Promise.reject(new Error('选择题至少需要 2 个选项'));
                                             }
                                             return Promise.resolve();
@@ -694,6 +698,8 @@ const QuestionBank: React.FC = () => {
                             );
                         }}
                     </Form.Item>
+
+                    {/* Correct answers — options depend on question_type and current options list */}
                     <Form.Item
                         noStyle
                         shouldUpdate={(prev, cur) =>
@@ -719,7 +725,7 @@ const QuestionBank: React.FC = () => {
                                 );
                             }
 
-                            const options = normalizeTagValues(getFieldValue('options'));
+                            const options = toStringArray(getFieldValue('options'));
                             return (
                                 <Form.Item
                                     label="正确答案"
@@ -739,7 +745,6 @@ const QuestionBank: React.FC = () => {
                             );
                         }}
                     </Form.Item>
-
                 </Form>
             </Modal>
         </div>
