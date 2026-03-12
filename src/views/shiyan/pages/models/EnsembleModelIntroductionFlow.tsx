@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import { toastEventBus } from '../../utils/toastEventBus';
+import { normalizeEnsembleModelSelection } from '../../utils/modelCatalog';
 import {
   Scale,
   Sparkles,
@@ -267,10 +268,12 @@ type View = 'introduction' | 'selection';
 const EnsembleModelIntroductionFlow: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { updateState } = useExperiment();
+  const { state, updateState } = useExperiment();
   const [currentModelIndex, setCurrentModelIndex] = useState(0);
   const [view, setView] = useState<View>('introduction');
-  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [selectedModels, setSelectedModels] = useState<string[]>(() =>
+    normalizeEnsembleModelSelection(state.selected_ensemble_models),
+  );
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // On mount, check if we should jump to the last step
@@ -286,6 +289,10 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
       scrollContainerRef.current.scrollTop = 0;
     }
   }, [currentModelIndex]);
+
+  useEffect(() => {
+    setSelectedModels(normalizeEnsembleModelSelection(state.selected_ensemble_models));
+  }, [state.selected_ensemble_models]);
 
   const activeModel = ensembleModels[currentModelIndex];
   if (!activeModel) return null;
@@ -303,7 +310,7 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
     } else if (view === 'selection') {
       if (selectedModels.length >= 1) {
         try {
-          await updateState({ selected_ensemble_models: selectedModels }, { forceSync: true, throwOnSyncError: true });
+          await updateState({ selected_ensemble_models: normalizeEnsembleModelSelection(selectedModels) }, { forceSync: true, throwOnSyncError: true });
           navigate('/model/ensemble-select');
         } catch (error) {
           console.error('保存融合模型选择失败:', error);
@@ -329,9 +336,11 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
 
   const handleModelToggle = (modelId: string) => {
     setSelectedModels(prev =>
-      prev.includes(modelId)
-        ? prev.filter(id => id !== modelId)
-        : [...prev, modelId]
+      normalizeEnsembleModelSelection(
+        prev.includes(modelId)
+          ? prev.filter(id => id !== modelId)
+          : [...prev, modelId],
+      )
     );
   };
 

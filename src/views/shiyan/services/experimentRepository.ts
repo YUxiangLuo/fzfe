@@ -5,9 +5,7 @@ import {
   updateExperimentState,
 } from "./experiment";
 import type {
-  ExperimentSessionState,
   ExperimentState,
-  PersistedExperimentState,
 } from "../store/experiment/types";
 
 type StepEventType = "STARTED" | "COMPLETED";
@@ -30,15 +28,6 @@ export interface ExperimentRepository {
   ) => Promise<void>;
 }
 
-const mergePersistedState = (
-  localSessionState: ExperimentSessionState,
-  persistedState: PersistedExperimentState,
-): ExperimentState => ({
-  ...persistedState,
-  selected_base_models: localSessionState.selected_base_models,
-  selected_ensemble_models: localSessionState.selected_ensemble_models,
-});
-
 export const createExperimentRepository = (
   dependencies: ExperimentRepositoryDependencies = {
     createExperimentState,
@@ -56,8 +45,7 @@ export const createExperimentRepository = (
   },
 
   save: async (state) => {
-    const persistedState = await dependencies.updateExperimentState(state);
-    return mergePersistedState(state, persistedState);
+    return await dependencies.updateExperimentState(state);
   },
 
   recordStepEvent: async (experimentId, stepOrder, eventType) => {

@@ -18,6 +18,8 @@ export const buildInitialPersistedState = (): PersistedExperimentState => ({
   selected_industry: null,
   selected_company: null,
   selected_product: null,
+  selected_base_models: [],
+  selected_ensemble_models: [],
 
   data_window_train_start_index: null,
   data_window_train_end_index: null,

@@ -7,6 +7,7 @@ import { retryAsync } from '../../../../utils/retryAsync';
 import type {
   ExperimentState,
   MPSTableRow as GlobalMPSTableRow,
+  SelectedBestModel,
 } from '../../contexts/ExperimentContext.zustand';
 
 // MPS表格行接口
@@ -54,7 +55,7 @@ export interface ProductionPlanState {
   initialInventory: number;
   targetServiceLevel: number;
   safetyStockZScore: number;
-  selectedBestModel: string;
+  selectedBestModel: SelectedBestModel;
 
   // 产能参数
   capacityMode: CapacityMode;
@@ -159,87 +160,125 @@ const convertToGlobalMPSTable = (localTable: MPSTableRow[]): GlobalMPSTableRow[]
   }));
 };
 
-// 默认状态
-const getDefaultState = (
-  initialModel?: string,
-  avgDemand?: number
-): ProductionPlanState => {
+const toPeriodData = (row?: GlobalMPSTableRow): PeriodData => ({
+  demandForecast: row?.demand_forecast ?? null,
+  safetyStock: row?.safety_stock ?? null,
+  plannedProduction: row?.planned_production ?? null,
+  beginningInventory: row?.beginning_inventory ?? null,
+  productionOutput: row?.production_output ?? null,
+  endingInventory: row?.ending_inventory ?? null,
+  stockout: row?.stockout ?? null,
+  serviceLevel: row?.service_level ?? null,
+});
+
+const isPredictionPoint = (
+  value: unknown,
+): value is NonNullable<ExperimentState["production_forecast_results"]>[number] => {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const prediction = (value as { prediction?: unknown }).prediction;
+  const stdDev = (value as { std_dev?: unknown }).std_dev;
+  return typeof prediction === 'number' && Number.isFinite(prediction)
+    && typeof stdDev === 'number' && Number.isFinite(stdDev);
+};
+
+const isPersistedMpsRow = (value: unknown): value is GlobalMPSTableRow => {
+  return typeof value === 'object' && value !== null && typeof (value as { period?: unknown }).period === 'number';
+};
+
+export interface ProductionPlanInitializationOptions {
+  initialModel?: SelectedBestModel;
+  avgDemand?: number;
+  persistedState?: Partial<ExperimentState>;
+}
+
+export const buildInitialProductionPlanState = ({
+  initialModel,
+  avgDemand,
+  persistedState,
+}: ProductionPlanInitializationOptions = {}): ProductionPlanState => {
   // 使用真实的平均需求（基于历史数据）或默认值
   const defaultAvgDemand = avgDemand ?? 1050;
 
   // 计算默认产能（基于真实需求，使用 normal 场景的倍数 1.3）
   const defaultCapacity = Math.round(defaultAvgDemand * 1.3);
 
-  return {
-    currentStep: 1,
-    completedSteps: [],
+  const persistedPredictions = Array.isArray(persistedState?.production_forecast_results)
+    ? persistedState.production_forecast_results.filter(isPredictionPoint)
+    : null;
+  const normalizedPredictions = persistedPredictions && persistedPredictions.length > 0
+    ? persistedPredictions
+    : null;
+  const persistedMpsTable = Array.isArray(persistedState?.production_mps_table)
+    ? persistedState.production_mps_table.filter(isPersistedMpsRow)
+    : [];
+  const hasPersistedPlan = persistedMpsTable.length > 0;
+  const completedSteps = hasPersistedPlan ? [1, 2, 3, 4, 5] : [];
+  const currentStep = hasPersistedPlan ? 5 : 1;
+  const capacityMode = persistedState?.production_capacity_mode ?? 'scenario';
+  const productionCapacity = persistedState?.production_capacity
+    ?? persistedState?.production_custom_capacity
+    ?? defaultCapacity;
+  const forecastPeriods = persistedState?.production_forecast_periods
+    ?? (hasPersistedPlan ? persistedMpsTable.length : DEFAULT_PARAMETERS.forecastPeriods);
 
-    forecastPeriods: DEFAULT_PARAMETERS.forecastPeriods,
-    initialInventory: DEFAULT_PARAMETERS.initialInventory,
-    targetServiceLevel: DEFAULT_PARAMETERS.targetServiceLevel,
-    safetyStockZScore: DEFAULT_PARAMETERS.safetyStockZScore,
-    selectedBestModel: initialModel || 'lstm',
+  return {
+    currentStep,
+    completedSteps,
+
+    forecastPeriods,
+    initialInventory: persistedState?.production_initial_inventory ?? DEFAULT_PARAMETERS.initialInventory,
+    targetServiceLevel: persistedState?.production_target_service_level ?? DEFAULT_PARAMETERS.targetServiceLevel,
+    safetyStockZScore: persistedState?.production_safety_stock_z_score ?? DEFAULT_PARAMETERS.safetyStockZScore,
+    selectedBestModel: initialModel ?? persistedState?.selected_best_model ?? 'lstm',
 
     // 产能参数（默认使用 normal 场景）
-    capacityMode: 'scenario',
-    capacityScenario: 'normal',
-    productionCapacity: defaultCapacity,
-    customCapacity: null,
+    capacityMode,
+    capacityScenario: persistedState?.production_capacity_scenario ?? 'normal',
+    productionCapacity,
+    customCapacity: capacityMode === 'custom'
+      ? (persistedState?.production_custom_capacity ?? productionCapacity)
+      : (persistedState?.production_custom_capacity ?? null),
 
     // 初始估算值（用于默认显示和 fallback 计算）
     avgDemand: defaultAvgDemand,
 
     // 预测结果（初始为空，Step1 时调用接口获取）
-    predictions: null,
+    predictions: normalizedPredictions,
 
     // 第1期的完整数据（初始为空，后续自动填充）
-    period1Data: {
-      demandForecast: null,
-      safetyStock: null,
-      plannedProduction: null,
-      beginningInventory: null,
-      productionOutput: null,
-      endingInventory: null,
-      stockout: null,
-      serviceLevel: null,
-    },
+    period1Data: toPeriodData(persistedMpsTable[0]),
 
     // 第2期的渐进式数据（用于教学演示）
-    period2Data: {
-      demandForecast: null,
-      safetyStock: null,
-      plannedProduction: null,
-      beginningInventory: null,
-      productionOutput: null,
-      endingInventory: null,
-      stockout: null,
-      serviceLevel: null,
-    },
+    period2Data: toPeriodData(persistedMpsTable[1]),
 
-    fullMPSTable: [],
-    isFullPlanGenerated: false,
+    fullMPSTable: persistedMpsTable,
+    isFullPlanGenerated: hasPersistedPlan,
 
     isCompletePlanTeachingHidden: false,
 
     // 保存状态
     isSaving: false,
     savingError: null,
-    hasSavedToGlobal: false,
+    hasSavedToGlobal: Boolean(persistedState?.production_plan_completed || hasPersistedPlan),
   };
 };
 
 export const ProductionPlanProvider: React.FC<{
   children: ReactNode;
-  initialModel?: string;
+  initialModel?: SelectedBestModel;
   avgDemand?: number;
-}> = ({ children, initialModel, avgDemand }) => {
+  persistedState?: Partial<ExperimentState>;
+}> = ({ children, initialModel, avgDemand, persistedState }) => {
   const initialPropsRef = useRef({
     initialModel,
     avgDemand,
   });
 
   const [state, setState] = useState<ProductionPlanState>(() =>
-    getDefaultState(initialModel, avgDemand)
+    buildInitialProductionPlanState({ initialModel, avgDemand, persistedState })
   );
 
   // 🔄 使用ref保存最新的state，避免闭包问题
@@ -586,7 +625,7 @@ export const ProductionPlanProvider: React.FC<{
 
   const resetAll = () => {
     const { initialModel: model, avgDemand: avg } = initialPropsRef.current;
-    setState(getDefaultState(model, avg));
+    setState(buildInitialProductionPlanState({ initialModel: model, avgDemand: avg }));
   };
 
   return (

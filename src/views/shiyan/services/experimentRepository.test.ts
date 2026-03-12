@@ -6,7 +6,7 @@ import { createExperimentRepository } from "./experimentRepository";
 import type { ExperimentState } from "../store/experiment/types";
 
 describe("experimentRepository", () => {
-  it("keeps frontend-only model selections when saving", async () => {
+  it("returns the server-normalized model selections when saving", async () => {
     const localState: ExperimentState = {
       ...buildInitialState(),
       experiment_id: 12,
@@ -17,8 +17,8 @@ describe("experimentRepository", () => {
     const updateExperimentState = mock(async () => ({
       ...buildInitialState(),
       experiment_id: 12,
-      selected_base_models: [],
-      selected_ensemble_models: [],
+      selected_base_models: ["moving_average", "lstm"],
+      selected_ensemble_models: ["weighted_ensemble"],
       selected_industry: "electronics",
       status: "In Progress" as const,
     }));
@@ -33,8 +33,8 @@ describe("experimentRepository", () => {
     const savedState = await repository.save(localState);
 
     expect(updateExperimentState).toHaveBeenCalledWith(localState);
-    expect(savedState.selected_base_models).toEqual(["ma", "lstm"]);
-    expect(savedState.selected_ensemble_models).toEqual(["ensemble_weighted"]);
+    expect(savedState.selected_base_models).toEqual(["moving_average", "lstm"]);
+    expect(savedState.selected_ensemble_models).toEqual(["weighted_ensemble"]);
     expect(savedState.status).toBe("In Progress");
   });
 

@@ -27,6 +27,31 @@ afterEach(() => {
 });
 
 describe("apiClient timeout handling", () => {
+  it("does not attach timeout control to prepare-production requests", async () => {
+    const apiClient = await loadApiClient();
+    const setTimeoutMock = mock(() => 1 as unknown as ReturnType<typeof setTimeout>);
+    const fetchMock = mock(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.signal).toBeUndefined();
+
+      return new Response(JSON.stringify({ data: { ok: true } }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    });
+
+    globalThis.setTimeout = setTimeoutMock as unknown as typeof setTimeout;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      apiClient.post("/models/ma/prepare-production", { experiment_id: 7 }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(setTimeoutMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("preserves external aborts instead of rewriting them as request timeouts", async () => {
     const apiClient = await loadApiClient();
 
