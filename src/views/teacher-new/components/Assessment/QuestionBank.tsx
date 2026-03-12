@@ -79,6 +79,23 @@ function normalizeKnowledgePoint(value: string | null | undefined): string | nul
     return trimmed;
 }
 
+function parseKnowledgePoint(value: string | null | undefined): { group: string | null; detail: string | null } {
+    if (!value) return { group: null, detail: null };
+    const trimmed = value.trim();
+
+    for (const group of Object.keys(KNOWLEDGE_POINT_GROUPS)) {
+        if (trimmed.startsWith(group + '-')) {
+            return { group, detail: trimmed.slice(group.length + 1) };
+        }
+    }
+
+    for (const [group, points] of Object.entries(KNOWLEDGE_POINT_GROUPS)) {
+        if (points.includes(trimmed)) return { group, detail: trimmed };
+    }
+
+    return { group: null, detail: trimmed };
+}
+
 function toOptionMap(options: QuestionOptions): Record<string, string> | null {
     if (!options || Array.isArray(options)) return null;
     return Object.entries(options).reduce<Record<string, string>>((acc, [key, val]) => {
@@ -127,6 +144,7 @@ const QuestionBank: React.FC = () => {
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
     const [filterType, setFilterType] = useState<string>('');
     const [selectedKnowledgePoint, setSelectedKnowledgePoint] = useState<string | null>(null);
+    const [selectedKnowledgeDetail, setSelectedKnowledgeDetail] = useState<string | null>(null);
 
     // Modal states
     const [previewModalOpen, setPreviewModalOpen] = useState(false);
@@ -163,36 +181,52 @@ const QuestionBank: React.FC = () => {
         fetchQuestions();
     }, [fetchQuestions]);
 
-    // Filter questions (using debounced search and knowledge point groups)
+    // First-level knowledge point options for filtering
     const knowledgePointOptions = useMemo(() => {
-        const points = new Set<string>(Object.values(KNOWLEDGE_POINT_GROUPS).flat());
+        const groups = new Set<string>(Object.keys(KNOWLEDGE_POINT_GROUPS));
         questions.forEach((q) => {
-            const normalized = normalizeKnowledgePoint(q.knowledge_point);
-            if (normalized) points.add(normalized);
+            const { group } = parseKnowledgePoint(q.knowledge_point);
+            if (group) groups.add(group);
         });
-        return Array.from(points);
+        return Array.from(groups);
     }, [questions]);
+
+    // Second-level options based on selected first-level group
+    const knowledgeDetailOptions = useMemo(() => {
+        if (!selectedKnowledgePoint) return [];
+        const staticDetails = KNOWLEDGE_POINT_GROUPS[selectedKnowledgePoint] || [];
+        const details = new Set<string>(staticDetails);
+        questions.forEach((q) => {
+            const { group, detail } = parseKnowledgePoint(q.knowledge_point);
+            if (group === selectedKnowledgePoint && detail) details.add(detail);
+        });
+        return Array.from(details);
+    }, [selectedKnowledgePoint, questions]);
 
     const filteredQuestions = useMemo(() => {
         let result = questions;
-        
+
         // Text search (debounced)
         if (debouncedSearchTerm) {
             result = result.filter(q => q.question_text.toLowerCase().includes(debouncedSearchTerm));
         }
-        
+
         // Question type filter
         if (filterType) {
             result = result.filter(q => q.question_type === filterType);
         }
-        
-        // Knowledge point filter (using groups)
+
+        // Knowledge point filter
         if (selectedKnowledgePoint) {
-            result = result.filter(q => normalizeKnowledgePoint(q.knowledge_point) === selectedKnowledgePoint);
+            result = result.filter(q => {
+                const { group, detail } = parseKnowledgePoint(q.knowledge_point);
+                if (group !== selectedKnowledgePoint) return false;
+                return !selectedKnowledgeDetail || detail === selectedKnowledgeDetail;
+            });
         }
-        
+
         return result;
-    }, [questions, debouncedSearchTerm, filterType, selectedKnowledgePoint]);
+    }, [questions, debouncedSearchTerm, filterType, selectedKnowledgePoint, selectedKnowledgeDetail]);
 
     // Preview question
     const openPreview = (question: Question) => {
@@ -205,12 +239,17 @@ const QuestionBank: React.FC = () => {
         setSelectedQuestion(question);
         setIsEditing(!!question);
         if (question) {
+            const parsed = parseKnowledgePoint(question.knowledge_point);
+            const answers = normalizeAnswersForForm(question.correct_answers, question.options);
             form.setFieldsValue({
                 question_text: question.question_text,
                 question_type: question.question_type,
-                knowledge_point: normalizeKnowledgePoint(question.knowledge_point),
+                knowledge_point_group: parsed.group,
+                knowledge_point_detail: parsed.detail,
                 options: normalizeOptionsForForm(question.options),
-                correct_answers: normalizeAnswersForForm(question.correct_answers, question.options),
+                correct_answers: question.question_type === 'Multiple Choice'
+                    ? answers
+                    : answers[0] ?? undefined,
             });
         } else {
             form.resetFields();
@@ -222,9 +261,10 @@ const QuestionBank: React.FC = () => {
     interface QuestionFormValues {
         question_text: string;
         question_type: QuestionTypeApi;
-        knowledge_point: string;
+        knowledge_point_group: string;
+        knowledge_point_detail: string;
         options?: string[];
-        correct_answers: string[];
+        correct_answers: string | string[];
     }
 
     const handleSave = async (values: QuestionFormValues) => {
@@ -239,7 +279,9 @@ const QuestionBank: React.FC = () => {
                     .map((v: string) => v.trim())
                     .filter(Boolean)
             );
-            const rawAnswers: unknown[] = Array.isArray(values.correct_answers) ? values.correct_answers : [];
+            const rawAnswers: unknown[] = Array.isArray(values.correct_answers)
+                ? values.correct_answers
+                : values.correct_answers ? [values.correct_answers] : [];
             const normalizedAnswersRaw = uniqValues(
                 rawAnswers
                     .map(String)
@@ -260,7 +302,9 @@ const QuestionBank: React.FC = () => {
             } = {
                 question_text: String(values.question_text ?? '').trim(),
                 question_type: questionType,
-                knowledge_point: normalizeKnowledgePoint(values.knowledge_point) ?? undefined,
+                knowledge_point: values.knowledge_point_group && values.knowledge_point_detail
+                    ? `${values.knowledge_point_group}-${values.knowledge_point_detail}`
+                    : undefined,
                 options: questionType === 'True/False' ? undefined : normalizedOptions,
                 correct_answers: normalizedAnswers,
             };
@@ -440,15 +484,33 @@ const QuestionBank: React.FC = () => {
                         </Select>
                     </div>
                     <div>
-                        <Text strong style={{ marginRight: 8 }}>知识点</Text>
+                        <Text strong style={{ marginRight: 8 }}>一级知识点</Text>
                         <Select
                             value={selectedKnowledgePoint || undefined}
-                            onChange={(val) => setSelectedKnowledgePoint(val || null)}
-                            style={{ width: 180 }}
+                            onChange={(val) => {
+                                setSelectedKnowledgePoint(val || null);
+                                setSelectedKnowledgeDetail(null);
+                            }}
+                            style={{ width: 140 }}
                             placeholder="全部"
                             allowClear
                         >
                             {knowledgePointOptions.map((point) => (
+                                <Option key={point} value={point}>{point}</Option>
+                            ))}
+                        </Select>
+                    </div>
+                    <div>
+                        <Text strong style={{ marginRight: 8 }}>二级知识点</Text>
+                        <Select
+                            value={selectedKnowledgeDetail || undefined}
+                            onChange={(val) => setSelectedKnowledgeDetail(val || null)}
+                            style={{ width: 180 }}
+                            placeholder="全部"
+                            allowClear
+                            disabled={!selectedKnowledgePoint}
+                        >
+                            {knowledgeDetailOptions.map((point) => (
                                 <Option key={point} value={point}>{point}</Option>
                             ))}
                         </Select>
@@ -525,7 +587,31 @@ const QuestionBank: React.FC = () => {
                 cancelText="取消"
                 width={700}
             >
-                <Form form={form} layout="vertical" onFinish={handleSave}>
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onFinish={handleSave}
+                    onValuesChange={(changed) => {
+                        if ('options' in changed) {
+                            const type = form.getFieldValue('question_type') as QuestionTypeApi | undefined;
+                            if (type === 'True/False' || !type) return;
+                            const validOptions = new Set(normalizeTagValues(form.getFieldValue('options')));
+                            const currentAnswers = form.getFieldValue('correct_answers');
+                            if (type === 'Multiple Choice') {
+                                if (Array.isArray(currentAnswers)) {
+                                    const valid = currentAnswers.filter((a: string) => validOptions.has(a));
+                                    if (valid.length !== currentAnswers.length) {
+                                        form.setFieldValue('correct_answers', valid.length > 0 ? valid : undefined);
+                                    }
+                                }
+                            } else {
+                                if (currentAnswers && !validOptions.has(currentAnswers as string)) {
+                                    form.setFieldValue('correct_answers', undefined);
+                                }
+                            }
+                        }
+                    }}
+                >
                     <Form.Item
                         label="题目内容"
                         name="question_text"
@@ -538,77 +624,120 @@ const QuestionBank: React.FC = () => {
                         name="question_type"
                         rules={[{ required: true, message: '请选择题目类型' }]}
                     >
-                        <Select placeholder="请选择">
+                        <Select
+                            placeholder="请选择"
+                            onChange={() => form.setFieldsValue({ options: [], correct_answers: undefined })}
+                        >
                             {Object.entries(QUESTION_TYPES).map(([key, val]) => (
                                 <Option key={key} value={key}>{val.label}</Option>
                             ))}
                         </Select>
                     </Form.Item>
                     <Form.Item
-                        label="知识点"
-                        name="knowledge_point"
-                        rules={[{ required: true, message: '请选择知识点' }]}
+                        label="一级知识点"
+                        name="knowledge_point_group"
+                        rules={[{ required: true, message: '请选择一级知识点' }]}
                     >
-                        <Select placeholder="请选择">
-                            {knowledgePointOptions.map((point) => (
-                                <Option key={point} value={point}>{point}</Option>
+                        <Select
+                            placeholder="请选择一级知识点"
+                            onChange={() => form.setFieldValue('knowledge_point_detail', undefined)}
+                        >
+                            {Object.keys(KNOWLEDGE_POINT_GROUPS).map((group) => (
+                                <Option key={group} value={group}>{group}</Option>
                             ))}
                         </Select>
                     </Form.Item>
                     <Form.Item
-                        label="选项（每行一个）"
-                        name="options"
-                        dependencies={['question_type']}
-                        rules={[
-                            {
-                                validator: (_, value) => {
-                                    const type = form.getFieldValue('question_type');
-                                    const normalizedOptions = normalizeTagValues(value);
-                                    if ((type === 'Single Choice' || type === 'Multiple Choice') && normalizedOptions.length < 2) {
-                                        return Promise.reject(new Error('选择题至少需要 2 个选项'));
-                                    }
-                                    return Promise.resolve();
-                                },
-                            },
-                        ]}
+                        noStyle
+                        shouldUpdate={(prev, cur) => prev.knowledge_point_group !== cur.knowledge_point_group}
                     >
-                        <Select mode="tags" placeholder="回车添加选项" />
+                        {({ getFieldValue }) => {
+                            const group = getFieldValue('knowledge_point_group');
+                            const detailOptions = group ? (KNOWLEDGE_POINT_GROUPS[group] || []) : [];
+                            return (
+                                <Form.Item
+                                    label="二级知识点"
+                                    name="knowledge_point_detail"
+                                    rules={[{ required: true, message: '请选择二级知识点' }]}
+                                >
+                                    <Select placeholder="请选择二级知识点" disabled={!group}>
+                                        {detailOptions.map((point) => (
+                                            <Option key={point} value={point}>{point}</Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
+                            );
+                        }}
                     </Form.Item>
                     <Form.Item
-                        label="正确答案"
-                        name="correct_answers"
-                        dependencies={['question_type', 'options']}
-                        rules={[
-                            { required: true, message: '请输入正确答案' },
-                            {
-                                validator: (_, value) => {
-                                    const type = form.getFieldValue('question_type') as QuestionTypeApi | undefined;
-                                    const normalizedAnswers = normalizeTagValues(value);
-
-                                    if (normalizedAnswers.length === 0) {
-                                        return Promise.resolve();
-                                    }
-
-                                    if (type === 'True/False') {
-                                        const invalidAnswer = normalizedAnswers.find(answer => answer !== '正确' && answer !== '错误');
-                                        if (invalidAnswer) {
-                                            return Promise.reject(new Error('判断题答案只能是“正确”或“错误”'));
-                                        }
-                                        return Promise.resolve();
-                                    }
-
-                                    const normalizedOptions = new Set(normalizeTagValues(form.getFieldValue('options')));
-                                    const invalidAnswer = normalizedAnswers.find(answer => !normalizedOptions.has(answer));
-                                    if (invalidAnswer) {
-                                        return Promise.reject(new Error('正确答案必须来自已填写选项'));
-                                    }
-
-                                    return Promise.resolve();
-                                },
-                            },
-                        ]}
+                        noStyle
+                        shouldUpdate={(prev, cur) => prev.question_type !== cur.question_type}
                     >
-                        <Select mode="tags" placeholder="输入正确答案，回车确认" />
+                        {({ getFieldValue }) => {
+                            const type = getFieldValue('question_type') as QuestionTypeApi | undefined;
+                            if (type === 'True/False') return null;
+                            return (
+                                <Form.Item
+                                    label="选项"
+                                    name="options"
+                                    rules={[{
+                                        validator: (_, value) => {
+                                            if (normalizeTagValues(value).length < 2) {
+                                                return Promise.reject(new Error('选择题至少需要 2 个选项'));
+                                            }
+                                            return Promise.resolve();
+                                        },
+                                    }]}
+                                >
+                                    <Select mode="tags" placeholder="输入选项内容后回车添加" />
+                                </Form.Item>
+                            );
+                        }}
+                    </Form.Item>
+                    <Form.Item
+                        noStyle
+                        shouldUpdate={(prev, cur) =>
+                            prev.question_type !== cur.question_type || prev.options !== cur.options
+                        }
+                    >
+                        {({ getFieldValue }) => {
+                            const type = getFieldValue('question_type') as QuestionTypeApi | undefined;
+                            if (!type) return null;
+
+                            if (type === 'True/False') {
+                                return (
+                                    <Form.Item
+                                        label="正确答案"
+                                        name="correct_answers"
+                                        rules={[{ required: true, message: '请选择正确答案' }]}
+                                    >
+                                        <Select placeholder="请选择正确答案">
+                                            <Option value="正确">正确</Option>
+                                            <Option value="错误">错误</Option>
+                                        </Select>
+                                    </Form.Item>
+                                );
+                            }
+
+                            const options = normalizeTagValues(getFieldValue('options'));
+                            return (
+                                <Form.Item
+                                    label="正确答案"
+                                    name="correct_answers"
+                                    rules={[{ required: true, message: '请选择正确答案' }]}
+                                >
+                                    <Select
+                                        mode={type === 'Multiple Choice' ? 'multiple' : undefined}
+                                        placeholder={options.length === 0 ? '请先添加选项' : '请从选项中选择'}
+                                        disabled={options.length === 0}
+                                    >
+                                        {options.map((opt) => (
+                                            <Option key={opt} value={opt}>{opt}</Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
+                            );
+                        }}
                     </Form.Item>
 
                 </Form>
