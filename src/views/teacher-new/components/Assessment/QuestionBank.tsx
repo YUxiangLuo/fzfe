@@ -215,7 +215,8 @@ const QuestionBank: React.FC = () => {
 
     /**
      * First-level group options for the filter dropdown.
-     * Includes static groups plus any extra groups found in existing data (legacy).
+     * Includes groups from KNOWLEDGE_POINT_GROUPS plus any additional groups
+     * that can be parsed from existing question data via parseKnowledgePoint.
      */
     const groupFilterOptions = useMemo(() => {
         const groups = new Set(Object.keys(KNOWLEDGE_POINT_GROUPS));
@@ -299,7 +300,14 @@ const QuestionBank: React.FC = () => {
             const retained = Array.isArray(currentAnswers)
                 ? currentAnswers.filter((a: string) => validOptions.has(a))
                 : [];
-            form.setFieldValue('correct_answers', retained.length > 0 ? retained : undefined);
+            // Only update if the selection actually changed to avoid unnecessary re-renders
+            const current = Array.isArray(currentAnswers) ? currentAnswers : [];
+            const unchanged =
+                current.length === retained.length &&
+                current.every((a: string, i: number) => a === retained[i]);
+            if (!unchanged) {
+                form.setFieldValue('correct_answers', retained.length > 0 ? retained : undefined);
+            }
         } else {
             if (currentAnswers && !validOptions.has(currentAnswers as string)) {
                 form.setFieldValue('correct_answers', undefined);
