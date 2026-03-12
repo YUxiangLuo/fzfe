@@ -261,7 +261,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
             style={{ top: 24, paddingBottom: 24, maxWidth: '1600px' }}
             styles={{
                 header: { padding: '16px 24px', marginBottom: 0, borderBottom: '1px solid #f0f0f0' },
-                content: { height: 'calc(100vh - 48px)', padding: 0 },
+                container: { height: 'calc(100vh - 48px)', padding: 0 },
                 body: { padding: 0, height: 'calc(100vh - 105px)', overflow: 'hidden' }
             }}
         >
