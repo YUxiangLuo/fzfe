@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import { toastEventBus } from '../../utils/toastEventBus';
+import { hasCompletedAllSelectedEnsembleModels } from '../../utils/ensembleProgress';
 import Button from "../../shared/components/common/Button";
 import {
   Scale,
@@ -60,17 +61,11 @@ const EnsembleModelSelection: React.FC = () => {
     stacking_ensemble: state.ensemble_stacking_completed,
   };
 
-  const allSelectedCompleted = selectedModelDetails.length > 0 && selectedModelDetails.every(model => completionMap[model.id]);
+  const allSelectedCompleted = hasCompletedAllSelectedEnsembleModels(state);
 
   const handlePrevious = () => {
     // Navigate back to the intro flow with a state to indicate the return context
     navigate('/model/ensemble-intro', { state: { returnTo: 'last' } });
-  };
-
-  const handleNext = async () => {
-    if (allSelectedCompleted) {
-      await handleEnterEvaluationClick();
-    }
   };
 
   const handleEnterEvaluationClick = async () => {
@@ -113,15 +108,11 @@ const EnsembleModelSelection: React.FC = () => {
             <ChevronLeft className="w-5 h-5" />
             返回
           </button>
-          <p className="text-sm text-gray-600">
-            请完成所有已选模型的学习与训练
-          </p>
-          <button
-            onClick={handleEnterEvaluationClick}
-            className="px-5 py-3 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
-          >
-            暂不训练融合模型，直接评估
-          </button>
+          <div className="flex-1 px-6 text-center">
+            <p className="text-sm text-gray-600">
+              请完成所有已选模型的学习与训练
+            </p>
+          </div>
         </div>
       </div>
     </>
@@ -146,7 +137,7 @@ const EnsembleModelSelection: React.FC = () => {
             返回
           </button>
           <Button
-              onClick={handleNext}
+              onClick={handleEnterEvaluationClick}
               disabled={ui.isSubmitting}
               isLoading={ui.isSubmitting}
               size="lg"

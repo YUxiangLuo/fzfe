@@ -1,6 +1,8 @@
 import React, { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
+import { STEPS } from '../constants/steps';
+import { hasCompletedAllSelectedEnsembleModels } from '../utils/ensembleProgress';
 import { getProtectedRouteRedirectPath, shouldHideSidebar } from '../utils/routeGuards';
 import Header from '../components/Header';
 import Sidebar from '../components/Sidebar';
@@ -30,6 +32,21 @@ const ProtectedRoute = ({ step, children }: { step: number; children: React.Reac
   return children;
 };
 
+const GuardedEvaluationRoute: React.FC = () => {
+  const { state, isStepUnlocked } = useExperiment();
+  const redirectPath = getProtectedRouteRedirectPath(STEPS.EVALUATION, isStepUnlocked);
+
+  if (redirectPath) {
+    return <Navigate to={redirectPath} replace />;
+  }
+
+  if (!hasCompletedAllSelectedEnsembleModels(state)) {
+    return <Navigate to="/model/ensemble-select" replace />;
+  }
+
+  return <ResultEvaluation />;
+};
+
 export const MainLayout: React.FC = () => {
   const { ui } = useExperiment();
   const location = useLocation();
@@ -56,7 +73,7 @@ export const MainLayout: React.FC = () => {
               <Route path="/product" element={<ProtectedRoute step={3}><ProductSelection /></ProtectedRoute>} />
               <Route path="/data" element={<ProtectedRoute step={4}><HistoricalData /></ProtectedRoute>} />
               <Route path="/model/*" element={<ProtectedRoute step={5}><ModelBuilding /></ProtectedRoute>} />
-              <Route path="/evaluation" element={<ProtectedRoute step={6}><ResultEvaluation /></ProtectedRoute>} />
+              <Route path="/evaluation" element={<GuardedEvaluationRoute />} />
               <Route path="/production/*" element={<ProtectedRoute step={7}><ProductionPlan /></ProtectedRoute>} />
             </Routes>
           </Suspense>

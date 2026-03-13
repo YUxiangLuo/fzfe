@@ -42,6 +42,7 @@ import {
   applyProductChangeTransition,
 } from "./transitions";
 import { STEPS } from "../../constants/steps";
+import { hasCompletedAllSelectedEnsembleModels } from "../../utils/ensembleProgress";
 import { toastEventBus } from "../../utils/toastEventBus";
 import type {
   ExperimentState,
@@ -314,6 +315,10 @@ export const useExperimentStore = create<ExperimentStore>()(
       },
 
       handleEnterEvaluation: async () => {
+        if (!hasCompletedAllSelectedEnsembleModels(get().state)) {
+          throw new Error("请先完成所有已选融合模型的训练");
+        }
+
         get().setIsSubmitting(true);
         try {
           const newState = applyEnterEvaluationTransition(get().state);

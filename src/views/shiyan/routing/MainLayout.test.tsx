@@ -15,6 +15,12 @@ let experimentValue = {
   ui: {
     loading: false,
   },
+  state: {
+    selected_ensemble_models: ['weighted_ensemble'],
+    ensemble_weighted_completed: true,
+    ensemble_boosting_completed: false,
+    ensemble_stacking_completed: false,
+  },
   isStepUnlocked: (_step: number) => true,
 };
 
@@ -89,6 +95,12 @@ describe('MainLayout', () => {
       ui: {
         loading: false,
       },
+      state: {
+        selected_ensemble_models: ['weighted_ensemble'],
+        ensemble_weighted_completed: true,
+        ensemble_boosting_completed: false,
+        ensemble_stacking_completed: false,
+      },
       isStepUnlocked: () => true,
     };
   });
@@ -154,5 +166,46 @@ describe('MainLayout', () => {
     });
     expect(view.queryByText('evaluation page')).toBeNull();
     expect(view.getByText('industry page')).toBeDefined();
+  });
+
+  it('redirects evaluation back to ensemble selection when selected ensemble models are incomplete', async () => {
+    experimentValue = {
+      ...experimentValue,
+      state: {
+        selected_ensemble_models: ['weighted_ensemble', 'boosting_ensemble'],
+        ensemble_weighted_completed: true,
+        ensemble_boosting_completed: false,
+        ensemble_stacking_completed: false,
+      },
+      isStepUnlocked: (step: number) => step <= 6,
+    };
+
+    view = await renderMainLayout('/evaluation');
+
+    await waitFor(() => {
+      expect(view!.getByTestId('location-display').textContent).toBe('/model/ensemble-select');
+    });
+    expect(view.queryByText('evaluation page')).toBeNull();
+    expect(view.getByText('model page')).toBeDefined();
+  });
+
+  it('renders evaluation when the step is unlocked and all selected ensemble models are completed', async () => {
+    experimentValue = {
+      ...experimentValue,
+      state: {
+        selected_ensemble_models: ['weighted_ensemble', 'boosting_ensemble'],
+        ensemble_weighted_completed: true,
+        ensemble_boosting_completed: true,
+        ensemble_stacking_completed: false,
+      },
+      isStepUnlocked: (step: number) => step <= 6,
+    };
+
+    view = await renderMainLayout('/evaluation');
+
+    await waitFor(() => {
+      expect(view!.getByText('evaluation page')).toBeDefined();
+    });
+    expect(view.getByTestId('location-display').textContent).toBe('/evaluation');
   });
 });
