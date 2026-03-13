@@ -27,6 +27,11 @@
     "e2e:shiyan:smoke:run": "bunx playwright test --config=playwright.shiyan.config.ts --grep @smoke",
     "e2e:shiyan": "bun run e2e:gen && bunx playwright test --config=playwright.shiyan.config.ts",
     "e2e:shiyan:headed": "bun run e2e:gen && bunx playwright test --config=playwright.shiyan.config.ts --headed",
+    "e2e:shiyan:parallel5": "bun run scripts/shiyan-concurrency-five.ts",
+    "e2e:shiyan:parallel20-training": "bun run scripts/shiyan-training-burst-twenty.ts",
+    "e2e:shiyan:parallel20-production": "bun run scripts/shiyan-production-burst-twenty.ts",
+    "e2e:shiyan:slot-lock": "bun run scripts/shiyan-slot-lock-repro.ts",
+    "e2e:shiyan:production-slot-lock": "bun run scripts/shiyan-production-slot-lock-repro.ts",
     "e2e:all": "bun run e2e:gen && bunx playwright test --config=playwright.teacher.config.ts && bunx playwright test --config=playwright.assistant.config.ts && bunx playwright test --config=playwright.admin.config.ts && bunx playwright test --config=playwright.shiyan.config.ts"
   },
   "dependencies": {
