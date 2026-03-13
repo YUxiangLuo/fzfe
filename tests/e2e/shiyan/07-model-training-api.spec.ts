@@ -348,9 +348,9 @@ test.describe("@shiyan model training api", () => {
     const payload = (await readJson(response)) as Record<string, unknown>;
     expect(response.status()).toBe(400);
     expect(payload).toMatchObject({
-      error: expect.stringContaining("Evaluation start"),
+      error: expect.stringContaining("评估起始索引必须大于训练结束索引"),
     });
-    expect(String(payload.error)).toContain("must be after training end");
+    expect(String(payload.error)).toContain("重新选择数据窗口");
   });
 
   test("training controller schema rejects inverted evaluation windows with 400", async ({
