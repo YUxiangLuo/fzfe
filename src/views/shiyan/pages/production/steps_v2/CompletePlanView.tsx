@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { validatePredictions } from '../utils/predictionValidator';
 import { predictWithBestModel } from '../../../services/modelLifecycle';
+import { useToast } from '../../../shared/hooks/useToast';
+import { Toast } from '../../../shared/components/common/Toast';
 
 /**
  * 完整计划表（结果视图）
@@ -19,27 +21,24 @@ import { predictWithBestModel } from '../../../services/modelLifecycle';
 const CompletePlanView: React.FC = () => {
   const { state, generateFullMPS, hideCompletePlanTeaching, saveMPSDataToGlobal } = useProductionPlan();
   const { state: experimentState, updateState } = useExperiment();
+  const { toast, showToast, hideToast } = useToast();
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [hasAttempted, setHasAttempted] = useState(false);
+  const [canRetryManually, setCanRetryManually] = useState(false);
+  const isGeneratingRef = useRef(false);
+  const autoGenerateGuardRef = useRef(false);
+  const scheduledAutoGenerateRef = useRef<number | null>(null);
 
-  // 自动生成完整计划（仅在首次进入且未生成时自动执行一次）
-  useEffect(() => {
-    if (!state.isFullPlanGenerated && !hasAttempted) {
-      setHasAttempted(true);
-      handleGenerate();
+  const handleGenerate = useCallback(async () => {
+    if (isGeneratingRef.current) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.isFullPlanGenerated, hasAttempted]);
 
-  // 💾 保存逻辑已移至 handleGenerate 中，在生成表格后立即保存
-  // 不再需要这个 useEffect
-
-  const handleGenerate = async () => {
-    if (isGenerating) return;
+    isGeneratingRef.current = true;
+    hideToast();
+    setCanRetryManually(false);
     setIsGenerating(true);
-    setError(null);
 
     try {
       // 🆕 优先使用Step1中已保存的预测数据
@@ -81,11 +80,57 @@ const CompletePlanView: React.FC = () => {
       }
     } catch (err) {
       console.error('生成完整计划失败:', err);
-      setError(err instanceof Error ? err.message : '生成失败，请重试');
+      setCanRetryManually(true);
+      showToast(err instanceof Error ? err.message : '生成失败，请重试', 'error');
     } finally {
+      isGeneratingRef.current = false;
       setIsGenerating(false);
     }
-  };
+  }, [
+    experimentState.experiment_id,
+    generateFullMPS,
+    hideToast,
+    saveMPSDataToGlobal,
+    showToast,
+    state.forecastPeriods,
+    state.isFullPlanGenerated,
+    state.predictions,
+    state.selectedBestModel,
+    updateState,
+  ]);
+
+  // 自动生成完整计划（仅在首次进入且未生成时自动执行一次）
+  useEffect(() => {
+    const shouldAutoGenerate = !state.isFullPlanGenerated && !hasAttempted;
+
+    if (!shouldAutoGenerate) {
+      if (scheduledAutoGenerateRef.current !== null) {
+        window.clearTimeout(scheduledAutoGenerateRef.current);
+        scheduledAutoGenerateRef.current = null;
+      }
+      autoGenerateGuardRef.current = false;
+      return;
+    }
+
+    if (autoGenerateGuardRef.current) {
+      return;
+    }
+
+    autoGenerateGuardRef.current = true;
+    scheduledAutoGenerateRef.current = window.setTimeout(() => {
+      scheduledAutoGenerateRef.current = null;
+      setHasAttempted(true);
+      void handleGenerate();
+    }, 0);
+
+    return () => {
+      if (scheduledAutoGenerateRef.current !== null) {
+        window.clearTimeout(scheduledAutoGenerateRef.current);
+        scheduledAutoGenerateRef.current = null;
+        autoGenerateGuardRef.current = false;
+      }
+    };
+  }, [handleGenerate, hasAttempted, state.isFullPlanGenerated]);
 
   const calculateSummary = () => {
     if (!state.isFullPlanGenerated || state.fullMPSTable.length === 0) {
@@ -167,25 +212,23 @@ const CompletePlanView: React.FC = () => {
         </div>
       )}
 
-      {/* 错误提示 */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-5">
-          <div className="flex items-center space-x-3">
-            <AlertCircle className="w-6 h-6 text-red-600" />
+      {hasAttempted && canRetryManually && !isGenerating && (
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="font-semibold text-red-900">生成失败</div>
-              <div className="text-sm text-red-700 mt-1">{error}</div>
+              <div className="font-semibold text-gray-900">手动重试生成</div>
+              <div className="text-sm text-gray-600 mt-1">
+                如果刚才生成未成功，可以点击下方按钮重新生成完整生产计划。
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={handleGenerate}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              重新生成完整计划
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {isGenerating && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isGenerating ? '重试中...' : '重试'}
-          </button>
         </div>
       )}
 
@@ -412,6 +455,14 @@ const CompletePlanView: React.FC = () => {
             您可以滚动查看所有数据列。
           </p>
         </div>
+      )}
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
       )}
     </div>
   );

@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import type { CapacityMode, CapacityScenario } from './utils/productionCapacityHelper';
 import { validateAndFixStdDev } from './utils/predictionValidator';
 import { DEFAULT_PARAMETERS } from './config/mpsConstants';
-import { retryAsync } from '../../../../utils/retryAsync';
 import type {
   ExperimentState,
   MPSTableRow as GlobalMPSTableRow,
@@ -131,7 +130,7 @@ interface ProductionPlanContextValue {
   // 完整计划表教学内容控制
   hideCompletePlanTeaching: () => void;
 
-  // 保存MPS数据到全局状态（带重试机制）
+  // 保存MPS数据到全局状态
   saveMPSDataToGlobal: (
     updateStateFunc: PersistExperimentState,
     mpsTableOverride?: MPSTableRow[],
@@ -556,7 +555,7 @@ export const ProductionPlanProvider: React.FC<{
     }));
   };
 
-  // 💾 保存MPS数据到全局状态（带重试机制）
+  // 💾 保存MPS数据到全局状态
   const saveMPSDataToGlobal = async (
     updateStateFunc: PersistExperimentState,
     mpsTableOverride?: MPSTableRow[],
@@ -581,28 +580,21 @@ export const ProductionPlanProvider: React.FC<{
       const globalMPSTable = convertToGlobalMPSTable(mpsTableToSave);
       const predictionsToSave = predictionsOverride ?? currentState.predictions;
 
-      // 使用重试机制保存数据（最多重试3次，指数退避）
-      await retryAsync(
-        async () => {
-          await updateStateFunc({
-            production_plan_completed: true,
-            production_forecast_periods: currentState.forecastPeriods,
-            production_initial_inventory: currentState.initialInventory,
-            production_target_service_level: currentState.targetServiceLevel,
-            production_safety_stock_z_score: currentState.safetyStockZScore,
-            production_forecast_results: predictionsToSave && predictionsToSave.length > 0
-              ? predictionsToSave
-              : null,
-            production_mps_table: globalMPSTable,
-            production_capacity_mode: currentState.capacityMode,
-            production_capacity_scenario: currentState.capacityScenario,
-            production_capacity: currentState.productionCapacity,
-            production_custom_capacity: currentState.customCapacity,
-          }, { forceSync: true, throwOnSyncError: true });
-        },
-        3, // 最多重试3次
-        1000 // 初始延迟1秒
-      );
+      await updateStateFunc({
+        production_plan_completed: true,
+        production_forecast_periods: currentState.forecastPeriods,
+        production_initial_inventory: currentState.initialInventory,
+        production_target_service_level: currentState.targetServiceLevel,
+        production_safety_stock_z_score: currentState.safetyStockZScore,
+        production_forecast_results: predictionsToSave && predictionsToSave.length > 0
+          ? predictionsToSave
+          : null,
+        production_mps_table: globalMPSTable,
+        production_capacity_mode: currentState.capacityMode,
+        production_capacity_scenario: currentState.capacityScenario,
+        production_capacity: currentState.productionCapacity,
+        production_custom_capacity: currentState.customCapacity,
+      }, { forceSync: true, throwOnSyncError: true });
 
       setState((prev) => ({
         ...prev,

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
 import { FileText, Save, Loader2, CheckCircle, X } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
+import { submitExperimentReport } from '../services/reportSubmission';
 import { validateAnalyses } from '../utils/reportValidation';
 import {
   buildExperimentReportMarkdown,
@@ -114,10 +115,7 @@ const ExperimentReport: React.FC = () => {
         viewModel: reportViewModel,
       });
 
-      await apiClient.post<{ message: string; report_id: number; pdf_path: string }>(
-        `/experiment-runs/${state.experiment_id}/report`,
-        { report_content: markdownContent },
-      );
+      await submitExperimentReport(state.experiment_id, markdownContent);
 
       setSubmitSuccess(true);
       const now = new Date().toISOString();

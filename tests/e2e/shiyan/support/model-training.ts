@@ -49,3 +49,21 @@ export async function prepareEnsembleReadyExperiment(
     ...overrides,
   });
 }
+
+export async function prepareProductionStageExperiment(
+  studentApi: StudentApiClient,
+  overrides: ExperimentPatch = {},
+): Promise<ExperimentRecord> {
+  return await prepareModelStageExperiment(studentApi, {
+    moving_average_window: 6,
+    moving_average_completed: true,
+    moving_average_metrics_rmse: 12.3,
+    moving_average_metrics_mae: 9.1,
+    moving_average_metrics_r2: 0.82,
+    selected_best_model: "ma",
+    quiz_about_model_completed: true,
+    current_step: 7,
+    highest_completed_step: 6,
+    ...overrides,
+  });
+}

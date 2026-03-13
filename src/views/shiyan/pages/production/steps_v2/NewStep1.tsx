@@ -5,6 +5,8 @@ import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { MPS_CALCULATION, SERVICE_LEVELS, CAPACITY_CONFIG } from '../config/mpsConstants';
 import { validatePredictions } from '../utils/predictionValidator';
 import { predictWithBestModel } from '../../../services/modelLifecycle';
+import { useToast } from '../../../shared/hooks/useToast';
+import { Toast } from '../../../shared/components/common/Toast';
 
 // 固定预测期数为6期（不在UI显示）
 const FIXED_FORECAST_PERIODS = 6;
@@ -30,10 +32,10 @@ const MODEL_NAME_MAP: Record<string, string> = {
 const NewStep1: React.FC = () => {
   const { state, updateParameters, updateCapacity, fillPeriod1Data, savePredictions, completeCurrentStep } = useProductionPlan();
   const { state: experimentState } = useExperiment();
+  const { toast, showToast, hideToast } = useToast();
 
   const [isPredicting, setIsPredicting] = useState(false);
   const [isPeriod1Generated, setIsPeriod1Generated] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [period1Data, setPeriod1Data] = useState<{
     demand: number;
     safetyStock: number;
@@ -48,7 +50,7 @@ const NewStep1: React.FC = () => {
 
   // 🔹 预测第一期需求
   const handlePredictPeriod1 = async () => {
-    setError(null);
+    hideToast();
     setIsPredicting(true);
 
     try {
@@ -124,7 +126,7 @@ const NewStep1: React.FC = () => {
       setIsPeriod1Generated(true);
     } catch (err) {
       console.error('生成预测失败:', err);
-      setError(err instanceof Error ? err.message : '生成预测失败，请重试');
+      showToast(err instanceof Error ? err.message : '生成预测失败，请重试', 'error');
     } finally {
       setIsPredicting(false);
     }
@@ -373,26 +375,6 @@ const NewStep1: React.FC = () => {
         </div>
       )}
 
-      {/* 错误提示 */}
-      {error && (
-        <div className="bg-red-50 border border-red-300 rounded-lg p-5">
-          <div className="flex items-start space-x-3">
-            <div className="text-red-600 text-xl">⚠️</div>
-            <div className="flex-1">
-              <h4 className="font-semibold text-red-900 mb-1">预测失败</h4>
-              <p className="text-sm text-red-700">{error}</p>
-              <button
-                type="button"
-                onClick={handlePredictPeriod1}
-                className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
-              >
-                重试
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 第一期预测结果展示 */}
       {isPeriod1Generated && period1Data && (
         <div className="bg-green-50 border-2 border-green-400 rounded-lg p-5">
@@ -440,6 +422,14 @@ const NewStep1: React.FC = () => {
             </button>
           </div>
         </div>
+      )}
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
       )}
     </div>
   );
