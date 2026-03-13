@@ -259,9 +259,9 @@ const NewStep1: React.FC = () => {
             <div className="flex items-start space-x-2">
               <span>•</span>
               <div>
-                <strong>预测量：</strong>第一个月的预测量<span className="text-amber-700 font-semibold">不包含安全库存</span>，仅为需求预测量。
+                <strong>预测量：</strong>第一个月的预测量<strong>等于需求预测量</strong>（安全库存固定为0）。
                 <div className="mt-1 text-xs bg-amber-50 border-l-4 border-amber-400 pl-3 py-2 rounded">
-                  💡 <strong>概念说明</strong>：从第二个月开始，预测量 = 需求预测 + 安全库存。但第一个月作为参考基准，假设期初库存=0、安全库存=0，因此预测量直接等于需求预测。这是为了简化第一期的计算，帮助您理解MPS的基本逻辑。
+                  💡 <strong>概念说明</strong>：从第二个月开始，预测量 = 需求预测 + 安全库存。但第一个月作为<strong>标准化基准期</strong>，安全库存固定为0，因此预测量直接等于需求预测。这是为了简化第一期的计算，帮助您理解MPS的基本逻辑。
                 </div>
               </div>
             </div>

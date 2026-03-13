@@ -15,7 +15,7 @@ import CompletePlanView from './steps_v2/CompletePlanView';
 
 const ProductionPlanContent: React.FC = () => {
   const navigate = useNavigate();
-  const { state, resetAll, saveMPSDataToGlobal } = useProductionPlan();
+  const { state, goToStep, resetAll, saveMPSDataToGlobal } = useProductionPlan();
   const { state: experimentState, updateState } = useExperiment();
   const { toast, showToast, hideToast } = useToast();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -138,19 +138,26 @@ const ProductionPlanContent: React.FC = () => {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2">
-          {steps.map((step) => (
-            <button
-              key={step.id}
-              // onClick is removed to prevent navigation.
-              disabled={getStepStatus(step.id) === 'locked'}
-              className={`flex-shrink-0 flex flex-col items-center space-y-2 px-4 py-3 rounded-lg border transition-all min-w-[110px] ${getStepStyles(step.id)}`}
-            >
-              {getStepIcon(step.id)}
-              <div className="text-center">
-                <p className="font-medium text-sm leading-tight">{step.title}</p>
-              </div>
-            </button>
-          ))}
+          {steps.map((step) => {
+            const status = getStepStatus(step.id);
+            const canNavigate = status === 'completed' || status === 'available' || status === 'current';
+            return (
+              <button
+                key={step.id}
+                onClick={() => canNavigate && goToStep(step.id)}
+                disabled={!canNavigate}
+                className={`flex-shrink-0 flex flex-col items-center space-y-2 px-4 py-3 rounded-lg border transition-all min-w-[110px] ${getStepStyles(step.id)} ${
+                  canNavigate ? 'hover:shadow-md cursor-pointer' : ''
+                }`}
+                title={status === 'completed' ? '点击返回此步骤' : status === 'locked' ? '请先完成前面的步骤' : ''}
+              >
+                {getStepIcon(step.id)}
+                <div className="text-center">
+                  <p className="font-medium text-sm leading-tight">{step.title}</p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 

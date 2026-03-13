@@ -17,6 +17,18 @@ interface PlanDecisionResultsProps {
   isSubmitting: boolean;
 }
 
+const getServiceLevelStyle = (serviceLevel: number): string => {
+  if (serviceLevel >= 0.99) return 'text-green-600 bg-green-50 font-semibold';
+  if (serviceLevel >= 0.95) return 'text-yellow-600 bg-yellow-50 font-semibold';
+  return 'text-red-600 bg-red-50 font-semibold';
+};
+
+const getInventoryStyle = (inventory: number): string => {
+  if (inventory > 500) return 'text-amber-700 bg-amber-50 font-medium';
+  if (inventory === 0) return 'text-gray-500';
+  return 'text-gray-800';
+};
+
 export const PlanDecisionResults: React.FC<PlanDecisionResultsProps> = ({
   state,
   planSummary,
@@ -44,16 +56,28 @@ export const PlanDecisionResults: React.FC<PlanDecisionResultsProps> = ({
               </thead>
               <tbody>
                 {state.production_mps_table.map((row, i) => (
-                  <tr key={i} className="border-b">
+                  <tr key={i} className="border-b hover:bg-gray-50 transition-colors">
                     <td className="p-2 font-medium">{row.period_label}</td>
-                    <td className="p-2">{row.demand_forecast}</td>
-                    <td className="p-2">{row.safety_stock}</td>
-                    <td className="p-2">{row.planned_production}</td>
-                    <td className="p-2">{row.beginning_inventory}</td>
-                    <td className="p-2">{row.production_output}</td>
-                    <td className="p-2">{row.ending_inventory}</td>
-                    <td className="p-2">{row.stockout > 0 ? <span className="text-red-600 font-semibold">{row.stockout}</span> : row.stockout}</td>
-                    <td className="p-2">{`${(row.service_level * 100).toFixed(1)}%`}</td>
+                    <td className="p-2">{row.demand_forecast.toLocaleString()}</td>
+                    <td className="p-2">{row.safety_stock.toLocaleString()}</td>
+                    <td className="p-2 font-medium">{row.planned_production.toLocaleString()}</td>
+                    <td className="p-2">{row.beginning_inventory.toLocaleString()}</td>
+                    <td className="p-2">{row.production_output.toLocaleString()}</td>
+                    <td className={`p-2 rounded ${getInventoryStyle(row.ending_inventory)}`}>
+                      {row.ending_inventory.toLocaleString()}
+                    </td>
+                    <td className="p-2">
+                      {row.stockout > 0 ? (
+                        <span className="text-red-600 font-semibold bg-red-50 px-2 py-1 rounded">
+                          {row.stockout.toLocaleString()} ⚠️
+                        </span>
+                      ) : (
+                        row.stockout
+                      )}
+                    </td>
+                    <td className={`p-2 rounded ${getServiceLevelStyle(row.service_level)}`}>
+                      {`${(row.service_level * 100).toFixed(1)}%`}
+                    </td>
                   </tr>
                 ))}
               </tbody>

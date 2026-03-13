@@ -50,10 +50,29 @@ const MPSTableViewV2: React.FC = () => {
   const isFilled = (value: number | null): boolean => value !== null;
 
   // 获取单元格样式
-  const getCellStyle = (value: number | null, isHighlight: boolean = false): string => {
-    const base = 'py-3 px-4 text-right';
-    if (value === null) return `${base} text-gray-300 bg-gray-50`;
+  const getCellStyle = (value: number | null, isHighlight: boolean = false, isNegative: boolean = false): string => {
+    const base = 'py-3 px-4 text-right transition-colors duration-200';
+    if (value === null) return `${base} text-gray-300 bg-gray-50/50`;
+    if (isNegative && value > 0) return `${base} font-semibold text-red-600 bg-red-50`;
     if (isHighlight) return `${base} font-semibold text-blue-700 bg-blue-50`;
+    return `${base} text-gray-800 hover:bg-gray-50`;
+  };
+
+  // 获取服务水平单元格样式
+  const getServiceLevelStyle = (value: number | null): string => {
+    const base = 'py-3 px-4 text-right font-semibold';
+    if (value === null) return `${base} text-gray-300 bg-gray-50/50`;
+    if (value >= 0.99) return `${base} text-green-600 bg-green-50`;
+    if (value >= 0.95) return `${base} text-yellow-600 bg-yellow-50`;
+    return `${base} text-red-600 bg-red-50`;
+  };
+
+  // 获取库存单元格样式
+  const getInventoryStyle = (value: number | null): string => {
+    const base = 'py-3 px-4 text-right';
+    if (value === null) return `${base} text-gray-300 bg-gray-50/50`;
+    if (value > 500) return `${base} text-amber-700 bg-amber-50 font-medium`; // 高库存警告
+    if (value === 0) return `${base} text-gray-500`;
     return `${base} text-gray-800`;
   };
 
@@ -150,21 +169,21 @@ const MPSTableViewV2: React.FC = () => {
               </td>
             )}
             {isColumnVisible('ending_inventory') && (
-              <td className={getCellStyle(state.period1Data.endingInventory)}>
+              <td className={getInventoryStyle(state.period1Data.endingInventory)}>
                 {formatValue(state.period1Data.endingInventory)}
               </td>
             )}
             {isColumnVisible('stockout') && (
-              <td className={getCellStyle(state.period1Data.stockout)}>
+              <td className={getCellStyle(state.period1Data.stockout, false, true)}>
                 {state.period1Data.stockout !== null && state.period1Data.stockout > 0 ? (
-                  <span className="text-red-600 font-semibold">{formatValue(state.period1Data.stockout)}</span>
+                  <span className="text-red-600 font-semibold">{formatValue(state.period1Data.stockout)} ⚠️</span>
                 ) : (
                   formatValue(state.period1Data.stockout)
                 )}
               </td>
             )}
             {isColumnVisible('service_level') && (
-              <td className={getCellStyle(state.period1Data.serviceLevel)}>
+              <td className={getServiceLevelStyle(state.period1Data.serviceLevel)}>
                 {formatPercent(state.period1Data.serviceLevel)}
               </td>
             )}
@@ -211,21 +230,21 @@ const MPSTableViewV2: React.FC = () => {
               </td>
             )}
             {isColumnVisible('ending_inventory') && (
-              <td className={getCellStyle(state.period2Data.endingInventory, isFilled(state.period2Data.endingInventory))}>
+              <td className={getInventoryStyle(state.period2Data.endingInventory)}>
                 {formatValue(state.period2Data.endingInventory)}
               </td>
             )}
             {isColumnVisible('stockout') && (
-              <td className={getCellStyle(state.period2Data.stockout, isFilled(state.period2Data.stockout))}>
+              <td className={getCellStyle(state.period2Data.stockout, isFilled(state.period2Data.stockout), true)}>
                 {state.period2Data.stockout !== null && state.period2Data.stockout > 0 ? (
-                  <span className="text-red-600 font-semibold">{formatValue(state.period2Data.stockout)}</span>
+                  <span className="text-red-600 font-semibold">{formatValue(state.period2Data.stockout)} ⚠️</span>
                 ) : (
                   formatValue(state.period2Data.stockout)
                 )}
               </td>
             )}
             {isColumnVisible('service_level') && (
-              <td className={getCellStyle(state.period2Data.serviceLevel, isFilled(state.period2Data.serviceLevel))}>
+              <td className={getServiceLevelStyle(state.period2Data.serviceLevel)}>
                 {formatPercent(state.period2Data.serviceLevel)}
               </td>
             )}
@@ -260,25 +279,19 @@ const MPSTableViewV2: React.FC = () => {
                   <td className="py-3 px-4 text-right text-gray-800">{formatValue(row.production_output)}</td>
                 )}
                 {isColumnVisible('ending_inventory') && (
-                  <td className="py-3 px-4 text-right text-gray-800">{formatValue(row.ending_inventory)}</td>
+                  <td className={getInventoryStyle(row.ending_inventory)}>{formatValue(row.ending_inventory)}</td>
                 )}
                 {isColumnVisible('stockout') && (
                   <td className="py-3 px-4 text-right">
                     {row.stockout !== null && row.stockout > 0 ? (
-                      <span className="text-red-600 font-semibold">{formatValue(row.stockout)}</span>
+                      <span className="text-red-600 font-semibold bg-red-50 px-2 py-1 rounded">{formatValue(row.stockout)} ⚠️</span>
                     ) : (
                       <span className="text-gray-600">{formatValue(row.stockout)}</span>
                     )}
                   </td>
                 )}
                 {isColumnVisible('service_level') && (
-                  <td className={`py-3 px-4 text-right font-medium ${
-                    row.service_level !== null && row.service_level >= 0.95
-                      ? 'text-green-600'
-                      : row.service_level !== null && row.service_level >= 0.90
-                      ? 'text-yellow-600'
-                      : 'text-red-600'
-                  }`}>
+                  <td className={getServiceLevelStyle(row.service_level)}>
                     {formatPercent(row.service_level)}
                   </td>
                 )}

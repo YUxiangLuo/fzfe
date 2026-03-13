@@ -81,7 +81,21 @@ const CompletePlanView: React.FC = () => {
     } catch (err) {
       console.error('生成完整计划失败:', err);
       setCanRetryManually(true);
-      showToast(err instanceof Error ? err.message : '生成失败，请重试', 'error');
+      
+      // 更详细的错误提示
+      let errorMessage = '生成失败，请重试';
+      if (err instanceof Error) {
+        if (err.message.includes('预测数据不足')) {
+          errorMessage = `预测数据不足：需要${state.forecastPeriods}期数据，请确保模型训练已完成`;
+        } else if (err.message.includes('期1数据不完整') || err.message.includes('期2数据不完整')) {
+          errorMessage = '请先完成前5个学习步骤的教学内容';
+        } else if (err.message.includes('实验状态未初始化')) {
+          errorMessage = '实验状态异常，请刷新页面或重新开始实验';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      showToast(errorMessage, 'error');
     } finally {
       isGeneratingRef.current = false;
       setIsGenerating(false);

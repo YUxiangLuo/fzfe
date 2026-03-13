@@ -180,9 +180,18 @@ const NewStep2: React.FC = () => {
           <p>
             <strong>产出量</strong>是指在一个生产周期结束时，企业实际生产出来的产品数量。在前一步中我们提到，产出量与上个月的投入量密切相关。在我们的生产计划中，第二个月的产出量等于第一个月的投入量（但不超过产能上限），即产出量 = min(上月投入量, 产能上限)。因此，准确的投入量计算对于确保产出量满足市场需求非常关键。
           </p>
-          <div className="bg-amber-50 border-l-4 border-amber-400 rounded-lg p-4">
-            <p className="text-amber-900">
-              <strong>📌 注意：</strong>由于提前期为 1 个月，第二个月的产出量其实是基于第一个月的投入量。这一滞后性要求在制定生产计划时必须对未来的需求做出准确的预测。
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-400 rounded-lg p-4">
+            <p className="text-amber-900 font-semibold mb-2">⏱️ 提前期（Lead Time）的影响</p>
+            <p className="text-amber-800 text-sm mb-2">
+              提前期是指从生产开始到产品完成所需的时间。本实验中提前期为 <strong>1 个月</strong>，这意味着：
+            </p>
+            <ul className="text-sm text-amber-800 space-y-1 ml-4">
+              <li>• 第1个月的投入 → 第2个月才能产出</li>
+              <li>• 第2个月的投入 → 第3个月才能产出</li>
+              <li>• 因此，第2个月的产出量 = min(第1个月的投入量, 产能上限)</li>
+            </ul>
+            <p className="text-amber-800 text-sm mt-2">
+              这种滞后性要求我们必须提前规划投入量，以应对未来的需求波动。
             </p>
           </div>
         </div>

@@ -93,12 +93,6 @@ export const CAPACITY_CONFIG = {
   DEFAULT_SCENARIO: 'normal' as const,
 
   /**
-   * 简化示例产能倍数
-   * 用于Step1的教学演示（简化计算）
-   */
-  SIMPLE_MULTIPLIER: 1.1,
-
-  /**
    * 产能场景倍数
    * 用于完整MPS计算（结果视图及后续）
    */
