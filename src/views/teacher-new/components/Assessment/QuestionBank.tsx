@@ -44,6 +44,7 @@ const KNOWLEDGE_POINT_GROUPS: Record<string, string[]> = {
         'LSTM深度学习',
         '模型融合技术',
         '模型评估指标',
+        '预测模型综合',
     ],
     '生产计划': [
         'MPS基本原理',
@@ -52,6 +53,7 @@ const KNOWLEDGE_POINT_GROUPS: Record<string, string[]> = {
         '库存与缺货',
         '服务水平评估',
         '产能规划',
+        '生产计划综合',
     ],
 };
 
