@@ -65,9 +65,6 @@ const QUESTION_TYPE_CONFIG: Record<QuestionTypeApi, { label: string; color: stri
     'True/False': { label: '判断题', color: 'green' },
 };
 
-// Flat set of all valid detail-level knowledge points for quick lookup
-const ALL_KNOWLEDGE_DETAILS = new Set(Object.values(KNOWLEDGE_POINT_GROUPS).flat());
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type QuestionOptions = Record<string, string> | string[] | null | undefined;
@@ -108,19 +105,15 @@ function parseKnowledgePoint(value: string | null | undefined): { group: string 
 }
 
 /**
- * Normalize a raw knowledge_point to its canonical detail string for display.
- * Strips any group prefix; returns the raw value when unrecognized.
+ * Normalize a raw knowledge_point to its canonical "group-detail" string for display.
+ * Ensures consistent "一级知识点-二级知识点" format.
  */
 function normalizeKnowledgePoint(value: string | null | undefined): string | null {
     if (!value) return null;
-    const trimmed = value.trim();
-    if (ALL_KNOWLEDGE_DETAILS.has(trimmed)) return trimmed;
-
-    // Strip "group-" prefix (e.g. "预测模型-ARIMA模型" → "ARIMA模型")
-    const tail = trimmed.split('-').pop()?.trim() ?? trimmed;
-    if (ALL_KNOWLEDGE_DETAILS.has(tail)) return tail;
-
-    return trimmed;
+    const { group, detail } = parseKnowledgePoint(value);
+    if (group && detail) return `${group}-${detail}`;
+    if (detail) return detail;
+    return value.trim();
 }
 
 /**
@@ -402,7 +395,7 @@ const QuestionBank: React.FC = () => {
             title: '知识点',
             dataIndex: 'knowledge_point',
             key: 'knowledge_point',
-            width: 150,
+            width: 300,
             render: (kp: string | null) => normalizeKnowledgePoint(kp) ?? '—',
         },
         {
