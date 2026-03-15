@@ -5,6 +5,25 @@ export const SESSION_ROLE_KEY = "userRole";
 export const LOGIN_PAGE_PATH = "/login.html";
 
 export type TeacherPortalRole = "teacher" | "assistant";
+export type SessionPortal = "student" | "teacher" | "admin";
+
+const SESSION_PORTAL_TOKEN_KEYS: Record<SessionPortal, string> = {
+  student: "studentToken",
+  teacher: "teacherToken",
+  admin: "adminToken",
+};
+
+const SESSION_PORTAL_ROLE_KEYS: Record<SessionPortal, string | null> = {
+  student: null,
+  teacher: "teacherUserRole",
+  admin: null,
+};
+
+const SESSION_PORTAL_ALLOWED_ROLES: Record<SessionPortal, readonly string[]> = {
+  student: ["student"],
+  teacher: ["teacher", "assistant"],
+  admin: ["admin"],
+};
 
 const readStorageItem = (key: string): string | null => {
   try {
@@ -50,10 +69,118 @@ const normalizeTeacherPortalRole = (role: string | null | undefined): TeacherPor
   return null;
 };
 
-export const getStoredToken = (): string | null => readStorageItem(SESSION_TOKEN_KEY);
+const normalizeRole = (role: string | null | undefined): string | null => {
+  const normalizedRole = role?.toLowerCase();
+  return normalizedRole ? normalizedRole : null;
+};
 
-export const getSessionTokenOrThrow = (): string => {
-  const token = getStoredToken();
+const resolvePortalFromRole = (role: string | null | undefined): SessionPortal | null => {
+  const normalizedRole = normalizeRole(role);
+  if (!normalizedRole) {
+    return null;
+  }
+
+  if (SESSION_PORTAL_ALLOWED_ROLES.student.includes(normalizedRole)) {
+    return "student";
+  }
+
+  if (SESSION_PORTAL_ALLOWED_ROLES.teacher.includes(normalizedRole)) {
+    return "teacher";
+  }
+
+  if (SESSION_PORTAL_ALLOWED_ROLES.admin.includes(normalizedRole)) {
+    return "admin";
+  }
+
+  return null;
+};
+
+const getPortalTokenKey = (portal: SessionPortal): string => SESSION_PORTAL_TOKEN_KEYS[portal];
+
+const getPortalRoleKey = (portal: SessionPortal): string | null => SESSION_PORTAL_ROLE_KEYS[portal];
+
+const isRoleAllowedForPortal = (role: string | null | undefined, portal: SessionPortal): boolean => {
+  const normalizedRole = normalizeRole(role);
+  return normalizedRole ? SESSION_PORTAL_ALLOWED_ROLES[portal].includes(normalizedRole) : false;
+};
+
+const isTokenAllowedForPortal = (token: string, portal: SessionPortal): boolean => {
+  return isRoleAllowedForPortal(decodeToken(token)?.role, portal);
+};
+
+const getPortalFromLocation = (): SessionPortal | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const pathname = window.location.pathname.toLowerCase();
+
+  if (pathname.startsWith("/exp")) {
+    return "student";
+  }
+
+  if (pathname.startsWith("/teacher")) {
+    return "teacher";
+  }
+
+  if (pathname.startsWith("/admin")) {
+    return "admin";
+  }
+
+  return null;
+};
+
+const resolveSessionPortal = (
+  portal?: SessionPortal | null,
+  token?: string | null,
+): SessionPortal | null => {
+  if (portal) {
+    return portal;
+  }
+
+  return getPortalFromLocation() ?? resolvePortalFromRole(decodeToken(token ?? "")?.role);
+};
+
+const getLegacyTokenForPortal = (portal: SessionPortal | null): string | null => {
+  const token = readStorageItem(SESSION_TOKEN_KEY);
+  if (!token) {
+    return null;
+  }
+
+  if (!portal) {
+    return token;
+  }
+
+  return isTokenAllowedForPortal(token, portal) ? token : null;
+};
+
+const clearLegacySessionForPortal = (portal: SessionPortal): void => {
+  const legacyToken = readStorageItem(SESSION_TOKEN_KEY);
+  if (legacyToken && isTokenAllowedForPortal(legacyToken, portal)) {
+    writeStorageItem(SESSION_TOKEN_KEY, null);
+    writeStorageItem(SESSION_ROLE_KEY, null);
+    return;
+  }
+
+  if (portal === "teacher") {
+    const legacyRole = normalizeTeacherPortalRole(readStorageItem(SESSION_ROLE_KEY));
+    if (legacyRole) {
+      writeStorageItem(SESSION_ROLE_KEY, null);
+    }
+  }
+};
+
+export const getStoredToken = (portal?: SessionPortal | null): string | null => {
+  const resolvedPortal = resolveSessionPortal(portal);
+  if (!resolvedPortal) {
+    return getLegacyTokenForPortal(null);
+  }
+
+  return readStorageItem(getPortalTokenKey(resolvedPortal)) ?? getLegacyTokenForPortal(resolvedPortal);
+};
+
+export const getSessionTokenOrThrow = (portal?: SessionPortal | null): string => {
+  const token = getStoredToken(portal);
   if (!token) {
     throw new Error("未找到登录凭据");
   }
@@ -61,52 +188,109 @@ export const getSessionTokenOrThrow = (): string => {
   return token;
 };
 
-export const getStoredTeacherPortalRole = (): TeacherPortalRole | null => {
-  return normalizeTeacherPortalRole(readStorageItem(SESSION_ROLE_KEY));
+export const getStoredTeacherPortalRole = (portal: SessionPortal | null = "teacher"): TeacherPortalRole | null => {
+  if (resolveSessionPortal(portal) !== "teacher") {
+    return null;
+  }
+
+  const teacherRoleKey = getPortalRoleKey("teacher");
+  const storedRole = teacherRoleKey ? normalizeTeacherPortalRole(readStorageItem(teacherRoleKey)) : null;
+  if (storedRole) {
+    return storedRole;
+  }
+
+  const teacherToken = getStoredToken("teacher");
+  const tokenRole = normalizeTeacherPortalRole(decodeToken(teacherToken ?? "")?.role);
+  if (tokenRole) {
+    return tokenRole;
+  }
+
+  const legacyRole = normalizeTeacherPortalRole(readStorageItem(SESSION_ROLE_KEY));
+  if (legacyRole) {
+    return legacyRole;
+  }
+
+  return null;
 };
 
-export const setStoredTeacherPortalRole = (role: TeacherPortalRole | null): void => {
-  writeStorageItem(SESSION_ROLE_KEY, role);
+export const setStoredTeacherPortalRole = (
+  role: TeacherPortalRole | null,
+  portal: SessionPortal | null = "teacher",
+): void => {
+  if (resolveSessionPortal(portal) !== "teacher") {
+    return;
+  }
+
+  const teacherRoleKey = getPortalRoleKey("teacher");
+  if (teacherRoleKey) {
+    writeStorageItem(teacherRoleKey, role);
+  }
 };
 
 export const persistSession = (
   token: string,
   teacherPortalRole?: TeacherPortalRole | null,
+  portal?: SessionPortal | null,
 ): void => {
+  const resolvedPortal = resolveSessionPortal(portal, token);
+  if (!resolvedPortal) {
+    throw new Error("无法识别当前登录入口");
+  }
+
   const normalizedRole = normalizeTeacherPortalRole(teacherPortalRole ?? null);
+  const portalRoleKey = getPortalRoleKey(resolvedPortal);
 
   try {
-    writeStorageItemOrThrow(SESSION_TOKEN_KEY, token);
-    writeStorageItemOrThrow(SESSION_ROLE_KEY, normalizedRole);
+    writeStorageItemOrThrow(getPortalTokenKey(resolvedPortal), token);
+    if (portalRoleKey) {
+      writeStorageItemOrThrow(
+        portalRoleKey,
+        normalizedRole ?? normalizeTeacherPortalRole(decodeToken(token)?.role),
+      );
+    }
   } catch (error) {
-    clearSession();
+    clearSession(resolvedPortal);
     throw error;
   }
 };
 
-export const clearSession = (): void => {
-  writeStorageItem(SESSION_TOKEN_KEY, null);
-  writeStorageItem(SESSION_ROLE_KEY, null);
+export const clearSession = (portal?: SessionPortal | null): void => {
+  const resolvedPortal = resolveSessionPortal(portal);
+
+  if (!resolvedPortal) {
+    writeStorageItem(SESSION_TOKEN_KEY, null);
+    writeStorageItem(SESSION_ROLE_KEY, null);
+    return;
+  }
+
+  writeStorageItem(getPortalTokenKey(resolvedPortal), null);
+
+  const portalRoleKey = getPortalRoleKey(resolvedPortal);
+  if (portalRoleKey) {
+    writeStorageItem(portalRoleKey, null);
+  }
+
+  clearLegacySessionForPortal(resolvedPortal);
 };
 
 export const redirectToLogin = (): void => {
   window.location.href = LOGIN_PAGE_PATH;
 };
 
-export const clearSessionAndRedirect = (): void => {
-  clearSession();
+export const clearSessionAndRedirect = (portal?: SessionPortal | null): void => {
+  clearSession(portal);
   redirectToLogin();
 };
 
-export const getSessionUser = (): DecodedToken | null => {
-  const token = getStoredToken();
+export const getSessionUser = (portal?: SessionPortal | null): DecodedToken | null => {
+  const token = getStoredToken(portal);
   if (!token) return null;
 
   return decodeToken(token);
 };
 
-export const getSessionUserOrThrow = (): DecodedToken => {
-  const user = getSessionUser();
+export const getSessionUserOrThrow = (portal?: SessionPortal | null): DecodedToken => {
+  const user = getSessionUser(portal);
   if (!user) {
     throw new Error("登录信息已失效");
   }
