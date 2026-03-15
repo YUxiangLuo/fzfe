@@ -155,6 +155,34 @@ function toStringArray(value: unknown): string[] {
     return Array.from(new Set(arr.map(String).map(v => v.trim()).filter(Boolean)));
 }
 
+/**
+ * Convert an array of option texts to Record format with letter keys.
+ * ["选项1", "选项2"] → {"A": "选项1", "B": "选项2"}
+ */
+function buildOptionsRecord(optionTexts: string[]): Record<string, string> {
+    if (optionTexts.length > 26) {
+        throw new Error(`选项数量不能超过 26 个，当前为 ${optionTexts.length}`);
+    }
+    return Object.fromEntries(
+        optionTexts.map((text, i) => [String.fromCharCode(65 + i), text])
+    );
+}
+
+/**
+ * Map answer display texts back to their letter keys based on option position.
+ * ("选项1", "选项3") with options ["选项1","选项2","选项3"] → ["A", "C"]
+ */
+function mapAnswersToKeys(answerTexts: string[], optionTexts: string[]): string[] {
+    const textToKey = new Map(optionTexts.map((t, i) => [t, String.fromCharCode(65 + i)]));
+    return answerTexts.map(t => {
+        const key = textToKey.get(t);
+        if (key === undefined) {
+            console.warn(`[QuestionBank] 答案"${t}"未匹配到任何选项，将原样提交`);
+        }
+        return key ?? t;
+    });
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const QuestionBank: React.FC = () => {
@@ -314,28 +342,26 @@ const QuestionBank: React.FC = () => {
         setIsSaving(true);
         try {
             const isTrueFalse = values.question_type === 'True/False';
+            const optionTexts = toStringArray(values.options);
+            const answerTexts = toStringArray(values.correct_answers);
             const payload = {
                 question_text: values.question_text.trim(),
                 question_type: values.question_type,
                 knowledge_point: values.knowledge_point_group && values.knowledge_point_detail
                     ? `${values.knowledge_point_group}-${values.knowledge_point_detail}`
                     : undefined,
-                // True/False options are managed by the backend; omit them from the payload
-                options: isTrueFalse ? undefined : toStringArray(values.options),
-                correct_answers: toStringArray(values.correct_answers),
+                // True/False options are managed by the backend; omit them from the payload.
+                // Use Record format {"A":"text",...} so correct_answers stay as letter keys.
+                options: isTrueFalse ? undefined : buildOptionsRecord(optionTexts),
+                correct_answers: isTrueFalse ? answerTexts : mapAnswersToKeys(answerTexts, optionTexts),
             };
 
             if (isEditing && editingQuestion) {
-                await apiClient.put(`/question-bank/questions/${editingQuestion.question_id}`, payload);
+                const updated = await apiClient.put<Question>(
+                    `/question-bank/questions/${editingQuestion.question_id}`, payload,
+                );
                 setQuestions(prev => prev.map(q =>
-                    q.question_id === editingQuestion.question_id
-                        ? {
-                            ...q,
-                            ...payload,
-                            knowledge_point: payload.knowledge_point ?? null,
-                            options: payload.options ?? ['正确', '错误'],
-                        }
-                        : q
+                    q.question_id === editingQuestion.question_id ? { ...q, ...updated } : q
                 ));
                 message.success('题目更新成功');
             } else {
