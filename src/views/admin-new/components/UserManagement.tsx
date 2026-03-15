@@ -219,13 +219,7 @@ const UserManagement: React.FC = () => {
                         body: JSON.stringify({ userIds: selectedUserIds }),
                     });
                     message.success(`已成功删除 ${selectedUserIds.length} 个用户`);
-                    const remainingRows = users.length - selectedUserIds.length;
-                    const targetPage = remainingRows <= 0 && pagination.current > 1
-                        ? pagination.current - 1
-                        : pagination.current;
-                    setSelectedUserIds([]);
-                    setSelectedUsers([]);
-                    await fetchUsers(targetPage, pagination.pageSize, searchTerm);
+                    window.location.reload();
                 } catch (err: any) {
                     message.error(`批量删除失败: ${err.message}`);
                 } finally {
