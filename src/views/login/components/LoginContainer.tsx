@@ -7,7 +7,7 @@ import { Toast } from "./Toast";
 import { API_BASE_URL } from "../../../utils/apiClient";
 import { getRedirectPath } from "../constants/routes";
 import { useToast } from "../hooks/useToast";
-import { persistSession } from "../../../utils/session";
+import { persistSession, type SessionPortal } from "../../../utils/session";
 
 export const LoginContainer: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState("student");
@@ -21,6 +21,13 @@ export const LoginContainer: React.FC = () => {
     teacher: "Teacher",
     assistant: "Assistant",
     admin: "Admin",
+  };
+
+  const sessionPortalMap: Record<string, SessionPortal> = {
+    student: "student",
+    teacher: "teacher",
+    assistant: "teacher",
+    admin: "admin",
   };
 
   const handleLogin = async (username: string, password: string) => {
@@ -75,9 +82,15 @@ export const LoginContainer: React.FC = () => {
         : (typeof data?.token === "string" ? data.token : null);
 
       if (token) {
+        const sessionPortal = sessionPortalMap[selectedRole];
+        if (!sessionPortal) {
+          throw new Error("当前登录角色未配置对应的会话门户，请联系管理员");
+        }
+
         persistSession(
           token,
           selectedRole === "teacher" || selectedRole === "assistant" ? selectedRole : null,
+          sessionPortal,
         );
         const redirectPath = getRedirectPath(selectedRole as any);
         window.location.href = redirectPath;

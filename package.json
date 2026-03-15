@@ -32,7 +32,9 @@
     "e2e:shiyan:parallel20-production": "bun run scripts/shiyan-production-burst-twenty.ts",
     "e2e:shiyan:slot-lock": "bun run scripts/shiyan-slot-lock-repro.ts",
     "e2e:shiyan:production-slot-lock": "bun run scripts/shiyan-production-slot-lock-repro.ts",
-    "e2e:all": "bun run e2e:gen && bunx playwright test --config=playwright.teacher.config.ts && bunx playwright test --config=playwright.assistant.config.ts && bunx playwright test --config=playwright.admin.config.ts && bunx playwright test --config=playwright.shiyan.config.ts"
+    "e2e:session": "bun run e2e:gen && bunx playwright test --config=playwright.session.config.ts",
+    "e2e:session:headed": "bun run e2e:gen && bunx playwright test --config=playwright.session.config.ts --headed",
+    "e2e:all": "bun run e2e:gen && bunx playwright test --config=playwright.teacher.config.ts && bunx playwright test --config=playwright.assistant.config.ts && bunx playwright test --config=playwright.admin.config.ts && bunx playwright test --config=playwright.shiyan.config.ts && bunx playwright test --config=playwright.session.config.ts"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

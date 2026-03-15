@@ -2,6 +2,7 @@
 
 import { resolve } from "path";
 import { afterEach, describe, expect, it, mock } from "bun:test";
+import { SESSION_TOKEN_KEY } from "../../../utils/session";
 
 mock.restore();
 
@@ -11,9 +12,12 @@ let apiClientImportVersion = 0;
 const originalFetch = globalThis.fetch;
 const originalSetTimeout = globalThis.setTimeout;
 const originalClearTimeout = globalThis.clearTimeout;
+const originalPathname = window.location.pathname;
+const originalApiBaseUrl = process.env.VITE_API_URL;
 
 const loadApiClient = async () => {
   apiClientImportVersion += 1;
+  process.env.VITE_API_URL = "http://localhost/api/v1";
   const { apiClient } = await import(
     `${apiClientModulePath}?api-client-test=${apiClientImportVersion}`
   );
@@ -24,6 +28,13 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
   globalThis.setTimeout = originalSetTimeout;
   globalThis.clearTimeout = originalClearTimeout;
+  localStorage.clear();
+  window.history.replaceState({}, "", originalPathname || "/");
+  if (originalApiBaseUrl) {
+    process.env.VITE_API_URL = originalApiBaseUrl;
+  } else {
+    delete process.env.VITE_API_URL;
+  }
 });
 
 describe("apiClient timeout handling", () => {
@@ -126,5 +137,60 @@ describe("apiClient timeout handling", () => {
       globalThis.clearTimeout = originalClearTimeout;
       globalThis.fetch = originalFetch;
     }
+  });
+});
+
+describe("apiClient session isolation", () => {
+  it("uses the student portal token on the student entry page", async () => {
+    const apiClient = await loadApiClient();
+    const studentToken = "student-token";
+    const teacherToken = "teacher-token";
+
+    localStorage.setItem("studentToken", studentToken);
+    localStorage.setItem("teacherToken", teacherToken);
+    window.history.replaceState({}, "", "/exp.html");
+
+    globalThis.fetch = mock(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect((init?.headers as Record<string, string>)?.Authorization).toBe(`Bearer ${studentToken}`);
+
+      return new Response(JSON.stringify({ data: { ok: true } }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    }) as unknown as typeof fetch;
+
+    await expect(apiClient.get("/users/me")).resolves.toEqual({ ok: true });
+  });
+
+  it("does not attach a mismatched legacy token on the student entry page", async () => {
+    const apiClient = await loadApiClient();
+
+    localStorage.setItem(SESSION_TOKEN_KEY, [
+      Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url"),
+      Buffer.from(JSON.stringify({
+        sub: 1,
+        username: "teacher-user",
+        role: "teacher",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
+      })).toString("base64url"),
+      "",
+    ].join("."));
+    window.history.replaceState({}, "", "/exp.html");
+
+    globalThis.fetch = mock(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect((init?.headers as Record<string, string>)?.Authorization).toBeUndefined();
+
+      return new Response(JSON.stringify({ data: { ok: true } }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    }) as unknown as typeof fetch;
+
+    await expect(apiClient.get("/users/me")).resolves.toEqual({ ok: true });
   });
 });
