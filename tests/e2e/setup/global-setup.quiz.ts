@@ -1,0 +1,33 @@
+import type { FullConfig } from "@playwright/test";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  cleanupUploadArtifacts,
+  resetDatabase,
+  resetUserPassword,
+  seedShiyanDatasetFixtures,
+  seedTeacherCoreFixtures,
+} from "./setup-utils";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const FE_DIR = path.resolve(__dirname, "../../..");
+const BE_DIR = path.resolve(FE_DIR, "../be");
+
+export default async function globalSetup(_: FullConfig) {
+  const teacherUsername = process.env.E2E_TEACHER_USERNAME ?? "teacher1";
+  const teacherPassword = process.env.E2E_TEACHER_PASSWORD ?? "TeacherE2E!234";
+  const studentUsername = process.env.E2E_STUDENT_USERNAME ?? "20240002";
+  const studentPassword = process.env.E2E_STUDENT_PASSWORD ?? "StudentE2E!234";
+  const secondaryStudentUsername =
+    process.env.E2E_SHIYAN_SECONDARY_STUDENT_USERNAME ?? "20240001";
+  const secondaryStudentPassword =
+    process.env.E2E_SHIYAN_SECONDARY_STUDENT_PASSWORD ?? "StudentE2E!345";
+
+  await resetDatabase(BE_DIR);
+  await cleanupUploadArtifacts(BE_DIR);
+  await resetUserPassword(BE_DIR, teacherUsername, teacherPassword);
+  await resetUserPassword(BE_DIR, studentUsername, studentPassword);
+  await resetUserPassword(BE_DIR, secondaryStudentUsername, secondaryStudentPassword);
+  await seedTeacherCoreFixtures(BE_DIR);
+  await seedShiyanDatasetFixtures(BE_DIR, studentUsername);
+}

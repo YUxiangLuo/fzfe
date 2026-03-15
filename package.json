@@ -15,6 +15,8 @@
     "e2e:teacher:smoke:run": "bunx playwright test --config=playwright.teacher.config.ts --grep @smoke",
     "e2e:teacher": "bun run e2e:gen && bunx playwright test --config=playwright.teacher.config.ts",
     "e2e:teacher:headed": "bun run e2e:gen && bunx playwright test --config=playwright.teacher.config.ts --headed",
+    "e2e:quiz": "bun run e2e:gen && E2E_BACKEND_PORT=54126 E2E_FRONTEND_PORT=55126 bunx playwright test --config=playwright.quiz.config.ts",
+    "e2e:quiz:headed": "bun run e2e:gen && E2E_BACKEND_PORT=54126 E2E_FRONTEND_PORT=55126 bunx playwright test --config=playwright.quiz.config.ts --headed",
     "e2e:assistant:smoke": "bun run e2e:gen && bun run e2e:assistant:smoke:run",
     "e2e:assistant:smoke:run": "bunx playwright test --config=playwright.assistant.config.ts --grep @smoke",
     "e2e:assistant": "bun run e2e:gen && bunx playwright test --config=playwright.assistant.config.ts",
