@@ -44,6 +44,8 @@ import {
   ModalTitles,
 } from "../helpers";
 
+const BACKEND_ORIGIN = process.env.E2E_BACKEND_ORIGIN ?? `http://127.0.0.1:${process.env.E2E_BACKEND_PORT ?? "54101"}`;
+
 // ===== Admin-specific Utilities =====
 
 function buildTinyPdfBuffer(): Buffer {
@@ -751,6 +753,87 @@ test.describe("@admin 用户管理", () => {
     await expect(pagination.locator(".ant-pagination-item-active")).toHaveText("1");
     await expect(tableRowByText(page, `${batchPrefix}教师0`)).toBeVisible();
     await expect(page.locator("tr").filter({ hasText: lastTeacherName })).toHaveCount(0);
+  });
+
+  test("批量删除教师与助教", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
+
+    const teacherName = `批删教师${makeRunId("D")}`;
+    const assistantName = `批删助教${makeRunId("D")}`;
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.batchAddTeacherBtn }).first().click();
+    const teacherBatchModal = await getVisibleModal(page, ModalTitles.batchAddTeacher);
+    await teacherBatchModal.locator('input[type="file"]').setInputFiles({
+      name: "batch-bulk-delete-teacher.csv",
+      mimeType: "text/csv",
+      buffer: buildCsv([
+        ["姓名", "手机号"],
+        [teacherName, makePhone(301)],
+      ]),
+    });
+    await confirmModal(teacherBatchModal);
+    await expectSuccessMessage(page, SuccessMessages.batchTeacherAdded);
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.batchAddAssistantBtn }).first().click();
+    const assistantBatchModal = await getVisibleModal(page, ModalTitles.batchAddAssistant);
+    await assistantBatchModal.locator('input[type="file"]').setInputFiles({
+      name: "batch-bulk-delete-assistant.csv",
+      mimeType: "text/csv",
+      buffer: buildCsv([
+        ["姓名", "手机号"],
+        [assistantName, makePhone(302)],
+      ]),
+    });
+    await confirmModal(assistantBatchModal);
+    await expectSuccessMessage(page, SuccessMessages.batchAssistantAdded);
+
+    await searchUsers(page, "批删");
+
+    await tableRowByText(page, teacherName).locator('input[type="checkbox"]').check();
+    await tableRowByText(page, assistantName).locator('input[type="checkbox"]').check();
+
+    await page.getByRole("button", { name: AdminUserSelectors.bulkDeleteBtn }).click();
+    const bulkDeleteModal = await getVisibleModal(page, "确认批量删除");
+    await bulkDeleteModal.getByRole("button", { name: /批量删除/ }).click();
+    await expectSuccessMessage(page, SuccessMessages.usersBulkDeleted);
+
+    await expect(page.locator("tr").filter({ hasText: teacherName })).toHaveCount(0);
+    await expect(page.locator("tr").filter({ hasText: assistantName })).toHaveCount(0);
+  });
+
+  test("批量删除学生", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
+
+    const studentUsername = `${Date.now().toString().slice(-8)}01`;
+    const studentSearchToken = makeRunId("STU").replace(/[^a-zA-Z]/g, "");
+    const studentName = `BulkDeleteStudent ${studentSearchToken}`;
+    const registerResponse = await page.request.post(`${BACKEND_ORIGIN}/api/v1/users/register/Student`, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      data: {
+        username: studentUsername,
+        password: "Pass1234",
+        name: studentName,
+        email: `${studentUsername}@e2e.test`,
+      },
+    });
+    expect(registerResponse.ok()).toBeTruthy();
+
+    await searchUsers(page, studentName);
+
+    const studentRow = tableRowByText(page, studentName);
+    await expect(studentRow).toBeVisible();
+    await studentRow.locator('input[type="checkbox"]').check();
+
+    await page.getByRole("button", { name: AdminUserSelectors.bulkDeleteBtn }).click();
+    const bulkDeleteModal = await getVisibleModal(page, "确认批量删除");
+    await bulkDeleteModal.getByRole("button", { name: /批量删除/ }).click();
+    await expectSuccessMessage(page, SuccessMessages.usersBulkDeleted);
+
+    await expect(page.locator("tr").filter({ hasText: studentName })).toHaveCount(0);
   });
 
   test("分页与搜索交互", async ({ page }) => {

@@ -15,15 +15,13 @@ import {
     Alert,
 } from "antd";
 import {
-    UserOutlined,
     EditOutlined,
     DeleteOutlined,
     UploadOutlined,
-    PlusOutlined,
     KeyOutlined,
-    SearchOutlined,
     DownloadOutlined,
 } from "@ant-design/icons";
+import type { TableProps } from "antd";
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { User } from "../types";
 import { apiClient } from "../../../utils/apiClient";
@@ -122,6 +120,9 @@ const UserManagement: React.FC = () => {
     const [batchType, setBatchType] = useState<'teacher' | 'assistant'>('teacher');
     const [fileList, setFileList] = useState<UploadFile[]>([]);
     const [batchLoading, setBatchLoading] = useState(false);
+    const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+    const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
+    const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
 
     const fetchUsers = useCallback(async (page: number, pageSize: number, query: string) => {
         const requestId = ++fetchRequestIdRef.current;
@@ -139,6 +140,8 @@ const UserManagement: React.FC = () => {
             const serverPagination = Array.isArray(response) ? undefined : response?.pagination;
 
             setUsers(fetchedUsers);
+            setSelectedUserIds([]);
+            setSelectedUsers([]);
             setPagination((prev) => ({
                 ...prev,
                 total: serverPagination?.totalItems ?? fetchedUsers.length,
@@ -189,6 +192,44 @@ const UserManagement: React.FC = () => {
                     fetchUsers(targetPage, pagination.pageSize, searchTerm);
                 } catch (err: any) {
                     message.error(`删除失败: ${err.message}`);
+                }
+            },
+        });
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedUserIds.length === 0) {
+            message.warning('请先选择要删除的用户');
+            return;
+        }
+
+        const userNames = selectedUsers.slice(0, 5).map((user) => user.full_name).join('、');
+        const extraCount = selectedUsers.length > 5 ? ` 等 ${selectedUsers.length} 个用户` : '';
+
+        Modal.confirm({
+            title: '确认批量删除',
+            content: `确定要删除已选中的 ${selectedUserIds.length} 个用户吗？${userNames ? `包括：${userNames}${extraCount}。` : ''}此操作不可恢复。`,
+            okText: '批量删除',
+            okType: 'danger',
+            cancelText: '取消',
+            onOk: async () => {
+                setBulkDeleteLoading(true);
+                try {
+                    await apiClient.delete('/users', {
+                        body: JSON.stringify({ userIds: selectedUserIds }),
+                    });
+                    message.success(`已成功删除 ${selectedUserIds.length} 个用户`);
+                    const remainingRows = users.length - selectedUserIds.length;
+                    const targetPage = remainingRows <= 0 && pagination.current > 1
+                        ? pagination.current - 1
+                        : pagination.current;
+                    setSelectedUserIds([]);
+                    setSelectedUsers([]);
+                    await fetchUsers(targetPage, pagination.pageSize, searchTerm);
+                } catch (err: any) {
+                    message.error(`批量删除失败: ${err.message}`);
+                } finally {
+                    setBulkDeleteLoading(false);
                 }
             },
         });
@@ -343,6 +384,18 @@ const UserManagement: React.FC = () => {
         }
     ];
 
+    const rowSelection: TableProps<User>['rowSelection'] = {
+        selectedRowKeys: selectedUserIds,
+        onChange: (newSelectedRowKeys, newSelectedRows) => {
+            setSelectedUserIds(newSelectedRowKeys.map((key) => Number(key)));
+            setSelectedUsers(newSelectedRows);
+        },
+        getCheckboxProps: (record) => ({
+            disabled: record.user_id === currentAdminId,
+            name: record.username,
+        }),
+    };
+
     const uploadProps = {
         onRemove: () => setFileList([]),
         beforeUpload: (file: any) => {
@@ -368,11 +421,17 @@ const UserManagement: React.FC = () => {
                     <Button onClick={() => { setBatchType('teacher'); setBatchModalOpen(true); }} icon={<UploadOutlined />}>批量添加教师</Button>
                     <Button onClick={() => setAddAssistantModalOpen(true)} icon={<EditOutlined />}>添加助教</Button>
                     <Button onClick={() => { setBatchType('assistant'); setBatchModalOpen(true); }} icon={<UploadOutlined />}>批量添加助教</Button>
+                    <Button danger icon={<DeleteOutlined />} disabled={selectedUserIds.length === 0} loading={bulkDeleteLoading} onClick={handleBulkDelete}>
+                        批量删除用户
+                    </Button>
                 </Space>
             </div>
 
             <Card>
-                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                    <Text type="secondary">
+                        已选择 {selectedUserIds.length} 个用户{currentAdminId ? '，当前管理员账户不可选' : ''}
+                    </Text>
                     <Search
                         placeholder="输入关键字搜索"
                         onSearch={handleSearch}
@@ -384,6 +443,7 @@ const UserManagement: React.FC = () => {
                     dataSource={users}
                     columns={columns}
                     rowKey="user_id"
+                    rowSelection={rowSelection}
                     loading={isLoading}
                     pagination={pagination}
                     onChange={handleTableChange}
