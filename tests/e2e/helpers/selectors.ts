@@ -131,7 +131,7 @@ export const ExperimentProgressSelectors = {
   totalStudentsStat: "学生总数",
   completedStat: "已完成",
   inProgressStat: "进行中",
-  notStartedStat: "实验已创建",
+  notStartedStat: "未开始",
   avgCompletionStat: "平均完成度",
   stepCompletionText: "步骤完成情况",
   timelineText: "操作时间线",
