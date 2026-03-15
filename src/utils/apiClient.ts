@@ -3,11 +3,7 @@ import {
   getStoredToken,
 } from "./session";
 
-const runtimeApiBaseUrl =
-  import.meta.env.VITE_API_URL ||
-  (typeof process !== "undefined" ? process.env.VITE_API_URL : undefined);
-
-export const API_BASE_URL = runtimeApiBaseUrl;
+export const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 if (!API_BASE_URL) {
   throw new Error("VITE_API_URL is not defined. Please check your .env file.");

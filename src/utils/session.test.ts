@@ -22,7 +22,7 @@ const createToken = (role: string, overrides: Record<string, unknown> = {}): str
   return [
     Buffer.from(JSON.stringify({ alg: "none", typ: "JWT" })).toString("base64url"),
     Buffer.from(JSON.stringify(payload)).toString("base64url"),
-    "signature",
+    "",
   ].join(".");
 };
 

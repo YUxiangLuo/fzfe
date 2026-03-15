@@ -112,6 +112,12 @@ const getTeacherPortalRoleFromToken = (token: string | null | undefined): Teache
   return normalizeTeacherPortalRole(decodeToken(token ?? "")?.role);
 };
 
+const PORTAL_PATH_PATTERNS: ReadonlyArray<[RegExp, SessionPortal]> = [
+  [/^\/exp(?:\.html|\/|$)/, "student"],
+  [/^\/teacher(?:\.html|\/|$)/, "teacher"],
+  [/^\/admin(?:\.html|\/|$)/, "admin"],
+];
+
 const getPortalFromLocation = (): SessionPortal | null => {
   if (typeof window === "undefined") {
     return null;
@@ -119,16 +125,10 @@ const getPortalFromLocation = (): SessionPortal | null => {
 
   const pathname = window.location.pathname.toLowerCase();
 
-  if (pathname.startsWith("/exp")) {
-    return "student";
-  }
-
-  if (pathname.startsWith("/teacher")) {
-    return "teacher";
-  }
-
-  if (pathname.startsWith("/admin")) {
-    return "admin";
+  for (const [pattern, portal] of PORTAL_PATH_PATTERNS) {
+    if (pattern.test(pathname)) {
+      return portal;
+    }
   }
 
   return null;
@@ -192,6 +192,7 @@ export const getSessionTokenOrThrow = (portal?: SessionPortal | null): string =>
   return token;
 };
 
+// 角色解析优先级：门户专用 key → token 解码 → 旧版 key（向后兼容，迁移完成后可移除）
 export const getStoredTeacherPortalRole = (portal: SessionPortal | null = null): TeacherPortalRole | null => {
   if (resolveSessionPortal(portal) !== "teacher") {
     return null;
@@ -209,12 +210,7 @@ export const getStoredTeacherPortalRole = (portal: SessionPortal | null = null):
     return tokenRole;
   }
 
-  const legacyRole = normalizeTeacherPortalRole(readStorageItem(SESSION_ROLE_KEY));
-  if (legacyRole) {
-    return legacyRole;
-  }
-
-  return null;
+  return normalizeTeacherPortalRole(readStorageItem(SESSION_ROLE_KEY));
 };
 
 export const setStoredTeacherPortalRole = (
@@ -222,6 +218,7 @@ export const setStoredTeacherPortalRole = (
   portal: SessionPortal | null = null,
 ): void => {
   if (resolveSessionPortal(portal) !== "teacher") {
+    console.warn("setStoredTeacherPortalRole: 当前门户不是教师门户，操作已忽略");
     return;
   }
 
@@ -312,6 +309,6 @@ export const hasSessionRole = (
   user: Pick<DecodedToken, "role"> | null | undefined,
   allowedRoles: readonly string[],
 ): boolean => {
-  const normalizedRole = user?.role?.toLowerCase();
-  return normalizedRole ? allowedRoles.includes(normalizedRole) : false;
+  const role = normalizeRole(user?.role);
+  return role ? allowedRoles.includes(role) : false;
 };

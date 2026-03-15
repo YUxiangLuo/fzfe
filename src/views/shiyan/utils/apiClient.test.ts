@@ -176,7 +176,7 @@ describe("apiClient session isolation", () => {
         exp: Math.floor(Date.now() / 1000) + 3600,
         iat: Math.floor(Date.now() / 1000),
       })).toString("base64url"),
-      "signature",
+      "",
     ].join("."));
     window.history.replaceState({}, "", "/exp.html");
 
