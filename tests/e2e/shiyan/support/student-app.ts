@@ -32,7 +32,7 @@ export class StudentApp {
       sessionStorage.clear();
     });
     await this.page.evaluate((authToken) => {
-      localStorage.setItem("token", authToken);
+      localStorage.setItem("studentToken", authToken);
     }, this.token);
 
     const normalizedPath = normalizeHashPath(hashPath);

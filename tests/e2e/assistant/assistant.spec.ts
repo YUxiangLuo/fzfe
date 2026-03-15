@@ -320,7 +320,7 @@ test.describe("@assistant 考核管理", () => {
       password: ACCOUNTS.student.password,
     });
     await page.evaluate((token) => {
-      localStorage.setItem("token", token);
+      localStorage.setItem("teacherToken", token);
     }, studentToken);
 
     await openQuestionBankPage(page);

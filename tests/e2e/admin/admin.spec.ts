@@ -830,7 +830,7 @@ test.describe("@admin 认证与边缘测试", () => {
     // Non-admin role token → redirect to login
     const studentToken = buildFakeToken("Student");
     await page.goto("/login.html");
-    await page.evaluate((t) => localStorage.setItem("token", t), studentToken);
+    await page.evaluate((t) => localStorage.setItem("adminToken", t), studentToken);
     await page.goto("/admin.html");
     await expect(page).toHaveURL(/\/login\.html$/);
   });
@@ -840,7 +840,7 @@ test.describe("@admin 认证与边缘测试", () => {
     await page.goto("/login.html");
     // Build an expired admin token (exp in the past)
     const expiredToken = buildFakeToken("Admin", -3600);
-    await page.evaluate((t) => localStorage.setItem("token", t), expiredToken);
+    await page.evaluate((t) => localStorage.setItem("adminToken", t), expiredToken);
     await page.goto("/admin.html");
     await expect(page).toHaveURL(/\/login\.html$/);
   });

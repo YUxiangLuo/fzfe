@@ -833,14 +833,30 @@ function buildApiUrl(backendOrigin: string, path: string): string {
 }
 
 export async function getStoredToken(page: Page): Promise<string> {
-  const token = await page.evaluate(() => localStorage.getItem("token"));
+  const token = await page.evaluate(() => {
+    const path = window.location.pathname.toLowerCase();
+    if (path.startsWith("/exp")) return localStorage.getItem("studentToken");
+    if (path.startsWith("/teacher")) return localStorage.getItem("teacherToken");
+    if (path.startsWith("/admin")) return localStorage.getItem("adminToken");
+    return localStorage.getItem("studentToken")
+      ?? localStorage.getItem("teacherToken")
+      ?? localStorage.getItem("adminToken")
+      ?? localStorage.getItem("token");
+  });
   expect(token).not.toBeNull();
   return token!;
 }
 
 export async function expectStoredTokenCleared(page: Page): Promise<void> {
-  const token = await page.evaluate(() => localStorage.getItem("token"));
-  expect(token).toBeNull();
+  const hasAnyToken = await page.evaluate(() => {
+    return !!(
+      localStorage.getItem("studentToken")
+      || localStorage.getItem("teacherToken")
+      || localStorage.getItem("adminToken")
+      || localStorage.getItem("token")
+    );
+  });
+  expect(hasAnyToken).toBe(false);
 }
 
 export async function requestSessionToken(

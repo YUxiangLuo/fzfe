@@ -165,7 +165,13 @@ export async function apiRequest<T = unknown>(
   } = {}
 ): Promise<T> {
   return page.evaluate(async ({ endpoint, method, body }) => {
-    const token = localStorage.getItem("token");
+    const path = window.location.pathname.toLowerCase();
+    const token = (
+      path.startsWith("/exp") ? localStorage.getItem("studentToken")
+      : path.startsWith("/teacher") ? localStorage.getItem("teacherToken")
+      : path.startsWith("/admin") ? localStorage.getItem("adminToken")
+      : null
+    ) ?? localStorage.getItem("token");
     const response = await fetch(`/api/v1${endpoint}`, {
       method: method ?? "GET",
       headers: {
