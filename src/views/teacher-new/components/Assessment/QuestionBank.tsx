@@ -183,6 +183,44 @@ function mapAnswersToKeys(answerTexts: string[], optionTexts: string[]): string[
     });
 }
 
+function sortAnswersByOptionOrder(answers: string[], options: QuestionOptions): string[] {
+    const normalizedAnswers = Array.from(new Set(answers.map(String).map(v => v.trim()).filter(Boolean)));
+    if (normalizedAnswers.length <= 1 || !options) return normalizedAnswers;
+
+    if (Array.isArray(options)) {
+        const order = new Map(options.map((option, index) => [String(option).trim(), index]));
+        return [...normalizedAnswers].sort((left, right) => {
+            const leftIndex = order.get(left) ?? Number.MAX_SAFE_INTEGER;
+            const rightIndex = order.get(right) ?? Number.MAX_SAFE_INTEGER;
+            return leftIndex - rightIndex || left.localeCompare(right);
+        });
+    }
+
+    const order = new Map(Object.keys(options).map((key, index) => [String(key).trim(), index]));
+    return [...normalizedAnswers].sort((left, right) => {
+        const leftIndex = order.get(left) ?? Number.MAX_SAFE_INTEGER;
+        const rightIndex = order.get(right) ?? Number.MAX_SAFE_INTEGER;
+        return leftIndex - rightIndex || left.localeCompare(right);
+    });
+}
+
+function formatCorrectAnswers(question: Pick<Question, 'correct_answers' | 'options' | 'question_type'>): string {
+    if (!question.correct_answers?.length) return '—';
+    if (question.question_type === 'True/False') {
+        return question.correct_answers.join(', ');
+    }
+
+    const orderedAnswers = sortAnswersByOptionOrder(question.correct_answers, question.options);
+    const keyMap = toOptionKeyMap(question.options);
+    if (!keyMap) {
+        return orderedAnswers.join(', ');
+    }
+
+    return orderedAnswers
+        .map((answer) => keyMap[answer] ? `${answer}. ${keyMap[answer]}` : answer)
+        .join(', ');
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const QuestionBank: React.FC = () => {
@@ -344,6 +382,7 @@ const QuestionBank: React.FC = () => {
             const isTrueFalse = values.question_type === 'True/False';
             const optionTexts = toStringArray(values.options);
             const answerTexts = toStringArray(values.correct_answers);
+            const optionsRecord = isTrueFalse ? undefined : buildOptionsRecord(optionTexts);
             const payload = {
                 question_text: values.question_text.trim(),
                 question_type: values.question_type,
@@ -352,8 +391,10 @@ const QuestionBank: React.FC = () => {
                     : undefined,
                 // True/False options are managed by the backend; omit them from the payload.
                 // Use Record format {"A":"text",...} so correct_answers stay as letter keys.
-                options: isTrueFalse ? undefined : buildOptionsRecord(optionTexts),
-                correct_answers: isTrueFalse ? answerTexts : mapAnswersToKeys(answerTexts, optionTexts),
+                options: optionsRecord,
+                correct_answers: isTrueFalse
+                    ? answerTexts
+                    : sortAnswersByOptionOrder(mapAnswersToKeys(answerTexts, optionTexts), optionsRecord),
             };
 
             if (isEditing && editingQuestion) {
@@ -429,7 +470,7 @@ const QuestionBank: React.FC = () => {
             key: 'correct_answer',
             width: 100,
             render: (_: unknown, q: Question) =>
-                q.correct_answers?.length ? q.correct_answers.join(', ') : '—',
+                formatCorrectAnswers(q),
         },
         {
             title: '操作',
@@ -604,7 +645,7 @@ const QuestionBank: React.FC = () => {
                             </div>
                         )}
                         <Alert
-                            message={`正确答案：${previewQuestion.correct_answers?.length ? previewQuestion.correct_answers.join(', ') : '—'}`}
+                            message={`正确答案：${formatCorrectAnswers(previewQuestion)}`}
                             type="success"
                             style={{ marginTop: 16 }}
                         />

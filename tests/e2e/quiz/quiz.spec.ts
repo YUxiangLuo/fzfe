@@ -267,6 +267,7 @@ test.describe("@quiz 题库与测验", () => {
     await searchQuestion(page, createdQuestionText);
     const createdRow = tableRowByText(page, createdQuestionText);
     await expect(createdRow).toBeVisible();
+    await expect(createdRow).toContainText("A. 选项甲, C. 选项丙");
 
     const createdQuestions = await getAuthedJson<QuestionBankRecord[]>(
       page,
@@ -291,10 +292,12 @@ test.describe("@quiz 题库与测验", () => {
     await searchQuestion(page, updatedQuestionText);
     const updatedRow = tableRowByText(page, updatedQuestionText);
     await expect(updatedRow).toBeVisible();
+    await expect(updatedRow).toContainText("B. 选项乙, C. 选项丙");
 
     const previewModal = await openQuestionPreviewModal(updatedRow);
     await expect(previewModal.getByText(updatedQuestionText)).toBeVisible();
     await expect(previewModal.getByText("A. 选项甲")).toBeVisible();
+    await expect(previewModal.getByText("正确答案：B. 选项乙, C. 选项丙")).toBeVisible();
     await closeModalWithCloseButton(previewModal);
 
     const updatedQuestions = await getAuthedJson<QuestionBankRecord[]>(
