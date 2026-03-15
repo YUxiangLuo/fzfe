@@ -108,6 +108,10 @@ const isTokenAllowedForPortal = (token: string, portal: SessionPortal): boolean 
   return isRoleAllowedForPortal(decodeToken(token)?.role, portal);
 };
 
+const getTeacherPortalRoleFromToken = (token: string | null | undefined): TeacherPortalRole | null => {
+  return normalizeTeacherPortalRole(decodeToken(token ?? "")?.role);
+};
+
 const getPortalFromLocation = (): SessionPortal | null => {
   if (typeof window === "undefined") {
     return null;
@@ -188,7 +192,7 @@ export const getSessionTokenOrThrow = (portal?: SessionPortal | null): string =>
   return token;
 };
 
-export const getStoredTeacherPortalRole = (portal: SessionPortal | null = "teacher"): TeacherPortalRole | null => {
+export const getStoredTeacherPortalRole = (portal: SessionPortal | null = null): TeacherPortalRole | null => {
   if (resolveSessionPortal(portal) !== "teacher") {
     return null;
   }
@@ -200,7 +204,7 @@ export const getStoredTeacherPortalRole = (portal: SessionPortal | null = "teach
   }
 
   const teacherToken = getStoredToken("teacher");
-  const tokenRole = normalizeTeacherPortalRole(decodeToken(teacherToken ?? "")?.role);
+  const tokenRole = getTeacherPortalRoleFromToken(teacherToken);
   if (tokenRole) {
     return tokenRole;
   }
@@ -215,7 +219,7 @@ export const getStoredTeacherPortalRole = (portal: SessionPortal | null = "teach
 
 export const setStoredTeacherPortalRole = (
   role: TeacherPortalRole | null,
-  portal: SessionPortal | null = "teacher",
+  portal: SessionPortal | null = null,
 ): void => {
   if (resolveSessionPortal(portal) !== "teacher") {
     return;
@@ -234,7 +238,7 @@ export const persistSession = (
 ): void => {
   const resolvedPortal = resolveSessionPortal(portal, token);
   if (!resolvedPortal) {
-    throw new Error("无法识别当前登录入口");
+    throw new Error("无法识别会话所属门户，请检查登录调用是否传入了明确的门户类型");
   }
 
   const normalizedRole = normalizeTeacherPortalRole(teacherPortalRole ?? null);
@@ -245,7 +249,7 @@ export const persistSession = (
     if (portalRoleKey) {
       writeStorageItemOrThrow(
         portalRoleKey,
-        normalizedRole ?? normalizeTeacherPortalRole(decodeToken(token)?.role),
+        normalizedRole ?? getTeacherPortalRoleFromToken(token),
       );
     }
   } catch (error) {

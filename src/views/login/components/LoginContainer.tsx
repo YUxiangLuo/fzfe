@@ -82,7 +82,11 @@ export const LoginContainer: React.FC = () => {
         : (typeof data?.token === "string" ? data.token : null);
 
       if (token) {
-        const sessionPortal = sessionPortalMap[selectedRole] ?? "student";
+        const sessionPortal = sessionPortalMap[selectedRole];
+        if (!sessionPortal) {
+          throw new Error("当前登录角色未配置对应的会话门户，请联系管理员");
+        }
+
         persistSession(
           token,
           selectedRole === "teacher" || selectedRole === "assistant" ? selectedRole : null,
