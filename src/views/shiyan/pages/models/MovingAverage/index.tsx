@@ -119,7 +119,11 @@ const MovingAverageStepper: React.FC = () => {
 
     // 结果页进入指标对比
     if (currentStep?.id === 'results') {
-      await markAsCompleted(); // 一定要先标记完成，不然找不到刚完成的自己
+      try {
+        await markAsCompleted(); // 一定要先标记完成，不然找不到刚完成的自己
+      } catch {
+        return;
+      }
       navigate(COMPARISON_PATH);
       return;
     }

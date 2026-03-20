@@ -73,6 +73,84 @@ describe("stateSyncController", () => {
     expect(repository.recordStepEvent).toHaveBeenNthCalledWith(2, 42, 4, "COMPLETED");
   });
 
+  it("records completed step events only after the save succeeds", async () => {
+    let currentState: ExperimentState = {
+      ...buildInitialState(),
+      experiment_id: 42,
+      highest_completed_step: 0,
+    };
+    let releaseSave!: (state: ExperimentState) => void;
+    const repository = createRepositoryStub();
+    repository.save = mock(
+      (state: ExperimentState) =>
+        new Promise<ExperimentState>((resolve) => {
+          releaseSave = resolve;
+        }),
+    );
+
+    const controller = createExperimentStateSyncController({
+      repository,
+      getState: () => currentState,
+      setState: (state) => {
+        currentState = state;
+      },
+      onLocalStateChange: mock(() => {}),
+      onSyncSuccess: mock(() => {}),
+      onSyncError: mock(() => {}),
+      onIgnoreStaleResponse: mock(() => {}),
+      onRemoteProductSelectionChanged: mock(() => {}),
+      onCompletedStepRecordError: mock(() => {}),
+    });
+
+    const pendingUpdate = controller.updateState({ highest_completed_step: 1 }, { forceSync: true });
+
+    expect(repository.recordStepEvent).not.toHaveBeenCalled();
+
+    releaseSave({
+      ...currentState,
+      highest_completed_step: 1,
+    });
+    await pendingUpdate;
+
+    expect(repository.recordStepEvent).toHaveBeenCalledTimes(1);
+    expect(repository.recordStepEvent).toHaveBeenCalledWith(42, 1, "COMPLETED");
+  });
+
+  it("does not read the store state during controller construction", async () => {
+    let currentState: ExperimentState | null = null;
+    const repository = createRepositoryStub();
+
+    const controller = createExperimentStateSyncController({
+      repository,
+      getState: () => {
+        if (currentState === null) {
+          throw new Error("state unavailable");
+        }
+        return currentState;
+      },
+      setState: (state) => {
+        currentState = state;
+      },
+      onLocalStateChange: mock(() => {}),
+      onSyncSuccess: mock(() => {}),
+      onSyncError: mock(() => {}),
+      onIgnoreStaleResponse: mock(() => {}),
+      onRemoteProductSelectionChanged: mock(() => {}),
+      onCompletedStepRecordError: mock(() => {}),
+    });
+
+    currentState = {
+      ...buildInitialState(),
+      experiment_id: 42,
+      highest_completed_step: 3,
+    };
+
+    await controller.updateState({ selected_industry: "electronics" }, { forceSync: true });
+
+    expect(repository.recordStepEvent).not.toHaveBeenCalled();
+    expect(currentState.selected_industry).toBe("electronics");
+  });
+
   it("reverts local state when sync fails and throwOnSyncError is enabled", async () => {
     const initialState = buildInitialState();
     let currentState = initialState;
@@ -102,6 +180,38 @@ describe("stateSyncController", () => {
 
     expect(onSyncError).toHaveBeenCalledTimes(1);
     expect(currentState).toEqual(initialState);
+  });
+
+  it("does not record completed step events when sync fails", async () => {
+    let currentState: ExperimentState = {
+      ...buildInitialState(),
+      experiment_id: 42,
+      highest_completed_step: 0,
+    };
+    const repository = createRepositoryStub();
+    repository.save = mock(async () => {
+      throw new Error("sync failed");
+    });
+
+    const controller = createExperimentStateSyncController({
+      repository,
+      getState: () => currentState,
+      setState: (state) => {
+        currentState = state;
+      },
+      onLocalStateChange: mock(() => {}),
+      onSyncSuccess: mock(() => {}),
+      onSyncError: mock(() => {}),
+      onIgnoreStaleResponse: mock(() => {}),
+      onRemoteProductSelectionChanged: mock(() => {}),
+      onCompletedStepRecordError: mock(() => {}),
+    });
+
+    await expect(
+      controller.updateState({ highest_completed_step: 1 }, { forceSync: true, throwOnSyncError: true }),
+    ).rejects.toThrow("sync failed");
+
+    expect(repository.recordStepEvent).not.toHaveBeenCalled();
   });
 
   it("skips repository save when sync conditions are not met", async () => {
@@ -203,6 +313,57 @@ describe("stateSyncController", () => {
     expect(onIgnoreStaleResponse).toHaveBeenCalledTimes(1);
     expect(onSyncSuccess).toHaveBeenCalledTimes(1);
     expect(currentState.selected_industry).toBe("second");
+  });
+
+  it("records newly completed steps from the latest successful save even when an earlier response becomes stale", async () => {
+    let currentState: ExperimentState = {
+      ...buildInitialState(),
+      experiment_id: 42,
+      highest_completed_step: 0,
+    };
+    let releaseFirstSave!: (state: ExperimentState) => void;
+    const repository = createRepositoryStub();
+    repository.save = mock(
+      (state: ExperimentState) =>
+        new Promise<ExperimentState>((resolve) => {
+          if (!releaseFirstSave) {
+            releaseFirstSave = resolve;
+            return;
+          }
+
+          resolve(state);
+        }),
+    );
+
+    const controller = createExperimentStateSyncController({
+      repository,
+      getState: () => currentState,
+      setState: (state) => {
+        currentState = state;
+      },
+      onLocalStateChange: mock(() => {}),
+      onSyncSuccess: mock(() => {}),
+      onSyncError: mock(() => {}),
+      onIgnoreStaleResponse: mock(() => {}),
+      onRemoteProductSelectionChanged: mock(() => {}),
+      onCompletedStepRecordError: mock(() => {}),
+    });
+
+    const firstUpdate = controller.updateState({ highest_completed_step: 1 }, { forceSync: true });
+    const secondUpdate = controller.updateState({ selected_industry: "electronics" }, { forceSync: true });
+
+    await secondUpdate;
+
+    expect(repository.recordStepEvent).toHaveBeenCalledTimes(1);
+    expect(repository.recordStepEvent).toHaveBeenCalledWith(42, 1, "COMPLETED");
+
+    releaseFirstSave({
+      ...currentState,
+      highest_completed_step: 1,
+    });
+    await firstUpdate;
+
+    expect(repository.recordStepEvent).toHaveBeenCalledTimes(1);
   });
 
   it("notifies when remote sync changes product selection", async () => {

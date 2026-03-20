@@ -115,6 +115,7 @@ const Harness = async () => {
       <div>
         <div data-testid="loading">{String(ensemble.isLoading)}</div>
         <div data-testid="results-ready">{String(ensemble.results !== null)}</div>
+        <div data-testid="error">{ensemble.error ?? ''}</div>
       </div>
     );
   };
@@ -204,5 +205,23 @@ describe('useEnsembleModel', () => {
     expect(apiPost).toHaveBeenCalledTimes(1);
     expect(view.getByTestId('loading').textContent).toBe('false');
     expect(view.getByTestId('results-ready').textContent).toBe('true');
+  });
+
+  it('does not keep ensemble results when the state sync fails after training succeeds', async () => {
+    experimentValue.updateState = mock(async () => {
+      throw new Error('sync failed');
+    });
+    const Component = await Harness();
+
+    view = render(
+      <MemoryRouter initialEntries={['/model/weighted-ensemble/results']}>
+        <Component />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(view!.getByTestId('error').textContent).toBe('sync failed'));
+
+    expect(view.getByTestId('results-ready').textContent).toBe('false');
   });
 });

@@ -82,31 +82,39 @@ export const createExperimentStateSyncController = ({
   onCompletedStepRecordError: (step: number, error: unknown) => void;
 }): ExperimentStateSyncController => {
   let stateUpdateVersion = 0;
+  let lastConfirmedCompletedStep: number | null = null;
+  let lastOptimisticCompletedStep: number | null = null;
+
+  const synchronizeCompletionTracking = (state: ExperimentState) => {
+    if (lastConfirmedCompletedStep === null || lastOptimisticCompletedStep === null) {
+      lastConfirmedCompletedStep = state.highest_completed_step;
+      lastOptimisticCompletedStep = state.highest_completed_step;
+      return;
+    }
+
+    // External state hydration can replace the optimistic store state.
+    // Treat those completed steps as already authoritative, so we do not
+    // replay historical COMPLETED events on the next save.
+    if (state.highest_completed_step > lastOptimisticCompletedStep) {
+      lastConfirmedCompletedStep = state.highest_completed_step;
+      lastOptimisticCompletedStep = state.highest_completed_step;
+    }
+  };
 
   return {
     updateState: async (updates, options = {}) => {
       const { throwOnSyncError = false } = options;
       const previousState = getState();
+      synchronizeCompletionTracking(previousState);
+      const confirmedCompletedStep =
+        lastConfirmedCompletedStep ?? previousState.highest_completed_step;
+
       const currentUpdateVersion = ++stateUpdateVersion;
       const nextState = buildNextState(previousState, updates);
+      lastOptimisticCompletedStep = nextState.highest_completed_step;
 
       onLocalStateChange(previousState, nextState);
       setState(nextState);
-
-      if (
-        nextState.highest_completed_step > previousState.highest_completed_step &&
-        nextState.experiment_id
-      ) {
-        for (
-          let step = previousState.highest_completed_step + 1;
-          step <= nextState.highest_completed_step;
-          step++
-        ) {
-          repository.recordStepEvent(nextState.experiment_id, step, "COMPLETED").catch((error) => {
-            onCompletedStepRecordError(step, error);
-          });
-        }
-      }
 
       if (!shouldSyncState(previousState, nextState, updates, options)) {
         return;
@@ -121,6 +129,26 @@ export const createExperimentStateSyncController = ({
         }
 
         setState(serverState);
+        lastOptimisticCompletedStep = serverState.highest_completed_step;
+
+        if (
+          serverState.highest_completed_step > confirmedCompletedStep &&
+          serverState.experiment_id
+        ) {
+          for (
+            let step = confirmedCompletedStep + 1;
+            step <= serverState.highest_completed_step;
+            step++
+          ) {
+            repository.recordStepEvent(serverState.experiment_id, step, "COMPLETED").catch((error) => {
+              onCompletedStepRecordError(step, error);
+            });
+          }
+        }
+        lastConfirmedCompletedStep = Math.max(
+          confirmedCompletedStep,
+          serverState.highest_completed_step,
+        );
 
         if (didProductSelectionChange(previousState, serverState)) {
           onRemoteProductSelectionChanged();
@@ -132,6 +160,7 @@ export const createExperimentStateSyncController = ({
 
         if (throwOnSyncError) {
           setState(previousState);
+          lastOptimisticCompletedStep = previousState.highest_completed_step;
           throw error;
         }
       }
