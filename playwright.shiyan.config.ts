@@ -69,7 +69,6 @@ export default defineConfig({
       env: {
         ...process.env,
         VITE_API_URL: `${E2E_BACKEND_ORIGIN}/api/v1`,
-        VITE_DOWNLOAD_URL: E2E_BACKEND_ORIGIN,
       },
     },
   ],

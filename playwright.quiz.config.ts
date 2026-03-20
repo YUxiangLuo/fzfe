@@ -53,7 +53,7 @@ export default defineConfig({
       },
     },
     {
-      command: `VITE_API_URL=${E2E_BACKEND_ORIGIN}/api/v1 VITE_DOWNLOAD_URL=${E2E_BACKEND_ORIGIN} bunx vite --host 127.0.0.1 --port ${E2E_FRONTEND_PORT}`,
+      command: `VITE_API_URL=${E2E_BACKEND_ORIGIN}/api/v1 bunx vite --host 127.0.0.1 --port ${E2E_FRONTEND_PORT}`,
       cwd: FE_DIR,
       port: E2E_FRONTEND_PORT,
       timeout: 180_000,

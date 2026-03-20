@@ -176,6 +176,25 @@ const UserManagement: React.FC = () => {
         setPagination({ ...pagination, current: 1 });
     };
 
+    const refreshUsersAfterDelete = async (deletedCount: number) => {
+        const remainingTotal = Math.max(pagination.total - deletedCount, 0);
+        const shouldBackPage =
+            pagination.current > 1 &&
+            remainingTotal <= (pagination.current - 1) * pagination.pageSize;
+        const targetPage = shouldBackPage ? pagination.current - 1 : pagination.current;
+
+        if (targetPage !== pagination.current) {
+            setPagination((prev) => ({
+                ...prev,
+                current: targetPage,
+                total: remainingTotal,
+            }));
+            return;
+        }
+
+        await fetchUsers(targetPage, pagination.pageSize, searchTerm);
+    };
+
     const handleDelete = (user: User) => {
         Modal.confirm({
             title: '确认删除',
@@ -187,9 +206,7 @@ const UserManagement: React.FC = () => {
                 try {
                     await apiClient.delete(`/users/${user.user_id}`);
                     message.success('用户删除成功');
-                    const shouldBackPage = users.length === 1 && pagination.current > 1;
-                    const targetPage = shouldBackPage ? pagination.current - 1 : pagination.current;
-                    fetchUsers(targetPage, pagination.pageSize, searchTerm);
+                    await refreshUsersAfterDelete(1);
                 } catch (err: any) {
                     message.error(`删除失败: ${err.message}`);
                 }
@@ -215,11 +232,14 @@ const UserManagement: React.FC = () => {
             onOk: async () => {
                 setBulkDeleteLoading(true);
                 try {
+                    const deletedUserIds = [...selectedUserIds];
                     await apiClient.delete('/users', {
-                        body: JSON.stringify({ userIds: selectedUserIds }),
+                        body: JSON.stringify({ userIds: deletedUserIds }),
                     });
-                    message.success(`已成功删除 ${selectedUserIds.length} 个用户`);
-                    window.location.reload();
+                    message.success(`已成功删除 ${deletedUserIds.length} 个用户`);
+                    setSelectedUserIds([]);
+                    setSelectedUsers([]);
+                    await refreshUsersAfterDelete(deletedUserIds.length);
                 } catch (err: any) {
                     message.error(`批量删除失败: ${err.message}`);
                 } finally {

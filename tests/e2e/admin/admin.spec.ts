@@ -802,6 +802,47 @@ test.describe("@admin 用户管理", () => {
     await expect(page.locator("tr").filter({ hasText: assistantName })).toHaveCount(0);
   });
 
+  test("批量删除搜索结果末页后自动回到上一页", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
+
+    const batchPrefix = `BDEL${Date.now().toString().slice(-6)}`;
+    const csvRows: string[][] = [["姓名", "手机号"]];
+    for (let i = 0; i < 11; i++) {
+      csvRows.push([`${batchPrefix}教师${i}`, makePhone(350 + i)]);
+    }
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.batchAddTeacherBtn }).first().click();
+    const batchModal = await getVisibleModal(page, ModalTitles.batchAddTeacher);
+    await batchModal.locator('input[type="file"]').setInputFiles({
+      name: "batch-bulk-delete-pagination.csv",
+      mimeType: "text/csv",
+      buffer: buildCsv(csvRows),
+    });
+    await confirmModal(batchModal);
+    await expectSuccessMessage(page, SuccessMessages.batchTeacherAdded);
+
+    await searchUsers(page, batchPrefix);
+    const pagination = page.locator(".ant-pagination");
+    await expect(pagination).toBeVisible();
+    await pagination.locator(".ant-pagination-item").getByText("2").click();
+    await expect(pagination.locator(".ant-pagination-item-active")).toHaveText("2");
+
+    const lastTeacherName = `${batchPrefix}教师10`;
+    const lastTeacherRow = tableRowByText(page, lastTeacherName);
+    await expect(lastTeacherRow).toBeVisible();
+    await lastTeacherRow.locator('input[type="checkbox"]').check();
+
+    await page.getByRole("button", { name: AdminUserSelectors.bulkDeleteBtn }).click();
+    const bulkDeleteModal = await getVisibleModal(page, "确认批量删除");
+    await bulkDeleteModal.getByRole("button", { name: /批量删除/ }).click();
+    await expectSuccessMessage(page, SuccessMessages.usersBulkDeleted);
+
+    await expect(pagination.locator(".ant-pagination-item-active")).toHaveText("1");
+    await expect(tableRowByText(page, `${batchPrefix}教师0`)).toBeVisible();
+    await expect(page.locator("tr").filter({ hasText: lastTeacherName })).toHaveCount(0);
+  });
+
   test("批量删除学生", async ({ page }) => {
     await loginAsAdmin(page);
     await openTopLevelPage(page, "用户管理", "用户列表");

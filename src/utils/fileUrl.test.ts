@@ -1,35 +1,38 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, mock } from "bun:test";
 import { resolve } from "path";
 
+mock.restore();
+
 const fileUrlModulePath = resolve(import.meta.dir, "./fileUrl.ts");
-const originalDownloadUrl = process.env.VITE_DOWNLOAD_URL;
+const appConfigModulePath = resolve(import.meta.dir, "../config/appConfig.ts");
+
+let configuredDownloadBaseUrl = "http://api.example.com";
 let importVersion = 0;
+const downloadBaseUrlValue = {
+  trim: () => configuredDownloadBaseUrl.trim(),
+};
 
-const loadFileUrlModule = async (downloadUrl?: string) => {
-  if (downloadUrl === undefined) {
-    delete process.env.VITE_DOWNLOAD_URL;
-  } else {
-    process.env.VITE_DOWNLOAD_URL = downloadUrl;
-  }
+mock.module(appConfigModulePath, () => ({
+  DOWNLOAD_SERVER_BASE_URL: downloadBaseUrlValue,
+}));
 
+const loadFileUrlModule = async (downloadBaseUrl = "http://api.example.com") => {
+  configuredDownloadBaseUrl = downloadBaseUrl;
   importVersion += 1;
   return import(`${fileUrlModulePath}?file-url-test=${importVersion}`);
 };
 
 afterEach(() => {
-  if (originalDownloadUrl === undefined) {
-    delete process.env.VITE_DOWNLOAD_URL;
-  } else {
-    process.env.VITE_DOWNLOAD_URL = originalDownloadUrl;
-  }
+  configuredDownloadBaseUrl = "http://api.example.com";
+  mock.clearAllMocks();
 });
 
 describe("resolveFileUrl", () => {
-  it("falls back to the current origin when VITE_DOWNLOAD_URL is blank", async () => {
-    const { resolveFileUrl } = await loadFileUrlModule("");
+  it("uses the configured download base for relative file paths", async () => {
+    const { resolveFileUrl } = await loadFileUrlModule("http://api.example.com");
 
     expect(resolveFileUrl("reports/example.pdf")).toBe(
-      `${window.location.origin}/reports/example.pdf`,
+      "http://api.example.com/reports/example.pdf",
     );
   });
 
@@ -38,6 +41,14 @@ describe("resolveFileUrl", () => {
 
     expect(resolveFileUrl("https://cdn.example.com/manuals/example.pdf")).toBe(
       "https://cdn.example.com/manuals/example.pdf",
+    );
+  });
+
+  it("prefers VITE_DOWNLOAD_URL when it is configured", async () => {
+    const { resolveFileUrl } = await loadFileUrlModule("https://files.example.com");
+
+    expect(resolveFileUrl("reports/example.pdf")).toBe(
+      "https://files.example.com/reports/example.pdf",
     );
   });
 });
