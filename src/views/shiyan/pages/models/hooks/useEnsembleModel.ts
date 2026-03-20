@@ -170,7 +170,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
           [config.stateKey.metricsRmse]: apiResults.metrics.rmse,
           [config.stateKey.metricsMae]: apiResults.metrics.mae,
           [config.stateKey.metricsR2]: apiResults.metrics.r2,
-        }, { forceSync: true });
+        }, { forceSync: true, throwOnSyncError: true });
         setResults(ensembleResults);
       },
       getErrorMessage: (jobError) =>
@@ -204,7 +204,10 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
 
   // Mark model as completed
   const markAsCompleted = useCallback(async () => {
-    await updateState({ [config.stateKey.completed]: true }, { forceSync: true });
+    await updateState(
+      { [config.stateKey.completed]: true },
+      { forceSync: true, throwOnSyncError: true },
+    );
   }, [config.stateKey.completed, updateState]);
 
   return {

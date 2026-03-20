@@ -159,7 +159,10 @@ const ARIMAStepper: React.FC = () => {
         }
 
         const validResults = response.result.filter(r => r.stationary !== null);
-        await updateState({ arima_adf_stationarity: validResults }, { forceSync: true });
+        await updateState(
+          { arima_adf_stationarity: validResults },
+          { forceSync: true, throwOnSyncError: true },
+        );
         setAdfResults(validResults);
       },
       getErrorMessage: (jobError) =>
@@ -230,7 +233,7 @@ const ARIMAStepper: React.FC = () => {
           arima_metrics_rmse: apiResults.metrics.rmse,
           arima_metrics_mae: apiResults.metrics.mae,
           arima_metrics_r2: apiResults.metrics.r2,
-        }, { forceSync: true });
+        }, { forceSync: true, throwOnSyncError: true });
         setResults(nextResults);
       },
       getErrorMessage: (jobError) =>
@@ -315,7 +318,14 @@ const ARIMAStepper: React.FC = () => {
         setTrainingError("差分阶数检验未通过，请返回上一步重新选择。");
         return;
       }
-      await updateState({ arima_d: selectedD === '' ? null : selectedD }, { forceSync: true });
+      try {
+        await updateState(
+          { arima_d: selectedD === '' ? null : selectedD },
+          { forceSync: true, throwOnSyncError: true },
+        );
+      } catch {
+        return;
+      }
       const nextStep = STEPS[AUTOPARAMS_STEP_INDEX];
       if (nextStep) {
         navigate(nextStep.path);
@@ -328,7 +338,14 @@ const ARIMAStepper: React.FC = () => {
         setAutoParamsView('results');
         return;
       } else {
-        await updateState({ arima_completed: true }, { forceSync: true });
+        try {
+          await updateState(
+            { arima_completed: true },
+            { forceSync: true, throwOnSyncError: true },
+          );
+        } catch {
+          return;
+        }
         navigate(MODEL_COMPARISON_PATH);
         return;
       }

@@ -120,7 +120,7 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
           [config.stateKeys.metricsRmse]: apiResults.metrics.rmse,
           [config.stateKeys.metricsMae]: apiResults.metrics.mae,
           [config.stateKeys.metricsR2]: apiResults.metrics.r2,
-        }, { forceSync: true });
+        }, { forceSync: true, throwOnSyncError: true });
         setResults(modelResults);
       },
       getErrorMessage: (jobError) =>
@@ -148,7 +148,10 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
 
   // Mark model as completed
   const markAsCompleted = useCallback(async () => {
-    await updateState({ [config.stateKeys.completed]: true }, { forceSync: true });
+    await updateState(
+      { [config.stateKeys.completed]: true },
+      { forceSync: true, throwOnSyncError: true },
+    );
   }, [config.stateKeys.completed, updateState]);
 
   return {

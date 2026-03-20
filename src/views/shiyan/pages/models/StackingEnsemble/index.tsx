@@ -94,7 +94,11 @@ const StackingEnsembleStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'results') {
-      await markAsCompleted();
+      try {
+        await markAsCompleted();
+      } catch {
+        return;
+      }
       navigate(MODEL_METRICS_COMPARISON_PATH);
       return;
     }

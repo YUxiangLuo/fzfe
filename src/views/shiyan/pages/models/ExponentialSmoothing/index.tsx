@@ -113,7 +113,11 @@ const ExponentialSmoothingStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'results') {
-      await markAsCompleted();
+      try {
+        await markAsCompleted();
+      } catch {
+        return;
+      }
       navigate(COMPARISON_PATH);
       return;
     }
