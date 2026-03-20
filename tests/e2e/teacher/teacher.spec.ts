@@ -815,6 +815,29 @@ test.describe("@teacher 实验管理", () => {
     await expect(page.getByRole(ExperimentReportSelectors.downloadReportLink.role, { name: ExperimentReportSelectors.downloadReportLink.name })).toBeVisible();
   });
 
+  test("搜索无匹配结果时仍允许导出整班报告", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openExperimentReportsPage(page);
+
+    const exportCsvButton = page.getByRole(
+      ExperimentReportSelectors.exportCsvBtn.role,
+      { name: ExperimentReportSelectors.exportCsvBtn.name },
+    );
+    const exportReportsButton = page.getByRole(
+      ExperimentReportSelectors.exportAllBtn.role,
+      { name: ExperimentReportSelectors.exportAllBtn.name },
+    );
+    await expect(exportCsvButton).toBeEnabled();
+    await expect(exportReportsButton).toBeEnabled();
+
+    const searchInput = page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder);
+    await searchInput.fill("ZZZ_NO_MATCH_REPORT_EXPORT");
+
+    await expect(page.getByText("暂无数据")).toBeVisible();
+    await expect(exportCsvButton).toBeEnabled();
+    await expect(exportReportsButton).toBeEnabled();
+  });
+
   test("实验报告分页", async ({ page }) => {
     await loginAsTeacher(page);
     await openExperimentReportsPage(page);

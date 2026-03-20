@@ -139,6 +139,7 @@ const ExperimentReports: React.FC = () => {
             r.full_name.toLowerCase().includes(query)
         );
     }, [reports, searchTerm]);
+    const hasClassReports = reports.length > 0;
 
     useEffect(() => {
         setCurrentPage(1);
@@ -184,7 +185,7 @@ const ExperimentReports: React.FC = () => {
 
     // Export CSV
     const handleExportCsv = useCallback(async () => {
-        if (!selectedClassId || reports.length === 0 || isExportingCsv) return;
+        if (!selectedClassId || !hasClassReports || isExportingCsv) return;
         setIsExportingCsv(true);
         clearExportedCsvUrl();
         try {
@@ -202,11 +203,11 @@ const ExperimentReports: React.FC = () => {
         } finally {
             setIsExportingCsv(false);
         }
-    }, [selectedClassId, reports.length, isExportingCsv, clearExportedCsvUrl, setExportedCsvUrl]);
+    }, [selectedClassId, hasClassReports, isExportingCsv, clearExportedCsvUrl, setExportedCsvUrl]);
 
     // Export all reports as ZIP
     const handleExportReports = useCallback(async () => {
-        if (!selectedClassId || reports.length === 0 || isExportingReports) return;
+        if (!selectedClassId || !hasClassReports || isExportingReports) return;
         setIsExportingReports(true);
         clearExportedFileUrl();
         try {
@@ -224,7 +225,7 @@ const ExperimentReports: React.FC = () => {
         } finally {
             setIsExportingReports(false);
         }
-    }, [selectedClassId, reports.length, isExportingReports, clearExportedFileUrl, setExportedFileUrl]);
+    }, [selectedClassId, hasClassReports, isExportingReports, clearExportedFileUrl, setExportedFileUrl]);
 
     // Download report
     const handleDownload = (filePath: string | null) => {
@@ -470,7 +471,7 @@ const ExperimentReports: React.FC = () => {
                                     icon={<FileZipOutlined />}
                                     onClick={handleExportReports}
                                     loading={isExportingReports}
-                                    disabled={!selectedClassId || filteredReports.length === 0}
+                                    disabled={!selectedClassId || !hasClassReports}
                                 >
                                     导出所有报告
                                 </Button>
@@ -489,7 +490,7 @@ const ExperimentReports: React.FC = () => {
                                     icon={<ExportOutlined />}
                                     onClick={handleExportCsv}
                                     loading={isExportingCsv}
-                                    disabled={!selectedClassId || filteredReports.length === 0}
+                                    disabled={!selectedClassId || !hasClassReports}
                                 >
                                     导出 CSV
                                 </Button>

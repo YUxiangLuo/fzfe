@@ -1,5 +1,5 @@
 import { resolveFileUrl } from "./fileUrl";
-import { getSessionTokenOrThrow } from "./session";
+import { clearSessionAndRedirect, getSessionTokenOrThrow } from "./session";
 
 const DEFAULT_OBJECT_URL_REVOKE_DELAY_MS = 120000;
 
@@ -33,6 +33,10 @@ export const fetchFileBlob = async (filePath: string): Promise<Blob> => {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearSessionAndRedirect();
+      throw new Error("会话已过期，请重新登录");
+    }
     throw new Error(await readErrorMessage(response));
   }
 
