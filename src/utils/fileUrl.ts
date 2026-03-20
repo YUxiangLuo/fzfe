@@ -26,6 +26,19 @@ const normalizeFilePath = (rawPath: string): string => {
   return normalized.replace(/^\/+/, "");
 };
 
+const getResolvedDownloadBaseUrl = (): string => {
+  const configuredBase = DOWNLOAD_SERVER_BASE_URL.trim();
+  if (configuredBase) {
+    return configuredBase;
+  }
+
+  if (typeof window !== "undefined" && window.location.origin) {
+    return window.location.origin;
+  }
+
+  return "";
+};
+
 export const resolveFileUrl = (filePath: string | null | undefined): string => {
   if (!filePath) return "";
 
@@ -51,8 +64,15 @@ export const resolveFileUrl = (filePath: string | null | undefined): string => {
   const normalizedPath = normalizeFilePath(trimmed);
   if (!normalizedPath) return "";
 
-  return new URL(
-    normalizedPath,
-    `${DOWNLOAD_SERVER_BASE_URL.replace(/\/+$/, "")}/`,
-  ).toString();
+  const baseUrl = getResolvedDownloadBaseUrl();
+  if (!baseUrl) return "";
+
+  try {
+    return new URL(
+      normalizedPath,
+      `${baseUrl.replace(/\/+$/, "")}/`,
+    ).toString();
+  } catch {
+    return "";
+  }
 };
