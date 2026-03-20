@@ -154,7 +154,7 @@ export interface StudentExperimentProgress {
     username: string;
     full_name: string;
     experiment_id: number | null;
-    status: string;
+    status: string | null;
     current_step: number | null;
     highest_completed_step: number | null;
     start_time: string | null;

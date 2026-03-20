@@ -983,6 +983,78 @@ test.describe("@teacher 考核管理", () => {
     await expect(tableRowByText(page, TEST_DATA.students.perfectScore)).toBeVisible();
   });
 
+  test("成绩总览搜索仅过滤表格", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openGradeOverviewPage(page);
+    await openGradeOverviewClassDetail(page, TEST_DATA.teacherClassName);
+
+    const getChartSnapshot = async () => {
+      return await page.evaluate(() => ({
+        lineDots: document.querySelectorAll(".recharts-line-dots circle").length,
+        histogramBars: document.querySelectorAll(".recharts-bar-rectangles path, .recharts-bar-rectangles rect").length,
+        distributionText: Array.from(document.querySelectorAll(".ant-card .mt-2.text-xs .flex.justify-between"))
+          .map((node) => (node.textContent ?? "").trim())
+          .join("|"),
+      }));
+    };
+
+    const statsBefore = {
+      total: await getStatisticValue(page, GradeOverviewSelectors.totalStudentsStat),
+      graded: await getStatisticValue(page, GradeOverviewSelectors.gradedCountStat),
+      avg: await getStatisticValue(page, GradeOverviewSelectors.averageScoreStat),
+      max: await getStatisticValue(page, GradeOverviewSelectors.maxScoreStat),
+      min: await getStatisticValue(page, GradeOverviewSelectors.minScoreStat),
+    };
+    const chartsBefore = await getChartSnapshot();
+
+    await page.getByPlaceholder(GradeOverviewSelectors.searchInput.placeholder).fill(TEST_DATA.students.perfectScore);
+    await expect(tableRowByText(page, TEST_DATA.students.perfectScore)).toBeVisible();
+    await expect(tableRowByText(page, TEST_DATA.students.zeroScore)).toHaveCount(0);
+
+    expect(await getStatisticValue(page, GradeOverviewSelectors.totalStudentsStat)).toBe(statsBefore.total);
+    expect(await getStatisticValue(page, GradeOverviewSelectors.gradedCountStat)).toBe(statsBefore.graded);
+    expect(await getStatisticValue(page, GradeOverviewSelectors.averageScoreStat)).toBe(statsBefore.avg);
+    expect(await getStatisticValue(page, GradeOverviewSelectors.maxScoreStat)).toBe(statsBefore.max);
+    expect(await getStatisticValue(page, GradeOverviewSelectors.minScoreStat)).toBe(statsBefore.min);
+    expect(await getChartSnapshot()).toEqual(chartsBefore);
+  });
+
+  test("成绩总览排序时升降序都能让已评分排在未评分之前", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openGradeOverviewPage(page);
+    await openGradeOverviewClassDetail(page, TEST_DATA.teacherClassName);
+
+    await page.getByRole("columnheader", { name: "最终成绩" }).click();
+
+    const usernamesAsc = await page.evaluate(() =>
+      Array.from(document.querySelectorAll(".ant-table-tbody > tr")).map((tr) => {
+        const cells = Array.from(tr.querySelectorAll("td"));
+        return (cells[1]?.textContent ?? "").trim();
+      }),
+    );
+
+    expect(usernamesAsc.indexOf(TEST_DATA.students.zeroScore)).toBeGreaterThanOrEqual(0);
+    expect(usernamesAsc.indexOf(TEST_DATA.students.pendingTeacher)).toBeGreaterThanOrEqual(0);
+    expect(usernamesAsc.indexOf(TEST_DATA.students.zeroScore)).toBeLessThan(
+      usernamesAsc.indexOf(TEST_DATA.students.pendingTeacher),
+    );
+
+    await page.getByRole("columnheader", { name: "最终成绩" }).click();
+
+    const usernamesDesc = await page.evaluate(() =>
+      Array.from(document.querySelectorAll(".ant-table-tbody > tr")).map((tr) => {
+        const cells = Array.from(tr.querySelectorAll("td"));
+        return (cells[1]?.textContent ?? "").trim();
+      }),
+    );
+
+    expect(usernamesDesc.indexOf(TEST_DATA.students.perfectScore)).toBeGreaterThanOrEqual(0);
+    expect(usernamesDesc.indexOf(TEST_DATA.students.pendingTeacher)).toBeGreaterThanOrEqual(0);
+    expect(usernamesDesc.indexOf(TEST_DATA.students.perfectScore)).toBeLessThan(
+      usernamesDesc.indexOf(TEST_DATA.students.pendingTeacher),
+    );
+  });
+
   test("成绩总览导出失败提示", async ({ page }) => {
     await loginAsTeacher(page);
     await openTopLevelPage(page, "班级管理", "班级管理");

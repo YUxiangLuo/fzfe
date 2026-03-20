@@ -28,6 +28,7 @@ import type { Class, StudentExperimentProgress as ProgressType } from '../../typ
 import { formatDateTime } from '../../utils/format';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import { listManagedClasses } from '../../utils/portalApi';
+import { compareProgressStatus, normalizeProgressStatus } from '../../utils/sort';
 
 const { Title, Text } = Typography;
 
@@ -176,8 +177,8 @@ const ExperimentProgress: React.FC = () => {
     };
 
     // Get status config
-    const getStatusConfig = (status: string) => {
-        return STATUS_CONFIG[status] || STATUS_CONFIG['Not Started'];
+    const getStatusConfig = (status: string | null | undefined) => {
+        return STATUS_CONFIG[normalizeProgressStatus(status)];
     };
 
     const formatTime = formatDateTime;
@@ -202,7 +203,7 @@ const ExperimentProgress: React.FC = () => {
             dataIndex: 'status',
             key: 'status',
             width: 120,
-            render: (status: string) => {
+            render: (status: string | null) => {
                 const config = getStatusConfig(status);
                 return (
                     <Tag icon={config?.icon} color={config?.color || 'default'}>
@@ -211,8 +212,7 @@ const ExperimentProgress: React.FC = () => {
                 );
             },
             sorter: (a: ProgressType, b: ProgressType) => {
-                const order = { 'Not Started': 0, 'In Progress': 1, 'Completed': 2 };
-                return (order[a.status as keyof typeof order] ?? 99) - (order[b.status as keyof typeof order] ?? 99);
+                return compareProgressStatus(a.status, b.status);
             },
         },
         {
@@ -225,7 +225,7 @@ const ExperimentProgress: React.FC = () => {
                     <Progress
                         percent={completionPercent}
                         size="small"
-                        status={record.status === 'Completed' ? 'success' : 'active'}
+                        status={normalizeProgressStatus(record.status) === 'Completed' ? 'success' : 'active'}
                     />
                 );
             },

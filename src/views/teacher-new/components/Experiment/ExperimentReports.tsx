@@ -34,6 +34,7 @@ import { formatDateTime } from '../../utils/format';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import ReviewReportModal from './ReviewReportModal';
 import { listManagedClasses } from '../../utils/portalApi';
+import { compareNullableNumber, type SortOrder } from '../../utils/sort';
 
 const { Title, Text } = Typography;
 
@@ -312,7 +313,8 @@ const ExperimentReports: React.FC = () => {
             key: 'grade',
             width: 100,
             render: (grade: number | null) => grade !== null ? grade : '—',
-            sorter: (a: ExperimentReport, b: ExperimentReport) => (a.grade || 0) - (b.grade || 0),
+            sorter: (a: ExperimentReport, b: ExperimentReport, sortOrder: SortOrder) =>
+                compareNullableNumber(a.grade, b.grade, sortOrder),
         },
         {
             title: '评语',

@@ -56,6 +56,7 @@ import FinalBreakdown from './FinalBreakdown';
 import { getProgressStatus, getEvaluationBadge, getScoreLevel, SCORE_COLORS } from '../../utils/gradeStatus';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import { listManagedClassGradeSummaries, listManagedClasses } from '../../utils/portalApi';
+import { compareNullableNumber, type SortOrder } from '../../utils/sort';
 
 const { Title, Text } = Typography;
 
@@ -176,11 +177,6 @@ const GradesOverview: React.FC = () => {
         [grades],
     );
 
-    const gradedFilteredGrades = useMemo(
-        () => filteredGrades.filter(g => g.report_status === 'graded' && g.final_score !== null),
-        [filteredGrades],
-    );
-
     // Statistics for single class
     const singleClassStats = useMemo(() => {
         const total = grades.length;
@@ -227,7 +223,7 @@ const GradesOverview: React.FC = () => {
 
     // Chart data calculations
     const chartData = useMemo(() => {
-        const graded = gradedFilteredGrades;
+        const graded = gradedGrades;
 
         // Trend data (sorted by final score)
         const trendData = [...graded]
@@ -268,16 +264,16 @@ const GradesOverview: React.FC = () => {
             { subject: '实验报告', A: 0, fullMark: 100 },
         ];
 
-        const expFlowScores = gradedFilteredGrades
+        const expFlowScores = graded
             .map(g => g.exp_flow_score)
             .filter((s): s is number => s !== null);
-        const knowledgeScores = gradedFilteredGrades
+        const knowledgeScores = graded
             .map(g => g.knowledge_test)
             .filter((s): s is number => s !== null);
-        const modelScores = gradedFilteredGrades
+        const modelScores = graded
             .map(g => g.model_quality)
             .filter((s): s is number => s !== null);
-        const reportScores = gradedFilteredGrades
+        const reportScores = graded
             .map(g => g.report_quality)
             .filter((s): s is number => s !== null);
 
@@ -295,7 +291,7 @@ const GradesOverview: React.FC = () => {
         }
 
         return { trendData, histogramData, avgData, gradedCount: graded.length };
-    }, [gradedFilteredGrades]);
+    }, [gradedGrades]);
 
     // Render grade charts
     const renderGradeCharts = () => {
@@ -655,8 +651,8 @@ const GradesOverview: React.FC = () => {
             key: 'exp_flow_score',
             width: 100,
             render: (score: number | null) => formatScore(score),
-            sorter: (a: StudentGradeOverview, b: StudentGradeOverview) =>
-                (a.exp_flow_score || 0) - (b.exp_flow_score || 0),
+            sorter: (a: StudentGradeOverview, b: StudentGradeOverview, sortOrder: SortOrder) =>
+                compareNullableNumber(a.exp_flow_score, b.exp_flow_score, sortOrder),
         },
         {
             title: '模型质量',
@@ -693,8 +689,8 @@ const GradesOverview: React.FC = () => {
                     </Tag>
                 );
             },
-            sorter: (a: StudentGradeOverview, b: StudentGradeOverview) =>
-                (a.final_score || 0) - (b.final_score || 0),
+            sorter: (a: StudentGradeOverview, b: StudentGradeOverview, sortOrder: SortOrder) =>
+                compareNullableNumber(a.final_score, b.final_score, sortOrder),
         },
         {
             title: '报告状态',
@@ -855,7 +851,7 @@ const GradesOverview: React.FC = () => {
                     </Row>
 
                     {/* Charts */}
-                    {filteredGrades.length > 0 && renderGradeCharts()}
+                    {grades.length > 0 && renderGradeCharts()}
 
                     {/* Grades Table */}
                     <Card
