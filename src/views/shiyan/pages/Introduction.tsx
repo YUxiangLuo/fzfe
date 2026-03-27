@@ -30,6 +30,15 @@ interface Manual {
   file_path: string;
 }
 
+type ManualLoadState = "loading" | "ready" | "empty" | "error";
+
+const isMissingActiveManualError = (error: unknown): boolean => {
+  return (
+    error instanceof Error &&
+    (error as Error & { status?: number }).status === 404
+  );
+};
+
 const TOTAL_EXPERIMENT_STEPS = 7;
 
 // 实验步骤路由映射
@@ -68,24 +77,39 @@ const Introduction: React.FC = () => {
   const { state: experimentState, ui, createNewExperiment, setIsSubmitting } = useExperiment();
   const [currentStep, setCurrentStep] = useState(0);
   const [manual, setManual] = useState<Manual | null>(null);
+  const [manualLoadState, setManualLoadState] = useState<ManualLoadState>("loading");
   const [showResumeDialog, setShowResumeDialog] = useState(false);
   const manualPdfUrl = useAuthObjectUrl(manual?.file_path);
   const { confirm } = useConfirm();
 
   useEffect(() => {
+    let isActive = true;
+
     const fetchManual = async () => {
       try {
         const manualData = await apiClient.get<Manual>("/manuals/active");
+        if (!isActive) return;
         setManual(manualData);
+        setManualLoadState("ready");
       } catch (error) {
+        if (!isActive) return;
+
+        if (isMissingActiveManualError(error)) {
+          setManual(null);
+          setManualLoadState("empty");
+          return;
+        }
+
         console.error("Failed to fetch experiment manual:", error);
-        setManual({
-          file_name: "默认实验手册.pdf",
-          file_path: "",
-        });
+        setManual(null);
+        setManualLoadState("error");
       }
     };
+
     fetchManual();
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   // Logout function
@@ -228,14 +252,54 @@ const Introduction: React.FC = () => {
         );
 
       case 2:
-        return manualPdfUrl ? (
-          <iframe
-            src={manualPdfUrl}
-            className="w-full h-full border-0"
-            title="实验手册 PDF 预览"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full">
+        if (manualLoadState === "loading") {
+          return (
+            <div className="flex items-center justify-center h-full" data-testid="manual-loading">
+              <Loader2 className="w-10 h-10 text-gray-400 animate-spin" />
+            </div>
+          );
+        }
+
+        if (manualLoadState === "ready" && manualPdfUrl) {
+          return (
+            <iframe
+              src={manualPdfUrl}
+              className="w-full h-full border-0"
+              title="实验手册 PDF 预览"
+            />
+          );
+        }
+
+        if (manualLoadState === "empty") {
+          return (
+            <div className="flex h-full items-center justify-center">
+              <div className="max-w-xl rounded-2xl border border-amber-200 bg-amber-50 px-8 py-10 text-center shadow-sm">
+                <FileText className="mx-auto mb-4 h-10 w-10 text-amber-500" />
+                <h3 className="mb-3 text-2xl font-semibold text-gray-900">暂无实验手册</h3>
+                <p className="text-base leading-7 text-gray-600">
+                  当前还没有激活的实验手册。您仍可继续体验实验流程，若需要手册内容，请联系老师或管理员补充。
+                </p>
+              </div>
+            </div>
+          );
+        }
+
+        if (manualLoadState === "error") {
+          return (
+            <div className="flex h-full items-center justify-center">
+              <div className="max-w-xl rounded-2xl border border-red-200 bg-red-50 px-8 py-10 text-center shadow-sm">
+                <FileText className="mx-auto mb-4 h-10 w-10 text-red-500" />
+                <h3 className="mb-3 text-2xl font-semibold text-gray-900">实验手册加载失败</h3>
+                <p className="text-base leading-7 text-gray-600">
+                  当前无法加载实验手册。您仍可继续体验实验流程，建议稍后重试，或联系老师和管理员检查服务状态。
+                </p>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div className="flex items-center justify-center h-full" data-testid="manual-loading">
             <Loader2 className="w-10 h-10 text-gray-400 animate-spin" />
           </div>
         );

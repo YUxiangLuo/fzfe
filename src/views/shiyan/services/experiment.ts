@@ -1,5 +1,6 @@
 import { apiClient } from "@/utils/apiClient";
 import type { ExperimentState } from "../store/experiment/types";
+import { buildInitialState } from "../store/experiment/initialState";
 import {
   fromExperimentApi,
   toExperimentUpdatePayload,
@@ -11,9 +12,23 @@ export const createExperimentState = async (): Promise<ExperimentState> => {
   return fromExperimentApi(created);
 };
 
+const isEmptyActiveExperimentError = (error: unknown): boolean => {
+  return (
+    error instanceof Error &&
+    (error as Error & { status?: number }).status === 404
+  );
+};
+
 export const getExperimentState = async (): Promise<ExperimentState> => {
-  const existing = await apiClient.get<ExperimentApiState>("/students/me/experiment-runs/active");
-  return fromExperimentApi(existing);
+  try {
+    const existing = await apiClient.get<ExperimentApiState>("/students/me/experiment-runs/active");
+    return fromExperimentApi(existing);
+  } catch (error) {
+    if (isEmptyActiveExperimentError(error)) {
+      return buildInitialState();
+    }
+    throw error;
+  }
 };
 
 export const updateExperimentState = async (state: ExperimentState): Promise<ExperimentState> => {

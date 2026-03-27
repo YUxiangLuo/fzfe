@@ -19,7 +19,7 @@ const apiGet = mock(async (): Promise<any> => ({
 const createNewExperiment = mock(async () => {});
 const setIsSubmitting = mock((_value: boolean) => {});
 const confirmMock = mock(async () => false);
-const useAuthObjectUrlMock = mock(() => "about:blank");
+const useAuthObjectUrlMock = mock((value?: string | null) => (value ? "about:blank" : null));
 
 let experimentValue = {
   state: {
@@ -91,6 +91,21 @@ const renderIntroduction = async (
   return view;
 };
 
+const createDeferred = <T,>() => {
+  let resolvePromise!: (value: T) => void;
+  let rejectPromise!: (error?: unknown) => void;
+  const promise = new Promise<T>((resolve, reject) => {
+    resolvePromise = resolve;
+    rejectPromise = reject;
+  });
+
+  return {
+    promise,
+    resolve: resolvePromise,
+    reject: rejectPromise,
+  };
+};
+
 describe("Introduction", () => {
   let view: RenderResult | null = null;
 
@@ -106,7 +121,7 @@ describe("Introduction", () => {
     confirmMock.mockReset();
     confirmMock.mockResolvedValue(false);
     useAuthObjectUrlMock.mockReset();
-    useAuthObjectUrlMock.mockReturnValue("about:blank");
+    useAuthObjectUrlMock.mockImplementation((value?: string | null) => (value ? "about:blank" : null));
     experimentValue = {
       state: {
         start_time: null,
@@ -249,5 +264,76 @@ describe("Introduction", () => {
     expect(createNewExperiment).toHaveBeenCalledTimes(1);
     expect(setIsSubmitting).toHaveBeenLastCalledWith(false);
     expect(view!.getByTestId("location-display").textContent).toBe("/introduction");
+  });
+
+  it("shows an empty manual state instead of logging an error when no active manual exists", async () => {
+    const missingManualError = Object.assign(new Error("HTTP 404 Not Found - 未找到激活的手册"), {
+      status: 404,
+    });
+    apiGet.mockRejectedValueOnce(missingManualError);
+
+    view = await renderIntroduction("/introduction");
+
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+
+    expect(view.getByText("暂无实验手册")).toBeDefined();
+    expect(
+      view.getByText("当前还没有激活的实验手册。您仍可继续体验实验流程，若需要手册内容，请联系老师或管理员补充。"),
+    ).toBeDefined();
+    expect(view.container.querySelector("iframe")).toBeNull();
+  });
+
+  it("keeps showing the loading state before the manual request settles", async () => {
+    const deferredManual = createDeferred<{ file_name: string; file_path: string }>();
+    apiGet.mockImplementationOnce(() => deferredManual.promise);
+
+    view = await renderIntroduction("/introduction");
+
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+
+    expect(view.getByTestId("manual-loading")).toBeDefined();
+    expect(view.queryByText("暂无实验手册")).toBeNull();
+    expect(view.queryByText("实验手册加载失败")).toBeNull();
+
+    await act(async () => {
+      deferredManual.resolve({
+        file_name: "实验手册.pdf",
+        file_path: "/manuals/current.pdf",
+      });
+      await deferredManual.promise;
+    });
+  });
+
+  it("shows an error state when the manual request fails for non-404 reasons", async () => {
+    const serverError = Object.assign(new Error("HTTP 500 Internal Server Error"), {
+      status: 500,
+    });
+    apiGet.mockRejectedValueOnce(serverError);
+
+    view = await renderIntroduction("/introduction");
+
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+
+    expect(view.getByText("实验手册加载失败")).toBeDefined();
+    expect(
+      view.getByText("当前无法加载实验手册。您仍可继续体验实验流程，建议稍后重试，或联系老师和管理员检查服务状态。"),
+    ).toBeDefined();
+    expect(view.queryByText("暂无实验手册")).toBeNull();
+    expect(view.container.querySelector("iframe")).toBeNull();
   });
 });
