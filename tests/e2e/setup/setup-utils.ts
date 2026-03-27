@@ -238,6 +238,19 @@ export async function seedTeacherCoreFixtures(beDir: string, options?: {
   });
 }
 
+export async function seedTeacherMulticlassFixtures(beDir: string, options?: {
+  reportFixtureName?: string;
+}) {
+  const reportFixtureName = options?.reportFixtureName ?? "e2e-teacher-multiclass-report.pdf";
+  const reportFixturePath = path.resolve(beDir, "uploads", "reports", reportFixtureName);
+  await fs.writeFile(reportFixturePath, MINIMAL_PDF_CONTENT, "utf8");
+
+  runCommand("bun", ["run", "scripts/e2e-seed-teacher-multiclass-fixtures.ts"], beDir, {
+    ...process.env,
+    E2E_FIXTURE_REPORT_PATH: reportFixturePath,
+  });
+}
+
 export async function seedAssistantCoreFixtures(beDir: string, options?: {
   reportFixtureName?: string;
   assistantId?: number;

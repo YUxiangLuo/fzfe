@@ -13,6 +13,7 @@ const E2E_FRONTEND_ORIGIN = process.env.E2E_FRONTEND_ORIGIN ?? `http://127.0.0.1
 export default defineConfig({
   testDir: path.resolve(FE_DIR, "tests/e2e/teacher"),
   testMatch: "**/*.spec.ts",
+  testIgnore: "**/*.multiclass.spec.ts",
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
