@@ -6,10 +6,14 @@ import {
   loginStudentViaApi,
 } from "../tests/e2e/shiyan/support/backend.ts";
 import { StudentApp } from "../tests/e2e/shiyan/support/student-app.ts";
+import { ensureParallelRuntime } from "./parallel-runtime.ts";
 
 const FRONTEND_ORIGIN =
   process.env.E2E_FRONTEND_ORIGIN ??
   `http://127.0.0.1:${process.env.E2E_FRONTEND_PORT ?? "55104"}`;
+const BACKEND_ORIGIN =
+  process.env.E2E_BACKEND_ORIGIN ??
+  `http://127.0.0.1:${process.env.E2E_BACKEND_PORT ?? "54104"}`;
 
 const STUDENT_USERNAME =
   process.env.E2E_PRODUCTION_SLOT_LOCK_STUDENT_USERNAME ?? "20246001";
@@ -47,7 +51,7 @@ const CDP_PORT = parsePositiveInteger(
   process.env.E2E_AGENT_BROWSER_CDP_PORT ?? "9222",
   "E2E_AGENT_BROWSER_CDP_PORT",
 );
-const HEADLESS = process.env.PW_HEADLESS === "true";
+const HEADLESS = process.env.PW_HEADLESS !== "false";
 const BEST_MODEL =
   process.env.E2E_PRODUCTION_SLOT_LOCK_BEST_MODEL ?? "ma";
 const HOLD_AFTER_429 = process.env.E2E_PRODUCTION_SLOT_LOCK_HOLD_AFTER_429 === "1";
@@ -76,6 +80,20 @@ function parseNonNegativeInteger(value: string, envName: string): number {
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function assertReachable(url: URL, description: string) {
+  const response = await fetch(url, { redirect: "manual" }).catch((error) => {
+    throw new Error(
+      `${description} is unreachable at ${url.toString()}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `${description} responded with HTTP ${response.status} at ${url.toString()}`,
+    );
+  }
 }
 
 async function waitForInspector() {
@@ -126,58 +144,96 @@ async function prepareProductionStageExperiment() {
 }
 
 async function main() {
+  if (process.argv.includes("--help")) {
+    console.log(`Usage: bun run scripts/shiyan-production-slot-lock-repro.ts
+
+Default behavior:
+  Automatically prepares the parallel database baseline
+  Automatically starts frontend/backend on the configured origins when needed
+
+Optional environment:
+  E2E_PRODUCTION_SLOT_LOCK_STUDENT_USERNAME=20246001
+  E2E_PRODUCTION_SLOT_LOCK_STUDENT_PASSWORD=StudentParallel!123
+  E2E_PRODUCTION_SLOT_LOCK_BEST_MODEL=ma
+  E2E_PRODUCTION_SLOT_LOCK_COUNT=16
+  E2E_PRODUCTION_SLOT_LOCK_HOLD_AFTER_429=1
+  E2E_PARALLEL_AUTO_PREPARE=0
+  E2E_PARALLEL_AUTO_START_SERVERS=0
+  PW_HEADLESS=false
+  E2E_AGENT_BROWSER_WAIT_FOR_ATTACH=1
+  E2E_AGENT_BROWSER_ATTACH_WAIT_MS=30000
+  E2E_AGENT_BROWSER_CDP_PORT=9222
+`);
+    return;
+  }
+
+  const runtime = await ensureParallelRuntime({
+    scriptLabel: "production-slot-lock",
+    frontendOrigin: FRONTEND_ORIGIN,
+    backendOrigin: BACKEND_ORIGIN,
+  });
   console.log(`[production-slot-lock] frontend=${FRONTEND_ORIGIN}`);
+  console.log(`[production-slot-lock] backend=${BACKEND_ORIGIN}`);
   console.log(`[production-slot-lock] student=${STUDENT_USERNAME}`);
   console.log(`[production-slot-lock] slotCount=${SLOT_COUNT}`);
   console.log(`[production-slot-lock] cdpPort=${CDP_PORT}`);
   console.log(`[production-slot-lock] bestModel=${BEST_MODEL}`);
   console.log(`[production-slot-lock] headless=${HEADLESS}`);
 
-  const { token, experimentId } = await prepareProductionStageExperiment();
-  console.log(`[production-slot-lock] prepared experiment_id=${experimentId}`);
-
-  const slotLocks = await acquireAllModelSlots(SLOT_COUNT);
-  console.log("[production-slot-lock] all model slots acquired");
-
-  const browser = await chromium.launch({
-    headless: HEADLESS,
-    args: [`--remote-debugging-port=${CDP_PORT}`],
-  });
+  await assertReachable(
+    new URL("/login.html", FRONTEND_ORIGIN),
+    "Frontend login page",
+  );
 
   try {
-    const context = await browser.newContext({
-      baseURL: FRONTEND_ORIGIN,
+    const { token, experimentId } = await prepareProductionStageExperiment();
+    console.log(`[production-slot-lock] prepared experiment_id=${experimentId}`);
+
+    const slotLocks = await acquireAllModelSlots(SLOT_COUNT);
+    console.log("[production-slot-lock] all model slots acquired");
+
+    const browser = await chromium.launch({
+      headless: HEADLESS,
+      args: [`--remote-debugging-port=${CDP_PORT}`],
     });
-    const page = await context.newPage();
-    const studentApp = new StudentApp(page, token);
 
-    await studentApp.open("/production/steps");
-    await studentApp.expectHash("/production/steps");
+    try {
+      const context = await browser.newContext({
+        baseURL: FRONTEND_ORIGIN,
+      });
+      const page = await context.newPage();
+      const studentApp = new StudentApp(page, token);
 
-    await expect(
-      page.getByRole("button", { name: "预测第一期需求" }),
-    ).toBeVisible({ timeout: 30_000 });
+      await studentApp.open("/production/steps");
+      await studentApp.expectHash("/production/steps");
 
-    if (WAIT_FOR_ATTACH) {
-      await waitForInspector();
+      await expect(
+        page.getByRole("button", { name: "预测第一期需求" }),
+      ).toBeVisible({ timeout: 30_000 });
+
+      if (WAIT_FOR_ATTACH) {
+        await waitForInspector();
+      }
+
+      await page.getByRole("button", { name: "预测第一期需求" }).click();
+
+      await expect(
+        page.getByText(/模型服务当前繁忙，请稍后再次点击.*重试|模型服务繁忙，请稍后再试/),
+      ).toBeVisible({ timeout: 30_000 });
+      console.log("[production-slot-lock] observed 429 busy message in UI");
+
+      if (HOLD_AFTER_429) {
+        console.log("[production-slot-lock] holding browser open after 429 for manual inspection");
+        await waitForInspector();
+      }
+
+      await slotLocks.release();
+      console.log("[production-slot-lock] released pre-acquired model slots");
+    } finally {
+      await browser.close();
     }
-
-    await page.getByRole("button", { name: "预测第一期需求" }).click();
-
-    await expect(
-      page.getByText(/模型服务当前繁忙，请稍后再次点击.*重试|模型服务繁忙，请稍后再试/),
-    ).toBeVisible({ timeout: 30_000 });
-    console.log("[production-slot-lock] observed 429 busy message in UI");
-
-    if (HOLD_AFTER_429) {
-      console.log("[production-slot-lock] holding browser open after 429 for manual inspection");
-      await waitForInspector();
-    }
-
-    await slotLocks.release();
-    console.log("[production-slot-lock] released pre-acquired model slots");
   } finally {
-    await browser.close();
+    await runtime.cleanup();
   }
 }
 

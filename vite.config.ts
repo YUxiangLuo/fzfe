@@ -2,6 +2,9 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import path, { resolve } from 'path';
 
+const API_PROXY_TARGET =
+  process.env.VITE_API_URL?.replace('/api/v1', '') ?? 'http://localhost:4001';
+
 // 自定义插件：处理 SPA 路由的 history fallback
 function spaFallbackPlugin(): Plugin {
   return {
@@ -35,9 +38,31 @@ function spaFallbackPlugin(): Plugin {
   };
 }
 
+function runtimeInfoPlugin(): Plugin {
+  return {
+    name: 'runtime-info',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if ((req.url || '') !== '/__runtime_info__') {
+          return next();
+        }
+
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json; charset=UTF-8');
+        res.end(
+          JSON.stringify({
+            app: 'fangzhen-fe',
+            apiTarget: API_PROXY_TARGET,
+          }),
+        );
+      });
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), spaFallbackPlugin()],
+  plugins: [react(), spaFallbackPlugin(), runtimeInfoPlugin()],
 
   resolve: {
     alias: {
@@ -87,7 +112,7 @@ export default defineConfig({
     // API 代理到后端服务器（支持环境变量覆盖，用于 E2E 测试）
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL?.replace('/api/v1', '') ?? 'http://localhost:4001',
+        target: API_PROXY_TARGET,
         changeOrigin: true,
       },
     },

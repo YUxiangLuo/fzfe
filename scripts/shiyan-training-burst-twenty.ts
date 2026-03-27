@@ -16,10 +16,14 @@ import {
   type ExperimentRecord,
 } from "../tests/e2e/shiyan/support/backend.ts";
 import { StudentApp } from "../tests/e2e/shiyan/support/student-app.ts";
+import { ensureParallelRuntime } from "./parallel-runtime.ts";
 
 const FRONTEND_ORIGIN =
   process.env.E2E_FRONTEND_ORIGIN ??
   `http://127.0.0.1:${process.env.E2E_FRONTEND_PORT ?? "55104"}`;
+const BACKEND_ORIGIN =
+  process.env.E2E_BACKEND_ORIGIN ??
+  `http://127.0.0.1:${process.env.E2E_BACKEND_PORT ?? "54104"}`;
 
 const STUDENT_PASSWORD =
   process.env.E2E_PARALLEL20_STUDENT_PASSWORD ??
@@ -628,11 +632,14 @@ async function main() {
   if (process.argv.includes("--help")) {
     console.log(`Usage: bun run scripts/shiyan-training-burst-twenty.ts
 
-Required setup:
-  1. bun run seed:parallel:scenario training-burst --force
-  2. Start frontend and backend on the configured origins
+Default behavior:
+  Automatically prepares the parallel database baseline
+  Automatically seeds the training-burst scenario
+  Automatically starts frontend/backend on the configured origins when needed
 
 Optional environment:
+  E2E_FRONTEND_ORIGIN=http://127.0.0.1:55104
+  E2E_BACKEND_ORIGIN=http://127.0.0.1:54104
   E2E_PARALLEL20_STUDENTS=20246001,20246002,...,20246020
   E2E_PARALLEL20_MA_WINDOW=6
   E2E_PARALLEL20_SLOT_COUNT=16
@@ -640,6 +647,8 @@ Optional environment:
   E2E_PARALLEL20_MAX_RETRY_ROUNDS=8
   E2E_PARALLEL20_RETRY_ROUND_DELAY_MS=250
   E2E_PARALLEL20_MIN_BUSY_429=4
+  E2E_PARALLEL_AUTO_PREPARE=0
+  E2E_PARALLEL_AUTO_START_SERVERS=0
   PW_HEADLESS=false
   PW_SLOWMO=100
   E2E_AGENT_BROWSER_WAIT_FOR_ATTACH=1
@@ -650,6 +659,12 @@ Optional environment:
     return;
   }
 
+  const runtime = await ensureParallelRuntime({
+    scriptLabel: "parallel20-training",
+    frontendOrigin: FRONTEND_ORIGIN,
+    backendOrigin: BACKEND_ORIGIN,
+    scenario: "training-burst",
+  });
   await mkdir(ARTIFACTS_DIR, { recursive: true });
 
   console.log(`[parallel20] frontend=${FRONTEND_ORIGIN}`);
@@ -664,106 +679,110 @@ Optional environment:
   console.log(`[parallel20] headless=${HEADLESS}`);
   console.log(`[parallel20] holdAfterResultsMs=${HOLD_AFTER_RESULTS_MS}`);
 
-  const browser = await chromium.launch({
-    headless: HEADLESS,
-    slowMo: SLOW_MO,
-    args: [`--remote-debugging-port=${CDP_PORT}`],
-  });
-
-  const runners = await createStudentRunners(browser);
-  const barrier = new TrainingBarrier(STUDENT_USERNAMES.length);
-
   try {
-    await runStage("open-moving-average-params", runners, (runner) =>
-      runner.openMovingAverageParams(),
-    );
-    await runStage("prepare-validation", runners, (runner) =>
-      runner.prepareValidation(),
-    );
-    await runStage("install-training-barrier", runners, (runner) =>
-      runner.installTrainingBarrier(barrier),
-    );
+    const browser = await chromium.launch({
+      headless: HEADLESS,
+      slowMo: SLOW_MO,
+      args: [`--remote-debugging-port=${CDP_PORT}`],
+    });
 
-    if (WAIT_FOR_ATTACH) {
-      await waitForInspector();
-    }
+    const runners = await createStudentRunners(browser);
+    const barrier = new TrainingBarrier(STUDENT_USERNAMES.length);
 
-    await runStage("trigger-training", runners, (runner) => runner.triggerTraining());
-    await barrier.waitForAll();
-    console.log("[parallel20] barrier reached by all students; releasing requests");
-    barrier.releaseAll();
-
-    const initialOutcomes = await collectOutcomes(runners);
-    const initialCounts = {
-      success: initialOutcomes.filter((outcome) => outcome.outcome === "success").length,
-      busy429: initialOutcomes.filter((outcome) => outcome.outcome === "busy429").length,
-      unexpected: initialOutcomes.filter((outcome) => outcome.outcome === "unexpected").length,
-    };
-
-    const retryResult = await retryBusy429Students(runners, initialOutcomes);
-    const outcomes = retryResult.outcomes;
-    const counts = {
-      initialSuccess: initialCounts.success,
-      initialBusy429: initialCounts.busy429,
-      initialUnexpected: initialCounts.unexpected,
-      success: outcomes.filter((outcome) => outcome.outcome === "success").length,
-      busy429: outcomes.filter((outcome) => outcome.outcome === "busy429").length,
-      unexpected: outcomes.filter((outcome) => outcome.outcome === "unexpected").length,
-    };
-
-    const summary: SummaryFile = {
-      generatedAt: new Date().toISOString(),
-      frontendOrigin: FRONTEND_ORIGIN,
-      students: [...STUDENT_USERNAMES],
-      movingAverageWindow: MOVING_AVERAGE_WINDOW,
-      slotCount: SLOT_COUNT,
-      minBusy429: MIN_BUSY_429,
-      barrier: {
-        expectedCount: STUDENT_USERNAMES.length,
-        arrivalCount: barrier.getArrivals().length,
-        arrivals: barrier.getArrivals(),
-      },
-      retry: {
-        enabled: RETRY_BUSY_429,
-        maxRetryRounds: MAX_RETRY_ROUNDS,
-        retryRoundDelayMs: RETRY_ROUND_DELAY_MS,
-        attemptedRounds: retryResult.attemptedRounds,
-      },
-      counts,
-      outcomes,
-    };
-    await writeSummary(summary);
-
-    for (const outcome of outcomes) {
-      console.log(
-        `[parallel20] ${outcome.username} experiment_id=${outcome.experimentId} product=${outcome.product ?? "-"} status=${outcome.httpStatus} outcome=${outcome.outcome} elapsed=${formatDurationMs(outcome.elapsedMs)}`,
+    try {
+      await runStage("open-moving-average-params", runners, (runner) =>
+        runner.openMovingAverageParams(),
       );
-    }
-
-    ensure(
-      counts.unexpected === 0,
-      `Unexpected training responses detected: ${counts.unexpected}`,
-    );
-    ensure(
-      counts.initialBusy429 >= MIN_BUSY_429,
-      `Expected at least ${MIN_BUSY_429} initial busy 429 responses, got ${counts.initialBusy429}`,
-    );
-    ensure(
-      counts.success === STUDENT_USERNAMES.length,
-      `Expected all students to succeed after retries, got success=${counts.success}, busy429=${counts.busy429}, unexpected=${counts.unexpected}`,
-    );
-
-    if (HOLD_AFTER_RESULTS_MS > 0) {
-      console.log(
-        `[parallel20] holding browser open for ${HOLD_AFTER_RESULTS_MS}ms after results`,
+      await runStage("prepare-validation", runners, (runner) =>
+        runner.prepareValidation(),
       );
-      await delay(HOLD_AFTER_RESULTS_MS);
-    }
+      await runStage("install-training-barrier", runners, (runner) =>
+        runner.installTrainingBarrier(barrier),
+      );
 
-    console.log("[parallel20] training burst verification passed");
+      if (WAIT_FOR_ATTACH) {
+        await waitForInspector();
+      }
+
+      await runStage("trigger-training", runners, (runner) => runner.triggerTraining());
+      await barrier.waitForAll();
+      console.log("[parallel20] barrier reached by all students; releasing requests");
+      barrier.releaseAll();
+
+      const initialOutcomes = await collectOutcomes(runners);
+      const initialCounts = {
+        success: initialOutcomes.filter((outcome) => outcome.outcome === "success").length,
+        busy429: initialOutcomes.filter((outcome) => outcome.outcome === "busy429").length,
+        unexpected: initialOutcomes.filter((outcome) => outcome.outcome === "unexpected").length,
+      };
+
+      const retryResult = await retryBusy429Students(runners, initialOutcomes);
+      const outcomes = retryResult.outcomes;
+      const counts = {
+        initialSuccess: initialCounts.success,
+        initialBusy429: initialCounts.busy429,
+        initialUnexpected: initialCounts.unexpected,
+        success: outcomes.filter((outcome) => outcome.outcome === "success").length,
+        busy429: outcomes.filter((outcome) => outcome.outcome === "busy429").length,
+        unexpected: outcomes.filter((outcome) => outcome.outcome === "unexpected").length,
+      };
+
+      const summary: SummaryFile = {
+        generatedAt: new Date().toISOString(),
+        frontendOrigin: FRONTEND_ORIGIN,
+        students: [...STUDENT_USERNAMES],
+        movingAverageWindow: MOVING_AVERAGE_WINDOW,
+        slotCount: SLOT_COUNT,
+        minBusy429: MIN_BUSY_429,
+        barrier: {
+          expectedCount: STUDENT_USERNAMES.length,
+          arrivalCount: barrier.getArrivals().length,
+          arrivals: barrier.getArrivals(),
+        },
+        retry: {
+          enabled: RETRY_BUSY_429,
+          maxRetryRounds: MAX_RETRY_ROUNDS,
+          retryRoundDelayMs: RETRY_ROUND_DELAY_MS,
+          attemptedRounds: retryResult.attemptedRounds,
+        },
+        counts,
+        outcomes,
+      };
+      await writeSummary(summary);
+
+      for (const outcome of outcomes) {
+        console.log(
+          `[parallel20] ${outcome.username} experiment_id=${outcome.experimentId} product=${outcome.product ?? "-"} status=${outcome.httpStatus} outcome=${outcome.outcome} elapsed=${formatDurationMs(outcome.elapsedMs)}`,
+        );
+      }
+
+      ensure(
+        counts.unexpected === 0,
+        `Unexpected training responses detected: ${counts.unexpected}`,
+      );
+      ensure(
+        counts.initialBusy429 >= MIN_BUSY_429,
+        `Expected at least ${MIN_BUSY_429} initial busy 429 responses, got ${counts.initialBusy429}`,
+      );
+      ensure(
+        counts.success === STUDENT_USERNAMES.length,
+        `Expected all students to succeed after retries, got success=${counts.success}, busy429=${counts.busy429}, unexpected=${counts.unexpected}`,
+      );
+
+      if (HOLD_AFTER_RESULTS_MS > 0) {
+        console.log(
+          `[parallel20] holding browser open for ${HOLD_AFTER_RESULTS_MS}ms after results`,
+        );
+        await delay(HOLD_AFTER_RESULTS_MS);
+      }
+
+      console.log("[parallel20] training burst verification passed");
+    } finally {
+      await Promise.allSettled(runners.map((runner) => runner.close()));
+      await browser.close().catch(() => undefined);
+    }
   } finally {
-    await Promise.allSettled(runners.map((runner) => runner.close()));
-    await browser.close().catch(() => undefined);
+    await runtime.cleanup();
   }
 }
 

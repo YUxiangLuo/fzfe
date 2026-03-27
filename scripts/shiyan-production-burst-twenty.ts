@@ -18,6 +18,7 @@ import {
   type ExperimentRecord,
 } from "../tests/e2e/shiyan/support/backend.ts";
 import { StudentApp } from "../tests/e2e/shiyan/support/student-app.ts";
+import { ensureParallelRuntime } from "./parallel-runtime.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FE_DIR = path.resolve(__dirname, "..");
@@ -26,6 +27,9 @@ const BE_DIR = path.resolve(FE_DIR, "..", "be");
 const FRONTEND_ORIGIN =
   process.env.E2E_FRONTEND_ORIGIN ??
   `http://127.0.0.1:${process.env.E2E_FRONTEND_PORT ?? "55104"}`;
+const BACKEND_ORIGIN =
+  process.env.E2E_BACKEND_ORIGIN ??
+  `http://127.0.0.1:${process.env.E2E_BACKEND_PORT ?? "54104"}`;
 
 const STUDENT_PASSWORD =
   process.env.E2E_PARALLEL20_PRODUCTION_STUDENT_PASSWORD ??
@@ -792,12 +796,14 @@ async function main() {
   if (process.argv.includes("--help")) {
     console.log(`Usage: bun run scripts/shiyan-production-burst-twenty.ts
 
-Recommended setup:
-  1. Optional: E2E_PARALLEL20_PRODUCTION_PREPARE_SCENARIO=1 to reset to training-burst
-  2. Default behavior will run the 20-student training prep first
-  3. Do not set E2E_PARALLEL20_PRODUCTION_PREPARE_SCENARIO=1 together with E2E_PARALLEL20_PRODUCTION_PREPARE_TRAINING=0
+Default behavior:
+  Automatically prepares the parallel database baseline
+  Automatically starts frontend/backend on the configured origins when needed
+  Automatically runs the 20-student training prep first
 
 Optional environment:
+  E2E_FRONTEND_ORIGIN=http://127.0.0.1:55104
+  E2E_BACKEND_ORIGIN=http://127.0.0.1:54104
   E2E_PARALLEL20_PRODUCTION_STUDENTS=20246001,...,20246020
   E2E_PARALLEL20_PRODUCTION_PREPARE_SCENARIO=0
   E2E_PARALLEL20_PRODUCTION_PREPARE_TRAINING=1
@@ -805,6 +811,8 @@ Optional environment:
   E2E_PARALLEL20_PRODUCTION_MAX_RETRY_ROUNDS=8
   E2E_PARALLEL20_PRODUCTION_RETRY_ROUND_DELAY_MS=250
   E2E_PARALLEL20_PRODUCTION_MIN_BUSY_429=4
+  E2E_PARALLEL_AUTO_PREPARE=0
+  E2E_PARALLEL_AUTO_START_SERVERS=0
   PW_HEADLESS=false
   PW_SLOWMO=100
   E2E_AGENT_BROWSER_WAIT_FOR_ATTACH=1
@@ -815,6 +823,11 @@ Optional environment:
     return;
   }
 
+  const runtime = await ensureParallelRuntime({
+    scriptLabel: "parallel20-production",
+    frontendOrigin: FRONTEND_ORIGIN,
+    backendOrigin: BACKEND_ORIGIN,
+  });
   await mkdir(ARTIFACTS_DIR, { recursive: true });
 
   console.log(`[parallel20-production] frontend=${FRONTEND_ORIGIN}`);
@@ -831,120 +844,124 @@ Optional environment:
   console.log(`[parallel20-production] headless=${HEADLESS}`);
   console.log(`[parallel20-production] holdAfterResultsMs=${HOLD_AFTER_RESULTS_MS}`);
 
-  await prepareScenarioAndTraining();
-
-  const browser = await chromium.launch({
-    headless: HEADLESS,
-    slowMo: SLOW_MO,
-    args: [`--remote-debugging-port=${CDP_PORT}`],
-  });
-
-  const runners = await createStudentRunners(browser);
-  const barrier = new RequestBarrier(STUDENT_USERNAMES.length);
-
   try {
-    await runStage("promote-to-production", runners, (runner) =>
-      runner.promoteToProduction(),
-    );
-    await runStage("open-production-steps", runners, (runner) =>
-      runner.openProductionSteps(),
-    );
-    await runStage("install-prepare-barrier", runners, (runner) =>
-      runner.installPrepareBarrier(barrier),
-    );
+    await prepareScenarioAndTraining();
 
-    if (WAIT_FOR_ATTACH) {
-      await waitForInspector();
-    }
+    const browser = await chromium.launch({
+      headless: HEADLESS,
+      slowMo: SLOW_MO,
+      args: [`--remote-debugging-port=${CDP_PORT}`],
+    });
 
-    await runStage("trigger-production-prediction", runners, (runner) =>
-      runner.triggerProductionPrediction(),
-    );
-    await barrier.waitForAll();
-    console.log(
-      "[parallel20-production] barrier reached by all students; releasing prepare-production requests",
-    );
-    barrier.releaseAll();
+    const runners = await createStudentRunners(browser);
+    const barrier = new RequestBarrier(STUDENT_USERNAMES.length);
 
-    const initialOutcomes = await collectOutcomes(runners);
-    const initialCounts = {
-      success: initialOutcomes.filter((outcome) => outcome.outcome === "success").length,
-      busy429: initialOutcomes.filter((outcome) => outcome.outcome === "busy429").length,
-      unexpected: initialOutcomes.filter((outcome) => outcome.outcome === "unexpected").length,
-    };
-
-    const retryResult = await retryBusy429Students(runners, initialOutcomes);
-    const outcomes = retryResult.outcomes;
-    const counts = {
-      initialSuccess: initialCounts.success,
-      initialBusy429: initialCounts.busy429,
-      initialUnexpected: initialCounts.unexpected,
-      success: outcomes.filter((outcome) => outcome.outcome === "success").length,
-      busy429: outcomes.filter((outcome) => outcome.outcome === "busy429").length,
-      unexpected: outcomes.filter((outcome) => outcome.outcome === "unexpected").length,
-    };
-
-    const summary: SummaryFile = {
-      generatedAt: new Date().toISOString(),
-      frontendOrigin: FRONTEND_ORIGIN,
-      students: [...STUDENT_USERNAMES],
-      bestModel: BEST_MODEL,
-      slotCount: SLOT_COUNT,
-      minInitialBusy429: MIN_INITIAL_BUSY_429,
-      barrier: {
-        expectedCount: STUDENT_USERNAMES.length,
-        arrivalCount: barrier.getArrivals().length,
-        arrivals: barrier.getArrivals(),
-      },
-      preparation: {
-        scenarioPrepared: PREPARE_SCENARIO,
-        trainingPrepared: PREPARE_TRAINING,
-      },
-      retry: {
-        enabled: RETRY_BUSY_429,
-        maxRetryRounds: MAX_RETRY_ROUNDS,
-        retryRoundDelayMs: RETRY_ROUND_DELAY_MS,
-        attemptedRounds: retryResult.attemptedRounds,
-      },
-      counts,
-      outcomes,
-    };
-    await writeSummary(summary);
-
-    for (const outcome of outcomes) {
-      console.log(
-        `[parallel20-production] ${outcome.username} experiment_id=${outcome.experimentId} stage=${outcome.stage} status=${outcome.httpStatus} outcome=${outcome.outcome} attempt=${outcome.attempt} elapsed=${formatDurationMs(outcome.elapsedMs)}`,
+    try {
+      await runStage("promote-to-production", runners, (runner) =>
+        runner.promoteToProduction(),
       );
-    }
-
-    ensure(
-      counts.initialUnexpected === 0,
-      `Unexpected initial production responses detected: ${counts.initialUnexpected}`,
-    );
-    ensure(
-      counts.initialBusy429 >= MIN_INITIAL_BUSY_429,
-      `Expected at least ${MIN_INITIAL_BUSY_429} initial busy 429 responses, got ${counts.initialBusy429}`,
-    );
-    ensure(
-      counts.unexpected === 0,
-      `Unexpected production responses detected after retries: ${counts.unexpected}`,
-    );
-    ensure(
-      counts.success === STUDENT_USERNAMES.length,
-      `Expected all students to succeed after retries, got success=${counts.success}, busy429=${counts.busy429}, unexpected=${counts.unexpected}`,
-    );
-
-    if (HOLD_AFTER_RESULTS_MS > 0) {
-      console.log(
-        `[parallel20-production] holding browser open for ${HOLD_AFTER_RESULTS_MS}ms after results`,
+      await runStage("open-production-steps", runners, (runner) =>
+        runner.openProductionSteps(),
       );
-      await delay(HOLD_AFTER_RESULTS_MS);
-    }
+      await runStage("install-prepare-barrier", runners, (runner) =>
+        runner.installPrepareBarrier(barrier),
+      );
 
-    console.log("[parallel20-production] production burst verification passed");
+      if (WAIT_FOR_ATTACH) {
+        await waitForInspector();
+      }
+
+      await runStage("trigger-production-prediction", runners, (runner) =>
+        runner.triggerProductionPrediction(),
+      );
+      await barrier.waitForAll();
+      console.log(
+        "[parallel20-production] barrier reached by all students; releasing prepare-production requests",
+      );
+      barrier.releaseAll();
+
+      const initialOutcomes = await collectOutcomes(runners);
+      const initialCounts = {
+        success: initialOutcomes.filter((outcome) => outcome.outcome === "success").length,
+        busy429: initialOutcomes.filter((outcome) => outcome.outcome === "busy429").length,
+        unexpected: initialOutcomes.filter((outcome) => outcome.outcome === "unexpected").length,
+      };
+
+      const retryResult = await retryBusy429Students(runners, initialOutcomes);
+      const outcomes = retryResult.outcomes;
+      const counts = {
+        initialSuccess: initialCounts.success,
+        initialBusy429: initialCounts.busy429,
+        initialUnexpected: initialCounts.unexpected,
+        success: outcomes.filter((outcome) => outcome.outcome === "success").length,
+        busy429: outcomes.filter((outcome) => outcome.outcome === "busy429").length,
+        unexpected: outcomes.filter((outcome) => outcome.outcome === "unexpected").length,
+      };
+
+      const summary: SummaryFile = {
+        generatedAt: new Date().toISOString(),
+        frontendOrigin: FRONTEND_ORIGIN,
+        students: [...STUDENT_USERNAMES],
+        bestModel: BEST_MODEL,
+        slotCount: SLOT_COUNT,
+        minInitialBusy429: MIN_INITIAL_BUSY_429,
+        barrier: {
+          expectedCount: STUDENT_USERNAMES.length,
+          arrivalCount: barrier.getArrivals().length,
+          arrivals: barrier.getArrivals(),
+        },
+        preparation: {
+          scenarioPrepared: PREPARE_SCENARIO,
+          trainingPrepared: PREPARE_TRAINING,
+        },
+        retry: {
+          enabled: RETRY_BUSY_429,
+          maxRetryRounds: MAX_RETRY_ROUNDS,
+          retryRoundDelayMs: RETRY_ROUND_DELAY_MS,
+          attemptedRounds: retryResult.attemptedRounds,
+        },
+        counts,
+        outcomes,
+      };
+      await writeSummary(summary);
+
+      for (const outcome of outcomes) {
+        console.log(
+          `[parallel20-production] ${outcome.username} experiment_id=${outcome.experimentId} stage=${outcome.stage} status=${outcome.httpStatus} outcome=${outcome.outcome} attempt=${outcome.attempt} elapsed=${formatDurationMs(outcome.elapsedMs)}`,
+        );
+      }
+
+      ensure(
+        counts.initialUnexpected === 0,
+        `Unexpected initial production responses detected: ${counts.initialUnexpected}`,
+      );
+      ensure(
+        counts.initialBusy429 >= MIN_INITIAL_BUSY_429,
+        `Expected at least ${MIN_INITIAL_BUSY_429} initial busy 429 responses, got ${counts.initialBusy429}`,
+      );
+      ensure(
+        counts.unexpected === 0,
+        `Unexpected production responses detected after retries: ${counts.unexpected}`,
+      );
+      ensure(
+        counts.success === STUDENT_USERNAMES.length,
+        `Expected all students to succeed after retries, got success=${counts.success}, busy429=${counts.busy429}, unexpected=${counts.unexpected}`,
+      );
+
+      if (HOLD_AFTER_RESULTS_MS > 0) {
+        console.log(
+          `[parallel20-production] holding browser open for ${HOLD_AFTER_RESULTS_MS}ms after results`,
+        );
+        await delay(HOLD_AFTER_RESULTS_MS);
+      }
+
+      console.log("[parallel20-production] production burst verification passed");
+    } finally {
+      await Promise.allSettled(runners.map((runner) => runner.close()));
+      await browser.close().catch(() => undefined);
+    }
   } finally {
-    await Promise.allSettled(runners.map((runner) => runner.close()));
-    await browser.close().catch(() => undefined);
+    await runtime.cleanup();
   }
 }
 

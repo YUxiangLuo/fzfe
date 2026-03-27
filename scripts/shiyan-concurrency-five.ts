@@ -21,6 +21,7 @@ import {
   enterEvaluation,
   expectHashPath,
 } from "../tests/e2e/shiyan/support/ui-flow.ts";
+import { ensureParallelRuntime } from "./parallel-runtime.ts";
 
 const FRONTEND_ORIGIN =
   process.env.E2E_FRONTEND_ORIGIN ??
@@ -41,8 +42,20 @@ const CLASS_ID = parsePositiveInteger(
   "E2E_PARALLEL_CLASS_ID",
 );
 const REPORT_STAGGER_MS = parseNonNegativeInteger(
-  process.env.E2E_PARALLEL_REPORT_STAGGER_MS ?? "0",
+  process.env.E2E_PARALLEL_REPORT_STAGGER_MS ?? "15000",
   "E2E_PARALLEL_REPORT_STAGGER_MS",
+);
+const REPORT_SUBMIT_MAX_ATTEMPTS = parsePositiveInteger(
+  process.env.E2E_PARALLEL_REPORT_MAX_ATTEMPTS ?? "4",
+  "E2E_PARALLEL_REPORT_MAX_ATTEMPTS",
+);
+const REPORT_SUBMIT_RETRY_DELAY_MS = parseNonNegativeInteger(
+  process.env.E2E_PARALLEL_REPORT_RETRY_DELAY_MS ?? "5000",
+  "E2E_PARALLEL_REPORT_RETRY_DELAY_MS",
+);
+const REPORT_SUBMIT_TIMEOUT_MS = parsePositiveInteger(
+  process.env.E2E_PARALLEL_REPORT_TIMEOUT_MS ?? "45000",
+  "E2E_PARALLEL_REPORT_TIMEOUT_MS",
 );
 const HEADLESS = process.env.PW_HEADLESS !== "false";
 const SLOW_MO = parseNonNegativeInteger(
@@ -158,6 +171,8 @@ function formatDurationMs(durationMs: number): string {
   return `${(durationMs / 1000).toFixed(1)}s`;
 }
 
+const REPORT_BUSY_MESSAGE_PATTERN = /PDF 生成服务当前繁忙|PDF 生成服务繁忙|排队等待超时/;
+
 async function loginViaApi(input: {
   username: string;
   password: string;
@@ -263,7 +278,44 @@ async function selectParallelDatasetAndWindow(page: Page) {
   await expectHashPath(page, "/model/model-intro");
 }
 
-async function submitReportAndLogout(page: Page) {
+async function getVisibleReportError(page: Page): Promise<string | null> {
+  const errorTexts = await page
+    .locator("p.text-right.text-red-600")
+    .allTextContents()
+    .catch(() => []);
+  const visibleMessage = errorTexts
+    .map((message) => message.trim())
+    .find((message) => message.length > 0);
+  return visibleMessage ?? null;
+}
+
+async function waitForReportSubmissionOutcome(page: Page) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < REPORT_SUBMIT_TIMEOUT_MS) {
+    if (await page.getByText("恭喜！实验完成").isVisible().catch(() => false)) {
+      return {
+        type: "success" as const,
+      };
+    }
+
+    const errorMessage = await getVisibleReportError(page);
+    if (errorMessage) {
+      return {
+        type: "error" as const,
+        message: errorMessage,
+      };
+    }
+
+    await delay(500);
+  }
+
+  throw new Error(
+    `Timed out waiting for report submission outcome after ${formatDurationMs(REPORT_SUBMIT_TIMEOUT_MS)}`,
+  );
+}
+
+async function submitReportAndLogout(page: Page, username: string) {
   await expectHashPath(page, "/report");
 
   const textareas = page.locator(
@@ -275,9 +327,32 @@ async function submitReportAndLogout(page: Page) {
     await textareas.nth(index).fill(REPORT_ANALYSES[index]!);
   }
 
-  await clickLastEnabledButton(page, /保存并提交报告/);
+  for (let attempt = 1; attempt <= REPORT_SUBMIT_MAX_ATTEMPTS; attempt += 1) {
+    await clickLastEnabledButton(page, /保存并提交报告/);
+    const outcome = await waitForReportSubmissionOutcome(page);
+
+    if (outcome.type === "success") {
+      break;
+    }
+
+    if (!REPORT_BUSY_MESSAGE_PATTERN.test(outcome.message)) {
+      throw new Error(`Report submission failed: ${outcome.message}`);
+    }
+
+    if (attempt >= REPORT_SUBMIT_MAX_ATTEMPTS) {
+      throw new Error(
+        `Report submission stayed busy after ${REPORT_SUBMIT_MAX_ATTEMPTS} attempts: ${outcome.message}`,
+      );
+    }
+
+    console.log(
+      `[parallel5] ${username} report submit busy on attempt ${attempt}/${REPORT_SUBMIT_MAX_ATTEMPTS}; retrying in ${REPORT_SUBMIT_RETRY_DELAY_MS}ms`,
+    );
+    await delay(REPORT_SUBMIT_RETRY_DELAY_MS);
+  }
+
   await expect(page.getByText("恭喜！实验完成")).toBeVisible({
-    timeout: 120_000,
+    timeout: 15_000,
   });
   await clickLastEnabledButton(page, /退出登录/);
   await expect
@@ -336,7 +411,7 @@ class StudentRunner {
     if (REPORT_STAGGER_MS > 0) {
       await delay(index * REPORT_STAGGER_MS);
     }
-    await submitReportAndLogout(this.page);
+    await submitReportAndLogout(this.page, this.username);
   }
 
   async captureFailure(stage: string) {
@@ -491,19 +566,33 @@ async function main() {
   if (process.argv.includes("--help")) {
     console.log(`Usage: bun run scripts/shiyan-concurrency-five.ts
 
-Required environment:
-  E2E_FRONTEND_ORIGIN=http://127.0.0.1:55104
-  E2E_BACKEND_ORIGIN=http://127.0.0.1:54104
+Default behavior:
+  Automatically prepares the parallel database baseline
+  Automatically seeds the start-only scenario
+  Automatically starts frontend/backend on the configured origins when needed
 
 Optional environment:
+  E2E_FRONTEND_ORIGIN=http://127.0.0.1:55104
+  E2E_BACKEND_ORIGIN=http://127.0.0.1:54104
   E2E_PARALLEL_STUDENTS=20246001,20246002,20246003,20246004,20246005
-  E2E_PARALLEL_REPORT_STAGGER_MS=0
+  E2E_PARALLEL_REPORT_STAGGER_MS=15000
+  E2E_PARALLEL_REPORT_MAX_ATTEMPTS=4
+  E2E_PARALLEL_REPORT_RETRY_DELAY_MS=5000
+  E2E_PARALLEL_REPORT_TIMEOUT_MS=45000
+  E2E_PARALLEL_AUTO_PREPARE=0
+  E2E_PARALLEL_AUTO_START_SERVERS=0
   PW_HEADLESS=false
   PW_SLOWMO=100
 `);
     return;
   }
 
+  const runtime = await ensureParallelRuntime({
+    scriptLabel: "parallel5",
+    frontendOrigin: FRONTEND_ORIGIN,
+    backendOrigin: BACKEND_ORIGIN,
+    scenario: "start-only",
+  });
   await mkdir(ARTIFACTS_DIR, { recursive: true });
 
   console.log(`[parallel5] frontend=${FRONTEND_ORIGIN}`);
@@ -511,33 +600,40 @@ Optional environment:
   console.log(`[parallel5] classId=${CLASS_ID}`);
   console.log(`[parallel5] students=${STUDENT_USERNAMES.join(",")}`);
   console.log(`[parallel5] reportStaggerMs=${REPORT_STAGGER_MS}`);
-
-  const { browser, runners } = await createStudentRunners();
+  console.log(`[parallel5] reportSubmitMaxAttempts=${REPORT_SUBMIT_MAX_ATTEMPTS}`);
+  console.log(`[parallel5] reportSubmitRetryDelayMs=${REPORT_SUBMIT_RETRY_DELAY_MS}`);
+  console.log(`[parallel5] reportSubmitTimeoutMs=${REPORT_SUBMIT_TIMEOUT_MS}`);
 
   try {
-    await runStage("login", runners, (runner) => runner.login());
-    await runStage("start-experiment", runners, (runner) =>
-      runner.startExperiment(),
-    );
-    await runStage("select-dataset-window", runners, (runner) =>
-      runner.selectDatasetAndWindow(),
-    );
-    await runStage("build-models", runners, (runner) => runner.buildModels());
-    await runStage("evaluation-and-model-quiz", runners, (runner) =>
-      runner.finishEvaluationAndQuiz(),
-    );
-    await runStage("production-and-plan-quiz", runners, (runner) =>
-      runner.finishProductionAndPlanQuiz(),
-    );
-    await runStage("submit-report", runners, (runner, index) =>
-      runner.submitReport(index),
-    );
+    const { browser, runners } = await createStudentRunners();
 
-    await verifyTeacherSide(STUDENT_USERNAMES);
-    console.log("[parallel5] all students completed the shiyan flow");
+    try {
+      await runStage("login", runners, (runner) => runner.login());
+      await runStage("start-experiment", runners, (runner) =>
+        runner.startExperiment(),
+      );
+      await runStage("select-dataset-window", runners, (runner) =>
+        runner.selectDatasetAndWindow(),
+      );
+      await runStage("build-models", runners, (runner) => runner.buildModels());
+      await runStage("evaluation-and-model-quiz", runners, (runner) =>
+        runner.finishEvaluationAndQuiz(),
+      );
+      await runStage("production-and-plan-quiz", runners, (runner) =>
+        runner.finishProductionAndPlanQuiz(),
+      );
+      await runStage("submit-report", runners, (runner, index) =>
+        runner.submitReport(index),
+      );
+
+      await verifyTeacherSide(STUDENT_USERNAMES);
+      console.log("[parallel5] all students completed the shiyan flow");
+    } finally {
+      await Promise.allSettled(runners.map((runner) => runner.close()));
+      await browser.close().catch(() => undefined);
+    }
   } finally {
-    await Promise.allSettled(runners.map((runner) => runner.close()));
-    await browser.close().catch(() => undefined);
+    await runtime.cleanup();
   }
 }
 
