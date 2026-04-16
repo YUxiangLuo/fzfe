@@ -8,4 +8,4 @@ echo "=============RSYNC DIST============="
 rsync --progress --delete -r ./dist/* /var/www/fangzhen/
 
 echo "=============RESTART NGINX=========="
-sudo nginx -s reload
+sudo systemctl restart nginx
