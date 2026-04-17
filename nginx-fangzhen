@@ -1,0 +1,93 @@
+upstream fangzhen_be {
+	server 127.0.0.1:3001;
+	keepalive 32;
+}
+
+server {
+	listen 80;
+        server_name _;
+
+	root /var/www/fangzhen;
+	index index.html;
+
+	client_max_body_size 100m;
+
+	location = / {
+	    try_files /login.html =404;
+	}
+	
+	location ^~ /assets/ {
+	    try_files $uri =404;
+	}
+	
+	location ^~ /api/v1/ {
+	    proxy_pass http://fangzhen_be;
+	    proxy_connect_timeout 60s;
+	    proxy_send_timeout 360s;
+	    proxy_read_timeout 360s;
+	}
+	
+	location ^~ /manuals/ {
+	    proxy_pass http://fangzhen_be;
+	    proxy_connect_timeout 60s;
+	    proxy_send_timeout 360s;
+	    proxy_read_timeout 360s;
+	    proxy_buffering off;
+	}
+
+	location ^~ /datasets/ {
+	    proxy_pass http://fangzhen_be;
+	    proxy_connect_timeout 60s;
+	    proxy_send_timeout 360s;
+	    proxy_read_timeout 360s;
+	    proxy_buffering off;
+	}
+
+	location ^~ /reports/ {
+	    proxy_pass http://fangzhen_be;
+	    proxy_connect_timeout 60s;
+	    proxy_send_timeout 360s;
+	    proxy_read_timeout 360s;
+	    proxy_buffering off;
+	}
+
+	location ^~ /exports/ {
+	    proxy_pass http://fangzhen_be;
+	    proxy_connect_timeout 60s;
+	    proxy_send_timeout 360s;
+	    proxy_read_timeout 360s;
+	    proxy_buffering off;
+	}
+
+	location ^~ /images/ {
+	    proxy_pass http://fangzhen_be;
+	    proxy_connect_timeout 30s;
+	    proxy_send_timeout 120s;
+	    proxy_read_timeout 120s;
+	    proxy_buffering off;
+	}
+
+	location ^~ /js/ {
+	    proxy_pass http://fangzhen_be;
+	    proxy_connect_timeout 30s;
+	    proxy_send_timeout 120s;
+	    proxy_read_timeout 120s;
+	    proxy_buffering off;
+	}
+
+	location /login {
+	    try_files $uri $uri/ /login.html;
+	}
+	location /admin {
+	    try_files $uri $uri/ /admin.html;
+	}
+	location /teacher {
+	    try_files $uri $uri/ /teacher.html;
+	}
+	location /exp {
+	    try_files $uri $uri/ /exp.html;
+	}
+	location / {
+	    try_files $uri $uri/ /index.html;
+	}
+}
