@@ -43,10 +43,12 @@ const EVALUATE_END = parseNonNegativeInteger(
   process.env.E2E_PRODUCTION_SLOT_LOCK_EVALUATE_END ?? "41",
   "E2E_PRODUCTION_SLOT_LOCK_EVALUATE_END",
 );
-const SLOT_COUNT = parsePositiveInteger(
-  process.env.E2E_PRODUCTION_SLOT_LOCK_COUNT ?? "16",
-  "E2E_PRODUCTION_SLOT_LOCK_COUNT",
-);
+const SLOT_COUNT = process.env.E2E_PRODUCTION_SLOT_LOCK_COUNT
+  ? parsePositiveInteger(
+      process.env.E2E_PRODUCTION_SLOT_LOCK_COUNT,
+      "E2E_PRODUCTION_SLOT_LOCK_COUNT",
+    )
+  : undefined;
 const CDP_PORT = parsePositiveInteger(
   process.env.E2E_AGENT_BROWSER_CDP_PORT ?? "9222",
   "E2E_AGENT_BROWSER_CDP_PORT",
@@ -155,7 +157,7 @@ Optional environment:
   E2E_PRODUCTION_SLOT_LOCK_STUDENT_USERNAME=20246001
   E2E_PRODUCTION_SLOT_LOCK_STUDENT_PASSWORD=StudentParallel!123
   E2E_PRODUCTION_SLOT_LOCK_BEST_MODEL=ma
-  E2E_PRODUCTION_SLOT_LOCK_COUNT=16
+  E2E_PRODUCTION_SLOT_LOCK_COUNT=<optional backend slot override>
   E2E_PRODUCTION_SLOT_LOCK_HOLD_AFTER_429=1
   E2E_PARALLEL_AUTO_PREPARE=0
   E2E_PARALLEL_AUTO_START_SERVERS=0
@@ -175,7 +177,7 @@ Optional environment:
   console.log(`[production-slot-lock] frontend=${FRONTEND_ORIGIN}`);
   console.log(`[production-slot-lock] backend=${BACKEND_ORIGIN}`);
   console.log(`[production-slot-lock] student=${STUDENT_USERNAME}`);
-  console.log(`[production-slot-lock] slotCount=${SLOT_COUNT}`);
+  console.log(`[production-slot-lock] slotCount=${SLOT_COUNT ?? "backend-default"}`);
   console.log(`[production-slot-lock] cdpPort=${CDP_PORT}`);
   console.log(`[production-slot-lock] bestModel=${BEST_MODEL}`);
   console.log(`[production-slot-lock] headless=${HEADLESS}`);

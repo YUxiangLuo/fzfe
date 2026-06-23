@@ -6,7 +6,7 @@ import { STUDENT_PASSWORD, STUDENT_USERNAME } from "./support/constants";
 import { loginStudentViaApi } from "./support/backend";
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const BE_DIR = path.resolve(CURRENT_DIR, "../../../../be");
+const BE_DIR = path.resolve(CURRENT_DIR, "../../../../fangzhen-be");
 
 test("@shiyan profile page shows real user info and supports password rotation", async ({
   studentApp,

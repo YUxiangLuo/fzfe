@@ -9,7 +9,7 @@
     "build": "bun run typecheck && bunx vite build",
     "test": "bun run typecheck",
     "test:unit": "bun test src/views/shiyan",
-    "e2e:gen": "bun run ../be/scripts/generate-e2e-fixtures.ts",
+    "e2e:gen": "bun run ../fangzhen-be/scripts/generate-e2e-fixtures.ts",
     "e2e:smoke": "bun run e2e:gen && bun run e2e:teacher:smoke:run && bun run e2e:assistant:smoke:run && bun run e2e:admin:smoke:run && bun run e2e:shiyan:smoke:run",
     "e2e:teacher:smoke": "bun run e2e:gen && bun run e2e:teacher:smoke:run",
     "e2e:teacher:smoke:run": "bunx playwright test --config=playwright.teacher.config.ts --grep @smoke",

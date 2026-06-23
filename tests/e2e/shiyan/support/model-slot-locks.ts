@@ -4,12 +4,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BE_DIR = path.resolve(__dirname, "../../../../../be");
+const BE_DIR = path.resolve(__dirname, "../../../../../fangzhen-be");
 
 const SLOT_LOCK_SCRIPT = `
 import mysql from "mysql2/promise";
+import { CONCURRENCY_LIMITS } from "./src/utils/constants.ts";
 
-const lockCount = Number(process.env.E2E_MODEL_SLOT_LOCK_COUNT ?? "16");
+const lockCount = Number(
+  process.env.E2E_MODEL_SLOT_LOCK_COUNT ??
+    CONCURRENCY_LIMITS.MAX_CONCURRENT_MODEL_JOBS,
+);
 const connectionOptions = {
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -104,13 +108,15 @@ export interface ModelSlotLockHandle {
 }
 
 export async function acquireAllModelSlots(
-  slotCount = 16,
+  slotCount?: number,
 ): Promise<ModelSlotLockHandle> {
   const child = spawn("bun", ["-e", SLOT_LOCK_SCRIPT], {
     cwd: BE_DIR,
     env: {
       ...process.env,
-      E2E_MODEL_SLOT_LOCK_COUNT: String(slotCount),
+      ...(slotCount === undefined
+        ? {}
+        : { E2E_MODEL_SLOT_LOCK_COUNT: String(slotCount) }),
     },
     stdio: ["pipe", "pipe", "pipe"],
   });

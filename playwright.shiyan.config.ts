@@ -4,13 +4,20 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FE_DIR = __dirname;
-const BE_DIR = path.resolve(__dirname, "../be");
+const BE_DIR = path.resolve(__dirname, "../fangzhen-be");
 const E2E_BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? "54104");
 const E2E_BACKEND_ORIGIN =
-  process.env.E2E_BACKEND_ORIGIN ?? `http://127.0.0.1:${E2E_BACKEND_PORT}`;
+  process.env.E2E_BACKEND_ORIGIN ??
+  process.env.E2E_SHIYAN_V2_BACKEND_ORIGIN ??
+  `http://127.0.0.1:${E2E_BACKEND_PORT}`;
 const E2E_FRONTEND_PORT = Number(process.env.E2E_FRONTEND_PORT ?? "55104");
 const E2E_FRONTEND_ORIGIN =
   process.env.E2E_FRONTEND_ORIGIN ?? `http://127.0.0.1:${E2E_FRONTEND_PORT}`;
+
+process.env.E2E_BACKEND_PORT ??= String(E2E_BACKEND_PORT);
+process.env.E2E_BACKEND_ORIGIN ??= E2E_BACKEND_ORIGIN;
+process.env.E2E_FRONTEND_PORT ??= String(E2E_FRONTEND_PORT);
+process.env.E2E_FRONTEND_ORIGIN ??= E2E_FRONTEND_ORIGIN;
 
 export default defineConfig({
   testDir: path.resolve(FE_DIR, "tests/e2e/shiyan"),
@@ -52,7 +59,7 @@ export default defineConfig({
     {
       command: "bun run src/e2e-server.ts",
       cwd: BE_DIR,
-      port: E2E_BACKEND_PORT,
+      url: `${E2E_BACKEND_ORIGIN}/api/v1/runtime-info`,
       timeout: 300_000,
       reuseExistingServer: true,
       env: {
@@ -63,7 +70,7 @@ export default defineConfig({
     {
       command: `bun run dev -- --host 127.0.0.1 --port ${E2E_FRONTEND_PORT}`,
       cwd: FE_DIR,
-      port: E2E_FRONTEND_PORT,
+      url: `${E2E_FRONTEND_ORIGIN}/__runtime_info__`,
       timeout: 300_000,
       reuseExistingServer: true,
       env: {

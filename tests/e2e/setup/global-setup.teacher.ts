@@ -12,7 +12,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FE_DIR = path.resolve(__dirname, "../../..");
-const BE_DIR = path.resolve(FE_DIR, "../be");
+const BE_DIR = path.resolve(FE_DIR, "../fangzhen-be");
 
 export default async function globalSetup(_: FullConfig) {
   const teacherUsername = process.env.E2E_TEACHER_USERNAME ?? "teacher1";

@@ -47,10 +47,9 @@ const MOVING_AVERAGE_WINDOW = parsePositiveInteger(
   process.env.E2E_SLOT_LOCK_MA_WINDOW ?? "6",
   "E2E_SLOT_LOCK_MA_WINDOW",
 );
-const SLOT_COUNT = parsePositiveInteger(
-  process.env.E2E_SLOT_LOCK_COUNT ?? "16",
-  "E2E_SLOT_LOCK_COUNT",
-);
+const SLOT_COUNT = process.env.E2E_SLOT_LOCK_COUNT
+  ? parsePositiveInteger(process.env.E2E_SLOT_LOCK_COUNT, "E2E_SLOT_LOCK_COUNT")
+  : undefined;
 const CDP_PORT = parsePositiveInteger(
   process.env.E2E_AGENT_BROWSER_CDP_PORT ?? "9222",
   "E2E_AGENT_BROWSER_CDP_PORT",
@@ -157,7 +156,7 @@ Default behavior:
 Optional environment:
   E2E_SLOT_LOCK_STUDENT_USERNAME=20246001
   E2E_SLOT_LOCK_STUDENT_PASSWORD=StudentParallel!123
-  E2E_SLOT_LOCK_COUNT=16
+  E2E_SLOT_LOCK_COUNT=<optional backend slot override>
   E2E_SLOT_LOCK_HOLD_AFTER_429=1
   E2E_SLOT_LOCK_RECOVERY_RETRY=1
   E2E_PARALLEL_AUTO_PREPARE=0
@@ -178,7 +177,7 @@ Optional environment:
   console.log(`[slot-lock] frontend=${FRONTEND_ORIGIN}`);
   console.log(`[slot-lock] backend=${BACKEND_ORIGIN}`);
   console.log(`[slot-lock] student=${STUDENT_USERNAME}`);
-  console.log(`[slot-lock] slotCount=${SLOT_COUNT}`);
+  console.log(`[slot-lock] slotCount=${SLOT_COUNT ?? "backend-default"}`);
   console.log(`[slot-lock] cdpPort=${CDP_PORT}`);
   console.log(`[slot-lock] headless=${HEADLESS}`);
 

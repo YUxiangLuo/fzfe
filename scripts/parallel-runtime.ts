@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FE_DIR = path.resolve(__dirname, "..");
-const BE_DIR = path.resolve(FE_DIR, "..", "be");
+const BE_DIR = path.resolve(FE_DIR, "..", "fangzhen-be");
 const STARTUP_TIMEOUT_MS = 120_000;
 
 export type ParallelScenarioName = "start-only" | "training-burst" | "mixed-load";
