@@ -3,11 +3,18 @@ import {
   getStoredToken,
 } from "./session";
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL;
+const DEFAULT_BACKEND_PORT = "3001";
 
-if (!API_BASE_URL) {
-  throw new Error("VITE_API_URL is not defined. Please check your .env file.");
-}
+const getDefaultBackendOrigin = (): string => {
+  if (typeof window !== "undefined" && window.location.hostname) {
+    const protocol = window.location.protocol || "http:";
+    return `${protocol}//${window.location.hostname}:${DEFAULT_BACKEND_PORT}`;
+  }
+
+  return `http://localhost:${DEFAULT_BACKEND_PORT}`;
+};
+
+export const API_BASE_URL = import.meta.env.VITE_API_URL?.trim() || `${getDefaultBackendOrigin()}/api/v1`;
 
 const BASE_URL = API_BASE_URL;
 
@@ -75,8 +82,20 @@ const safeDecode = (value: string): string => {
   }
 };
 
+const createBaseUrl = (): URL => {
+  if (/^https?:\/\//i.test(BASE_URL)) {
+    return new URL(BASE_URL);
+  }
+
+  const origin = typeof window !== "undefined" && window.location.origin
+    ? window.location.origin
+    : "http://localhost";
+
+  return new URL(BASE_URL, `${origin.replace(/\/+$/, "")}/`);
+};
+
 const buildUrl = (endpoint: string): string => {
-  const base = new URL(BASE_URL);
+  const base = createBaseUrl();
   const [rawPath = "", ...queryParts] = endpoint.split("?");
   const rawQuery = queryParts.length > 0 ? queryParts.join("?") : "";
 

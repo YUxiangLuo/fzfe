@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import type { Swiper as SwiperType } from 'swiper';
@@ -34,9 +33,9 @@ const ScenarioIntroduction: React.FC = () => {
   const [viewedSlides, setViewedSlides] = useState<Set<number>>(new Set([0])); // 初始包含第一张
 
   const images = [
-    `${DOWNLOAD_SERVER_BASE_URL}/images/model1.png`,
-    `${DOWNLOAD_SERVER_BASE_URL}/images/model2.png`,
-    `${DOWNLOAD_SERVER_BASE_URL}/images/model3.png`,
+    '/images/model1.png',
+    '/images/model2.png',
+    '/images/model3.png',
   ];
 
   const handleSlideChange = (swiper: SwiperType) => {

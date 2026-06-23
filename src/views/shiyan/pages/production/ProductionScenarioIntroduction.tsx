@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { DOWNLOAD_SERVER_BASE_URL } from '../../../../config/appConfig';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import type { Swiper as SwiperType } from 'swiper';
@@ -35,8 +34,8 @@ const ProductionScenarioIntroduction: React.FC = () => {
 
 
   const images = [
-    `${DOWNLOAD_SERVER_BASE_URL}/images/plan1.png`,
-    `${DOWNLOAD_SERVER_BASE_URL}/images/plan2.png`,
+    '/images/plan1.png',
+    '/images/plan2.png',
   ];
 
   const handleSlideChange = (swiper: SwiperType) => {
