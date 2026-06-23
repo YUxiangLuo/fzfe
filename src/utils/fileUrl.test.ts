@@ -44,7 +44,7 @@ describe("resolveFileUrl", () => {
     );
   });
 
-  it("prefers VITE_DOWNLOAD_URL when it is configured", async () => {
+  it("uses the configured backend/download base for relative file paths", async () => {
     const { resolveFileUrl } = await loadFileUrlModule("https://files.example.com");
 
     expect(resolveFileUrl("reports/example.pdf")).toBe(

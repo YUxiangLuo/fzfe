@@ -5,11 +5,10 @@
  * In development, this is likely your backend server. In production, it could be a CDN or a different domain.
  */
 /**
- * Defaults to the origin derived from VITE_API_URL when not configured explicitly.
- * If neither VITE_DOWNLOAD_URL nor VITE_API_URL is configured, it falls back to
- * the backend service on the same host at port 3001. This matches the intranet
- * deployment where nginx serves only frontend files and the browser talks to the
- * backend directly.
+ * Defaults to the origin derived from VITE_API_URL when configured.
+ * If VITE_API_URL is not configured, it falls back to the backend service on the
+ * same host at port 3001. This matches the intranet deployment where nginx serves
+ * only frontend files and the browser talks to the backend directly.
  */
 const DEFAULT_BACKEND_PORT = "3001";
 
@@ -43,5 +42,4 @@ const getApiOrigin = (): string => {
   return getDefaultBackendOrigin();
 };
 
-export const DOWNLOAD_SERVER_BASE_URL =
-  import.meta.env.VITE_DOWNLOAD_URL?.trim() || getApiOrigin();
+export const DOWNLOAD_SERVER_BASE_URL = getApiOrigin();
