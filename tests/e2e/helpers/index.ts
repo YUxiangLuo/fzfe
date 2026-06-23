@@ -78,6 +78,43 @@ export function buildCsv(rows: string[][]): Buffer {
   return Buffer.from(rows.map((row) => row.join(",")).join("\n"), "utf8");
 }
 
+const GBK_CHAR_BYTES: Record<string, number[]> = {
+  姓: [0xd0, 0xd5],
+  名: [0xc3, 0xfb],
+  手: [0xca, 0xd6],
+  机: [0xbb, 0xfa],
+  号: [0xba, 0xc5],
+  学: [0xd1, 0xa7],
+  张: [0xd5, 0xc5],
+  三: [0xc8, 0xfd],
+  李: [0xc0, 0xee],
+  四: [0xcb, 0xc4],
+};
+
+/**
+ * Build a GBK/Excel-style CSV buffer for upload compatibility tests.
+ */
+export function buildWindowsExcelCsv(rows: string[][]): Buffer {
+  const bytes: number[] = [];
+  const csvText = rows.map((row) => row.join(",")).join("\n");
+
+  for (const char of csvText) {
+    const code = char.charCodeAt(0);
+    if (code <= 0x7f) {
+      bytes.push(code);
+      continue;
+    }
+
+    const mapped = GBK_CHAR_BYTES[char];
+    if (!mapped) {
+      throw new Error(`No GBK test mapping for character: ${char}`);
+    }
+    bytes.push(...mapped);
+  }
+
+  return Buffer.from(bytes);
+}
+
 export function buildCsvUploadPart(
   name: string,
   rows: string[][],

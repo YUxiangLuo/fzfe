@@ -20,6 +20,7 @@ import {
   makeLetters,
   makeStudentNo,
   buildCsv,
+  buildWindowsExcelCsv,
   // Navigation
   createManagedClassViaUi,
   getFirstManagedClassName,
@@ -238,6 +239,43 @@ test.describe("@teacher 班级管理", () => {
     await expect(classRow).toBeVisible();
 
     // Cleanup: delete the created class
+    const deleteModal = await openDeleteClassModal(classRow);
+    await deleteModal.getByRole("button", { name: /删\s*除/ }).click();
+    await expectSuccessMessage(page, SuccessMessages.classDeleted);
+  });
+
+  test("创建班级支持 Excel 保存的学生名单 CSV", async ({ page }) => {
+    await loginAsTeacher(page);
+    await openClassManagementPage(page);
+
+    const className = makeRunId("ExcelCSV班级");
+    const classCode = `EC${Date.now()}`;
+    const studentNo = makeStudentNo(41);
+    const studentName = `张三${studentNo.slice(-4)}`;
+
+    const createModal = await openCreateClassModal(page);
+    await fillClassForm(createModal, {
+      className,
+      classCode,
+      studentCsv: {
+        name: `excel-students-${Date.now()}.csv`,
+        mimeType: "application/vnd.ms-excel",
+        buffer: buildWindowsExcelCsv([
+          ["学号", "姓名"],
+          [studentNo, studentName],
+        ]),
+      },
+    });
+    await createModal.getByRole("button", { name: /创\s*建/ }).click();
+
+    await expectSuccessMessage(page, SuccessMessages.classCreated);
+    const resultModal = await getVisibleModal(page, "创建结果");
+    await expect(resultModal.getByText("新建学生数")).toBeVisible();
+    await resultModal.getByRole("button", { name: /确\s*定/ }).click();
+
+    const classRow = tableRowByText(page, className);
+    await expect(classRow).toBeVisible();
+
     const deleteModal = await openDeleteClassModal(classRow);
     await deleteModal.getByRole("button", { name: /删\s*除/ }).click();
     await expectSuccessMessage(page, SuccessMessages.classDeleted);

@@ -16,6 +16,7 @@ import {
   makeRunId,
   makePhone,
   buildCsv,
+  buildWindowsExcelCsv,
   // Navigation
   openTopLevelPage,
   // Locators
@@ -578,6 +579,46 @@ test.describe("@admin 用户管理", () => {
     });
     await confirmModal(batchModal);
 
+    await expectSuccessMessage(page, SuccessMessages.batchAssistantAdded);
+    await searchUsers(page, batchAssistantName);
+    await expect(tableRowByText(page, batchAssistantName)).toBeVisible();
+  });
+
+  test("批量导入支持 Excel 保存的 CSV", async ({ page }) => {
+    await loginAsAdmin(page);
+    await openTopLevelPage(page, "用户管理", "用户列表");
+
+    const batchTeacherName = `张三${makeRunId("T")}`;
+    const batchTeacherPhone = makePhone(30);
+    const batchAssistantName = `李四${makeRunId("A")}`;
+    const batchAssistantPhone = makePhone(31);
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.batchAddTeacherBtn }).first().click();
+    const teacherBatchModal = await getVisibleModal(page, ModalTitles.batchAddTeacher);
+    await teacherBatchModal.locator('input[type="file"]').setInputFiles({
+      name: "excel-teachers.csv",
+      mimeType: "application/vnd.ms-excel",
+      buffer: buildWindowsExcelCsv([
+        ["姓名", "手机号"],
+        [batchTeacherName, batchTeacherPhone],
+      ]),
+    });
+    await confirmModal(teacherBatchModal);
+    await expectSuccessMessage(page, SuccessMessages.batchTeacherAdded);
+    await searchUsers(page, batchTeacherName);
+    await expect(tableRowByText(page, batchTeacherName)).toBeVisible();
+
+    await page.locator("button").filter({ hasText: AdminUserSelectors.batchAddAssistantBtn }).first().click();
+    const assistantBatchModal = await getVisibleModal(page, ModalTitles.batchAddAssistant);
+    await assistantBatchModal.locator('input[type="file"]').setInputFiles({
+      name: "excel-assistants.csv",
+      mimeType: "application/vnd.ms-excel",
+      buffer: buildWindowsExcelCsv([
+        ["姓名", "手机号"],
+        [batchAssistantName, batchAssistantPhone],
+      ]),
+    });
+    await confirmModal(assistantBatchModal);
     await expectSuccessMessage(page, SuccessMessages.batchAssistantAdded);
     await searchUsers(page, batchAssistantName);
     await expect(tableRowByText(page, batchAssistantName)).toBeVisible();
