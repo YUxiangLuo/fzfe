@@ -75,12 +75,12 @@ const ClassManagement: React.FC = () => {
             ['20240002', '李四']
         ];
 
-        const csvContent = [
+        const csvContent = `\ufeff${[
             headers.join(','),
             ...examples.map(row => row.join(','))
-        ].join('\n');
+        ].join('\r\n')}\r\n`;
 
-        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         try {
             const link = document.createElement('a');
