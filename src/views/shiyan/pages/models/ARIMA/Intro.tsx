@@ -43,7 +43,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <Target className="w-5 h-5 text-purple-600" />
-              <p className="text-gray-800 font-medium"><strong>模型定阶:</strong> 借助自相关(ACF)和偏自相关(PACF)图，初步识别模型的可能形式，然后根据 AIC 等定阶准则选择最佳模型。</p>
+              <p className="text-gray-800 font-medium"><strong>模型定阶:</strong> 教科书通常借助自相关(ACF)、偏自相关(PACF)和信息准则识别模型阶数；本系统自动用 AIC/BIC 搜索 p 和 q。</p>
             </div>
           </div>
         </div>
@@ -55,7 +55,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <ClipboardCheck className="w-5 h-5 text-pink-600" />
-              <p className="text-gray-800 font-medium"><strong>参数估计与诊断:</strong> 检验模型参数的显著性、模型的有效性以及残差序列是否为白噪声。</p>
+              <p className="text-gray-800 font-medium"><strong>参数估计与检查:</strong> 拟合候选 ARIMA 模型，记录收敛状态、AIC/BIC 和验证集误差；完整残差白噪声诊断属于教科书扩展步骤。</p>
             </div>
           </div>
         </div>
@@ -71,6 +71,13 @@ const Intro: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
+        <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
+        <p className="text-gray-700 leading-relaxed text-base">
+          ARIMA 的教科书流程通常结合平稳性检验、ACF/PACF、信息准则和残差诊断。本系统由用户指定差分阶数 d，并自动用 AIC/BIC 搜索 p 和 q；训练后使用拟合模型直接生成多步 forecast，并由预测区间近似换算标准差。
+        </p>
       </div>
     </div>
   );

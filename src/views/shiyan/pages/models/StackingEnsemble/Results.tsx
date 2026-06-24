@@ -7,7 +7,16 @@ export interface ResultsProps {
   data: {
     predictions: { date: string; actual: number; predicted: number | null }[];
     metrics: { rmse: number; mae: number; r2: number };
-    meta_model: { intercept: number; coefficients: number[] };
+    meta_model?: {
+      kind?: string;
+      strategy?: string;
+      model_names?: string[];
+      weights?: number[];
+      raw_coefficients?: number[];
+      fallback_reason?: string;
+      condition_number?: number | null;
+      level1_mae?: number[];
+    };
   } | null;
   isLoading: boolean;
   error: string | null;

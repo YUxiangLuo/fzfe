@@ -36,6 +36,7 @@ interface EnsembleModel {
     description: string;
     keyIdea: string;
   };
+  implementationNotes?: string[];
   mathematics?: {
     description: string;
     formula: string;
@@ -79,27 +80,33 @@ const ensembleModels: EnsembleModel[] = [
     shortName: 'Weighted',
     icon: Scale,
     category: '模型融合方法',
-    summary: '加权平均融合根据各基础模型的预测性能分配权重，性能越好权重越高，最终预测是所有模型的加权组合。本系统采用方差倒数加权法。',
+    summary: '加权平均融合根据各基础模型的预测性能分配权重，性能越好权重越高，最终预测是所有模型的加权组合。本系统采用验证集残差MSE倒数加权法。',
     principle: {
-      description: '加权平均的核心思想是"让优秀的模型有更大发言权"。每个基础模型在验证集上都有不同的表现，我们根据其误差大小（方差）分配权重。方差越小（预测越稳定准确），权重越大。这样可以自动平衡各模型的优缺点，取长补短。',
-      keyIdea: '用数据驱动的方式自动确定各模型的重要性，而非简单平均或主观判断。本系统使用方差倒数加权。'
+      description: '加权平均的核心思想是"让优秀的模型有更大发言权"。每个基础模型在验证集上都有不同表现，我们根据其预测误差大小分配权重。误差越小，权重越大。这样可以自动平衡各模型的优缺点，取长补短。',
+      keyIdea: '用数据驱动的方式自动确定各模型的重要性，而非简单平均或主观判断。本系统使用验证集残差均方误差的倒数加权。'
     },
+    implementationNotes: [
+      '教科书组合预测常用逆方差或误差方差-协方差思想分配权重，核心思想是误差越稳定、越小的模型权重越高。',
+      '本系统按时间顺序留出一段验证集，计算每个基础模型的残差均方误差（MSE），并按其倒数归一化为权重。',
+      'MSE 可以同时惩罚系统性高估或低估和残差波动；在预测误差近似无偏时，它与方差口径一致。'
+    ],
     mathematics: {
-      description: '方差倒数加权的计算公式：',
-      formula: 'w_i = (1/σ²_i) / Σ(1/σ²_j)\nŷ = Σ(w_i · ŷ_i)',
+      description: '验证残差MSE倒数加权的计算公式：',
+      formula: 'MSE_i = (1/n)Σ(y_t - ŷ_{i,t})²\nw_i = [1/(MSE_i + ε)] / Σ[1/(MSE_j + ε)]\nŷ = Σ(w_i · ŷ_i)',
       variables: [
         { symbol: 'w_i', meaning: '模型i的权重' },
-        { symbol: 'σ²_i', meaning: '模型i在验证集上的预测方差' },
+        { symbol: 'MSE_i', meaning: '模型i在验证集上的残差均方误差' },
+        { symbol: 'ε', meaning: '防止除以0的极小常数' },
         { symbol: 'ŷ_i', meaning: '模型i的预测值' },
         { symbol: 'ŷ', meaning: '最终融合预测值' }
       ],
-      example: '假设3个模型方差为：0.01, 0.04, 0.09，则权重为：100/(100+25+11.1)≈0.73, 0.18, 0.09。方差最小的模型获得73%的权重。'
+      example: '假设3个模型验证残差MSE为：100, 200, 400，则倒数归一化后权重约为0.57, 0.29, 0.14。误差最小的模型获得更高权重。'
     },
     workflow: {
       steps: [
         { title: '训练基础模型', description: '分别训练多个不同的基础模型（如MA、ES、ARIMA、LSTM）。', tip: '模型越多样化，融合效果通常越好' },
-        { title: '验证集评估', description: '在独立的验证集上评估每个模型，计算其预测误差的方差。', tip: '验证集必须未用于训练，避免权重过拟合' },
-        { title: '计算权重', description: '根据方差倒数公式计算每个模型的权重，方差小的模型获得更高权重。', tip: '权重之和为1' },
+        { title: '验证集评估', description: '在独立的验证集上评估每个模型，计算其预测残差MSE。', tip: '验证集必须未用于训练，避免权重过拟合' },
+        { title: '计算权重', description: '根据误差倒数公式计算每个模型的权重，误差小的模型获得更高权重。', tip: '权重之和为1' },
         { title: '加权融合', description: '对于新的预测任务，用计算好的权重对各模型预测进行加权求和。', tip: '权重固定后可快速预测' }
       ]
     },
@@ -109,14 +116,14 @@ const ensembleModels: EnsembleModel[] = [
       notSuitable: ['只有一个基础模型', '所有模型高度相关（预测几乎相同）', '需要捕捉模型间复杂交互', '验证集数据不足', '基础模型都表现很差']
     },
     useCases: [
-      { industry: '零售', scenario: '销量预测融合', description: '超市综合MA、ES、ARIMA三个模型预测周销量。ARIMA方差最小（100件²），权重60%；ES次之（200件²），权重30%；MA最大（300件²），权重10%。融合后RMSE降低15%。' },
-      { industry: '气象', scenario: '多模式天气预报', description: '气象台融合欧洲、美国、日本三个数值预报模型。根据各模型历史准确率（方差倒数）加权，生成本地化预报，准确率优于任何单一模型。' }
+      { industry: '零售', scenario: '销量预测融合', description: '超市综合MA、ES、ARIMA三个模型预测周销量。ARIMA验证误差最小，权重最高；ES次之；MA最低。融合后RMSE降低。' },
+      { industry: '气象', scenario: '多模式天气预报', description: '气象台融合多个数值预报模型。根据各模型历史误差倒数加权，生成本地化预报，准确率优于任何单一模型。' }
     ],
     pros: [
       { title: '简单高效', description: '实现容易，计算快速，无额外训练成本' },
       { title: '直观可解释', description: '权重有明确含义，可理解各模型贡献' },
       { title: '稳健性强', description: '分散单一模型风险，预测更可靠' },
-      { title: '方差最优', description: '方差倒数加权在线性组合中理论上最优（最小方差）' }
+      { title: '误差驱动', description: '权重直接来自验证集预测误差，便于解释和复核' }
     ],
     cons: [
       { title: '线性限制', description: '只是简单加权，无法学习模型间非线性关系' },
@@ -128,7 +135,7 @@ const ensembleModels: EnsembleModel[] = [
     performance: {
       speed: { level: 'high', description: '仅需一次验证评估，预测极快' },
       accuracy: { level: 'medium', description: '通常优于单一模型，但不如复杂融合' },
-      dataRequirement: { level: 'medium', description: '需要足够验证集评估方差' },
+      dataRequirement: { level: 'medium', description: '需要足够验证集评估误差' },
       complexity: { level: 'low', description: '实现和理解都很简单' }
     }
   },
@@ -143,6 +150,12 @@ const ensembleModels: EnsembleModel[] = [
       description: 'Boosting的核心是"从错误中学习"。传统的AdaBoost通过调整样本权重来关注错误，但ARIMA等时序模型通常不支持样本权重。因此，本系统采用"基于残差的贪心Boosting"：算法首先训练一个基模型预测原始数据。随后的每一轮，系统都会遍历模型库中所有可用模型，评估它们拟合当前残差的效果，并"贪心"地选择表现最好的那个加入链条。',
       keyIdea: '贪心策略 + 残差学习。每一步都选择当前最优的异构模型（如ARIMA或LSTM）来修正前一步的错误。'
     },
+    implementationNotes: [
+      '教科书 Boosting 的核心是串行叠加弱学习器，使后续学习器修正前序误差。',
+      '梯度提升在平方误差损失下等价于逐步拟合残差；本系统借鉴这一思想，但候选学习器是 MA、ES、ARIMA、LSTM 等时间序列模型。',
+      'AdaBoost 使用样本权重实现错误关注；本系统的基础模型不支持样本权重，因此采用残差学习的加法模型。',
+      '每一轮会在候选模型中选择最能降低验证残差RMSE的模型，并用学习率控制新增阶段贡献。'
+    ],
     mathematics: {
       description: '基于残差学习的加法模型公式：',
       formula: 'F_m(x) = F_{m-1}(x) + η·h_m(x)\n其中 h_m = argmin(Loss(y - F_{m-1}, h))',
@@ -174,12 +187,12 @@ const ensembleModels: EnsembleModel[] = [
     },
     useCases: [
       { industry: '金融', scenario: '股价波动预测', description: '使用ARIMA捕捉长期趋势，再用LSTM捕捉ARIMA遗漏的高频非线性波动残差，组合预测精度显著提升。' },
-      { industry: '零售', scenario: '复杂销量预测', description: '先用ES（指数平滑）处理季节性，再用Boosting串联一个回归树模型去拟合促销带来的突发销量残差。' },
+      { industry: '零售', scenario: '复杂销量预测', description: '先用ES或ARIMA捕捉基础水平和线性结构，再用LSTM等候选模型拟合促销带来的非线性残差。' },
       { industry: '能源', scenario: '电力负荷预测', description: '基础模型预测日常负荷曲线，Boosting引入气象敏感模型专门修正极端天气下的负荷偏差。' }
     ],
     pros: [
       { title: '异构互补', description: '能结合线性、非线性等不同模型的长处' },
-      { title: '精度极高', description: '通过针对性地修正误差，通常能达到最高精度' },
+      { title: '误差修正', description: '通过针对性地修正验证残差，常能提升单模型表现' },
       { title: '适应性强', description: '自动根据数据特点选择最适合修正残差的模型' },
       { title: '灵活扩展', description: '可以随时加入新的模型类型作为基学习器' }
     ],
@@ -192,7 +205,7 @@ const ensembleModels: EnsembleModel[] = [
     bestPractices: ['基模型应包含多种类型（如ARIMA+LSTM）以实现优势互补', '学习率设置保守一些（如0.3），避免步子太大错过最优解', '关注验证集误差，一旦验证集误差上升立即停止（Early Stopping）', '对于噪声很大的数据，限制迭代轮数'],
     performance: {
       speed: { level: 'low', description: '串行且每轮需训练多个候选模型，速度较慢' },
-      accuracy: { level: 'high', description: '异构互补通常能获得SOTA级别的精度' },
+      accuracy: { level: 'high', description: '异构互补通常能提升精度，但仍依赖验证集和残差质量' },
       dataRequirement: { level: 'medium', description: '需要足够的数据来划分验证集以评估残差' },
       complexity: { level: 'high', description: '系统内部逻辑复杂，但对外表现为自动优化' }
     }
@@ -203,33 +216,38 @@ const ensembleModels: EnsembleModel[] = [
     shortName: 'Stacking',
     icon: Layers,
     category: '模型融合方法',
-    summary: 'Stacking（堆叠法）构建多层学习架构：第一层多个异构模型各自预测，第二层元模型学习如何最优组合这些预测。本系统采用严谨的Hold-out验证策略防止数据泄露，并使用非负线性回归作为元模型。',
+    summary: 'Stacking（堆叠法）构建多层学习架构：第一层多个异构模型各自预测，第二层元模型学习如何组合这些预测。本系统采用时间顺序Hold-out策略防止数据泄露，并使用非负线性权重作为元模型。',
     principle: {
-      description: 'Stacking的哲学是"让模型教模型"。不同模型有不同的视角和偏好——ARIMA擅长捕捉线性趋势，LSTM擅长非线性模式。Stacking不是简单平均它们的预测，而是训练一个元模型（Meta-Learner）去学习：在什么情况下更相信哪个模型。为了防止"作弊"，元模型的训练数据必须是基础模型从未见过的（Out-of-Fold）预测值。',
-      keyIdea: '用机器学习的方式学习如何做机器学习融合。本系统自动划分Level-0和Level-1数据集，确保元模型学到的是泛化能力而非记忆。'
+      description: 'Stacking的哲学是"让模型教模型"。不同模型有不同的视角和偏好——ARIMA擅长捕捉线性趋势，LSTM擅长非线性模式。Stacking不是简单平均它们的预测，而是训练一个元模型去学习如何组合基础模型输出。为了保持时间序列的因果顺序，元模型使用基础模型对后段留出数据的预测进行训练。',
+      keyIdea: '用机器学习的方式学习如何做机器学习融合。本系统自动划分Level-0和Level-1时间段，让元模型基于未参与基础模型训练的预测来学习组合权重。'
     },
+    implementationNotes: [
+      '常见 Stacking 实现会用交叉验证预测训练元模型；时间序列数据不能随意打乱做普通K折。',
+      '本系统按时间顺序划分 Level-0 和 Level-1：基础模型在前段训练，对后段预测，元模型再学习组合。',
+      '元模型使用非负线性回归且无截距，系数归一化为权重；样本不足或共线性严重时回退为 inverse-MAE 权重。'
+    ],
     mathematics: {
-      description: '两层堆叠结构（Meta-Model采用非负线性回归）：',
-      formula: '第一层: z_{i} = M_{i}(X)  (i=1...n)\n第二层: ŷ = w_0 + Σ(w_i · z_i),  w_i ≥ 0',
+      description: '两层堆叠结构（Meta-Model采用非负线性权重）：',
+      formula: '第一层: z_i = M_i(X)  (i=1...n)\n第二层: ŷ = Σ(w_i · z_i),  w_i ≥ 0, Σw_i = 1',
       variables: [
         { symbol: 'M_{i}', meaning: '第i个基础模型（MA, ARIMA, LSTM等）' },
         { symbol: 'z_{i}', meaning: '基础模型的预测输出（作为第二层的特征）' },
         { symbol: 'w_i', meaning: '元模型学到的组合权重' },
         { symbol: 'w_i ≥ 0', meaning: '约束权重非负，保证组合逻辑稳定可解释' }
       ],
-      example: 'ARIMA预测100，LSTM预测110。元模型发现LSTM在类似情况下更准，给予0.8权重，ARIMA给0.2。最终预测 = 0.2×100 + 0.8×110 + 截距。'
+      example: 'ARIMA预测100，LSTM预测110。元模型发现LSTM在类似情况下更准，给予0.8权重，ARIMA给0.2。最终预测 = 0.2×100 + 0.8×110 = 108。'
     },
     workflow: {
       steps: [
         { title: '数据划分', description: '将训练数据划分为Level-0（约80%）和Level-1（约20%）两部分。', tip: '防止元模型直接记住训练数据（数据泄露）' },
         { title: 'Level-1预测', description: '用Level-0数据训练所有基础模型，并让它们对Level-1数据进行预测。', tip: '这些预测值构成了元模型的训练特征' },
-        { title: '训练元模型', description: '以Level-1的真实值为目标，训练一个线性回归模型来组合基础模型的预测。', tip: '学习如何分配权重以最小化误差' },
+        { title: '训练元模型', description: '以Level-1的真实值为目标，训练非负无截距线性模型，并把系数归一化为组合权重。', tip: '学习如何分配权重以最小化误差' },
         { title: '全局重训练', description: '使用全部训练数据重新训练所有基础模型，用于最终的实际预测。', tip: '最大化基础模型的利用率' }
       ]
     },
     parameters: [
       { name: '基础模型组合', description: '选择参与第一层的异构模型', impact: '模型越多样（统计+深度学习），Stacking效果越好', typical: '建议至少包含ARIMA和LSTM' },
-      { name: '元模型类型', description: '第二层融合模型的算法', impact: '本系统固定使用非负线性回归', typical: 'LinearRegression(positive=True)' },
+      { name: '元模型类型', description: '第二层融合模型的算法', impact: '本系统固定使用非负无截距线性回归，并归一化为权重', typical: 'LinearRegression(positive=True, fit_intercept=false)' },
       { name: '划分比例', description: 'Level-0/Level-1的分割点', impact: 'Level-1太少会导致元模型过拟合', typical: '系统自动设定（通常80/20）' }
     ],
     suitability: {
@@ -237,12 +255,12 @@ const ensembleModels: EnsembleModel[] = [
       notSuitable: ['数据量很小（<15个数据点）', '只有一两个基础模型', '基础模型预测结果高度相关', '需要快速训练']
     },
     useCases: [
-      { industry: 'Kaggle竞赛', scenario: '房价预测', description: '冠军方案通常是3-4层的Stacking。本系统简化为2层，但保留了核心的Out-of-Fold训练机制，能有效提升单模型无法突破的精度瓶颈。' },
+      { industry: 'Kaggle竞赛', scenario: '房价预测', description: '竞赛方案常用Stacking突破单模型上限。本系统简化为2层，并针对时间序列使用顺序留出训练机制，避免销量预测中的时间泄漏。' },
       { industry: '工业', scenario: '传感器融合', description: '融合振动传感器（高频）和温度传感器（低频）的预测模型。Stacking能自动学习不同工况下应该侧重哪个传感器的数据。' },
       { industry: '量化交易', scenario: '多因子策略', description: '将基于动量的模型和基于价值的模型通过Stacking结合，根据近期市场风格自动调整权重。' }
     ],
     pros: [
-      { title: '性能天花板', description: '通常能达到单一融合方法的最高精度' },
+      { title: '精度潜力', description: '在基础模型互补且验证集充足时，通常有较高精度潜力' },
       { title: '纠错能力', description: '元模型能学会忽略某些表现糟糕的模型' },
       { title: '防过拟合', description: '严格的Hold-out划分机制减少了过拟合风险' },
       { title: '自动权重', description: '比人工指定权重的加权平均更科学' }
@@ -379,6 +397,23 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
             <p className="text-purple-800 font-medium italic">{activeModel.principle.keyIdea}</p>
           </div>
         </div>
+
+        {activeModel.implementationNotes && (
+          <div className="bg-sky-50 border border-sky-200 rounded-lg p-5 shadow-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <Info className="w-5 h-5 text-sky-600" />
+              <h4 className="text-lg font-semibold text-sky-800">本系统实现说明</h4>
+            </div>
+            <ul className="space-y-2">
+              {activeModel.implementationNotes.map((note, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-sky-900">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-500 flex-shrink-0" />
+                  <span>{note}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Mathematics */}
         {activeModel.mathematics && (

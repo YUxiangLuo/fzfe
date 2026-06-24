@@ -85,6 +85,30 @@ describe("modelLifecycle", () => {
     });
   });
 
+  it("preserves prediction method metadata from the backend", async () => {
+    const { predictWithBestModel } = await loadModelLifecycle();
+    apiPost
+      .mockResolvedValueOnce({ status: "success", results: { saved_model: "model.pkl" } })
+      .mockResolvedValueOnce({
+        status: "success",
+        results: {
+          predictions: [{ prediction: 101.2, std_dev: 3.4 }],
+          method_name: "递推移动平均",
+          forecast_strategy: "recursive_roll_forward",
+          implementation_notes: ["训练后使用拟合模型递推预测未来销量。"],
+        },
+      });
+
+    const result = await predictWithBestModel("ma", 7, 6);
+
+    expect(result.results).toMatchObject({
+      predictions: [{ prediction: 101.2, std_dev: 3.4 }],
+      method_name: "递推移动平均",
+      forecast_strategy: "recursive_roll_forward",
+      implementation_notes: ["训练后使用拟合模型递推预测未来销量。"],
+    });
+  });
+
   it("rejects unmapped best model identifiers", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
 

@@ -18,7 +18,7 @@ const LSTMMethodInfo: React.FC = () => {
 
       <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-purple-200 shadow-sm">
         <p className="text-gray-800 leading-relaxed text-base">
-          定义<strong>模型架构</strong>时，需要确定输入特征的数量（如日期数值、销售金额、销售数量和价格，共 4 个特征），LSTM 层数（如 3 层）和每层的隐藏单元数（如 288 个），以及输出特征的数量（如 1 个）。模型中还需要设置全连接层以处理 LSTM 层的输出。
+          定义<strong>模型架构</strong>时，需要确定输入特征数量、LSTM 层数、隐藏单元数以及输出步数。本系统使用两层 LSTM 加全连接层，隐藏单元数会根据训练样本量和编码后的特征数量动态确定。
         </p>
       </div>
 
@@ -27,7 +27,13 @@ const LSTMMethodInfo: React.FC = () => {
           使用<strong>均方误差（MSE）</strong>作为损失函数，<strong>Adam 优化器</strong>进行参数优化。
         </p>
         <p className="text-gray-800 leading-relaxed text-base">
-          <strong>训练参数</strong>包括最大训练轮数（如 20 轮）、批量大小（如 6）、初始学习率（如 0.01）和学习率衰减率（如 0.99）。
+          <strong>训练参数</strong>包括最大训练轮数（如 20 轮）、动态批量大小、初始学习率（0.001）和学习率衰减率（0.98）。
+        </p>
+      </div>
+
+      <div className="p-6 bg-gradient-to-br from-sky-50 to-blue-50 rounded-lg border border-sky-200 shadow-sm">
+        <p className="text-gray-800 leading-relaxed text-base">
+          <strong>本系统实现说明：</strong>训练评估阶段默认采用直接多步预测，一次输出整个评估区间的销量预测；当生产重训数据不足以支持直接多步输出时，系统会回退为一步预测并递归生成未来多期。
         </p>
       </div>
 

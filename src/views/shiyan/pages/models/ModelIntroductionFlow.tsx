@@ -37,6 +37,7 @@ interface Model {
     description: string;
     keyIdea: string;
   };
+  implementationNotes?: string[];
   mathematics?: {
     description: string;
     formula: string;
@@ -85,6 +86,10 @@ const baseModels: Model[] = [
       description: '移动平均法的核心思想是"平滑"。它假设时间序列由趋势、季节性和随机波动组成，通过对一定时间窗口内的数据求平均，可以有效地过滤掉短期的随机波动，从而更清晰地看到数据的整体趋势。',
       keyIdea: '用历史数据的平均值代表当前的"真实水平"，并以此作为未来的预测值。'
     },
+    implementationNotes: [
+      '教科书移动平均通常先定义为下一期预测：用最近n期实际值的平均数预测下一期。',
+      '本系统为了预测未来多期销量，会将每一期预测值滚入窗口继续递推，整个评估过程不使用评估集真实值作为下一步输入。'
+    ],
     mathematics: {
       description: '移动平均法的计算公式非常简单直观：',
       formula: 'MA(t) = (X(t-n+1) + X(t-n+2) + ... + X(t)) / n',
@@ -99,13 +104,13 @@ const baseModels: Model[] = [
       steps: [
         { title: '确定窗口大小', description: '根据数据特点选择合适的n值。n越大平滑效果越强，但反应越慢。', tip: '常见选择：3期、5期、7期或12期' },
         { title: '计算移动平均', description: '从第n个数据点开始，每次取最近n个数据点计算平均值。', tip: '滑动窗口随时间向前移动' },
-        { title: '生成预测', description: '最后一个窗口的平均值即为下一期的预测值。', tip: '通常只预测下一期' }
+        { title: '生成预测', description: '最后一个窗口的平均值先作为下一期预测；需要多期预测时，再把预测值滚入窗口继续计算。', tip: '本系统使用递推方式服务未来销量预测' }
       ]
     },
     parameters: [{ name: '窗口大小 (n)', description: '用于计算平均值的历史数据点数量', impact: '窗口越大越平滑但滞后越严重；窗口越小反应越快但易受噪声影响', typical: '3-12期，取决于数据波动性' }],
     suitability: {
-      suitable: ['数据相对平稳，无明显趋势', '短期波动较大，需要平滑处理', '只需预测下一期（短期预测）', '数据量较小', '需要快速简单的预测方法'],
-      notSuitable: ['数据有明显上升或下降趋势', '存在明显季节性模式', '需要长期预测（多期）', '数据发生结构性变化', '对预测精度要求很高']
+      suitable: ['数据相对平稳，无明显趋势', '短期波动较大，需要平滑处理', '需要快速的短期销量预测', '数据量较小', '需要快速简单的预测方法'],
+      notSuitable: ['数据有明显上升或下降趋势', '存在明显季节性模式', '需要较长周期的高精度预测', '数据发生结构性变化', '对预测精度要求很高']
     },
     useCases: [
       { industry: '零售业', scenario: '日常商品库存预测', description: '便利店使用7天移动平均预测牛奶日销量，决定每日进货量。销量相对稳定，简单方法即可满足。' },
@@ -121,9 +126,9 @@ const baseModels: Model[] = [
       { title: '无法捕捉趋势', description: '对趋势数据预测会滞后于实际值' },
       { title: '不能处理季节性', description: '无法识别周期性波动模式' },
       { title: '窗口选择困难', description: 'n值影响大但无统一标准，需试错' },
-      { title: '仅适合短期', description: '只能预测下一期，无法多期预测' }
+      { title: '长期能力弱', description: '多期递推会快速趋于平滑水平，难以刻画趋势和季节变化' }
     ],
-    bestPractices: ['尝试多个n值，选择历史误差最小的', '考虑业务周期，如数据有周周期性可用7期', '数据模式变化时及时调整或换方法', '可作为评估复杂模型的基准'],
+    bestPractices: ['尝试多个n值，选择历史误差最小的', '考虑业务周期，如数据有周周期性可用7期', '多步预测时关注递推后的平滑偏差', '数据模式变化时及时调整或换方法', '可作为评估复杂模型的基准'],
     performance: {
       speed: { level: 'high', description: '计算极快，适合实时' },
       accuracy: { level: 'low-medium', description: '平稳数据尚可，趋势数据较差' },
@@ -137,11 +142,16 @@ const baseModels: Model[] = [
     shortName: 'ES',
     icon: ChartSpline,
     category: '传统统计方法',
-    summary: '指数平滑法是一种加权移动平均方法，赋予近期数据更高权重，权重随时间呈指数级递减，能够灵敏地跟踪数据变化。',
+    summary: '指数平滑法是一种加权移动平均方法，赋予近期数据更高权重，权重随时间呈指数级递减；本系统实现的一次指数平滑适合水平型短期销量预测。',
     principle: {
       description: '与移动平均法平等对待所有历史数据不同，指数平滑法认为"最近的数据更重要"。它对历史观测值分配递减的权重，越近期的数据权重越大，越久远的数据权重越小，权重衰减遵循指数函数。',
-      keyIdea: '用加权平均的方式，让模型既能记住历史趋势，又能快速响应新变化。'
+      keyIdea: '用加权平均的方式估计当前水平，让模型既利用历史信息，又能响应新变化。'
     },
+    implementationNotes: [
+      '本系统实现的是一次指数平滑，也就是教科书中的基础指数平滑模型。',
+      '系统要求平滑系数满足 0 < α ≤ 1；α=0不会引入新观测值，因此不作为可选参数。',
+      '一次指数平滑的多期未来销量预测为水平外推；趋势和季节性需要 Holt 或 Holt-Winters 扩展，本模型未启用这些扩展。'
+    ],
     mathematics: {
       description: '指数平滑的基本公式非常简洁：',
       formula: 'S(t) = α·X(t) + (1-α)·S(t-1)',
@@ -149,7 +159,7 @@ const baseModels: Model[] = [
         { symbol: 'S(t)', meaning: 't时刻的平滑值（预测值）' },
         { symbol: 'X(t)', meaning: 't时刻的实际观测值' },
         { symbol: 'S(t-1)', meaning: 't-1时刻的平滑值' },
-        { symbol: 'α', meaning: '平滑系数，取值范围0-1' }
+        { symbol: 'α', meaning: '平滑系数，本系统取值范围为0 < α ≤ 1' }
       ],
       example: '若α=0.3，上期平滑值100，本期实际值120，则新平滑值 = 0.3×120 + 0.7×100 = 106'
     },
@@ -158,13 +168,13 @@ const baseModels: Model[] = [
         { title: '选择平滑系数α', description: 'α决定模型对新数据的敏感度。α越大反应越快，α越小越平滑。', tip: '通常选择0.1-0.3，可通过历史数据优化' },
         { title: '初始化平滑值', description: '第一个平滑值可以设为第一个观测值，或前几个数据的平均值。', tip: '初始值影响较小，几期后会被"遗忘"' },
         { title: '递推计算', description: '从第二期开始，用公式逐期计算平滑值，每个新值都融合了全部历史信息。', tip: '只需存储上一期平滑值，内存开销极小' },
-        { title: '生成预测', description: '最新的平滑值即为下一期的预测值（单次指数平滑）。', tip: '更复杂的变体可预测多期' }
+        { title: '生成预测', description: '最新的平滑值即为下一期预测；多期预测时，一次指数平滑保持该水平向未来外推。', tip: '趋势和季节性要使用扩展模型' }
       ]
     },
     parameters: [{ name: '平滑系数 α (alpha)', description: '控制新旧数据的权重分配，是模型的核心参数', impact: 'α接近1时模型几乎只看最新数据，反应敏捷但易受噪声影响；α接近0时模型变化缓慢，平滑但滞后', typical: '0.1-0.3（平稳数据），0.3-0.5（波动数据），可用网格搜索优化' }],
     suitability: {
-      suitable: ['数据有缓慢变化的趋势', '需要快速响应最新变化', '历史数据量有限或存储受限', '需要实时更新预测', '数据相对平稳但非完全随机'],
-      notSuitable: ['数据有强烈季节性周期', '存在结构性断点或突变', '需要捕捉复杂非线性关系', '数据中噪声过大', '需要长期（多期）预测']
+      suitable: ['数据无明显趋势或季节性', '需要快速响应最新水平变化', '历史数据量有限或存储受限', '需要实时更新短期预测', '数据相对平稳但非完全随机'],
+      notSuitable: ['数据有强烈季节性周期', '存在结构性断点或突变', '需要捕捉复杂非线性关系', '数据中噪声过大', '需要显式建模长期趋势或季节性']
     },
     useCases: [
       { industry: '电商', scenario: '日销量短期预测', description: '电商平台用指数平滑预测明日销量，α=0.2。能快速捕捉促销活动带来的销量变化，同时过滤随机波动。' },
@@ -180,13 +190,13 @@ const baseModels: Model[] = [
     cons: [
       { title: '参数敏感', description: 'α的选择对结果影响很大，需要仔细调优' },
       { title: '基础版局限', description: '单次指数平滑无法处理趋势和季节性' },
-      { title: '仍有滞后', description: '虽比移动平均好，但预测仍会滞后于实际拐点' },
+      { title: '水平外推', description: '多步预测保持同一水平，遇到趋势拐点会滞后' },
       { title: '缺乏解释性', description: '难以分解出数据的内在结构成分' }
     ],
-    bestPractices: ['使用交叉验证选择最优α值，而非主观猜测', '数据有趋势时使用双次或三次指数平滑（Holt方法）', '数据有季节性时使用Holt-Winters方法', '定期重新评估α，数据特性变化时及时调整', '可与其他方法组合，如ARIMA+指数平滑'],
+    bestPractices: ['使用时间顺序留出验证选择合适α值，而非主观猜测', '数据有趋势时使用双次或三次指数平滑（Holt方法）', '数据有季节性时使用Holt-Winters方法', '定期重新评估α，数据特性变化时及时调整', '可与其他方法组合，如ARIMA+指数平滑'],
     performance: {
       speed: { level: 'high', description: '计算极快，适合实时系统' },
-      accuracy: { level: 'medium', description: '平稳趋势数据表现良好，复杂模式较差' },
+      accuracy: { level: 'medium', description: '水平型数据表现良好，复杂趋势或季节模式较差' },
       dataRequirement: { level: 'low', description: '少量历史数据即可运行' },
       complexity: { level: 'low', description: '实现简单，易于维护' }
     }
@@ -202,6 +212,11 @@ const baseModels: Model[] = [
       description: 'ARIMA通过三个核心组件建模：AR（自回归）利用历史值预测未来；I（差分）将非平稳序列转化为平稳序列；MA（移动平均）利用历史预测误差修正当前预测。本系统引入了智能定阶机制，针对小样本数据（<30个点）优先采用BIC准则以防止过拟合，对大样本则兼顾AIC准则以提升精度。',
       keyIdea: '将非平稳序列平稳化，然后自动搜索最优的线性方程来刻画数据规律。'
     },
+    implementationNotes: [
+      '教科书 ARIMA 通常通过平稳性检验、ACF/PACF 图和信息准则共同确定 p、d、q。',
+      '本系统由用户指定差分阶数 d，并用 AIC/BIC 自动搜索 p 和 q，以降低课堂操作复杂度并控制小样本过拟合。',
+      '预测未来销量时使用拟合后的 ARIMA 模型直接生成多步 forecast，并返回由置信区间换算的标准差。'
+    ],
     mathematics: {
       description: 'ARIMA(p,d,q)模型方程：',
       formula: '(1 - ΣφᵢBⁱ)(1-B)ᵈ yₜ = c + (1 + ΣθᵢBⁱ)εₜ\n目标：min(AIC = 2k - 2ln(L))',
@@ -262,11 +277,16 @@ const baseModels: Model[] = [
     shortName: 'LSTM',
     icon: BrainCircuit,
     category: '深度学习方法',
-    summary: 'LSTM（长短期记忆网络）是一种特殊的循环神经网络，本系统采用3层堆叠架构（每层288个单元），支持多变量输入和类别特征自动编码，能捕捉复杂非线性和长期依赖。',
+    summary: 'LSTM（长短期记忆网络）是一种特殊的循环神经网络，依靠门控机制捕捉时间序列的长期依赖。本系统支持多变量输入和类别特征自动编码，用于学习复杂非线性的销量变化。',
     principle: {
       description: 'LSTM的核心是"记忆细胞"和门控机制（遗忘门、输入门、输出门），能够自主决定记住或忘记历史信息。本系统特别实现了混合特征处理：对数值特征进行归一化（MinMax/Z-Score），对类别特征进行One-Hot编码，然后输入到深层网络中学习。',
-      keyIdea: '通过多层堆叠的门控机制，从多变量历史数据中提取深层特征，并采用递归策略进行多步预测。'
+      keyIdea: '通过门控循环网络从多变量历史数据中提取时序特征，并面向未来销量预测输出多步结果。'
     },
+    implementationNotes: [
+      '教科书定义关注 LSTM 单元的门控结构；层数和隐藏单元数属于工程实现选择。',
+      '本系统使用两层 LSTM 加 Dense 输出层，隐藏单元数会按输入维度和样本量动态选择，不是固定的大型堆叠结构。',
+      '默认训练为直接多步预测模型，一次输出整个评估 horizon；只有生产重训数据不足时才回退为一步递归预测。'
+    ],
     mathematics: {
       description: 'LSTM的核心方程组（简化版）：',
       formula: 'f_t = σ(W_f·[h_{t-1}, x_t] + b_f)\ni_t = σ(W_i·[h_{t-1}, x_t] + b_i)\nC_t = f_t * C_{t-1} + i_t * tanh(W_C·[h_{t-1}, x_t] + b_C)',
@@ -282,8 +302,8 @@ const baseModels: Model[] = [
       steps: [
         { title: '特征工程', description: '自动识别特征类型。数值特征进行标准化/归一化，类别特征进行One-Hot编码。', tip: '支持多变量输入，自动处理混合数据' },
         { title: '序列构造', description: '基于Lookback窗口将时间序列转换为监督学习样本(X, Y)。', tip: 'X形如(样本数, 窗口长, 特征数)' },
-        { title: '深度建模', description: '构建3层堆叠LSTM网络（每层288单元），使用Adam优化器和学习率衰减策略进行训练。', tip: '深层网络能捕捉更抽象的模式' },
-        { title: '递归预测', description: '对于未来多步预测，采用递归策略：将当前预测值作为下一步的输入。', tip: '允许预测任意长度的未来序列' }
+        { title: '深度建模', description: '构建两层LSTM网络和Dense输出层，使用Adam优化器、学习率衰减和早停策略进行训练。', tip: '隐藏单元数会根据数据规模动态确定' },
+        { title: '多步预测', description: '默认直接输出未来多个时间步的销量预测，减少递归预测的误差累积。', tip: '数据不足时系统会回退为一步递归预测' }
       ]
     },
     parameters: [
@@ -297,22 +317,22 @@ const baseModels: Model[] = [
     },
     useCases: [
       { industry: '零售', scenario: '多维销量预测', description: '结合历史销量（数值）和促销类型（类别），预测未来一周销量。One-Hot编码让模型理解了"大促"与"日常"的区别。' },
-      { industry: '能源', scenario: '负荷预测', description: '输入温度、湿度和历史负荷，3层LSTM捕捉了气象因素对电力负荷的非线性影响延迟。' },
+      { industry: '能源', scenario: '负荷预测', description: '输入温度、湿度和历史负荷，LSTM捕捉气象因素对电力负荷的非线性影响延迟。' },
       { industry: '交通', scenario: '流量预测', description: '利用过去24小时流量预测未来1小时。深层架构有效记住了早晚高峰的周期性特征。' }
     ],
     pros: [
       { title: '混合特征支持', description: '原生支持数值和类别特征的混合输入' },
-      { title: '深层表达力', description: '3层288单元架构，容量大，拟合能力强' },
+      { title: '非线性表达力', description: '两层LSTM和全连接层能学习复杂的时序关系' },
       { title: '自动衰减', description: '内置学习率衰减策略，训练更稳定' },
-      { title: '递归预测', description: '支持任意长度的未来趋势推演' }
+      { title: '直接多步预测', description: '面向评估区间直接输出未来多期销量' }
     ],
     cons: [
-      { title: '训练较慢', description: '庞大的网络参数量导致训练耗时较长' },
+      { title: '训练较慢', description: '神经网络参数训练比统计模型耗时更长' },
       { title: '数据饥渴', description: '大模型需要足够的数据喂养才能避免过拟合' },
-      { title: '误差累积', description: '递归预测时，早期误差可能会传递到后期' },
+      { title: '稳定性依赖数据', description: '样本量不足或特征质量较差时，多步输出也可能不稳定' },
       { title: '黑箱模型', description: '难以像线性回归那样给出精确的参数解释' }
     ],
-    bestPractices: ['数据量少时减少Epochs防止过拟合', '对于包含类别特征的数据，LSTM通常比统计模型表现更好', '关注Lookback窗口，通常覆盖一个完整周期（如12个月）效果最好', '预测步数不宜过长，避免递归误差发散'],
+    bestPractices: ['数据量少时减少Epochs防止过拟合', '对于包含类别特征的数据，LSTM可能比统计模型更有优势', '关注Lookback窗口，通常覆盖一个完整周期（如12个月）效果最好', '预测步数不宜过长，避免超出训练数据能支持的horizon'],
     performance: {
       speed: { level: 'low', description: '深层网络计算量大，训练耗时' },
       accuracy: { level: 'high', description: '在复杂数据集上通常优于统计模型' },
@@ -438,6 +458,23 @@ const ModelIntroductionFlow: React.FC = () => {
             <p className="text-blue-800 font-medium italic">{activeModel.principle.keyIdea}</p>
           </div>
         </div>
+
+        {activeModel.implementationNotes && (
+          <div className="bg-sky-50 border border-sky-200 rounded-lg p-5 shadow-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <Info className="w-5 h-5 text-sky-600" />
+              <h4 className="text-lg font-semibold text-sky-800">本系统实现说明</h4>
+            </div>
+            <ul className="space-y-2">
+              {activeModel.implementationNotes.map((note, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-sky-900">
+                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-sky-500 flex-shrink-0" />
+                  <span>{note}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Mathematics */}
         {activeModel.mathematics && (

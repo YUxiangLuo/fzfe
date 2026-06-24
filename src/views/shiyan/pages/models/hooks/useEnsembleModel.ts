@@ -35,7 +35,16 @@ interface EnsembleResults {
   };
   weights?: number[];
   model_names?: string[];
-  meta_model?: string;
+  meta_model?: {
+    kind?: string;
+    strategy?: string;
+    model_names?: string[];
+    weights?: number[];
+    raw_coefficients?: number[];
+    fallback_reason?: string;
+    condition_number?: number | null;
+    level1_mae?: number[];
+  };
 }
 
 /**

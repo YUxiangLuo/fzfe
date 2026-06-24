@@ -35,9 +35,16 @@ const Formula: React.FC = () => {
           </div>
           <div className="flex items-start gap-3">
             <span className="font-mono font-semibold text-blue-600 min-w-[3rem]">α</span>
-            <span>—— 平滑系数 (0 ≤ α ≤ 1)</span>
+            <span>—— 平滑系数，本系统要求 0 &lt; α ≤ 1</span>
           </div>
         </div>
+      </div>
+
+      <div className="mt-6 p-5 bg-sky-50 rounded-lg border border-sky-200">
+        <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明：</h4>
+        <p className="text-gray-700 leading-relaxed text-base">
+          这里实现的是一次指数平滑。多步销量预测会沿用最新平滑水平向未来外推；趋势和季节性需要 Holt 或 Holt-Winters 扩展，本模型未启用这些扩展。
+        </p>
       </div>
     </div>
   );

@@ -8,12 +8,15 @@ const Intro: React.FC = () => {
       </div>
 
       <div className="p-6 bg-gradient-to-br from-orange-50 to-amber-50 rounded-lg border border-orange-200 shadow-sm">
-        <h4 className="text-lg font-semibold text-gray-800 mb-3">Adaboost（Adaptive Boosting）</h4>
+        <h4 className="text-lg font-semibold text-gray-800 mb-3">Boosting 与残差提升</h4>
         <p className="text-gray-800 leading-relaxed text-base mb-4">
-          Adaboost（Adaptive Boosting）是一种自适应的提升算法。其核心思想是用弱学习器组合出强学习器。每个弱学习器在训练时都会关注分类或回归错误的样本，加大这些样本的权重，以使得下一个弱学习器能够更好地学习这些错误样本的特征。
+          Boosting 的核心思想是用多个弱学习器串行组合成更强的学习器。后续模型不再重复学习全部目标，而是重点修正前面模型没有解释好的部分。
+        </p>
+        <p className="text-gray-800 leading-relaxed text-base mb-4">
+          AdaBoost 是经典代表，它通过调整样本权重关注难预测样本。本系统面向时间序列销量预测，基础模型通常不支持样本权重，因此采用残差提升：每一轮训练候选模型去拟合当前残差，并选择验证残差下降最多的模型加入加法组合。
         </p>
         <p className="text-gray-800 leading-relaxed text-base">
-          通过这种方式，每个弱学习器都能够对之前的错误进行纠正，从而不断提高整体模型的准确性。在 Adaboost 中，每个弱学习器的权重是通过一定的迭代方式逐步更新得到的，具体来说，每个弱学习器的权重取决于它在前一轮迭代中的误差率或残差。在训练完成后，将所有弱学习器的结果加权组合，得到最终的结果。
+          在平方误差损失下，拟合残差可以理解为梯度提升的一个直观版本；本系统保留“逐步修正误差”的教学核心，同时兼容 MA、ES、ARIMA、LSTM 等异构时间序列模型。
         </p>
       </div>
 
@@ -22,27 +25,27 @@ const Intro: React.FC = () => {
         <div className="space-y-3 text-gray-800 leading-relaxed text-base">
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>
-            <p className="pt-0.5">初始化样本权重，所有样本权重相等。</p>
+            <p className="pt-0.5">初始化组合模型，第一轮直接预测原始销量序列。</p>
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">2</span>
-            <p className="pt-0.5">训练弱学习器，计算该学习器的误差率。</p>
+            <p className="pt-0.5">计算当前组合模型的残差（真实值 - 当前预测值）。</p>
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">3</span>
-            <p className="pt-0.5">根据误差率计算弱学习器的权重。</p>
+            <p className="pt-0.5">遍历候选基础模型，分别训练它们拟合当前残差。</p>
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">4</span>
-            <p className="pt-0.5">更新样本权重，增大错误样本的权重，减小正确样本的权重。</p>
+            <p className="pt-0.5">选择验证残差RMSE下降最多的模型，按学习率加入组合。</p>
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">5</span>
-            <p className="pt-0.5">重复步骤 2-4，直到达到预设的迭代次数或误差要求。</p>
+            <p className="pt-0.5">重复残差计算和候选选择，直到达到最大轮数或不再改善。</p>
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">6</span>
-            <p className="pt-0.5">将所有弱学习器的预测结果加权组合，得到最终预测。</p>
+            <p className="pt-0.5">将各阶段模型预测按阶段系数组合，得到最终预测。</p>
           </div>
         </div>
       </div>
@@ -51,15 +54,22 @@ const Intro: React.FC = () => {
         <h4 className="text-base font-semibold text-gray-800 mb-3">方法优势</h4>
         <div className="space-y-2 text-gray-700 leading-relaxed text-base">
           <p>
-            <strong>自适应学习：</strong>自动调整样本权重，重点关注难以预测的样本。
+            <strong>残差修正：</strong>后续模型重点学习前面模型尚未解释的误差。
           </p>
           <p>
-            <strong>误差纠正：</strong>每个新模型都针对前一个模型的错误进行改进。
+            <strong>异构互补：</strong>可以用不同类型模型逐步修正线性、平滑或非线性误差。
           </p>
           <p>
             <strong>准确性高：</strong>通过多个弱学习器的组合，能够达到很高的预测精度。
           </p>
         </div>
+      </div>
+
+      <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
+        <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
+        <p className="text-gray-700 leading-relaxed text-base">
+          页面中的 Boosting 指残差提升融合，不是 AdaBoost 的样本权重更新流程。系统按时间顺序留出验证段，每轮选择能降低验证残差RMSE的候选模型；若没有候选模型继续改善，则提前停止。
+        </p>
       </div>
     </div>
   );

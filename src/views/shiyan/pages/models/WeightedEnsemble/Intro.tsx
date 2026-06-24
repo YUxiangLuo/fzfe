@@ -8,12 +8,12 @@ const Intro: React.FC = () => {
       </div>
 
       <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-purple-200 shadow-sm">
-        <h4 className="text-lg font-semibold text-gray-800 mb-3">方差倒数法</h4>
+        <h4 className="text-lg font-semibold text-gray-800 mb-3">验证残差MSE倒数加权法</h4>
         <p className="text-gray-800 leading-relaxed text-base mb-4">
-          方差倒数法也称为预测误差平方和倒数法，这是一种常见的用来给组合预测模型确定权系数的方法，它是通过误差平方和的大小确定权重，即对误差平方和小的模型赋以高权重。
+          验证残差MSE倒数加权法是一种常见的组合预测权重确定方法。它借鉴逆方差加权思想，通过验证集残差均方误差的大小确定权重，即对MSE较小的模型赋以高权重。
         </p>
         <p className="text-gray-800 leading-relaxed text-base">
-          一般来说每种单项预测模型的预测精度不同，预测误差平方和是反映预测精度的一个指标。预测误差平方和越大，表明该项预测模型的预测精度越低，从而它在组合预测中的重要性就降低。重要性的降低表现为它在组合预测模型的组合预测中应赋予较小的加权系数。
+          一般来说每种单项预测模型的预测精度不同，MSE是反映预测误差大小的一个指标。与只看残差方差相比，MSE还会惩罚系统性高估或低估，因此更适合本系统的未来销量预测任务。
         </p>
       </div>
 
@@ -21,16 +21,16 @@ const Intro: React.FC = () => {
         <h4 className="text-lg font-semibold text-gray-800 mb-3">公式说明</h4>
         <div className="space-y-4 text-gray-800 leading-relaxed text-base">
           <div>
-            <p className="mb-2">其中，Q<sub>i</sub> 即真实值与预测值之间差值的平方和：</p>
+            <p className="mb-2">其中，MSE<sub>i</sub> 即模型 i 在验证集上的残差均方误差：</p>
             <div className="bg-white p-4 rounded border border-blue-200 font-mono text-center">
-              Q<sub>i</sub> = Σ(y<sub>真实</sub> - y<sub>预测,i</sub>)<sup>2</sup>
+              MSE<sub>i</sub> = (1/n)Σ(y<sub>真实</sub> - y<sub>预测,i</sub>)<sup>2</sup>
             </div>
           </div>
 
           <div>
             <p className="mb-2">模型 i 的权重 w<sub>i</sub> 计算公式为：</p>
             <div className="bg-white p-4 rounded border border-blue-200 font-mono text-center">
-              w<sub>i</sub> = (1/Q<sub>i</sub>) / Σ(1/Q<sub>j</sub>)
+              w<sub>i</sub> = [1/(MSE<sub>i</sub> + ε)] / Σ[1/(MSE<sub>j</sub> + ε)]
             </div>
           </div>
 
@@ -56,6 +56,13 @@ const Intro: React.FC = () => {
             <strong>简单易实现：</strong>计算方法直观明了，易于理解和实施。
           </p>
         </div>
+      </div>
+
+      <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
+        <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
+        <p className="text-gray-700 leading-relaxed text-base">
+          系统按时间顺序从训练区间中留出一段权重验证集，计算各基础模型在该验证段上的残差均方误差，并按MSE倒数归一化得到权重。这是逆方差加权思想在预测误差可能有偏时的教学化改写；在残差近似无偏时，MSE与方差口径一致。
+        </p>
       </div>
     </div>
   );

@@ -18,6 +18,9 @@ interface ModelPredictionResponse {
   status: string;
   results: {
     predictions: ModelPredictionPoint[];
+    method_name?: string;
+    forecast_strategy?: string;
+    implementation_notes?: string[];
   };
 }
 
