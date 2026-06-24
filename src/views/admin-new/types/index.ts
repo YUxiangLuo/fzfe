@@ -38,7 +38,7 @@ export interface Student {
 export interface Class {
     class_id: number;
     class_name: string;
-    class_code: string;
+    class_code: string | null;
     teacher_id: number;
     teacher_name: string;
     students?: Student[];

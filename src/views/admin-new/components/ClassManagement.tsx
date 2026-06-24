@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
     Table,
     Button,
-    Space,
     Modal,
     Input,
     message,
@@ -13,7 +12,6 @@ import {
     Tag
 } from "antd";
 import {
-    SearchOutlined,
     EyeOutlined,
     TeamOutlined,
     UserOutlined
@@ -23,6 +21,22 @@ import { apiClient } from "../../../utils/apiClient";
 
 const { Title } = Typography;
 const { Search } = Input;
+
+export const formatNullableClassText = (value: string | null | undefined): string => {
+    const text = value?.trim();
+    return text && text.length > 0 ? text : '-';
+};
+
+const includesSearchTerm = (value: string | null | undefined, normalizedSearchTerm: string): boolean =>
+    (value ?? '').toLowerCase().includes(normalizedSearchTerm);
+
+export const matchesClassSearch = (classInfo: Pick<Class, 'class_name' | 'class_code'>, searchTerm: string): boolean => {
+    const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+    if (!normalizedSearchTerm) return true;
+
+    return includesSearchTerm(classInfo.class_name, normalizedSearchTerm) ||
+        includesSearchTerm(classInfo.class_code, normalizedSearchTerm);
+};
 
 const ClassManagement: React.FC = () => {
     const [classes, setClasses] = useState<Class[]>([]);
@@ -51,16 +65,7 @@ const ClassManagement: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        if (searchTerm) {
-            const filtered = classes.filter(
-                (c) =>
-                    c.class_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    c.class_code.toLowerCase().includes(searchTerm.toLowerCase()),
-            );
-            setFilteredClasses(filtered);
-        } else {
-            setFilteredClasses(classes);
-        }
+        setFilteredClasses(classes.filter((classInfo) => matchesClassSearch(classInfo, searchTerm)));
     }, [searchTerm, classes]);
 
     const handleViewDetails = async (classInfo: Class) => {
@@ -78,6 +83,7 @@ const ClassManagement: React.FC = () => {
             title: '班级编号',
             dataIndex: 'class_code',
             key: 'class_code',
+            render: (text: string | null) => formatNullableClassText(text),
         },
         {
             title: '班级名称',
@@ -158,7 +164,7 @@ const ClassManagement: React.FC = () => {
                     <div>
                         <Descriptions bordered column={2} style={{ marginBottom: 24 }}>
                             <Descriptions.Item label="班级名称">{selectedClass.class_name}</Descriptions.Item>
-                            <Descriptions.Item label="班级编号">{selectedClass.class_code}</Descriptions.Item>
+                            <Descriptions.Item label="班级编号">{formatNullableClassText(selectedClass.class_code)}</Descriptions.Item>
                             <Descriptions.Item label="所属教师">{selectedClass.teacher_name}</Descriptions.Item>
                             <Descriptions.Item label="学生人数">{selectedClass.students?.length || 0}</Descriptions.Item>
                         </Descriptions>
