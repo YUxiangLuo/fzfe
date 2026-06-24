@@ -56,7 +56,7 @@ import FinalBreakdown from './FinalBreakdown';
 import { getProgressStatus, getEvaluationBadge, getScoreLevel, SCORE_COLORS } from '../../utils/gradeStatus';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import { listManagedClassGradeSummaries, listManagedClasses } from '../../utils/portalApi';
-import { compareNullableNumber, type SortOrder } from '../../utils/sort';
+import { compareNaturalText, compareNullableNumber, type SortOrder } from '../../utils/sort';
 
 const { Title, Text } = Typography;
 
@@ -637,7 +637,7 @@ const GradesOverview: React.FC = () => {
             key: 'username',
             width: 120,
             sorter: (a: StudentGradeOverview, b: StudentGradeOverview) =>
-                a.username.localeCompare(b.username),
+                compareNaturalText(a.username, b.username),
         },
         {
             title: '姓名',

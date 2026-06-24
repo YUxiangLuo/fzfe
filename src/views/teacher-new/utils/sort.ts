@@ -1,6 +1,14 @@
 export type ProgressStatus = "Not Started" | "In Progress" | "Completed";
 export type SortOrder = "ascend" | "descend" | null | undefined;
 
+export const compareNaturalText = (
+  a: string | null | undefined,
+  b: string | null | undefined,
+): number => (a ?? "").localeCompare(b ?? "", undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
 const PROGRESS_STATUS_ORDER: Record<ProgressStatus, number> = {
   "Not Started": 0,
   "In Progress": 1,

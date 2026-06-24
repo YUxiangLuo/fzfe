@@ -1,10 +1,25 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  compareNaturalText,
   compareNullableNumber,
   compareProgressStatus,
   normalizeProgressStatus,
 } from "./sort";
+
+describe("compareNaturalText", () => {
+  it("sorts numeric student identifiers by numeric value instead of lexicographic order", () => {
+    const sorted = ["100", "20", "3", "11"].sort(compareNaturalText);
+
+    expect(sorted).toEqual(["3", "11", "20", "100"]);
+  });
+
+  it("sorts mixed text naturally for class or student labels", () => {
+    const sorted = ["学生10", "学生2", "学生1"].sort(compareNaturalText);
+
+    expect(sorted).toEqual(["学生1", "学生2", "学生10"]);
+  });
+});
 
 describe("compareNullableNumber", () => {
   it("keeps real zero scores ahead of null values in ascending order", () => {
