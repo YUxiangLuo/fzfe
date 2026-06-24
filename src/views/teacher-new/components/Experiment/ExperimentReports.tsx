@@ -70,6 +70,11 @@ const ExperimentReports: React.FC = () => {
     const [isExportingReports, setIsExportingReports] = useState(false);
     const { url: exportedFileUrl, setUrl: setExportedFileUrl, clearUrl: clearExportedFileUrl } = useObjectUrl();
 
+    useEffect(() => {
+        clearExportedCsvUrl();
+        clearExportedFileUrl();
+    }, [selectedClassId, clearExportedCsvUrl, clearExportedFileUrl]);
+
     // Fetch classes
     useEffect(() => {
         const controller = new AbortController();

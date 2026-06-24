@@ -383,6 +383,11 @@ const GradesOverview: React.FC = () => {
     const { url: exportedFileUrl, setUrl: setExportedFileUrl, clearUrl: clearExportedFileUrl } = useObjectUrl();
     const [exportError, setExportError] = useState<string | null>(null);
 
+    useEffect(() => {
+        clearExportedFileUrl();
+        setExportError(null);
+    }, [selectedClassId, clearExportedFileUrl]);
+
     const handleExport = async () => {
         if (!selectedClassId) {
             setExportError('请先选择一个班级');
