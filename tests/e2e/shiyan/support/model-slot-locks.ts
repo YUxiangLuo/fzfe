@@ -14,6 +14,7 @@ const lockCount = Number(
   process.env.E2E_MODEL_SLOT_LOCK_COUNT ??
     CONCURRENCY_LIMITS.MAX_CONCURRENT_MODEL_JOBS,
 );
+const firstSlot = Number(process.env.E2E_MODEL_SLOT_LOCK_START ?? "1");
 const connectionOptions = {
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -25,12 +26,18 @@ const connectionOptions = {
 if (!connectionOptions.host || !connectionOptions.user || !connectionOptions.database) {
   throw new Error("Missing DB connection environment variables");
 }
+if (!Number.isInteger(lockCount) || lockCount < 0) {
+  throw new Error(\`E2E_MODEL_SLOT_LOCK_COUNT must be a non-negative integer, got: \${process.env.E2E_MODEL_SLOT_LOCK_COUNT}\`);
+}
+if (!Number.isInteger(firstSlot) || firstSlot <= 0) {
+  throw new Error(\`E2E_MODEL_SLOT_LOCK_START must be a positive integer, got: \${process.env.E2E_MODEL_SLOT_LOCK_START}\`);
+}
 
 const connection = await mysql.createConnection(connectionOptions);
 const lockNames = [];
 
 try {
-  for (let slot = 1; slot <= lockCount; slot += 1) {
+  for (let slot = firstSlot; slot < firstSlot + lockCount; slot += 1) {
     const name = \`fangzhen-model:slot:\${slot}\`;
     const [rows] = await connection.query("SELECT GET_LOCK(?, 0) AS acquired", [name]);
     if (rows[0]?.acquired !== 1) {
@@ -109,6 +116,7 @@ export interface ModelSlotLockHandle {
 
 export async function acquireAllModelSlots(
   slotCount?: number,
+  firstSlot?: number,
 ): Promise<ModelSlotLockHandle> {
   const child = spawn("bun", ["-e", SLOT_LOCK_SCRIPT], {
     cwd: BE_DIR,
@@ -117,6 +125,9 @@ export async function acquireAllModelSlots(
       ...(slotCount === undefined
         ? {}
         : { E2E_MODEL_SLOT_LOCK_COUNT: String(slotCount) }),
+      ...(firstSlot === undefined
+        ? {}
+        : { E2E_MODEL_SLOT_LOCK_START: String(firstSlot) }),
     },
     stdio: ["pipe", "pipe", "pipe"],
   });
@@ -130,15 +141,19 @@ export async function acquireAllModelSlots(
       }
 
       child.stdin.end("\n");
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
       const [code, signal] = await Promise.race([
         once(child, "exit"),
         new Promise<never>((_, reject) => {
-          setTimeout(() => {
+          timeoutId = setTimeout(() => {
             child.kill("SIGKILL");
             reject(new Error("Model slot lock helper did not exit in time"));
           }, 5_000);
         }),
       ]);
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
       if (code !== 0) {
         throw new Error(
           `Model slot lock helper exited abnormally (code=${String(code)}, signal=${String(signal)})`,
