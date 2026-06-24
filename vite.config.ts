@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
 const API_PROXY_TARGET =
-  process.env.VITE_API_URL?.replace('/api/v1', '') ?? 'http://localhost:4001';
+  process.env.VITE_API_URL?.replace('/api/v1', '') ?? 'http://localhost:3001';
 
 // 自定义插件：处理 SPA 路由的 history fallback
 function spaFallbackPlugin(): Plugin {
