@@ -16,6 +16,14 @@ const getDefaultBackendOrigin = (): string => {
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL?.trim() || `${getDefaultBackendOrigin()}/api/v1`;
 
+export interface ApiRequestOptions extends RequestInit {
+  /**
+   * Override the endpoint-derived timeout. Use null to disable frontend timeout
+   * for a specific request while still preserving external AbortSignal support.
+   */
+  timeoutMs?: number | null;
+}
+
 const BASE_URL = API_BASE_URL;
 
 /**
@@ -225,7 +233,7 @@ const handleResponse = async <T = any>(response: Response, endpoint: string): Pr
 
 const request = async <T = any>(
   endpoint: string,
-  options: RequestInit = {},
+  options: ApiRequestOptions = {},
   isFormData = false,
 ): Promise<T> => {
   const token = getStoredToken();
@@ -237,16 +245,19 @@ const request = async <T = any>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
+  const { timeoutMs, ...fetchOptions } = options;
   const config: RequestInit = {
-    ...options,
+    ...fetchOptions,
     headers: {
       ...headers,
       ...(options.headers ?? {}),
     },
   };
 
-  // 自动确定超时时间
-  const timeout = getTimeoutForEndpoint(endpoint);
+  // 自动确定超时时间，允许调用方对长队列接口按运行时配置覆盖
+  const timeout = timeoutMs === null
+    ? undefined
+    : timeoutMs ?? getTimeoutForEndpoint(endpoint);
 
   // 如果需要超时控制
   if (timeout !== undefined) {
@@ -275,10 +286,10 @@ const request = async <T = any>(
 };
 
 export const apiClient = {
-  get: <T = any>(endpoint: string, options?: RequestInit) =>
+  get: <T = any>(endpoint: string, options?: ApiRequestOptions) =>
     request<T>(endpoint, { ...options, method: "GET" }),
 
-  post: <T = any>(endpoint: string, body: unknown, options?: RequestInit) =>
+  post: <T = any>(endpoint: string, body: unknown, options?: ApiRequestOptions) =>
     request<T>(endpoint, {
       ...options,
       method: "POST",
@@ -288,16 +299,16 @@ export const apiClient = {
   postFormData: <T = any>(
     endpoint: string,
     formData: FormData,
-    options?: RequestInit,
+    options?: ApiRequestOptions,
   ) => request<T>(endpoint, { ...options, method: "POST", body: formData }, true),
 
-  put: <T = any>(endpoint: string, body: unknown, options?: RequestInit) =>
+  put: <T = any>(endpoint: string, body: unknown, options?: ApiRequestOptions) =>
     request<T>(endpoint, {
       ...options,
       method: "PUT",
       body: JSON.stringify(body),
     }),
 
-  delete: <T = any>(endpoint: string, options?: RequestInit) =>
+  delete: <T = any>(endpoint: string, options?: ApiRequestOptions) =>
     request<T>(endpoint, { ...options, method: "DELETE" }),
 };

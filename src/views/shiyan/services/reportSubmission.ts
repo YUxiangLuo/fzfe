@@ -7,6 +7,13 @@ type ApiRequestError = Error & {
 
 type ReportSubmissionErrorKind = "service_busy" | "unknown";
 
+interface RuntimeInfo {
+  timeouts?: {
+    pdfQueueMs?: unknown;
+    pdfGenerationMs?: unknown;
+  };
+}
+
 export interface SubmitReportResult {
   message: string;
   report_id: number;
@@ -33,6 +40,38 @@ export class ReportSubmissionError extends Error {
     this.originalError = options.originalError;
   }
 }
+
+const REPORT_SUBMISSION_MIN_TIMEOUT_MS = 120000;
+const REPORT_SUBMISSION_TIMEOUT_BUFFER_MS = 30000;
+
+const toPositiveNumber = (value: unknown): number | null => {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+const calculateReportSubmissionTimeoutMs = (runtimeInfo: RuntimeInfo | null): number => {
+  const pdfQueueMs = toPositiveNumber(runtimeInfo?.timeouts?.pdfQueueMs);
+  const pdfGenerationMs = toPositiveNumber(runtimeInfo?.timeouts?.pdfGenerationMs);
+
+  if (!pdfQueueMs || !pdfGenerationMs) {
+    return REPORT_SUBMISSION_MIN_TIMEOUT_MS;
+  }
+
+  return Math.max(
+    REPORT_SUBMISSION_MIN_TIMEOUT_MS,
+    pdfQueueMs + pdfGenerationMs + REPORT_SUBMISSION_TIMEOUT_BUFFER_MS,
+  );
+};
+
+const resolveReportSubmissionTimeoutMs = async (): Promise<number> => {
+  try {
+    const runtimeInfo = await apiClient.get<RuntimeInfo>("/runtime-info");
+    return calculateReportSubmissionTimeoutMs(runtimeInfo);
+  } catch (error) {
+    console.warn("Failed to load backend runtime info for report timeout; using fallback.", error);
+    return REPORT_SUBMISSION_MIN_TIMEOUT_MS;
+  }
+};
 
 const extractPayloadErrorMessage = (payload: unknown): string | null => {
   if (typeof payload !== "object" || payload === null) {
@@ -99,10 +138,13 @@ export const submitExperimentReport = async (
   experimentId: number,
   reportContent: string,
 ): Promise<SubmitReportResult> => {
+  const timeoutMs = await resolveReportSubmissionTimeoutMs();
+
   try {
     return await apiClient.post<SubmitReportResult>(
       `/experiment-runs/${experimentId}/report`,
       { report_content: reportContent },
+      { timeoutMs },
     );
   } catch (error) {
     const requestError = error instanceof Error

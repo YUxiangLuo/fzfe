@@ -12,41 +12,88 @@ interface RunModelJobOptions<T> {
   onSuccess?: (result: T) => Promise<void> | void;
 }
 
-const isRetryCountExemptError = (jobError: unknown): boolean => {
+const extractPayloadMessage = (payload: unknown): string | null => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const payloadRecord = payload as Record<string, unknown>;
+  if (typeof payloadRecord.error === 'string' && payloadRecord.error.trim().length > 0) {
+    return payloadRecord.error.trim();
+  }
+  if (typeof payloadRecord.message === 'string' && payloadRecord.message.trim().length > 0) {
+    return payloadRecord.message.trim();
+  }
+  return null;
+};
+
+const stripHttpPrefix = (message: string): string | null => {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (!trimmed.startsWith('HTTP ')) {
+    return trimmed;
+  }
+
+  const separatorIndex = trimmed.indexOf(' - ');
+  if (separatorIndex === -1) {
+    return trimmed;
+  }
+
+  const detail = trimmed.slice(separatorIndex + 3).trim();
+  return detail.length > 0 ? detail : null;
+};
+
+const extractJobErrorDetail = (jobError: unknown): string | null => {
   if (!jobError || typeof jobError !== 'object') {
-    return false;
+    return typeof jobError === 'string' ? stripHttpPrefix(jobError) : null;
   }
 
   const maybeError = jobError as {
-    status?: unknown;
     payload?: unknown;
     message?: unknown;
   };
 
-  if (maybeError.status === 429) {
-    return true;
+  const payloadMessage = extractPayloadMessage(maybeError.payload);
+  if (payloadMessage) {
+    return payloadMessage;
   }
 
-  const payloadMessage =
-    maybeError.payload && typeof maybeError.payload === 'object'
-      ? (() => {
-          const payload = maybeError.payload as Record<string, unknown>;
-          if (typeof payload.error === 'string') return payload.error;
-          if (typeof payload.message === 'string') return payload.message;
-          return null;
-        })()
-      : null;
+  if (typeof maybeError.message === 'string') {
+    return stripHttpPrefix(maybeError.message);
+  }
 
-  const errorMessage =
-    typeof maybeError.message === 'string'
-      ? maybeError.message
-      : jobError instanceof Error
-        ? jobError.message
-        : null;
+  return jobError instanceof Error ? stripHttpPrefix(jobError.message) : null;
+};
 
-  return [payloadMessage, errorMessage].some(
-    (message) => typeof message === 'string' && message.includes('模型服务繁忙'),
-  );
+const extractJobErrorStatus = (jobError: unknown): number | null => {
+  if (!jobError || typeof jobError !== 'object') {
+    return null;
+  }
+
+  const status = (jobError as { status?: unknown }).status;
+  return typeof status === 'number' ? status : null;
+};
+
+const getTransientModelJobMessage = (jobError: unknown): string | null => {
+  const status = extractJobErrorStatus(jobError);
+  const detail = extractJobErrorDetail(jobError);
+
+  if (status === 429 || detail?.includes('模型服务繁忙')) {
+    return '模型服务当前繁忙，请稍后再次点击“重试”。';
+  }
+
+  if (status === 409 || detail?.includes('同一模型正在训练或预测')) {
+    return '当前模型已有训练或预测任务在执行，请稍后再次点击“重试”。';
+  }
+
+  return null;
+};
+
+const isRetryCountExemptError = (jobError: unknown): boolean => {
+  return getTransientModelJobMessage(jobError) !== null;
 };
 
 export function useModelJob() {
@@ -128,16 +175,19 @@ export function useModelJob() {
   }, []);
 
   const getResolvedErrorMessage = useCallback((jobError: unknown, getErrorMessage?: (error: unknown) => string) => {
+    const transientMessage = getTransientModelJobMessage(jobError);
+    if (transientMessage) {
+      return transientMessage;
+    }
+
     if (getErrorMessage) {
-      return getErrorMessage(jobError);
+      const customMessage = getErrorMessage(jobError);
+      return stripHttpPrefix(customMessage) ?? customMessage;
     }
 
-    if (jobError instanceof Error && jobError.message) {
-      return jobError.message;
-    }
-
-    if (typeof jobError === 'string' && jobError.trim().length > 0) {
-      return jobError;
+    const detail = extractJobErrorDetail(jobError);
+    if (detail) {
+      return detail;
     }
 
     return '模型任务执行失败';

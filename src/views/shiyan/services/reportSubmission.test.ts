@@ -7,6 +7,12 @@ mock.restore();
 
 const apiClientModulePath = resolve(import.meta.dir, "../../../utils/apiClient.ts");
 
+const apiGet = mock(async () => ({
+  timeouts: {
+    pdfQueueMs: 60000,
+    pdfGenerationMs: 30000,
+  },
+}));
 const apiPost = mock(async () => ({
   message: "提交成功",
   report_id: 9,
@@ -15,6 +21,7 @@ const apiPost = mock(async () => ({
 
 mock.module(apiClientModulePath, () => ({
   apiClient: {
+    get: apiGet,
     post: apiPost,
   },
 }));
@@ -38,6 +45,13 @@ const createApiError = (status: number, message: string) => {
 
 describe("reportSubmission", () => {
   beforeEach(() => {
+    apiGet.mockReset();
+    apiGet.mockResolvedValue({
+      timeouts: {
+        pdfQueueMs: 60000,
+        pdfGenerationMs: 30000,
+      },
+    });
     apiPost.mockReset();
     apiPost.mockResolvedValue({
       message: "提交成功",
@@ -51,14 +65,35 @@ describe("reportSubmission", () => {
 
     const result = await submitExperimentReport(17, "# report");
 
+    expect(apiGet).toHaveBeenCalledWith("/runtime-info");
     expect(apiPost).toHaveBeenCalledTimes(1);
     expect(apiPost).toHaveBeenCalledWith("/experiment-runs/17/report", {
       report_content: "# report",
+    }, {
+      timeoutMs: 120000,
     });
     expect(result).toEqual({
       message: "提交成功",
       report_id: 9,
       pdf_path: "/uploads/reports/9.pdf",
+    });
+  });
+
+  it("derives the report timeout from backend PDF queue settings", async () => {
+    const { submitExperimentReport } = await loadReportSubmission();
+    apiGet.mockResolvedValueOnce({
+      timeouts: {
+        pdfQueueMs: 120000,
+        pdfGenerationMs: 45000,
+      },
+    });
+
+    await submitExperimentReport(17, "# report");
+
+    expect(apiPost).toHaveBeenCalledWith("/experiment-runs/17/report", {
+      report_content: "# report",
+    }, {
+      timeoutMs: 195000,
     });
   });
 

@@ -101,7 +101,7 @@ describe("useModelJob", () => {
     expect(setTrainingLock).toHaveBeenLastCalledWith(false, null);
   });
 
-  it("does not count backend busy responses toward the retry limit", async () => {
+  it("shows a friendly message and does not count backend busy responses toward the retry limit", async () => {
     const busyError = Object.assign(
       new Error("HTTP 429 Too Many Requests - 模型服务繁忙，请稍后再试"),
       { status: 429, payload: { error: "模型服务繁忙，请稍后再试" } },
@@ -121,7 +121,34 @@ describe("useModelJob", () => {
     fireEvent.click(view.getByRole("button", { name: "run" }));
 
     await waitFor(() =>
-      expect(view.getByTestId("error").textContent).toContain("模型服务繁忙"),
+      expect(view.getByTestId("error").textContent).toBe("模型服务当前繁忙，请稍后再次点击“重试”。"),
+    );
+    expect(view.getByTestId("retry-count").textContent).toBe("0");
+    expect(view.getByTestId("loading").textContent).toBe("false");
+    expect(setTrainingLock).toHaveBeenLastCalledWith(false, null);
+  });
+
+  it("shows a friendly message and does not count same-model conflicts toward the retry limit", async () => {
+    const conflictError = Object.assign(
+      new Error("HTTP 409 Conflict - 同一模型正在训练或预测，请稍后再试"),
+      { status: 409, payload: { error: "同一模型正在训练或预测，请稍后再试" } },
+    );
+    const request = mock(async () => {
+      throw conflictError;
+    });
+    const setTrainingLock = mock(() => {});
+
+    const view = render(
+      <Harness
+        request={request}
+        setTrainingLock={setTrainingLock}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "run" }));
+
+    await waitFor(() =>
+      expect(view.getByTestId("error").textContent).toBe("当前模型已有训练或预测任务在执行，请稍后再次点击“重试”。"),
     );
     expect(view.getByTestId("retry-count").textContent).toBe("0");
     expect(view.getByTestId("loading").textContent).toBe("false");

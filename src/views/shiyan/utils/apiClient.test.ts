@@ -138,6 +138,37 @@ describe("apiClient timeout handling", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it("uses an explicit timeout override for long queue-backed requests", async () => {
+    const apiClient = await loadApiClient();
+    const setTimeoutMock = mock((_handler: TimerHandler, timeout?: number) => {
+      expect(timeout).toBe(195000);
+      return 1 as unknown as ReturnType<typeof setTimeout>;
+    });
+    const clearTimeoutMock = mock(() => {});
+    const fetchMock = mock(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+
+      return new Response(JSON.stringify({ data: { ok: true } }), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    });
+
+    globalThis.setTimeout = setTimeoutMock as unknown as typeof setTimeout;
+    globalThis.clearTimeout = clearTimeoutMock as unknown as typeof clearTimeout;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      apiClient.post("/experiment-runs/17/report", { report_content: "# report" }, { timeoutMs: 195000 }),
+    ).resolves.toEqual({ ok: true });
+
+    expect(setTimeoutMock).toHaveBeenCalledTimes(1);
+    expect(clearTimeoutMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("apiClient session isolation", () => {
