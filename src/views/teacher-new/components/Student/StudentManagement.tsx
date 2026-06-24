@@ -31,6 +31,17 @@ import { listManagedClasses } from '../../utils/portalApi';
 const { Title, Text } = Typography;
 const { confirm } = Modal;
 
+const STUDENT_NAME_PATTERN = /^[\u4e00-\u9fa5a-zA-Z\s]+$/;
+const STUDENT_NAME_PATTERN_MESSAGE = '姓名只能包含中文字符、英文字母和空格';
+
+const validateStudentNameCharacters = (_: unknown, value?: string) => {
+    const text = value?.trim() ?? '';
+    if (!text || STUDENT_NAME_PATTERN.test(text)) {
+        return Promise.resolve();
+    }
+    return Promise.reject(new Error(STUDENT_NAME_PATTERN_MESSAGE));
+};
+
 const StudentManagement: React.FC = () => {
     const [classes, setClasses] = useState<Class[]>([]);
     const [students, setStudents] = useState<Student[]>([]);
@@ -484,6 +495,8 @@ const StudentManagement: React.FC = () => {
                         rules={[
                             { required: true, message: '请输入姓名', whitespace: true },
                             { min: 2, message: '姓名至少2个字符' },
+                            { max: 64, message: '姓名不能超过64个字符' },
+                            { validator: validateStudentNameCharacters },
                         ]}
                     >
                         <Input placeholder="例如：张三" />

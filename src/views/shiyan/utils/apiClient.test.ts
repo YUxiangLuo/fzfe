@@ -171,6 +171,31 @@ describe("apiClient timeout handling", () => {
   });
 });
 
+describe("apiClient error handling", () => {
+  it("extracts nested validation messages from backend Zod errors", async () => {
+    const apiClient = await loadApiClient();
+    const validationMessage = "姓名只能包含中文字符、英文字母和空格";
+
+    globalThis.fetch = mock(async () => new Response(JSON.stringify({
+      success: false,
+      error: {
+        name: "ZodError",
+        message: JSON.stringify([{ message: validationMessage }]),
+      },
+    }), {
+      status: 400,
+      statusText: "Bad Request",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })) as unknown as typeof fetch;
+
+    await expect(apiClient.post("/classes/1/students", {})).rejects.toThrow(
+      `HTTP 400 Bad Request - ${validationMessage}`,
+    );
+  });
+});
+
 describe("apiClient session isolation", () => {
   it("uses the student portal token on the student entry page", async () => {
     const apiClient = await loadApiClient();

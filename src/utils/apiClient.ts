@@ -184,6 +184,37 @@ const unwrapSuccessPayload = <T = any>(payload: unknown): T => {
   return payload as T;
 };
 
+const parseZodIssueMessages = (message: string): string | null => {
+  try {
+    const parsed = JSON.parse(message);
+    if (!Array.isArray(parsed)) return null;
+
+    const messages = parsed
+      .map((issue) => {
+        if (issue && typeof issue === "object") {
+          const maybeMessage = (issue as Record<string, unknown>).message;
+          return typeof maybeMessage === "string" ? maybeMessage.trim() : "";
+        }
+        return "";
+      })
+      .filter((text): text is string => text.length > 0);
+
+    return messages.length > 0 ? [...new Set(messages)].join("；") : null;
+  } catch {
+    return null;
+  }
+};
+
+const getNestedErrorMessage = (value: unknown): string | null => {
+  if (typeof value === "string") return value;
+  if (value === null || typeof value !== "object") return null;
+
+  const message = (value as Record<string, unknown>).message;
+  if (typeof message !== "string") return null;
+
+  return parseZodIssueMessages(message) ?? message;
+};
+
 const handleResponse = async <T = any>(response: Response, endpoint: string): Promise<T> => {
   if (response.status === 401 && endpoint !== '/users/me/password') {
     clearSessionAndRedirect();
@@ -206,11 +237,12 @@ const handleResponse = async <T = any>(response: Response, endpoint: string): Pr
       parsedBody !== null && typeof parsedBody === "object"
         ? (parsedBody as Record<string, unknown>)
         : null;
+    const nestedErrorMessage = getNestedErrorMessage(parsedBodyObject?.error);
     const detail =
       typeof parsedBody === 'string'
         ? parsedBody
-        : typeof parsedBodyObject?.error === "string"
-          ? parsedBodyObject.error
+        : nestedErrorMessage
+          ? nestedErrorMessage
           : typeof parsedBodyObject?.message === "string"
             ? parsedBodyObject.message
             : parsedBody !== null && parsedBody !== undefined
