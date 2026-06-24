@@ -7,6 +7,9 @@ const authFileModulePath = resolve(import.meta.dir, "./authFile.ts");
 const fileUrlModulePath = resolve(import.meta.dir, "./fileUrl.ts");
 const sessionModulePath = resolve(import.meta.dir, "./session.ts");
 
+const actualSessionModule = await import("./session");
+const actualFileUrlModule = await import("./fileUrl");
+
 const clearSessionAndRedirectMock = mock(() => {});
 const getSessionTokenOrThrowMock = mock(() => "test-token");
 const resolveFileUrlMock = mock(() => "http://files.example.com/manuals/example.pdf");
@@ -16,10 +19,12 @@ let importVersion = 0;
 const originalFetch = globalThis.fetch;
 
 mock.module(fileUrlModulePath, () => ({
+  ...actualFileUrlModule,
   resolveFileUrl: resolveFileUrlMock,
 }));
 
 mock.module(sessionModulePath, () => ({
+  ...actualSessionModule,
   clearSessionAndRedirect: clearSessionAndRedirectMock,
   getSessionTokenOrThrow: getSessionTokenOrThrowMock,
 }));
