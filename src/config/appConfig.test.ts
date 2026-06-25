@@ -34,9 +34,9 @@ describe("DOWNLOAD_SERVER_BASE_URL", () => {
     expect(DOWNLOAD_SERVER_BASE_URL).toBe("http://api.example.com");
   });
 
-  it("falls back to the same-host backend port when VITE_API_URL is not configured", async () => {
+  it("falls back to the current origin when VITE_API_URL is not configured", async () => {
     const { DOWNLOAD_SERVER_BASE_URL } = await loadAppConfigModule();
 
-    expect(DOWNLOAD_SERVER_BASE_URL).toBe("http://localhost:3001");
+    expect(DOWNLOAD_SERVER_BASE_URL).toBe("http://localhost");
   });
 });

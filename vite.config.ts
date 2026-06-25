@@ -4,6 +4,10 @@ import { resolve } from 'path';
 
 const API_PROXY_TARGET =
   process.env.VITE_API_URL?.replace('/api/v1', '') ?? 'http://localhost:3001';
+const backendProxy = {
+  target: API_PROXY_TARGET,
+  changeOrigin: true,
+};
 
 // 自定义插件：处理 SPA 路由的 history fallback
 function spaFallbackPlugin(): Plugin {
@@ -89,10 +93,11 @@ export default defineConfig({
     port: 4000,
     // API 代理到后端服务器（支持环境变量覆盖，用于 E2E 测试）
     proxy: {
-      '/api': {
-        target: API_PROXY_TARGET,
-        changeOrigin: true,
-      },
+      '/api': backendProxy,
+      '/manuals': backendProxy,
+      '/datasets': backendProxy,
+      '/reports': backendProxy,
+      '/exports': backendProxy,
     },
   },
 

@@ -4,27 +4,12 @@
  * The base URL for the server that hosts downloadable files (e.g., experiment manuals).
  * In development, this is likely your backend server. In production, it could be a CDN or a different domain.
  */
-/**
- * Defaults to the origin derived from VITE_API_URL when configured.
- * If VITE_API_URL is not configured, it falls back to the backend service on the
- * same host at port 3001. This matches the intranet deployment where nginx serves
- * only frontend files and the browser talks to the backend directly.
- */
-const DEFAULT_BACKEND_PORT = "3001";
-
-const getDefaultBackendOrigin = (): string => {
-  if (typeof window !== "undefined" && window.location.hostname) {
-    const protocol = window.location.protocol || "http:";
-    return `${protocol}//${window.location.hostname}:${DEFAULT_BACKEND_PORT}`;
-  }
-
-  return `http://localhost:${DEFAULT_BACKEND_PORT}`;
-};
-
 const getApiOrigin = (): string => {
   const apiUrl = import.meta.env.VITE_API_URL?.trim();
   if (!apiUrl) {
-    return getDefaultBackendOrigin();
+    return typeof window !== "undefined" && window.location.origin
+      ? window.location.origin
+      : "";
   }
 
   try {
@@ -39,7 +24,9 @@ const getApiOrigin = (): string => {
     return "";
   }
 
-  return getDefaultBackendOrigin();
+  return typeof window !== "undefined" && window.location.origin
+    ? window.location.origin
+    : "";
 };
 
 export const DOWNLOAD_SERVER_BASE_URL = getApiOrigin();

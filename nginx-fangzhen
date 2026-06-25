@@ -6,6 +6,18 @@ server {
 	index index.html;
 
 	client_max_body_size 100m;
+	send_timeout 600s;
+
+	proxy_http_version 1.1;
+	proxy_set_header Host $host;
+	proxy_set_header X-Real-IP $remote_addr;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	proxy_set_header X-Forwarded-Proto $scheme;
+	proxy_set_header Connection "";
+
+	proxy_connect_timeout 10s;
+	proxy_send_timeout 600s;
+	proxy_read_timeout 600s;
 
 	location = / {
 	    try_files /login.html =404;
@@ -19,23 +31,47 @@ server {
 	    try_files $uri =404;
 	}
 
-	# Backend APIs and authenticated files are intentionally not proxied here.
-	# In the intranet deployment, nginx only serves frontend files; the browser
-	# talks to the backend service directly on the same host at port 3001.
+	# Keep browsers on port 80 in the classroom network. nginx handles client
+	# connections and buffers backend responses from the local Bun service.
 	location ^~ /api/ {
-	    return 404;
+	    proxy_buffering on;
+	    proxy_buffer_size 16k;
+	    proxy_buffers 32 64k;
+	    proxy_busy_buffers_size 128k;
+	    proxy_max_temp_file_size 1024m;
+	    proxy_pass http://127.0.0.1:3001;
 	}
 	location ^~ /manuals/ {
-	    return 404;
+	    proxy_buffering on;
+	    proxy_buffer_size 16k;
+	    proxy_buffers 64 128k;
+	    proxy_busy_buffers_size 256k;
+	    proxy_max_temp_file_size 1024m;
+	    proxy_pass http://127.0.0.1:3001;
 	}
 	location ^~ /datasets/ {
-	    return 404;
+	    proxy_buffering on;
+	    proxy_buffer_size 16k;
+	    proxy_buffers 64 128k;
+	    proxy_busy_buffers_size 256k;
+	    proxy_max_temp_file_size 1024m;
+	    proxy_pass http://127.0.0.1:3001;
 	}
 	location ^~ /reports/ {
-	    return 404;
+	    proxy_buffering on;
+	    proxy_buffer_size 16k;
+	    proxy_buffers 64 128k;
+	    proxy_busy_buffers_size 256k;
+	    proxy_max_temp_file_size 1024m;
+	    proxy_pass http://127.0.0.1:3001;
 	}
 	location ^~ /exports/ {
-	    return 404;
+	    proxy_buffering on;
+	    proxy_buffer_size 16k;
+	    proxy_buffers 64 128k;
+	    proxy_busy_buffers_size 256k;
+	    proxy_max_temp_file_size 1024m;
+	    proxy_pass http://127.0.0.1:3001;
 	}
 
 	location /login {

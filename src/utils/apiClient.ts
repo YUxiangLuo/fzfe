@@ -3,18 +3,7 @@ import {
   getStoredToken,
 } from "./session";
 
-const DEFAULT_BACKEND_PORT = "3001";
-
-const getDefaultBackendOrigin = (): string => {
-  if (typeof window !== "undefined" && window.location.hostname) {
-    const protocol = window.location.protocol || "http:";
-    return `${protocol}//${window.location.hostname}:${DEFAULT_BACKEND_PORT}`;
-  }
-
-  return `http://localhost:${DEFAULT_BACKEND_PORT}`;
-};
-
-export const API_BASE_URL = import.meta.env.VITE_API_URL?.trim() || `${getDefaultBackendOrigin()}/api/v1`;
+export const API_BASE_URL = import.meta.env.VITE_API_URL?.trim() || "/api/v1";
 
 export interface ApiRequestOptions extends RequestInit {
   /**
