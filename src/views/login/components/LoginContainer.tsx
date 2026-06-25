@@ -247,7 +247,7 @@ export const LoginContainer: React.FC = () => {
         {/* 底部信息 */}
         <div className="text-center mt-6">
           <p className="text-white/50 text-xs">
-            © 2025 学校虚拟仿真教学平台 | 技术支持：教育技术中心
+            © 2025 学校虚拟仿真教学平台
           </p>
         </div>
       </div>
