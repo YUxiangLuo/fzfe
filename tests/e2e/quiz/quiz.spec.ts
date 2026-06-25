@@ -48,7 +48,7 @@ interface QuizQuestion {
 interface QuizAnswerResult {
   question_id: number;
   is_correct: boolean;
-  correct_answers: string[];
+  correct_answers?: never;
 }
 
 interface GradeSummaryRow {
@@ -388,7 +388,7 @@ test.describe("@quiz 题库与测验", () => {
         const result = resultsById.get(plan.source.question_id);
         expect(result).toBeDefined();
         expect(result?.is_correct).toBe(plan.expectedCorrect);
-        expect(result?.correct_answers).toEqual(plan.source.correct_answers);
+        expect(result).not.toHaveProperty("correct_answers");
       }
 
       await expect.poll(() => new URL(page.url()).hash).toMatch(/^#\/production/);
@@ -577,7 +577,7 @@ test.describe("@quiz 题库与测验", () => {
         const result = resultsById.get(plan.source.question_id);
         expect(result).toBeDefined();
         expect(result?.is_correct).toBe(plan.expectedCorrect);
-        expect(result?.correct_answers).toEqual(plan.source.correct_answers);
+        expect(result).not.toHaveProperty("correct_answers");
       }
 
       await expect.poll(() => new URL(page.url()).hash).toBe("#/report");
