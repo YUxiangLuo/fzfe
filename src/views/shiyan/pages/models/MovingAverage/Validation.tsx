@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { getMovingAverageWindowValidationError } from './movingAverageValidation';
 
 export interface ValidationProps {
   windowSize: number | '';
@@ -10,17 +11,7 @@ export interface ValidationProps {
 const Validation: React.FC<ValidationProps> = ({ windowSize, isValid, trainDataLength = 0 }) => {
   const errorMessage = useMemo(() => {
     if (isValid) return null;
-
-    if (windowSize === '' || windowSize <= 0) {
-      return '请输入一个有效的时间窗口大小';
-    }
-    if (windowSize < 2) {
-      return '时间窗口大小至少为 2';
-    }
-    if (trainDataLength > 0 && windowSize > trainDataLength) {
-      return `时间窗口大小不能超过训练数据长度（${trainDataLength}）`;
-    }
-    return '时间窗口值不合法';
+    return getMovingAverageWindowValidationError(windowSize, trainDataLength) ?? '时间窗口值不合法';
   }, [isValid, windowSize, trainDataLength]);
 
   return (

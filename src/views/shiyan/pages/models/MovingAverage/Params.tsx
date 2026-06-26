@@ -1,21 +1,23 @@
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { MOVING_AVERAGE_CONSTANTS } from '../constants';
 
 export interface ParamsProps {
   windowSize: number | '';
   setWindowSize: (value: number | '') => void;
 }
 
+export const parseWindowSizeInput = (value: string): number | '' | null => {
+  if (value === '') return '';
+
+  const numValue = Number(value);
+  return Number.isFinite(numValue) ? numValue : null;
+};
+
 const Params: React.FC<ParamsProps> = ({ windowSize, setWindowSize }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    if (value === '') {
-      setWindowSize('');
-    } else {
-      const numValue = parseInt(value, 10);
-      if (!isNaN(numValue)) {
-        setWindowSize(numValue);
-      }
+    const parsedValue = parseWindowSizeInput(e.target.value);
+    if (parsedValue !== null) {
+      setWindowSize(parsedValue);
     }
   };
 
@@ -30,12 +32,14 @@ const Params: React.FC<ParamsProps> = ({ windowSize, setWindowSize }) => {
           请输入时间窗口 n 的取值:
         </label>
         <input
-          type="number"
+          type="text"
           id="window-size"
           value={windowSize}
           onChange={handleChange}
+          inputMode="numeric"
+          pattern="[0-9]*"
           className="block w-full max-w-md px-4 py-3 bg-white border-2 border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
-          placeholder="请输入窗口大小"
+          placeholder={`请输入大于等于 ${MOVING_AVERAGE_CONSTANTS.MIN_WINDOW_SIZE} 的整数`}
         />
       </div>
 

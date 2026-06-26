@@ -9,9 +9,10 @@ import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useSimpleModel } from '../hooks/useSimpleModel';
-import { MODEL_RETRY_LIMITS, MOVING_AVERAGE_CONSTANTS } from '../constants';
+import { MODEL_RETRY_LIMITS } from '../constants';
 import RetryExceededFallback from '../components/RetryExceededFallback';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
+import { isValidMovingAverageWindow } from './movingAverageValidation';
 
 const MODEL_NAME = '移动平均法';
 const BASE_PATH = '/model/moving-average';
@@ -66,12 +67,7 @@ const MovingAverageStepper: React.FC = () => {
       metricsR2: 'moving_average_metrics_r2',
     },
     paramKey: 'moving_average_window',
-    validateParam: (window) => {
-      if (window === '' || window <= 0) return false;
-      if (window < MOVING_AVERAGE_CONSTANTS.MIN_WINDOW_SIZE) return false;
-      if (trainDataLength > 0 && window > trainDataLength) return false;
-      return true;
-    },
+    validateParam: (window) => isValidMovingAverageWindow(window, trainDataLength),
   });
 
   const isValidationPage = location.pathname === VALIDATION_PATH;
