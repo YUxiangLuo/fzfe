@@ -142,7 +142,7 @@ const LSTMStepper: React.FC = () => {
       data_window_evaluate_end_index: state.data_window_evaluate_end_index,
       lstmNormalization: normalization,
       lstmTargetFeature: target ?? '销售数量',
-      lstmFeatures: features.join(","),
+      lstmFeatures: JSON.stringify(features),
     };
 
     await runJob<any>({
@@ -314,6 +314,7 @@ const LSTMStepper: React.FC = () => {
       error,
       isLoading,
       fieldOptions: productFieldOptions ?? [],
+      csvData: productSalesData?.csvData,
       onShowLSTMMethodInfo: handleShowLSTMMethodInfo
     },
     results: { data: results, isLoading, error, onRetry: handleRetry },

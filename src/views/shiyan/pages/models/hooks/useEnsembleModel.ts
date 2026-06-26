@@ -142,7 +142,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     if (backendModels.includes('es')) requestBody.exponential_smoothing_alpha = state.exponential_smoothing_alpha;
     if (backendModels.includes('ma')) requestBody.moving_average_window = state.moving_average_window;
     if (backendModels.includes('lstm')) {
-      requestBody.lstmFeatures = state.lstm_features.join(",");
+      requestBody.lstmFeatures = JSON.stringify(state.lstm_features);
       requestBody.lstmTargetFeature = state.lstm_target_field;
       requestBody.lstmNormalization = state.lstm_normalization;
     }

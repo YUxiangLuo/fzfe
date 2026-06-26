@@ -203,6 +203,10 @@ describe('useEnsembleModel', () => {
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
 
     expect(apiPost).toHaveBeenCalledTimes(1);
+    const firstRequestBody = (apiPost.mock.calls[0] as unknown[] | undefined)?.[1];
+    expect(firstRequestBody).toMatchObject({
+      lstmFeatures: JSON.stringify(['销售数量']),
+    });
     expect(view.getByTestId('loading').textContent).toBe('false');
     expect(view.getByTestId('results-ready').textContent).toBe('true');
   });

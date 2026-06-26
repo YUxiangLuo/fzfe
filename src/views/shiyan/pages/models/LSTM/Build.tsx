@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
+import { analyzeLstmFields } from './lstmFieldAnalysis';
 
 export interface BuildProps {
   features: string[];
@@ -9,10 +10,20 @@ export interface BuildProps {
   error: string | null;
   isLoading: boolean;
   fieldOptions: string[];
+  csvData?: string[][];
   onShowLSTMMethodInfo: () => void;
 }
 
-const Build: React.FC<BuildProps> = ({ features, setFeatures, target, setTarget, error, isLoading, fieldOptions, onShowLSTMMethodInfo }) => {
+const typeBadgeClasses: Record<string, string> = {
+  数值: 'bg-green-100 text-green-700 border-green-200',
+  类别: 'bg-slate-100 text-slate-700 border-slate-200',
+  疑似数值: 'bg-amber-100 text-amber-700 border-amber-200',
+  高基数类别: 'bg-purple-100 text-purple-700 border-purple-200',
+  空字段: 'bg-red-100 text-red-700 border-red-200',
+  字段: 'bg-gray-100 text-gray-600 border-gray-200',
+};
+
+const Build: React.FC<BuildProps> = ({ features, setFeatures, target, setTarget, error, isLoading, fieldOptions, csvData, onShowLSTMMethodInfo }) => {
   const handleFeatureToggle = (field: string) => {
     const newFeatures = features.includes(field)
       ? features.filter(f => f !== field)
@@ -20,20 +31,11 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, setTarget,
     setFeatures(newFeatures);
   };
 
-  // Intelligent filtering logic from the old component
-  const isNumericField = (fieldName: string): boolean => {
-    const lowerField = fieldName.toLowerCase();
-    const excludeKeywords = [
-      '代码', 'code', 'id', '编码', '编号', 'number', 'no', 'num',
-      '名称', 'name', '地址', 'address', '描述', 'description', 'desc',
-      '备注', 'remark', 'note', 'comment', '类型', 'type', 'category',
-      '状态', 'status', 'state', '单位', 'unit',
-      '链接', 'url', 'link', '图片', 'image', 'img',
-    ];
-    return !excludeKeywords.some(keyword => lowerField.includes(keyword));
-  };
+  const filteredFields = useMemo(() => fieldOptions
+    .map(field => field.trim())
+    .filter((field, index, fields) => field.length > 0 && fields.indexOf(field) === index), [fieldOptions]);
 
-  const filteredFields = fieldOptions.filter(isNumericField);
+  const fieldProfiles = useMemo(() => analyzeLstmFields(csvData, filteredFields), [csvData, filteredFields]);
 
   return (
     <div className="flex flex-col h-full">
@@ -56,16 +58,19 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, setTarget,
               <div className="space-y-3">
                 {filteredFields.map(field => {
                   const isDisabled = field === target;
+                  const profile = fieldProfiles[field];
+                  const badgeClassName = typeBadgeClasses[profile?.typeLabel ?? '字段'] ?? typeBadgeClasses['字段'];
                   return (
                     <label
                       key={field}
                       htmlFor={`feature-${field}`}
-                      className="flex items-center p-3 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-300 transition-colors cursor-pointer"
+                      className="flex items-start p-3 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-300 transition-colors cursor-pointer"
                     >
                       <input
                         type="checkbox"
                         id={`feature-${field}`}
-                        className="h-5 w-5 rounded text-blue-600 focus:ring-blue-500 disabled:bg-gray-200 cursor-pointer"
+                        aria-label={isDisabled ? `${field}(目标字段)` : field}
+                        className="mt-1 h-5 w-5 rounded text-blue-600 focus:ring-blue-500 disabled:bg-gray-200 cursor-pointer"
                         checked={features.includes(field) && !isDisabled}
                         onChange={() => handleFeatureToggle(field)}
                         disabled={isDisabled}
@@ -73,8 +78,21 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, setTarget,
                       <span
                         className={`ml-4 text-base flex-1 cursor-pointer ${isDisabled ? 'text-gray-400' : 'text-gray-800'}`}
                       >
-                        {field}
-                        {isDisabled && <span className="ml-2 text-xs text-gray-500">(目标字段)</span>}
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span>{field}</span>
+                          {isDisabled && <span className="text-xs text-gray-500">(目标字段)</span>}
+                          {profile && (
+                            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${badgeClassName}`}>
+                              {profile.typeLabel}
+                            </span>
+                          )}
+                        </span>
+                        {profile?.warnings.map(warning => (
+                          <span key={warning} className="mt-2 flex items-start gap-1 text-xs leading-5 text-amber-700">
+                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                            <span>{warning}</span>
+                          </span>
+                        ))}
                       </span>
                     </label>
                   );
