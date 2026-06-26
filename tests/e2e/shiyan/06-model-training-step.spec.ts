@@ -20,6 +20,11 @@ const advanceEnsembleIntroToSelection = async (
   }
 };
 
+const expectJsonFeatureList = (value: unknown, expectedFeatures: string[]) => {
+  expect(typeof value).toBe("string");
+  expect(JSON.parse(value as string)).toEqual(expectedFeatures);
+};
+
 test.describe("@shiyan model training step", () => {
   test("base-model selection requires at least two models before training can start", async ({
     page,
@@ -270,17 +275,17 @@ test.describe("@shiyan model training step", () => {
     await studentApp.open("/model/moving-average/results");
     await studentApp.expectHash("/model/moving-average/results");
 
-    await expect(page.getByText(/模型服务繁忙，请稍后再试/)).toBeVisible({
+    await expect(page.getByText(/模型服务当前繁忙/)).toBeVisible({
       timeout: 30_000,
     });
 
     await page.getByRole("button", { name: "重试" }).click();
-    await expect(page.getByText(/模型服务繁忙，请稍后再试/)).toBeVisible({
+    await expect(page.getByText(/模型服务当前繁忙/)).toBeVisible({
       timeout: 30_000,
     });
 
     await page.getByRole("button", { name: "重试" }).click();
-    await expect(page.getByText(/模型服务繁忙，请稍后再试/)).toBeVisible({
+    await expect(page.getByText(/模型服务当前繁忙/)).toBeVisible({
       timeout: 30_000,
     });
 
@@ -1033,7 +1038,7 @@ test.describe("@shiyan model training step", () => {
 
     expect(capturedRequest).not.toBeNull();
     expect(capturedRequest?.lstmNormalization).toBe("minmax");
-    expect(capturedRequest?.lstmFeatures).toBe(selectedFeatureNames.join(","));
+    expectJsonFeatureList(capturedRequest?.lstmFeatures, selectedFeatureNames);
     expect(String(capturedRequest?.lstmTargetFeature ?? "")).toContain("销售数量");
 
     const activeExperiment = await studentApi.getActiveExperiment();
@@ -1340,7 +1345,7 @@ test.describe("@shiyan model training step", () => {
     expect(capturedRequest?.models).toBe("arima,lstm");
     expect(capturedRequest?.arimaD).toBe(1);
     expect(capturedRequest?.lstmNormalization).toBe("minmax");
-    expect(capturedRequest?.lstmFeatures).toBe("价格指数,产能利用率");
+    expectJsonFeatureList(capturedRequest?.lstmFeatures, ["价格指数", "产能利用率"]);
     expect(capturedRequest?.lstmTargetFeature).toBe("销售数量");
   });
 
