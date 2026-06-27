@@ -11,10 +11,18 @@ mock.restore();
 
 const r = (p: string) => resolve(import.meta.dir, p);
 
-const apiGet = mock(async (): Promise<any> => ({
+const defaultManual = {
   file_name: "实验手册.pdf",
   file_path: "/manuals/current.pdf",
-}));
+};
+
+let latestExperimentRuns: any[] = [];
+
+const apiGet = mock(async (endpoint: string): Promise<any> => {
+  if (endpoint === "/manuals/active") return defaultManual;
+  if (endpoint === "/students/me/experiment-runs") return latestExperimentRuns;
+  return null;
+});
 
 const createNewExperiment = mock(async () => {});
 const setIsSubmitting = mock((_value: boolean) => {});
@@ -110,10 +118,12 @@ describe("Introduction", () => {
   let view: RenderResult | null = null;
 
   beforeEach(() => {
+    latestExperimentRuns = [];
     apiGet.mockReset();
-    apiGet.mockResolvedValue({
-      file_name: "实验手册.pdf",
-      file_path: "/manuals/current.pdf",
+    apiGet.mockImplementation(async (endpoint: string): Promise<any> => {
+      if (endpoint === "/manuals/active") return defaultManual;
+      if (endpoint === "/students/me/experiment-runs") return latestExperimentRuns;
+      return null;
     });
     createNewExperiment.mockReset();
     createNewExperiment.mockResolvedValue(undefined);
@@ -171,6 +181,69 @@ describe("Introduction", () => {
     expect(setIsSubmitting).toHaveBeenCalledWith(true);
     expect(createNewExperiment).toHaveBeenCalledTimes(1);
     expect(setIsSubmitting).toHaveBeenLastCalledWith(false);
+  });
+
+  it("warns before starting when the latest experiment is already completed and respects cancellation", async () => {
+    latestExperimentRuns = [
+      {
+        experiment_id: 88,
+        status: "Completed",
+        completion_time: "2026-03-02T10:00:00Z",
+      },
+    ];
+    confirmMock.mockResolvedValueOnce(false);
+
+    view = await renderIntroduction("/introduction");
+
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "开始实验" }));
+    });
+
+    expect(confirmMock).toHaveBeenCalledWith(expect.objectContaining({
+      title: "检测到最近一次实验已完成",
+      confirmText: "确认开始新实验",
+      cancelText: "暂不开始",
+      variant: "warning",
+    }));
+    expect(createNewExperiment).not.toHaveBeenCalled();
+    expect(view.getByTestId("location-display").textContent).toBe("/introduction");
+    expect(setIsSubmitting).toHaveBeenCalledWith(true);
+    expect(setIsSubmitting).toHaveBeenLastCalledWith(false);
+  });
+
+  it("starts a new experiment after the completed-latest warning is confirmed", async () => {
+    latestExperimentRuns = [
+      {
+        experiment_id: 89,
+        status: "Completed",
+        completion_time: "2026-03-02T10:00:00Z",
+      },
+    ];
+    confirmMock.mockResolvedValueOnce(true);
+
+    view = await renderIntroduction("/introduction");
+
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "开始实验" }));
+    });
+
+    await waitFor(() => {
+      expect(view!.getByTestId("location-display").textContent).toBe("/industry");
+    });
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(createNewExperiment).toHaveBeenCalledTimes(1);
   });
 
   it("shows the resume dialog and continues the existing experiment from the saved step", async () => {

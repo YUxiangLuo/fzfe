@@ -30,6 +30,13 @@ interface Manual {
   file_path: string;
 }
 
+interface ExperimentRunSummary {
+  experiment_id?: number;
+  status?: string | null;
+  start_time?: string | null;
+  completion_time?: string | null;
+}
+
 type ManualLoadState = "loading" | "ready" | "empty" | "error";
 
 const isMissingActiveManualError = (error: unknown): boolean => {
@@ -141,10 +148,35 @@ const Introduction: React.FC = () => {
   const hasStartTime = experimentState.start_time !== null;
   const isFromExperiment = fromPath !== undefined && !isFromIntroduction;
 
+  const getLatestExperimentRun = async (): Promise<ExperimentRunSummary | null> => {
+    const experiments = await apiClient.get<ExperimentRunSummary[]>("/students/me/experiment-runs");
+    return Array.isArray(experiments) && experiments.length > 0 ? experiments[0] ?? null : null;
+  };
+
+  const confirmStartAfterCompletedExperiment = async () => {
+    const latestExperiment = await getLatestExperimentRun();
+    if (latestExperiment?.status !== "Completed") {
+      return true;
+    }
+
+    return await confirm({
+      title: "检测到最近一次实验已完成",
+      message:
+        "后台统计和教师端报告列表会按照最新一次实验记录计算。若现在开始新的实验，教师端将优先展示新实验的进度和报告状态。确定要开始新的实验吗？",
+      confirmText: "确认开始新实验",
+      cancelText: "暂不开始",
+      variant: "warning",
+    });
+  };
+
   // 开始新实验
-  const startNewExperiment = async () => {
+  const startNewExperiment = async (options: { skipLatestCheck?: boolean } = {}) => {
     try {
       setIsSubmitting(true);
+      if (!options.skipLatestCheck) {
+        const canStart = await confirmStartAfterCompletedExperiment();
+        if (!canStart) return;
+      }
       await createNewExperiment();
       navigate("/industry");
     } catch (error) {
@@ -466,7 +498,7 @@ const Introduction: React.FC = () => {
                 <button
                   onClick={() => {
                     setShowResumeDialog(false);
-                    startNewExperiment();
+                    startNewExperiment({ skipLatestCheck: true });
                   }}
                   className="w-full px-6 py-3 bg-white text-gray-700 border-2 border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
                 >
