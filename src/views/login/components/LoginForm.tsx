@@ -199,8 +199,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         )}
       </button>
 
-      {/* 注册链接（仅学生、教师、助教显示） */}
-      {onSwitchToRegister && selectedRole !== "admin" && (
+      {/* 注册链接（仅学生显示；教师/助教/管理员账号由管理端创建） */}
+      {onSwitchToRegister && selectedRole === "student" && (
         <div className="text-center">
           <button
             type="button"
