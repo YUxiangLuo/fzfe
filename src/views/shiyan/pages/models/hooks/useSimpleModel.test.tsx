@@ -14,8 +14,9 @@ const r = (path: string) => resolve(import.meta.dir, path);
 
 const experimentContextModulePath = r('../../../contexts/ExperimentContext.zustand.tsx');
 const apiClientModulePath = r('../../../../../utils/apiClient.ts');
+const modelTrainingStreamModulePath = r('../../../services/modelTrainingStream.ts');
 
-const apiPost = mock(async () => ({
+const postModelTrainingStream = mock(async () => ({
   status: 'success',
   results: {
     eval_y_true: [172, 181],
@@ -76,9 +77,14 @@ mock.module(experimentContextModulePath, () => ({
 }));
 
 mock.module(apiClientModulePath, () => ({
+  API_BASE_URL: '/api/v1',
   apiClient: {
-    post: apiPost,
+    post: mock(async () => null),
   },
+}));
+
+mock.module(modelTrainingStreamModulePath, () => ({
+  postModelTrainingStream,
 }));
 
 const Harness = async (currentStepId = 'results') => {
@@ -138,7 +144,7 @@ describe('useSimpleModel', () => {
   let view: RenderResult | null = null;
 
   beforeEach(() => {
-    apiPost.mockClear();
+    postModelTrainingStream.mockClear();
     experimentValue = {
       state: {
         experiment_id: 12,
@@ -204,7 +210,7 @@ describe('useSimpleModel', () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(postModelTrainingStream).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(view!.getByTestId('error').textContent).toBe('sync failed'));
 
     expect(view.getByTestId('results-ready').textContent).toBe('false');

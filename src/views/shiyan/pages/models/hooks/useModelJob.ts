@@ -4,12 +4,24 @@ import { MODEL_RETRY_LIMITS } from '../constants';
 
 type TrainingLockSetter = (isLocked: boolean, lockPath?: string | null) => void;
 
+export interface ModelJobProgressEvent {
+  type: 'phase' | 'progress' | 'log';
+  message: string;
+  phase?: string;
+  percent?: number;
+  source?: 'backend' | 'python';
+  timestamp?: string;
+}
+
+type ModelJobProgressHandler = (event: ModelJobProgressEvent) => void;
+
 interface RunModelJobOptions<T> {
-  request: (signal: AbortSignal) => Promise<T>;
+  request: (signal: AbortSignal, onProgress: ModelJobProgressHandler) => Promise<T>;
   lockPath?: string | null;
   setTrainingLock?: TrainingLockSetter;
   getErrorMessage?: (error: unknown) => string;
   onSuccess?: (result: T) => Promise<void> | void;
+  minLoadingMs?: number;
 }
 
 const extractPayloadMessage = (payload: unknown): string | null => {
@@ -96,11 +108,17 @@ const isRetryCountExemptError = (jobError: unknown): boolean => {
   return getTransientModelJobMessage(jobError) !== null;
 };
 
+const delay = (ms: number) => new Promise<void>((resolve) => {
+  window.setTimeout(resolve, ms);
+});
+
 export function useModelJob() {
   const { executeRequest } = useAbortableRequest();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [progressEvents, setProgressEvents] = useState<ModelJobProgressEvent[]>([]);
+  const [currentProgress, setCurrentProgress] = useState<ModelJobProgressEvent | null>(null);
   const isMountedRef = useRef(true);
   const jobIdRef = useRef(0);
   const inFlightJobIdRef = useRef<number | null>(null);
@@ -152,6 +170,19 @@ export function useModelJob() {
     }
   }, []);
 
+  const recordProgress = useCallback((jobId: number, event: ModelJobProgressEvent) => {
+    if (!isMountedRef.current || jobIdRef.current !== jobId) {
+      return;
+    }
+
+    const normalizedEvent = {
+      ...event,
+      timestamp: event.timestamp ?? new Date().toISOString(),
+    };
+    setCurrentProgress(normalizedEvent);
+    setProgressEvents((previous) => [...previous, normalizedEvent].slice(-8));
+  }, []);
+
   const recordFailure = useCallback((
     jobError: unknown,
     fallbackMessage = '模型任务执行失败',
@@ -199,16 +230,20 @@ export function useModelJob() {
     setTrainingLock,
     getErrorMessage,
     onSuccess,
+    minLoadingMs = 0,
   }: RunModelJobOptions<T>): Promise<T | null> => {
     if (inFlightJobIdRef.current !== null) {
       return null;
     }
 
     const jobId = ++jobIdRef.current;
+    const startedAt = Date.now();
     inFlightJobIdRef.current = jobId;
 
     if (isMountedRef.current) {
       setIsLoading(true);
+      setCurrentProgress(null);
+      setProgressEvents([]);
     }
 
     if (setTrainingLock) {
@@ -219,8 +254,13 @@ export function useModelJob() {
       setTrainingLock(true, lockPath ?? null);
     }
 
+    const handleProgress: ModelJobProgressHandler = (event) => {
+      recordProgress(jobId, event);
+    };
+    let completedSuccessfully = false;
+
     try {
-      const result = await executeRequest(request);
+      const result = await executeRequest((signal) => request(signal, handleProgress));
       if (result === null) {
         return null;
       }
@@ -230,6 +270,7 @@ export function useModelJob() {
       }
 
       await onSuccess?.(result);
+      completedSuccessfully = true;
 
       return result;
     } catch (jobError) {
@@ -241,11 +282,24 @@ export function useModelJob() {
 
       return null;
     } finally {
+      const remainingLoadingMs = completedSuccessfully
+        ? Math.max(0, minLoadingMs - (Date.now() - startedAt))
+        : 0;
+      if (remainingLoadingMs > 0 && isMountedRef.current && jobIdRef.current === jobId) {
+        recordProgress(jobId, {
+          type: 'progress',
+          phase: 'done',
+          percent: 100,
+          source: 'backend',
+          message: '模型训练完成，正在展示结果',
+        });
+        await delay(remainingLoadingMs);
+      }
       clearLoadingState(jobId);
       releaseLock(jobId);
       clearInFlightJob(jobId);
     }
-  }, [clearInFlightJob, clearLoadingState, executeRequest, getResolvedErrorMessage, recordFailure, releaseLock]);
+  }, [clearInFlightJob, clearLoadingState, executeRequest, getResolvedErrorMessage, recordFailure, recordProgress, releaseLock]);
 
   const handleRetry = useCallback(() => {
     if (retryCount <= MODEL_RETRY_LIMITS.maxRetries) {
@@ -262,6 +316,8 @@ export function useModelJob() {
     error,
     setError,
     retryCount,
+    currentProgress,
+    progressEvents,
     runJob,
     handleRetry,
     resetRetryCount,

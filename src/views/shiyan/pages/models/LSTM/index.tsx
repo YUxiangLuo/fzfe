@@ -9,7 +9,7 @@ import LSTMMethodInfo from './LSTMMethodInfo';
 import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
-import { apiClient } from '../../../../../utils/apiClient';
+import { postModelTrainingStream } from '../../../services/modelTrainingStream';
 import { MODEL_RETRY_LIMITS } from '../constants';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useModelJob } from '../hooks/useModelJob';
@@ -18,6 +18,7 @@ import { alignPredictionRows } from '../resultAlignment';
 
 const MODEL_NAME = 'LSTM模型';
 const BASE_PATH = '/model/lstm';
+const MIN_BASE_MODEL_PROGRESS_MS = 6000;
 
 const STEPS = [
   { id: 'intro', name: '方法步骤', path: `${BASE_PATH}/intro`, component: Intro },
@@ -50,6 +51,8 @@ const LSTMStepper: React.FC = () => {
     error,
     setError,
     retryCount,
+    currentProgress,
+    progressEvents,
     runJob,
     handleRetry,
     resetRetryCount,
@@ -148,11 +151,12 @@ const LSTMStepper: React.FC = () => {
     await runJob<any>({
       lockPath: location.pathname,
       setTrainingLock,
-      request: (signal) => apiClient.post<any>(
-        "/models/lstm/training",
+      request: (signal, onProgress) => postModelTrainingStream<any>(
+        "/models/lstm/training/stream",
         requestBody,
-        { signal }
+        { signal, onProgress }
       ),
+      minLoadingMs: MIN_BASE_MODEL_PROGRESS_MS,
       onSuccess: async (response) => {
         if (response.status !== "success") {
           throw new Error(response.message || "计算失败，请重试...");
@@ -317,7 +321,7 @@ const LSTMStepper: React.FC = () => {
       csvData: productSalesData?.csvData,
       onShowLSTMMethodInfo: handleShowLSTMMethodInfo
     },
-    results: { data: results, isLoading, error, onRetry: handleRetry },
+    results: { data: results, isLoading, error, onRetry: handleRetry, currentProgress, progressEvents },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};

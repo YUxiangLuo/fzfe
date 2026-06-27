@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import CalculationStatus from '../components/CalculationStatus';
 import PredictionChart from '../components/PredictionChart';
+import type { ModelJobProgressEvent } from '../hooks/useModelJob';
 
 interface AutoParamsProps {
   view: 'params' | 'results';
@@ -13,9 +14,11 @@ interface AutoParamsProps {
   error: string | null;
   onRetry: () => void;
   onShowInformationCriteriaInfo: () => void;
+  currentProgress?: ModelJobProgressEvent | null;
+  progressEvents?: ModelJobProgressEvent[];
 }
 
-const AutoParams: React.FC<AutoParamsProps> = ({ view, data, isLoading, error, onRetry, onShowInformationCriteriaInfo }) => {
+const AutoParams: React.FC<AutoParamsProps> = ({ view, data, isLoading, error, onRetry, onShowInformationCriteriaInfo, currentProgress, progressEvents }) => {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
 
   const calculateAccuracy = (actual: number, predicted: number | null): string => {
@@ -34,7 +37,7 @@ const AutoParams: React.FC<AutoParamsProps> = ({ view, data, isLoading, error, o
     return 'bg-red-50 text-red-700 font-semibold';
   };
 
-  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} />;
+  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} modelType="arima" currentProgress={currentProgress} progressEvents={progressEvents} />;
   if (isLoading || error) {
     return status;
   }

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
-import { apiClient } from '../../../../../utils/apiClient';
+import { postModelTrainingStream } from '../../../services/modelTrainingStream';
 import { MODEL_ID_MAP, ENSEMBLE_CONSTANTS } from '../constants';
 import { alignPredictionRows } from '../resultAlignment';
 import { useModelJob } from './useModelJob';
@@ -54,7 +54,7 @@ interface EnsembleResults {
 export function useEnsembleModel(config: EnsembleModelConfig) {
   const { state, updateState, productSalesData, setTrainingLock } = useExperiment();
   const location = useLocation();
-  const { isLoading, error, setError, retryCount, runJob, handleRetry, resetRetryCount } = useModelJob();
+  const { isLoading, error, setError, retryCount, currentProgress, progressEvents, runJob, handleRetry, resetRetryCount } = useModelJob();
   const persistedSelectedModels = (state[config.stateKey.baseModels] as string[]) ?? [];
   const normalizedPersistedSelectedModels = useMemo(
     () => normalizeBaseModelSelection(persistedSelectedModels),
@@ -150,7 +150,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     await runJob<any>({
       lockPath: location.pathname,
       setTrainingLock,
-      request: (signal) => apiClient.post<any>(config.apiEndpoint, requestBody, { signal }),
+      request: (signal, onProgress) => postModelTrainingStream<any>(`${config.apiEndpoint}/stream`, requestBody, { signal, onProgress }),
       onSuccess: async (result) => {
         if (result.status !== "success") {
           throw new Error(result.message || "模型训练失败。");
@@ -232,5 +232,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     markAsCompleted,
     handleRetry,
     retryCount,
+    currentProgress,
+    progressEvents,
   };
 }

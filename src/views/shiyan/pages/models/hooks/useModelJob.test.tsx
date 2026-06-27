@@ -19,16 +19,18 @@ interface HarnessProps {
   onSuccess?: (result: unknown) => Promise<void> | void;
   setTrainingLock: (isLocked: boolean, lockPath?: string | null) => void;
   getErrorMessage?: (error: unknown) => string;
+  minLoadingMs?: number;
 }
 
-const Harness: React.FC<HarnessProps> = ({ request, onSuccess, setTrainingLock, getErrorMessage }) => {
-  const { isLoading, error, retryCount, runJob } = useModelJob();
+const Harness: React.FC<HarnessProps> = ({ request, onSuccess, setTrainingLock, getErrorMessage, minLoadingMs }) => {
+  const { isLoading, error, retryCount, currentProgress, runJob } = useModelJob();
 
   return (
     <div>
       <div data-testid="loading">{String(isLoading)}</div>
       <div data-testid="error">{error ?? ""}</div>
       <div data-testid="retry-count">{String(retryCount)}</div>
+      <div data-testid="progress-percent">{currentProgress?.percent ?? ""}</div>
       <button
         type="button"
         onClick={() => {
@@ -38,6 +40,7 @@ const Harness: React.FC<HarnessProps> = ({ request, onSuccess, setTrainingLock, 
             setTrainingLock,
             lockPath: "/model/test",
             getErrorMessage,
+            minLoadingMs,
           });
         }}
       >
@@ -75,6 +78,54 @@ describe("useModelJob", () => {
     deferred.resolve();
 
     await waitFor(() => expect(view.getByTestId("loading").textContent).toBe("false"));
+    expect(setTrainingLock).toHaveBeenLastCalledWith(false, null);
+  });
+
+  it("keeps loading visible for the configured minimum duration", async () => {
+    const request = mock(async () => ({ status: "success" }));
+    const setTrainingLock = mock(() => {});
+
+    const view = render(
+      <Harness
+        request={request}
+        setTrainingLock={setTrainingLock}
+        minLoadingMs={80}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "run" }));
+
+    await waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+    expect(view.getByTestId("loading").textContent).toBe("true");
+    expect(setTrainingLock).toHaveBeenCalledWith(true, "/model/test");
+
+    await waitFor(() => expect(view.getByTestId("progress-percent").textContent).toBe("100"));
+    await new Promise((resolve) => window.setTimeout(resolve, 30));
+    expect(view.getByTestId("loading").textContent).toBe("true");
+    expect(setTrainingLock).not.toHaveBeenCalledWith(false, null);
+
+    await waitFor(() => expect(view.getByTestId("loading").textContent).toBe("false"));
+    expect(setTrainingLock).toHaveBeenLastCalledWith(false, null);
+  });
+
+  it("does not delay failure display when a minimum loading duration is configured", async () => {
+    const request = mock(async () => {
+      throw new Error("training failed");
+    });
+    const setTrainingLock = mock(() => {});
+
+    const view = render(
+      <Harness
+        request={request}
+        setTrainingLock={setTrainingLock}
+        minLoadingMs={500}
+      />,
+    );
+
+    fireEvent.click(view.getByRole("button", { name: "run" }));
+
+    await waitFor(() => expect(view.getByTestId("error").textContent).toBe("training failed"));
+    expect(view.getByTestId("loading").textContent).toBe("false");
     expect(setTrainingLock).toHaveBeenLastCalledWith(false, null);
   });
 

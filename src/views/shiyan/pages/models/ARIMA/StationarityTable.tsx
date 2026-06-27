@@ -44,7 +44,7 @@ const StationarityTable: React.FC<StationarityTableProps> = ({ adfResults, isLoa
   }
 
   // Handle all other cases (loading, other errors) with the generic status component
-  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} />;
+  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} modelType="adf" />;
   if (isLoading || error) {
     return status;
   }

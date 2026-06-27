@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import PredictionResultsTable from '../components/PredictionResultsTable';
 import CalculationStatus from '../components/CalculationStatus';
 import PredictionChart from '../components/PredictionChart';
+import type { ModelJobProgressEvent } from '../hooks/useModelJob';
 
 export interface ResultsProps {
   data: {
@@ -11,12 +12,14 @@ export interface ResultsProps {
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
+  currentProgress?: ModelJobProgressEvent | null;
+  progressEvents?: ModelJobProgressEvent[];
 }
 
-const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry }) => {
+const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry, currentProgress, progressEvents }) => {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
 
-  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} isEnsembleModel={true} />;
+  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} modelType="boosting" isEnsembleModel={true} currentProgress={currentProgress} progressEvents={progressEvents} />;
   if (isLoading || error) {
     return status;
   }

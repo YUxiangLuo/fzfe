@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
-import { apiClient } from '../../../../../utils/apiClient';
+import { postModelTrainingStream } from '../../../services/modelTrainingStream';
 import type { ExperimentState } from '../../../store/experiment/types';
 import { useModelJob } from './useModelJob';
 import { alignPredictionRows } from '../resultAlignment';
@@ -46,6 +46,8 @@ interface SimpleModelApiResults {
   };
 }
 
+const MIN_BASE_MODEL_PROGRESS_MS = 6000;
+
 /**
  * Shared hook for simple model logic (Exponential Smoothing and Moving Average)
  * Eliminates 90% code duplication between ES and MA models
@@ -53,7 +55,7 @@ interface SimpleModelApiResults {
 export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<T>) {
   const { state, updateState, productSalesData, setTrainingLock } = useExperiment();
   const location = useLocation();
-  const { isLoading, error, setError, retryCount, runJob, handleRetry, resetRetryCount } = useModelJob();
+  const { isLoading, error, setError, retryCount, currentProgress, progressEvents, runJob, handleRetry, resetRetryCount } = useModelJob();
 
   const [param, setParam] = useState<T>((state[config.stateKeys.param] as T) ?? '' as T);
   const [results, setResults] = useState<SimpleModelResults | null>(null);
@@ -94,7 +96,8 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
     }>({
       lockPath: location.pathname,
       setTrainingLock,
-      request: (signal) => apiClient.post(config.apiEndpoint, requestBody, { signal }),
+      request: (signal, onProgress) => postModelTrainingStream(`${config.apiEndpoint}/stream`, requestBody, { signal, onProgress }),
+      minLoadingMs: MIN_BASE_MODEL_PROGRESS_MS,
       onSuccess: async (result) => {
         if (result.status !== "success") {
           throw new Error(result.message || "模型计算返回失败状态");
@@ -166,5 +169,7 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
     markAsCompleted,
     handleRetry,
     retryCount,
+    currentProgress,
+    progressEvents,
   };
 }

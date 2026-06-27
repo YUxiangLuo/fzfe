@@ -13,6 +13,7 @@ import AutoParams from './AutoParams';
 import ModelComparison from './ModelComparison';
 import { useExperiment, type AdfStationarityRow } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
+import { postModelTrainingStream } from '../../../services/modelTrainingStream';
 import { ARIMA_CONSTANTS, MODEL_RETRY_LIMITS } from '../constants';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useModelJob } from '../hooks/useModelJob';
@@ -21,6 +22,7 @@ import { alignPredictionRows } from '../resultAlignment';
 
 const MODEL_NAME = 'ARIMA 模型';
 const BASE_PATH = '/model/arima';
+const MIN_BASE_MODEL_PROGRESS_MS = 6000;
 
 const STEPS = [
   { id: 'intro', name: '方法步骤', path: `${BASE_PATH}/intro`, component: Intro },
@@ -65,6 +67,8 @@ const ARIMAStepper: React.FC = () => {
     isLoading: isTrainingLoading,
     error: trainingError,
     retryCount: trainingRetryCount,
+    currentProgress: trainingProgress,
+    progressEvents: trainingProgressEvents,
     runJob: runTrainingJob,
     setError: setTrainingError,
     handleRetry: handleTrainingRetry,
@@ -201,11 +205,12 @@ const ARIMAStepper: React.FC = () => {
     await runTrainingJob<any>({
       lockPath: location.pathname,
       setTrainingLock,
-      request: (signal) => apiClient.post<any>(
-        "/models/arima/training",
+      request: (signal, onProgress) => postModelTrainingStream<any>(
+        "/models/arima/training/stream",
         requestBody,
-        { signal }
+        { signal, onProgress }
       ),
+      minLoadingMs: MIN_BASE_MODEL_PROGRESS_MS,
       onSuccess: async (response) => {
         if (response.status !== "success") {
           throw new Error(response.message || "计算失败，请重试...");
@@ -458,7 +463,7 @@ const ARIMAStepper: React.FC = () => {
     'stationarity-table': { adfResults, isLoading: isAdfLoading, error: adfError, onRetry: handleAdfRetry, navigate },
     differencing: { selectedD, setSelectedD, error: trainingError, onShowDifferencingInfo: handleShowDifferencingInfo },
     'differencing-validation': { selectedD, adfResults },
-    autoparams: { view: autoParamsView, data: results, isLoading: isTrainingLoading, error: trainingError, onRetry: handleTrainingRetry, onShowInformationCriteriaInfo: handleShowInformationCriteriaInfo },
+    autoparams: { view: autoParamsView, data: results, isLoading: isTrainingLoading, error: trainingError, onRetry: handleTrainingRetry, onShowInformationCriteriaInfo: handleShowInformationCriteriaInfo, currentProgress: trainingProgress, progressEvents: trainingProgressEvents },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};

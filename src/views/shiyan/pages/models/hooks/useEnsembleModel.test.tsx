@@ -14,8 +14,9 @@ const r = (path: string) => resolve(import.meta.dir, path);
 
 const experimentContextModulePath = r('../../../contexts/ExperimentContext.zustand.tsx');
 const apiClientModulePath = r('../../../../../utils/apiClient.ts');
+const modelTrainingStreamModulePath = r('../../../services/modelTrainingStream.ts');
 
-const apiPost = mock(async () => ({
+const postModelTrainingStream = mock(async () => ({
   status: 'success',
   results: {
     eval_y_true: [100, 120],
@@ -79,9 +80,14 @@ mock.module(experimentContextModulePath, () => ({
 }));
 
 mock.module(apiClientModulePath, () => ({
+  API_BASE_URL: '/api/v1',
   apiClient: {
-    post: apiPost,
+    post: mock(async () => null),
   },
+}));
+
+mock.module(modelTrainingStreamModulePath, () => ({
+  postModelTrainingStream,
 }));
 
 const Harness = async () => {
@@ -127,7 +133,7 @@ describe('useEnsembleModel', () => {
   let view: RenderResult | null = null;
 
   beforeEach(() => {
-    apiPost.mockClear();
+    postModelTrainingStream.mockClear();
     experimentValue = {
       state: {
         experiment_id: 12,
@@ -191,7 +197,7 @@ describe('useEnsembleModel', () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(postModelTrainingStream).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
 
     view.rerender(
@@ -202,8 +208,8 @@ describe('useEnsembleModel', () => {
 
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
 
-    expect(apiPost).toHaveBeenCalledTimes(1);
-    const firstRequestBody = (apiPost.mock.calls[0] as unknown[] | undefined)?.[1];
+    expect(postModelTrainingStream).toHaveBeenCalledTimes(1);
+    const firstRequestBody = (postModelTrainingStream.mock.calls[0] as unknown[] | undefined)?.[1];
     expect(firstRequestBody).toMatchObject({
       lstmFeatures: JSON.stringify(['销售数量']),
     });
@@ -223,7 +229,7 @@ describe('useEnsembleModel', () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(postModelTrainingStream).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(view!.getByTestId('error').textContent).toBe('sync failed'));
 
     expect(view.getByTestId('results-ready').textContent).toBe('false');

@@ -56,6 +56,8 @@ const MovingAverageStepper: React.FC = () => {
     handleCalculate,
     handleRetry,
     retryCount,
+    currentProgress,
+    progressEvents,
   } = useSimpleModel<number | ''>({
     type: 'moving_average',
     apiEndpoint: '/models/ma/training',
@@ -186,7 +188,7 @@ const MovingAverageStepper: React.FC = () => {
   const componentProps: { [key: string]: ParamsProps | ValidationProps | ResultsProps | {} } = {
     params: { windowSize, setWindowSize },
     validation: { windowSize, isValid: isValidWindowSize, trainDataLength },
-    results: { data: results, isLoading, error, onRetry: handleRetry },
+    results: { data: results, isLoading, error, onRetry: handleRetry, currentProgress, progressEvents },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};

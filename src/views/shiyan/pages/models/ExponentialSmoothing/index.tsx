@@ -44,6 +44,8 @@ const ExponentialSmoothingStepper: React.FC = () => {
     markAsCompleted,
     handleRetry,
     retryCount,
+    currentProgress,
+    progressEvents,
   } = useSimpleModel<number | ''>({
     type: 'exponential_smoothing',
     apiEndpoint: '/models/es/training',
@@ -163,7 +165,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
   const componentProps: { [key: string]: ParamsProps | ValidationProps | ResultsProps | {} } = {
     params: { alpha, setAlpha },
     validation: { alpha, isValid: isValidAlpha },
-    results: { data: results, isLoading, error, onRetry: handleRetry },
+    results: { data: results, isLoading, error, onRetry: handleRetry, currentProgress, progressEvents },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};

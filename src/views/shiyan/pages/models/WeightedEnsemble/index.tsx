@@ -45,6 +45,8 @@ const WeightedEnsembleStepper: React.FC = () => {
     markAsCompleted,
     handleRetry,
     retryCount,
+    currentProgress,
+    progressEvents,
   } = useEnsembleModel({
     type: 'weighted',
     apiEndpoint: '/models/weighted_avg/training',
@@ -155,7 +157,9 @@ const WeightedEnsembleStepper: React.FC = () => {
       data: results ? { weights: results.weights, model_names: results.model_names } : null,
       isLoading,
       error,
-      onRetry: handleRetry
+      onRetry: handleRetry,
+      currentProgress,
+      progressEvents
     },
     'prediction-comparison': {
       data: results ? { predictions: results.predictions } : null

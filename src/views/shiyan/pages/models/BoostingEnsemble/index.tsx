@@ -43,6 +43,8 @@ const BoostingEnsembleStepper: React.FC = () => {
     markAsCompleted,
     handleRetry,
     retryCount,
+    currentProgress,
+    progressEvents,
   } = useEnsembleModel({
     type: 'boosting',
     apiEndpoint: '/models/boosting/training',
@@ -138,7 +140,7 @@ const BoostingEnsembleStepper: React.FC = () => {
 
   const componentProps: { [key: string]: SelectModelsProps | ResultsProps | ModelMetricsComparisonProps | {} } = {
     'select-models': { selectedModels, setSelectedModels, error },
-    results: { data: results, isLoading, error, onRetry: handleRetry },
+    results: { data: results, isLoading, error, onRetry: handleRetry, currentProgress, progressEvents },
     'model-metrics-comparison': {
       data: results ? { metrics: results.metrics } : null,
       baseModelIds: selectedModels

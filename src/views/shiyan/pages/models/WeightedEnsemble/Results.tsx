@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import CalculationStatus from '../components/CalculationStatus';
 import WeightsPieChart from '../components/WeightsPieChart';
+import type { ModelJobProgressEvent } from '../hooks/useModelJob';
 
 export interface ResultsProps {
   data: {
@@ -10,9 +11,11 @@ export interface ResultsProps {
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
+  currentProgress?: ModelJobProgressEvent | null;
+  progressEvents?: ModelJobProgressEvent[];
 }
 
-const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry }) => {
+const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry, currentProgress, progressEvents }) => {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('chart');
 
   const modelIdToName: Record<string, string> = {
@@ -22,7 +25,7 @@ const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry }) =>
     lstm: 'LSTM模型',
   };
 
-  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} isEnsembleModel={true} />;
+  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} modelType="weighted_avg" isEnsembleModel={true} currentProgress={currentProgress} progressEvents={progressEvents} />;
   if (isLoading || error) {
     return status;
   }
