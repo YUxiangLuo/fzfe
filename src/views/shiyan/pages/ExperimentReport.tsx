@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
-import { FileText, Save, Loader2, CheckCircle, X } from 'lucide-react';
+import { FileText, Eye, Loader2, CheckCircle, X } from 'lucide-react';
 import { apiClient } from '../../../utils/apiClient';
 import { submitExperimentReport } from '../services/reportSubmission';
 import { validateAnalyses } from '../utils/reportValidation';
@@ -18,7 +18,7 @@ import { ModelComparison } from './report_components/ModelComparison';
 import { BestModelSelection } from './report_components/BestModelSelection';
 import { PlanParameters } from './report_components/PlanParameters';
 import { PlanDecisionResults } from './report_components/PlanDecisionResults';
-import { CompletionModal, ValidationErrorModal } from './report_components/SubmissionModals';
+import { CompletionModal, ReportPreviewModal, ValidationErrorModal } from './report_components/SubmissionModals';
 
 const ExperimentReport: React.FC = () => {
   const { state, updateState, productSalesData } = useExperiment();
@@ -30,6 +30,8 @@ const ExperimentReport: React.FC = () => {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [showValidationErrorModal, setShowValidationErrorModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewMarkdown, setPreviewMarkdown] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(8);
 
   const [dataAnalysis, setDataAnalysis] = useState('');
@@ -93,7 +95,14 @@ const ExperimentReport: React.FC = () => {
     [productSalesData, state],
   );
 
-  const handleSave = async () => {
+  const buildCurrentReportMarkdown = () => buildExperimentReportMarkdown({
+    state,
+    userInfo,
+    analyses: analysisValues,
+    viewModel: reportViewModel,
+  });
+
+  const handlePreview = () => {
     if (!state.experiment_id) {
       setSubmitError('实验ID不存在，无法提交报告');
       return;
@@ -103,21 +112,32 @@ const ExperimentReport: React.FC = () => {
       return;
     }
 
+    setSubmitError(null);
+    setPreviewMarkdown(buildCurrentReportMarkdown());
+    setShowPreviewModal(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    if (!state.experiment_id) {
+      setSubmitError('实验ID不存在，无法提交报告');
+      setShowPreviewModal(false);
+      return;
+    }
+    if (!previewMarkdown) {
+      setSubmitError('报告预览内容不存在，请重新生成预览');
+      setShowPreviewModal(false);
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(false);
 
     try {
-      const markdownContent = buildExperimentReportMarkdown({
-        state,
-        userInfo,
-        analyses: analysisValues,
-        viewModel: reportViewModel,
-      });
-
-      await submitExperimentReport(state.experiment_id, markdownContent);
+      await submitExperimentReport(state.experiment_id, previewMarkdown);
 
       setSubmitSuccess(true);
+      setShowPreviewModal(false);
       const now = new Date().toISOString();
       await updateState({ status: 'Completed', completion_time: now }, { skipSync: true });
       setShowCompletionModal(true);
@@ -203,7 +223,7 @@ const ExperimentReport: React.FC = () => {
 
           <div className="pt-8 flex justify-end">
             <button
-              onClick={handleSave}
+              onClick={handlePreview}
               disabled={isSubmitting || submitSuccess}
               className="inline-flex items-center justify-center px-8 py-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
@@ -219,8 +239,8 @@ const ExperimentReport: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Save className="w-5 h-5 mr-2" />
-                  保存并提交报告
+                  <Eye className="w-5 h-5 mr-2" />
+                  预览报告
                 </>
               )}
             </button>
@@ -230,6 +250,15 @@ const ExperimentReport: React.FC = () => {
       </div>
 
       {showCompletionModal && <CompletionModal countdown={countdown} onLogout={handleLogout} />}
+      {showPreviewModal && previewMarkdown && (
+        <ReportPreviewModal
+          markdown={previewMarkdown}
+          isSubmitting={isSubmitting}
+          submitError={submitError}
+          onClose={() => setShowPreviewModal(false)}
+          onConfirm={handleConfirmSubmit}
+        />
+      )}
       {showValidationErrorModal && (
         <ValidationErrorModal onClose={() => setShowValidationErrorModal(false)} />
       )}
