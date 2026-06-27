@@ -26,6 +26,7 @@ import {
     hasSessionRole,
     isSessionExpired,
 } from '../../../../utils/session';
+import { listManagedClasses } from '../../utils/portalApi';
 
 const PersonalInfo = lazy(() => import('../Account/PersonalInfo'));
 const AssistantManagement = lazy(() => import('../Account/AssistantManagement'));
@@ -60,6 +61,7 @@ const TeacherLayout: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
     const [isAuthorizing, setIsAuthorizing] = useState(true);
+    const [assistantHasManagedClasses, setAssistantHasManagedClasses] = useState<boolean | null>(null);
     const [openKeys, setOpenKeys] = useState<string[]>([]);
     const navigate = useNavigate();
     const location = useLocation();
@@ -87,6 +89,37 @@ const TeacherLayout: React.FC = () => {
         setIsAuthorizing(false);
     }, []);
 
+    useEffect(() => {
+        if (!currentUser) return;
+
+        if (currentRoleId !== 'assistant') {
+            setAssistantHasManagedClasses(null);
+            return;
+        }
+
+        let cancelled = false;
+        setAssistantHasManagedClasses(null);
+
+        listManagedClasses()
+            .then((classes) => {
+                if (!cancelled) {
+                    setAssistantHasManagedClasses(classes.length > 0);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setAssistantHasManagedClasses(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [currentUser, currentRoleId]);
+
+    const canAccessAssessment = currentRoleId !== 'assistant' || assistantHasManagedClasses === true;
+    const isAssessmentPermissionLoading = currentRoleId === 'assistant' && assistantHasManagedClasses === null;
+
     const roleDisplay = currentUser
         ? getRoleByBackendValue(currentUser.role)?.displayName ?? currentUser.role
         : null;
@@ -96,6 +129,29 @@ const TeacherLayout: React.FC = () => {
 
     // Menu items with nested structure - filtered by role
     const menuItems = React.useMemo<MenuItemType[]>(() => {
+        const assessmentMenuItem: MenuItemType = {
+            key: 'assessment',
+            icon: <BarChartOutlined />,
+            label: '考核管理',
+            children: [
+                {
+                    key: '/assessment-questions',
+                    icon: <QuestionCircleOutlined />,
+                    label: '题库管理',
+                },
+                {
+                    key: '/assessment-weights',
+                    icon: <PercentageOutlined />,
+                    label: '成绩权重',
+                },
+                {
+                    key: '/assessment-grades',
+                    icon: <BarChartOutlined />,
+                    label: '成绩总览',
+                },
+            ],
+        };
+
         const items: MenuItemType[] = [
         {
             key: 'experiment',
@@ -129,28 +185,7 @@ const TeacherLayout: React.FC = () => {
             icon: <SolutionOutlined />,
             label: '学生管理',
         },
-        {
-            key: 'assessment',
-            icon: <BarChartOutlined />,
-            label: '考核管理',
-            children: [
-                {
-                    key: '/assessment-questions',
-                    icon: <QuestionCircleOutlined />,
-                    label: '题库管理',
-                },
-                {
-                    key: '/assessment-weights',
-                    icon: <PercentageOutlined />,
-                    label: '成绩权重',
-                },
-                {
-                    key: '/assessment-grades',
-                    icon: <BarChartOutlined />,
-                    label: '成绩总览',
-                },
-            ],
-        },
+        ...(canAccessAssessment ? [assessmentMenuItem] : []),
         {
             key: 'account',
             icon: <SettingOutlined />,
@@ -172,7 +207,7 @@ const TeacherLayout: React.FC = () => {
         ];
 
         return items;
-    }, [currentRoleId]);
+    }, [canAccessAssessment, currentRoleId]);
 
     useEffect(() => {
         setOpenKeys(getOpenKeysByPath(location.pathname));
@@ -220,6 +255,13 @@ const TeacherLayout: React.FC = () => {
                 onClick: handleLogout,
             },
         ],
+    };
+
+    const renderAssessmentRoute = (element: React.ReactElement) => {
+        if (isAssessmentPermissionLoading) {
+            return <RouteLoading />;
+        }
+        return canAccessAssessment ? element : <Navigate to="/experiment-progress" replace />;
     };
 
     return (
@@ -318,9 +360,9 @@ const TeacherLayout: React.FC = () => {
                             <Route path="/student-management" element={<StudentManagement />} />
 
                             {/* Phase 6: Assessment */}
-                            <Route path="/assessment-questions" element={<QuestionBank />} />
-                            <Route path="/assessment-weights" element={<GradeWeights />} />
-                            <Route path="/assessment-grades" element={<GradesOverview />} />
+                            <Route path="/assessment-questions" element={renderAssessmentRoute(<QuestionBank />)} />
+                            <Route path="/assessment-weights" element={renderAssessmentRoute(<GradeWeights />)} />
+                            <Route path="/assessment-grades" element={renderAssessmentRoute(<GradesOverview />)} />
 
                             {/* Phase 2: Account */}
                             <Route path="/account-personal" element={<PersonalInfo />} />
