@@ -126,6 +126,10 @@ export const LoginContainer: React.FC = () => {
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
 
     try {
+      if (selectedRole !== "student") {
+        throw new Error("仅学生账号支持自助注册");
+      }
+
       // 将角色 ID 转换为首字母大写的格式（student -> Student）
       const role = roleMap[selectedRole];
       if (!role) {
@@ -222,10 +226,8 @@ export const LoginContainer: React.FC = () => {
               onSwitchToRegister={() => {
                 setMode("register");
                 setError(null);
-                // 如果当前是管理员角色，切换到学生角色
-                if (selectedRole === "admin") {
-                  setSelectedRole("student");
-                }
+                // 仅学生允许自助注册；教师/助教账号由管理端创建。
+                setSelectedRole("student");
               }}
               isLoading={isLoading}
               error={error}

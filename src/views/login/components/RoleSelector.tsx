@@ -47,15 +47,15 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
   onRoleSelect,
   mode = "login",
 }) => {
-  // 在注册模式下过滤掉管理员角色
+  // 后端仅允许学生自助注册；教师/助教账号由管理员或教师创建。
   const availableRoles = mode === "register"
-    ? rolesData.filter(role => role.id !== "admin")
+    ? rolesData.filter(role => role.id === "student")
     : rolesData;
 
   return (
     <div className="mb-8">
       <h3 className="text-lg font-semibold text-white mb-4 text-center">
-        请选择您的身份
+        {mode === "register" ? "学生自助注册" : "请选择您的身份"}
       </h3>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         {availableRoles.map((role) => {
