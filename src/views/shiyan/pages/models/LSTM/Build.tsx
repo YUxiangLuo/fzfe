@@ -51,6 +51,29 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, setTarget,
           </div>
         ) : (
           <div className="space-y-6">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h4 className="font-semibold text-amber-900 mb-2">💡 特征选择技巧</h4>
+                  <ul className="space-y-1 text-sm text-amber-800 leading-relaxed">
+                    <li>• 优先选择与销量有业务关系、且在预测时可提前规划或预估的字段，如月份、促销强度、广告投放金额、线上搜索指数、节假日类型、天气类型。</li>
+                    <li>• 字段不是越多越好。本实验样本量较小，建议先选择 5-8 个核心特征，避免噪声过多导致模型不稳定。</li>
+                    <li>• 单产品实验中，行业名称、公司名称、产品名称、数量单位等字段通常几乎不变，提供的信息有限，一般不建议优先选择。</li>
+                    <li>• 谨慎选择库存水平、缺货天数、退货率、客户满意度等可能在销售发生后才知道的字段，真实业务中这类字段容易造成“数据泄漏”或伪相关。</li>
+                    <li>• 目标字段“销售数量”由系统固定为预测对象，不需要作为输入特征重复选择。</li>
+                  </ul>
+                </div>
+                <div className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-medium text-amber-700 border border-amber-200">
+                  当前已选 {features.length} 个特征
+                </div>
+              </div>
+              {features.length > 8 && (
+                <div className="mt-3 rounded-md bg-white border border-amber-200 px-3 py-2 text-xs text-amber-700">
+                  已选择的特征较多。若训练结果波动大或预测不稳定，建议减少到少量关键特征后再对比效果。
+                </div>
+              )}
+            </div>
+
             <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm">
               <label className="block text-lg font-semibold text-gray-800 mb-4">
                 请选择需求预测时所使用的特征:

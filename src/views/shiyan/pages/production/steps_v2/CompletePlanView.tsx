@@ -6,6 +6,7 @@ import { validatePredictions } from '../utils/predictionValidator';
 import { predictWithBestModel } from '../../../services/modelLifecycle';
 import { useToast } from '../../../shared/hooks/useToast';
 import { Toast } from '../../../shared/components/common/Toast';
+import ProductionForecastAssumptionNote from '../components/ProductionForecastAssumptionNote';
 
 /**
  * 完整计划表（结果视图）
@@ -212,6 +213,8 @@ const CompletePlanView: React.FC = () => {
           经过前面<strong>五个步骤</strong>的深入学习和操作，我们已经成功完成了第二个月的生产计划制定。在这个过程中，详细探讨了如何从<strong>需求量、产出量、库存量、缺货量、服务水平以及预测量</strong>中推导出生产计划的每个关键部分。现在，将把这些知识整合起来，生成一个<strong>完整的生产计划表</strong>。
         </p>
       </div>
+
+      <ProductionForecastAssumptionNote />
 
       {/* 生成状态 */}
       {isGenerating && (

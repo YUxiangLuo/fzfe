@@ -7,6 +7,7 @@ import { validatePredictions } from '../utils/predictionValidator';
 import { predictWithBestModel } from '../../../services/modelLifecycle';
 import { useToast } from '../../../shared/hooks/useToast';
 import { Toast } from '../../../shared/components/common/Toast';
+import ProductionForecastAssumptionNote from '../components/ProductionForecastAssumptionNote';
 
 // 固定预测期数为6期（不在UI显示）
 const FIXED_FORECAST_PERIODS = 6;
@@ -333,6 +334,7 @@ const NewStep1: React.FC = () => {
           <p className="text-sm text-green-800 mb-4">
             点击下方按钮，系统将调用您之前选择的最佳预测模型<strong>（{MODEL_NAME_MAP[state.selectedBestModel] || state.selectedBestModel}）</strong>，为您生成第一期的需求预测，并自动填充MPS表的第一排标准化数据。
           </p>
+          <ProductionForecastAssumptionNote className="mb-4" />
           <div className="flex justify-center">
             <button
               type="button"
