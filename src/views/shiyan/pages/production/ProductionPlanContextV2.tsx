@@ -201,7 +201,7 @@ export const buildInitialProductionPlanState = ({
   // 使用真实的平均需求（基于历史数据）或默认值
   const defaultAvgDemand = avgDemand ?? 1050;
 
-  // 计算默认产能（基于真实需求，使用 normal 场景的倍数 1.3）
+  // 计算默认月产能上限（基于真实需求，使用 normal 场景的倍数 1.3）
   const defaultCapacity = Math.round(defaultAvgDemand * 1.3);
 
   const persistedPredictions = Array.isArray(persistedState?.production_forecast_results)

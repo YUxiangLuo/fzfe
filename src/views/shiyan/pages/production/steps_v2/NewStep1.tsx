@@ -43,6 +43,8 @@ const NewStep1: React.FC = () => {
   } | null>(null);
 
   const avgDemand = state.avgDemand;
+  const defaultCapacityMultiplier = CAPACITY_CONFIG.SCENARIOS.NORMAL.multiplier;
+  const defaultCapacityLimit = Math.round(avgDemand * defaultCapacityMultiplier);
 
   // 🔒 固定参数
   const INITIAL_INVENTORY = MPS_CALCULATION.INITIAL_INVENTORY; // 初始库存 = 0
@@ -107,8 +109,8 @@ const NewStep1: React.FC = () => {
         serviceLevel: 1.0, // 服务水平 = 100%
       });
 
-      // 🔧 基于历史销售数据计算产能（平均需求 × normal 场景倍数）
-      const capacity = Math.round(avgDemand * CAPACITY_CONFIG.SCENARIOS.NORMAL.multiplier);
+      // 🔧 基于历史销售数据计算默认月产能上限（平均需求 × normal 场景倍数）
+      const capacity = defaultCapacityLimit;
 
       // 保存参数（使用固定值）
       updateParameters({
@@ -157,14 +159,17 @@ const NewStep1: React.FC = () => {
                     <div className="text-xl font-bold text-gray-900">{period1Data.demand}</div>
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-green-200">
-                    <div className="text-xs text-gray-600 mb-1">默认产能</div>
+                    <div className="text-xs text-gray-600 mb-1">默认月产能上限</div>
                     <div className="text-xl font-bold text-gray-900">
-                      {Math.round(avgDemand * CAPACITY_CONFIG.SCENARIOS.NORMAL.multiplier)}件/月
+                      {defaultCapacityLimit}件/月
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      历史平均需求 {avgDemand} × {(defaultCapacityMultiplier * 100).toFixed(0)}%
                     </div>
                   </div>
                 </div>
                 <p className="mt-2 text-xs text-gray-600">
-                  MPS 表第一排已按标准化规则填充：期初库存=0、产出量=需求、期末库存=0、缺货=0、服务水平=100%。
+                  MPS 表第一排已按标准化规则填充：期初库存=0、产出量=需求、期末库存=0、缺货=0、服务水平=100%。默认月产能上限用于约束后续每期产出量，不代表固定产出量。
                 </p>
               </div>
             </div>
@@ -321,6 +326,16 @@ const NewStep1: React.FC = () => {
             <h5 className="font-semibold text-green-900 mb-2">📅 时段选择</h5>
             <p className="text-sm text-green-800">
               需求预测时段是预先选定的，如每月、每季度或每年。在制定生产计划时，我们围绕这些时段进行需求预测和生产安排。本实验采用<strong>月度</strong>时段。
+            </p>
+          </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <h5 className="font-semibold text-amber-900 mb-2">🏭 默认月产能上限</h5>
+            <p className="text-sm text-amber-800 leading-relaxed">
+              本实验默认采用“产能正常”场景：<strong>默认月产能上限 = 历史平均需求 × {(defaultCapacityMultiplier * 100).toFixed(0)}%</strong>。
+              当前历史平均需求为 <strong>{avgDemand}</strong> 件/月，因此默认月产能上限为 <strong>{defaultCapacityLimit}</strong> 件/月。
+            </p>
+            <p className="mt-2 text-xs text-amber-700 leading-relaxed">
+              该值表示每期最多能完成的产出量，不表示企业每期一定生产这么多；后续计算会使用公式：产出量 = min(上月投入量, 产能上限)。
             </p>
           </div>
         </div>

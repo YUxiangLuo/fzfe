@@ -88,7 +88,7 @@ export const FORECAST_PERIODS = {
  */
 export const CAPACITY_CONFIG = {
   /**
-   * 默认产能场景
+   * 默认产能上限场景
    */
   DEFAULT_SCENARIO: 'normal' as const,
 
