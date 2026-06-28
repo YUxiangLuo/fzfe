@@ -5,6 +5,7 @@ import { ProductionPlanProvider, useProductionPlan } from './ProductionPlanConte
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import { useToast } from '../../shared/hooks/useToast';
 import { Toast } from '../../shared/components/common/Toast';
+import { useConfirm } from '../../shared/contexts/ConfirmContext';
 import MPSTableViewV2 from './components/MPSTableViewV2';
 import NewStep1 from './steps_v2/NewStep1';
 import NewStep2 from './steps_v2/NewStep2';
@@ -13,12 +14,21 @@ import NewStep4 from './steps_v2/NewStep4';
 import NewStep5 from './steps_v2/NewStep5';
 import CompletePlanView from './steps_v2/CompletePlanView';
 
+type PlanViewMode = 'learning' | 'complete';
+
+const COMPLETE_PLAN_STEP_ID = 6;
+
 const ProductionPlanContent: React.FC = () => {
   const navigate = useNavigate();
   const { state, goToStep, resetAll, saveMPSDataToGlobal } = useProductionPlan();
   const { state: experimentState, updateState } = useExperiment();
   const { toast, showToast, hideToast } = useToast();
+  const { confirm } = useConfirm();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const previousHasCompletedPlanRef = useRef(state.completedSteps.includes(5));
+  const [viewMode, setViewMode] = React.useState<PlanViewMode>(() =>
+    state.completedSteps.includes(5) ? 'complete' : 'learning'
+  );
 
   useEffect(() => {
     if (scrollContainerRef.current) {
@@ -26,27 +36,49 @@ const ProductionPlanContent: React.FC = () => {
     }
   }, [state.currentStep]);
 
-  const steps = [
+  const learningSteps = [
     { id: 1, title: '规划总览', component: NewStep1 },
     { id: 2, title: '生产变量', component: NewStep2 },
     { id: 3, title: '服务水平', component: NewStep3 },
     { id: 4, title: '预测量', component: NewStep4 },
     { id: 5, title: '投入量', component: NewStep5 },
   ];
+  const displaySteps = [
+    ...learningSteps,
+    { id: COMPLETE_PLAN_STEP_ID, title: '完整计划' },
+  ];
 
-  const shouldShowCompletePlanTeaching =
-    state.currentStep === 5 && state.completedSteps.includes(5);
+  const hasCompletedLearningSteps = state.completedSteps.includes(5);
+  const shouldShowCompletePlanTeaching = viewMode === 'complete' && hasCompletedLearningSteps;
   const CurrentStepComponent = shouldShowCompletePlanTeaching
     ? CompletePlanView
-    : steps[state.currentStep - 1]?.component || NewStep1;
+    : learningSteps[state.currentStep - 1]?.component || NewStep1;
 
-  const completedCount = steps.filter((step) => state.completedSteps.includes(step.id)).length;
-  const progressRatio = Math.min(1, completedCount / steps.length);
+  const completedCount = learningSteps.filter((step) => state.completedSteps.includes(step.id)).length;
+  const progressRatio = Math.min(1, completedCount / learningSteps.length);
+
+  React.useEffect(() => {
+    const hasCompletedPlan = state.completedSteps.includes(5);
+    const wasCompleted = previousHasCompletedPlanRef.current;
+
+    if (!hasCompletedPlan) {
+      setViewMode('learning');
+    } else if (!wasCompleted) {
+      setViewMode('complete');
+    }
+
+    previousHasCompletedPlanRef.current = hasCompletedPlan;
+  }, [state.completedSteps]);
 
   const getStepStatus = (stepId: number) => {
-    if (shouldShowCompletePlanTeaching && stepId === state.currentStep) return 'current';
+    if (stepId === COMPLETE_PLAN_STEP_ID) {
+      if (shouldShowCompletePlanTeaching) return 'current';
+      if (hasCompletedLearningSteps) return 'completed';
+      return 'locked';
+    }
+
+    if (viewMode === 'learning' && stepId === state.currentStep) return 'current';
     if (state.completedSteps.includes(stepId)) return 'completed';
-    if (stepId === state.currentStep) return 'current';
     if (stepId < state.currentStep) return 'available';
     return 'locked';
   };
@@ -65,6 +97,41 @@ const ProductionPlanContent: React.FC = () => {
     if (status === 'current') return 'bg-blue-50 border-blue-400 text-blue-800 ring-2 ring-blue-300';
     if (status === 'available') return 'bg-gray-50 border-gray-300 text-gray-700 cursor-default';
     return 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed';
+  };
+
+  const handleStepNavigation = (stepId: number) => {
+    if (stepId === COMPLETE_PLAN_STEP_ID) {
+      setViewMode('complete');
+      goToStep(5);
+      return;
+    }
+
+    setViewMode('learning');
+    goToStep(stepId);
+  };
+
+  const handleResetLearning = async () => {
+    const confirmed = await confirm({
+      title: '重新学习生产计划？',
+      message: '这只会重置当前页面的本地学习进度和临时计算状态，方便你重新演练 5 个学习步骤；不会删除服务器上已经保存的生产计划结果，刷新页面后仍会恢复已保存数据。',
+      confirmText: '重新学习本页',
+      cancelText: '取消',
+      variant: 'warning',
+    });
+
+    if (!confirmed) return;
+
+    resetAll();
+    setViewMode('learning');
+    showToast('已重置本页学习进度；服务器已保存的生产计划数据未删除。', 'info');
+  };
+
+  const getStepTitle = (stepId: number, status: string) => {
+    if (status === 'locked') return '请先完成前面的步骤';
+    if (stepId === COMPLETE_PLAN_STEP_ID) return '查看完整生产计划';
+    if (status === 'completed') return '点击回看此学习步骤';
+    if (status === 'current') return '当前正在查看';
+    return '';
   };
 
   // 完成生产计划并进入测验
@@ -113,7 +180,7 @@ const ProductionPlanContent: React.FC = () => {
           <div className="flex items-center gap-3 min-w-0">
             <h2 className="text-base font-semibold text-gray-900 whitespace-nowrap">学习步骤</h2>
             <span className="text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-1 whitespace-nowrap">
-              {completedCount} / {steps.length} 完成
+              {completedCount} / {learningSteps.length} 完成
             </span>
           </div>
           <div className="flex-1 min-w-[180px] h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -124,27 +191,28 @@ const ProductionPlanContent: React.FC = () => {
           </div>
           <button
             type="button"
-            onClick={() => resetAll()}
+            onClick={handleResetLearning}
             className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+            title="仅重置当前页面的本地学习进度，不删除服务器已保存的生产计划"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>重置</span>
+            <span>重新学习本页</span>
           </button>
         </div>
 
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-          {steps.map((step) => {
+          {displaySteps.map((step) => {
             const status = getStepStatus(step.id);
             const canNavigate = status === 'completed' || status === 'available' || status === 'current';
             return (
               <button
                 key={step.id}
-                onClick={() => canNavigate && goToStep(step.id)}
+                onClick={() => canNavigate && handleStepNavigation(step.id)}
                 disabled={!canNavigate}
                 className={`flex-shrink-0 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all min-w-[104px] text-sm ${getStepStyles(step.id)} ${
                   canNavigate ? 'hover:shadow-md cursor-pointer' : ''
                 }`}
-                title={status === 'completed' ? '点击返回此步骤' : status === 'locked' ? '请先完成前面的步骤' : ''}
+                title={getStepTitle(step.id, status)}
               >
                 {getStepIcon(step.id)}
                 <span className="font-medium leading-tight">{step.title}</span>
