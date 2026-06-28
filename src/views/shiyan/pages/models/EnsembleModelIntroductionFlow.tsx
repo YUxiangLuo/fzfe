@@ -363,26 +363,25 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
   };
 
   const renderIntroductionView = () => (
-    <>
-      <div ref={scrollContainerRef} className="space-y-6 flex-1 overflow-y-auto overflow-x-hidden pr-2 min-h-0">
-        {/* Header - Sticky */}
-        <div className="sticky top-0 bg-white z-10 pb-4 mb-2">
-          <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-lg flex items-center justify-center bg-gradient-to-br from-purple-100 to-fuchsia-100 flex-shrink-0">
-              <Icon className="w-9 h-9 text-purple-600" />
+    <div ref={scrollContainerRef} className="space-y-4 flex-1 overflow-y-auto overflow-x-hidden pr-2 min-h-0">
+      {/* Model Overview */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+        <div className="flex items-start gap-4">
+          <div className="w-14 h-14 rounded-lg flex items-center justify-center bg-gradient-to-br from-purple-100 to-fuchsia-100 flex-shrink-0">
+            <Icon className="w-8 h-8 text-purple-600" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-1">
+              <h3 className="text-2xl font-bold text-gray-900">{activeModel.name}</h3>
+              <span className="px-2 py-1 bg-purple-100 text-purple-700 text-sm font-semibold rounded">
+                {activeModel.shortName}
+              </span>
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h3 className="text-3xl font-bold text-gray-900">{activeModel.name}</h3>
-                <span className="px-2 py-1 bg-purple-100 text-purple-700 text-sm font-semibold rounded">
-                  {activeModel.shortName}
-                </span>
-              </div>
-              <p className="text-sm text-gray-500">{activeModel.category}</p>
-              <p className="text-gray-700 mt-2 leading-relaxed">{activeModel.summary}</p>
-            </div>
+            <p className="text-sm text-gray-500">{activeModel.category}</p>
+            <p className="text-gray-700 mt-2 leading-relaxed">{activeModel.summary}</p>
           </div>
         </div>
+      </div>
 
         {/* Core Principle */}
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-5 shadow-sm">
@@ -614,24 +613,6 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
           </div>
         </div>
       </div>
-
-      <div className="mt-6 pt-6 border-t border-gray-200 flex justify-between items-center">
-        <button
-          onClick={handlePrevious}
-          className="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all font-medium"
-        >
-          <ChevronLeft className="w-5 h-5" />
-          上一步
-        </button>
-        <button
-          onClick={handleNext}
-          className="flex items-center gap-2 px-6 py-3 rounded-lg transition-all font-medium bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white cursor-pointer"
-        >
-          {isLastModel ? '选择融合模型' : '下一个模型'}
-          <ChevronRight className="w-5 h-5" />
-        </button>
-      </div>
-    </>
   );
 
   const renderSelectionView = () => (
@@ -690,47 +671,67 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col h-full p-4 bg-gray-50">
-      {/* Header */}
-      <div className="mb-4 flex-shrink-0">
-        <h2 className="text-2xl font-bold text-gray-800">
-          {view === 'introduction' ? '融合模型介绍' : '融合模型选择'}
-        </h2>
-        {view === 'introduction' && (
-          <div className="mt-3 p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
-            <div className="flex items-center gap-x-4 gap-y-2 flex-wrap">
-              {ensembleModels.map((model, index) => {
-                const isCompleted = index < currentModelIndex;
-                const isActive = index === currentModelIndex;
-                return (
-                  <React.Fragment key={model.id}>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center ${isActive ? 'bg-purple-500' : isCompleted ? 'bg-green-500' : 'bg-gray-300'}`}
-                      >
-                        <span className={`text-xs font-bold text-white`}>
-                          {index + 1}
+    <div className="flex flex-col h-full bg-gray-50 pt-2">
+      {/* Compact Header */}
+      <div className="mb-3 flex-shrink-0 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-4">
+            <h2 className="shrink-0 text-xl font-bold text-gray-800">
+              {view === 'introduction' ? '融合模型介绍' : '融合模型选择'}
+            </h2>
+            {view === 'introduction' && (
+              <div className="flex min-w-0 flex-1 items-center gap-x-3 gap-y-2 overflow-x-auto">
+                {ensembleModels.map((model, index) => {
+                  const isCompleted = index < currentModelIndex;
+                  const isActive = index === currentModelIndex;
+                  return (
+                    <React.Fragment key={model.id}>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <div
+                          className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center ${isActive ? 'bg-purple-500' : isCompleted ? 'bg-green-500' : 'bg-gray-300'}`}
+                        >
+                          <span className="text-xs font-bold text-white">
+                            {index + 1}
+                          </span>
+                        </div>
+                        <span
+                          className={`font-medium text-sm ${isActive ? 'text-purple-600' : isCompleted ? 'text-gray-800' : 'text-gray-500'}`}
+                        >
+                          {model.name}
                         </span>
                       </div>
-                      <span
-                        className={`font-medium text-sm ${isActive ? 'text-purple-600' : isCompleted ? 'text-gray-800' : 'text-gray-500'}`}
-                      >
-                        {model.name}
-                      </span>
-                    </div>
-                    {index < ensembleModels.length - 1 && (
-                      <ChevronRight className="w-5 h-5 text-gray-300" />
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
+                      {index < ensembleModels.length - 1 && (
+                        <ChevronRight className="w-4 h-4 shrink-0 text-gray-300" />
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+          {view === 'introduction' && (
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={handlePrevious}
+                className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-all hover:bg-gray-200"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                上一步
+              </button>
+              <button
+                onClick={handleNext}
+                className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-fuchsia-600 px-4 py-2 text-sm font-medium text-white transition-all hover:from-purple-700 hover:to-fuchsia-700"
+              >
+                {isLastModel ? '选择融合模型' : '下一个模型'}
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col min-h-0">
+      <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col min-h-0">
         {view === 'introduction' ? renderIntroductionView() : renderSelectionView()}
       </div>
     </div>
