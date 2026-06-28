@@ -5,7 +5,6 @@ import { ProductionPlanProvider, useProductionPlan } from './ProductionPlanConte
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import { useToast } from '../../shared/hooks/useToast';
 import { Toast } from '../../shared/components/common/Toast';
-import { useConfirm } from '../../shared/contexts/ConfirmContext';
 import MPSTableViewV2 from './components/MPSTableViewV2';
 import NewStep1 from './steps_v2/NewStep1';
 import NewStep2 from './steps_v2/NewStep2';
@@ -23,7 +22,6 @@ const ProductionPlanContent: React.FC = () => {
   const { state, goToStep, resetAll, saveMPSDataToGlobal } = useProductionPlan();
   const { state: experimentState, updateState } = useExperiment();
   const { toast, showToast, hideToast } = useToast();
-  const { confirm } = useConfirm();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const previousHasCompletedPlanRef = useRef(state.completedSteps.includes(5));
   const [viewMode, setViewMode] = React.useState<PlanViewMode>(() =>
@@ -110,20 +108,9 @@ const ProductionPlanContent: React.FC = () => {
     goToStep(stepId);
   };
 
-  const handleResetLearning = async () => {
-    const confirmed = await confirm({
-      title: '重新学习生产计划？',
-      message: '这只会重置当前页面的本地学习进度和临时计算状态，方便你重新演练 5 个学习步骤；不会删除服务器上已经保存的生产计划结果，刷新页面后仍会恢复已保存数据。',
-      confirmText: '重新学习本页',
-      cancelText: '取消',
-      variant: 'warning',
-    });
-
-    if (!confirmed) return;
-
+  const handleResetLearning = () => {
     resetAll();
     setViewMode('learning');
-    showToast('已重置本页学习进度；服务器已保存的生产计划数据未删除。', 'info');
   };
 
   const getStepTitle = (stepId: number, status: string) => {
@@ -193,7 +180,7 @@ const ProductionPlanContent: React.FC = () => {
             type="button"
             onClick={handleResetLearning}
             className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
-            title="仅重置当前页面的本地学习进度，不删除服务器已保存的生产计划"
+            title="重置学习进度并重新演练生产计划"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>重新学习本页</span>
