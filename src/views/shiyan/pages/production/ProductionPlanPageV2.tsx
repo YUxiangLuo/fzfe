@@ -47,21 +47,21 @@ const ProductionPlanPageV2: React.FC = () => {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* 页面标题和横向导航 */}
-      <div className="px-8 pt-6 pb-4 flex-shrink-0 bg-gray-50">
+      <div className="px-8 py-3 flex-shrink-0 bg-gray-50 border-b border-gray-200/70">
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold text-gray-900 whitespace-nowrap">步骤 7: 制定生产计划</h1>
+          <h1 className="text-xl font-bold text-gray-900 whitespace-nowrap">步骤 7: 制定生产计划</h1>
 
           {/* 横向二级导航 */}
-          <div className="flex items-center gap-2 flex-1 overflow-x-auto">
+          <div className="flex items-center justify-end gap-1.5 flex-1 overflow-x-auto">
             {SUB_STEPS.map((step, index) => {
               const isActive = index === currentSubStepIndex;
               const isCompleted = index < currentSubStepIndex;
 
               return (
                 <React.Fragment key={step.id}>
-                  <div className="flex items-center gap-2 px-2 py-1 whitespace-nowrap">
+                  <div className="flex items-center gap-1.5 px-1.5 py-1 whitespace-nowrap">
                     <span
-                      className={`text-sm font-medium transition-colors ${
+                      className={`text-xs font-medium transition-colors ${
                         isActive
                           ? 'text-gray-900 font-semibold'
                           : isCompleted
@@ -83,7 +83,7 @@ const ProductionPlanPageV2: React.FC = () => {
       </div>
 
       {/* 主内容区域 */}
-      <div className="flex-1 min-h-0 px-8 pb-6 overflow-y-auto">
+      <div className="flex-1 min-h-0 px-8 py-4 overflow-y-auto">
         <Routes>
           <Route path="scenario" element={<ProductionScenarioIntroduction />} />
           <Route path="role-intro" element={<ProductionRoleIntroduction />} />

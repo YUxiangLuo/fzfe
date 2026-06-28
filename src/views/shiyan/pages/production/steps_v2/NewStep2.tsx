@@ -295,12 +295,12 @@ const NewStep2: React.FC = () => {
               {isLoadingPrediction ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>正在加载预测...</span>
+                  <span>预测中...</span>
                 </>
               ) : (
                 <>
                   <TrendingUp className="w-5 h-5" />
-                  <span>获取第二期需求量</span>
+                  <span>预测第二期需求</span>
                 </>
               )}
             </button>

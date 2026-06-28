@@ -106,38 +106,33 @@ const ProductionPlanContent: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="h-full flex flex-col gap-3">
       {/* 横向步骤导航 */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-gray-900">学习步骤</h2>
-          <button
-            type="button"
-            onClick={() => resetAll()}
-            className="inline-flex items-center space-x-1 px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>重置</span>
-          </button>
-        </div>
-
-        {/* 进度指示器 */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-            <span>学习进度</span>
-            <span className="font-semibold text-blue-600">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-3 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <h2 className="text-base font-semibold text-gray-900 whitespace-nowrap">学习步骤</h2>
+            <span className="text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-1 whitespace-nowrap">
               {completedCount} / {steps.length} 完成
             </span>
           </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="flex-1 min-w-[180px] h-1.5 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500 ease-out"
               style={{ width: `${progressRatio * 100}%` }}
             />
           </div>
+          <button
+            type="button"
+            onClick={() => resetAll()}
+            className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>重置</span>
+          </button>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2">
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
           {steps.map((step) => {
             const status = getStepStatus(step.id);
             const canNavigate = status === 'completed' || status === 'available' || status === 'current';
@@ -146,15 +141,13 @@ const ProductionPlanContent: React.FC = () => {
                 key={step.id}
                 onClick={() => canNavigate && goToStep(step.id)}
                 disabled={!canNavigate}
-                className={`flex-shrink-0 flex flex-col items-center space-y-2 px-4 py-3 rounded-lg border transition-all min-w-[110px] ${getStepStyles(step.id)} ${
+                className={`flex-shrink-0 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all min-w-[104px] text-sm ${getStepStyles(step.id)} ${
                   canNavigate ? 'hover:shadow-md cursor-pointer' : ''
                 }`}
                 title={status === 'completed' ? '点击返回此步骤' : status === 'locked' ? '请先完成前面的步骤' : ''}
               >
                 {getStepIcon(step.id)}
-                <div className="text-center">
-                  <p className="font-medium text-sm leading-tight">{step.title}</p>
-                </div>
+                <span className="font-medium leading-tight">{step.title}</span>
               </button>
             );
           })}
@@ -165,7 +158,7 @@ const ProductionPlanContent: React.FC = () => {
       {shouldShowCompletePlanTeaching && state.isCompletePlanTeachingHidden ? (
         // 完整计划表教学内容已隐藏：全屏显示MPS表格 + 完成按钮
         <div className="flex-1 min-h-0 overflow-hidden">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full flex flex-col">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 h-full flex flex-col">
             <div className="mb-4 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div>
@@ -201,17 +194,17 @@ const ProductionPlanContent: React.FC = () => {
         </div>
       ) : (
         // 正常布局：左侧教学内容 + 右侧MPS表格
-        <div className="flex gap-6 flex-1 min-h-0 overflow-hidden">
+        <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
           {/* 左侧：概念学习区（可滚动） */}
           <div ref={scrollContainerRef} className="flex-1 min-w-0 h-full overflow-y-auto">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
               <CurrentStepComponent />
             </div>
           </div>
 
           {/* 右侧：MPS表格（固定高度，表格内容可滚动） */}
           <div className="flex-1 min-w-0 h-full overflow-y-auto">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full flex flex-col">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 h-full flex flex-col">
               <div className="mb-4 flex-shrink-0">
                 <h2 className="text-xl font-semibold text-gray-900 mb-2">
                   主生产计划表（MPS）
