@@ -9,7 +9,7 @@ export interface ModelMetricsComparisonProps {
   baseModelIds: string[];
 }
 
-const MODEL_NAME = '加权融合模型';
+const MODEL_NAME = '加权平均融合模型';
 
 const ModelMetricsComparison: React.FC<ModelMetricsComparisonProps> = ({ data, baseModelIds }) => {
   const modelData = useAllModelMetrics();

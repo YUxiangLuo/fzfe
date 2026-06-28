@@ -104,7 +104,7 @@ const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry, curr
 
       <div className="p-5 bg-purple-50 rounded-lg border border-purple-200">
         <p className="text-gray-700 text-base leading-relaxed">
-          上图表展示了各基础模型在加权融合中的权重分布。权重根据验证集残差MSE倒数计算，预测误差越小的模型获得更大的权重。
+          上图表展示了各基础模型在加权平均融合中的权重分布。权重根据验证集残差MSE倒数计算，预测误差越小的模型获得更大的权重。
         </p>
       </div>
     </div>

@@ -180,7 +180,7 @@ export const buildReportViewModel = (
 
   if (state.ensemble_weighted_completed) {
     allModels.push({
-      name: "加权融合",
+      name: "加权平均融合",
       params: getEnsembleParams(state.ensemble_weighted_base_models),
       rmse: state.ensemble_weighted_metrics_rmse,
       mae: state.ensemble_weighted_metrics_mae,

@@ -47,7 +47,7 @@ export const useAllModelMetrics = (): ModelMetricsRow[] => {
     }
     if (state.ensemble_weighted_completed) {
       data.push({
-        model: '加权融合模型',
+        model: '加权平均融合模型',
         rmse: state.ensemble_weighted_metrics_rmse,
         mae: state.ensemble_weighted_metrics_mae,
         r2: state.ensemble_weighted_metrics_r2,

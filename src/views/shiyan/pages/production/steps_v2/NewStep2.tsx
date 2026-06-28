@@ -10,7 +10,7 @@ const MODEL_NAME_MAP: Record<string, string> = {
   'exp': '指数平滑（ES）',
   'arima': 'ARIMA',
   'lstm': 'LSTM',
-  'ensemble_weighted': '加权平均集成',
+  'ensemble_weighted': '加权平均融合',
   'ensemble_boosting': 'Boosting集成',
   'ensemble_stacking': 'Stacking集成',
 };

@@ -1416,7 +1416,7 @@ test.describe("@shiyan model training step", () => {
     await studentApp.clickEnabledButton("下一步");
     await studentApp.expectHash("/model/weighted-ensemble/model-metrics-comparison");
     await expect(page.getByText("模型指标对比")).toBeVisible();
-    await expect(page.getByText("加权融合模型")).toBeVisible();
+    await expect(page.getByText("加权平均融合模型")).toBeVisible();
     await expect(page.getByText("移动平均法")).toBeVisible();
     await expect(page.getByText("指数平滑法")).toBeVisible();
 

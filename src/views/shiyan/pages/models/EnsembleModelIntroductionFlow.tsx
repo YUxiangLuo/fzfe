@@ -107,7 +107,7 @@ const ensembleModels: EnsembleModel[] = [
         { title: '训练基础模型', description: '分别训练多个不同的基础模型（如MA、ES、ARIMA、LSTM）。', tip: '模型越多样化，融合效果通常越好' },
         { title: '验证集评估', description: '在独立的验证集上评估每个模型，计算其预测残差MSE。', tip: '验证集必须未用于训练，避免权重过拟合' },
         { title: '计算权重', description: '根据误差倒数公式计算每个模型的权重，误差小的模型获得更高权重。', tip: '权重之和为1' },
-        { title: '加权融合', description: '对于新的预测任务，用计算好的权重对各模型预测进行加权求和。', tip: '权重固定后可快速预测' }
+        { title: '加权平均融合', description: '对于新的预测任务，用计算好的权重对各模型预测进行加权求和。', tip: '权重固定后可快速预测' }
       ]
     },
     parameters: [{ name: '验证集划分', description: '用于计算权重的验证数据比例', impact: '太小权重不可靠，太大训练数据不足', typical: '10-20%的数据用于验证' }],

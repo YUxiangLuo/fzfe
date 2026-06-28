@@ -17,7 +17,7 @@ const modelDisplayNames: Record<SelectedBestModel, string> = {
   exp: '指数平滑',
   arima: 'ARIMA',
   lstm: 'LSTM',
-  ensemble_weighted: '加权融合',
+  ensemble_weighted: '加权平均融合',
   ensemble_boosting: 'Boosting融合',
   ensemble_stacking: 'Stacking融合',
 };
