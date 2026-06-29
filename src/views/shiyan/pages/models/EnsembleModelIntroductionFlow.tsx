@@ -120,7 +120,7 @@ const ensembleModels: EnsembleModel[] = [
       { industry: '气象', scenario: '多模式天气预报', description: '气象台融合多个数值预报模型。根据各模型历史误差倒数加权，生成本地化预报，准确率优于任何单一模型。' }
     ],
     pros: [
-      { title: '简单高效', description: '实现容易，计算快速，无额外训练成本' },
+      { title: '融合计算轻量', description: '权重确定后预测计算快速；训练阶段仍会进行时间顺序验证评估，并可能复用或重训基础模型' },
       { title: '直观可解释', description: '权重有明确含义，可理解各模型贡献' },
       { title: '稳健性强', description: '分散单一模型风险，预测更可靠' },
       { title: '误差驱动', description: '权重直接来自验证集预测误差，便于解释和复核' }
@@ -133,7 +133,7 @@ const ensembleModels: EnsembleModel[] = [
     ],
     bestPractices: ['选择差异化的基础模型，避免高度相关', '验证集应代表未来数据分布', '定期用新数据重新计算权重', '检查权重分布，若某个模型权重过高(>0.8)需警惕', '对比简单平均，确保加权确实带来提升', '可考虑加入正则化，限制极端权重'],
     performance: {
-      speed: { level: 'high', description: '仅需一次验证评估，预测极快' },
+      speed: { level: 'high', description: '融合预测极快；训练阶段需要一次内部验证评估' },
       accuracy: { level: 'medium', description: '通常优于单一模型，但不如复杂融合' },
       dataRequirement: { level: 'medium', description: '需要足够验证集评估误差' },
       complexity: { level: 'low', description: '实现和理解都很简单' }
@@ -177,9 +177,9 @@ const ensembleModels: EnsembleModel[] = [
       ]
     },
     parameters: [
-      { name: '最大迭代轮数 (max_rounds)', description: '最多串联多少个模型', impact: '越多精度可能越高，但训练变慢且易过拟合', typical: '5-10轮（异构模型通常不需要太多轮）' },
-      { name: '学习率 (learning_rate)', description: '每个新模型修正误差的步长', impact: '越小收敛越稳健但需更多轮数，越大收敛快但易震荡', typical: '0.1 - 0.5' },
-      { name: '候选模型库', description: '参与Boosting的基础模型类型', impact: '模型类型越丰富，互补性越强', typical: 'ARIMA, LSTM, MA, ES' }
+      { name: '最大迭代轮数 max_rounds（系统默认）', description: '最多串联多少个模型', impact: '越多精度可能越高，但训练变慢且易过拟合。当前训练页不开放手动配置，系统默认按所选基础模型数量控制轮数。', typical: '默认≈所选基础模型数量，并支持验证集无改善时提前停止' },
+      { name: '学习率 learning_rate（系统默认）', description: '每个新模型修正误差的步长', impact: '越小收敛越稳健但需更多轮数，越大收敛快但易震荡。当前训练页不开放手动配置。', typical: '系统默认0.3' },
+      { name: '候选模型库', description: '参与Boosting的基础模型类型', impact: '模型类型越丰富，互补性越强；用户在训练页选择已完成的基础模型作为候选库。', typical: 'ARIMA, LSTM, MA, ES 中至少选择两个' }
     ],
     suitability: {
       suitable: ['数据模式复杂，单一模型难以完全捕捉', '追求比单一模型更高的精度', '不同模型之间存在互补性（如线性+非线性）', '可以接受较长的训练时间'],
@@ -200,9 +200,9 @@ const ensembleModels: EnsembleModel[] = [
       { title: '易过拟合', description: '如果对噪声也强行拟合，会导致泛化能力下降' },
       { title: '训练耗时', description: '串行训练，且每轮都要评估多个候选模型' },
       { title: '误差累积', description: '若早期模型出现严重偏差，后续模型可能难以挽回' },
-      { title: '参数敏感', description: '学习率和轮数需要配合调整' }
+      { title: '内部参数敏感', description: '学习率和轮数会影响结果；当前由系统默认策略控制，需通过验证集表现判断是否适合' }
     ],
-    bestPractices: ['基模型应包含多种类型（如ARIMA+LSTM）以实现优势互补', '学习率设置保守一些（如0.3），避免步子太大错过最优解', '关注验证集误差，一旦验证集误差上升立即停止（Early Stopping）', '对于噪声很大的数据，限制迭代轮数'],
+    bestPractices: ['基模型应包含多种类型（如ARIMA+LSTM）以实现优势互补', '当前系统默认学习率为0.3，属于较保守设置，避免单轮修正过猛', '关注验证集误差，系统会在没有候选模型继续改善时提前停止', '对于噪声很大的数据，优先选择少量互补模型，避免候选库过杂'],
     performance: {
       speed: { level: 'low', description: '串行且每轮需训练多个候选模型，速度较慢' },
       accuracy: { level: 'high', description: '异构互补通常能提升精度，但仍依赖验证集和残差质量' },

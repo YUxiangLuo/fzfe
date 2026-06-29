@@ -232,15 +232,15 @@ const baseModels: Model[] = [
     workflow: {
       steps: [
         { title: '平稳性处理', description: '用户根据数据的趋势情况设定差分阶数d（通常0或1）。', tip: '有趋势的数据通常设d=1' },
-        { title: '空间搜索', description: '系统在给定的最大p和最大q范围内（如0-5），遍历所有可能的(p,q)组合。', tip: '系统会自动限制搜索范围以适配数据量' },
+        { title: '空间搜索', description: '系统会根据训练数据量自动设置最大p和最大q范围（最高到5），并在该范围内搜索(p,q)组合。', tip: '训练页无需手动填写max_p/max_q' },
         { title: '准则评估', description: '计算每个候选模型的AIC和BIC值。对于小样本，系统会惩罚复杂模型。', tip: '自动平衡拟合优度和复杂度' },
         { title: '最优拟合', description: '选中最佳参数组合进行最终训练，并计算残差和置信区间。', tip: '输出包括95%置信区间' }
       ]
     },
     parameters: [
       { name: '差分阶数 (d)', description: '消除趋势所需的差分次数', impact: 'd=1去除线性趋势，d=2去除二次趋势。设错可能导致模型不收敛。', typical: '0（平稳数据）或 1（趋势数据）' },
-      { name: '最大AR阶数 (max_p)', description: '自动搜索p时的上限', impact: '范围越大搜索越慢，且易过拟合。系统会根据数据量自动调整默认值。', typical: '3-5' },
-      { name: '最大MA阶数 (max_q)', description: '自动搜索q时的上限', impact: '同max_p。对于小样本，建议设小一点。', typical: '3-5' }
+      { name: '最大AR阶数 (max_p，系统自动设置)', description: '自动搜索p时的内部上限', impact: '范围越大搜索越慢，且易过拟合。系统会根据训练数据量自动调整，训练页不开放手动输入。', typical: '小样本通常1-2，数据较多时最高到5' },
+      { name: '最大MA阶数 (max_q，系统自动设置)', description: '自动搜索q时的内部上限', impact: '同max_p。系统会随样本量自动收紧或放宽搜索范围，以控制小样本过拟合风险。', typical: '小样本通常1-2，数据较多时最高到5' }
     ],
     suitability: {
       suitable: ['数据具有线性趋势或自相关性', '样本量适中（30-100个点）', '需要明确的统计解释（置信区间）', '短期预测（精度随步长递减）'],
@@ -285,7 +285,8 @@ const baseModels: Model[] = [
     implementationNotes: [
       '教科书定义关注 LSTM 单元的门控结构；层数和隐藏单元数属于工程实现选择。',
       '本系统使用两层 LSTM 加 Dense 输出层，隐藏单元数会按输入维度和样本量动态选择，不是固定的大型堆叠结构。',
-      '默认训练为直接多步预测模型，一次输出整个评估 horizon；只有生产重训数据不足时才回退为一步递归预测。'
+      '训练页只开放归一化方式和输入特征选择；Lookback窗口、训练轮数等工程参数由系统按数据量和默认策略自动设置。',
+      '默认训练为直接多步预测模型，一次输出整个评估 horizon；只有生产预测准备阶段重训数据不足以支持该 horizon 时，才回退为一步递归预测。'
     ],
     mathematics: {
       description: 'LSTM的核心方程组（简化版）：',
@@ -301,15 +302,15 @@ const baseModels: Model[] = [
     workflow: {
       steps: [
         { title: '特征工程', description: '自动识别特征类型。数值特征进行标准化/归一化，类别特征进行One-Hot编码。', tip: '支持多变量输入，自动处理混合数据' },
-        { title: '序列构造', description: '基于Lookback窗口将时间序列转换为监督学习样本(X, Y)。', tip: 'X形如(样本数, 窗口长, 特征数)' },
-        { title: '深度建模', description: '构建两层LSTM网络和Dense输出层，使用Adam优化器、学习率衰减和早停策略进行训练。', tip: '隐藏单元数会根据数据规模动态确定' },
-        { title: '多步预测', description: '默认直接输出未来多个时间步的销量预测，减少递归预测的误差累积。', tip: '数据不足时系统会回退为一步递归预测' }
+        { title: '序列构造', description: '基于系统自动设置的Lookback窗口，将时间序列转换为监督学习样本(X, Y)。', tip: '训练页无需手动填写Lookback' },
+        { title: '深度建模', description: '构建两层LSTM网络和Dense输出层，使用Adam优化器、学习率衰减和早停策略进行训练。', tip: '隐藏单元数、批量大小和训练轮数由系统策略控制' },
+        { title: '多步预测', description: '默认直接输出未来多个时间步的销量预测，减少递归预测的误差累积。', tip: '生产重训若无法支撑直接多步horizon，才回退为一步递归预测' }
       ]
     },
     parameters: [
-      { name: 'Lookback窗口', description: '模型向后看多少个时间步', impact: '决定了模型能利用的历史信息长度，太短看不明，太长学不会', typical: '12-60，系统会自动推荐' },
-      { name: '训练轮数 (Epochs)', description: '整个数据集被训练的次数', impact: '过多易过拟合，过少欠拟合。配合学习率衰减使用。', typical: '20-50轮' },
-      { name: '归一化方式', description: '数值特征的缩放方法', impact: 'MinMax适合有界数据，Z-Score适合正态分布数据', typical: '默认MinMax (0-1)' }
+      { name: 'Lookback窗口（系统自动设置）', description: '模型向后看多少个时间步', impact: '决定模型可利用的历史长度。窗口过短信息不足，过长会增加训练难度；当前训练页不开放手动配置。', typical: '系统按训练样本量自动取值，通常在3-12之间' },
+      { name: '训练轮数 Epochs（系统默认设置）', description: '整个数据集被训练的次数', impact: '过多易过拟合，过少易欠拟合。本系统配合学习率衰减和早停策略使用。', typical: '当前默认20轮；融合内部训练会采用保守默认' },
+      { name: '归一化方式', description: '数值特征的缩放方法', impact: 'MinMax适合有界数据，Z-Score适合近似正态且有离群值的数据；这是训练页开放给用户选择的参数。', typical: '默认MinMax (0-1)' }
     ],
     suitability: {
       suitable: ['数据量充足（>100个点）', '存在复杂非线性关系', '包含类别型特征（如天气、节假日）', '需要捕捉长期依赖模式'],
@@ -332,7 +333,7 @@ const baseModels: Model[] = [
       { title: '稳定性依赖数据', description: '样本量不足或特征质量较差时，多步输出也可能不稳定' },
       { title: '黑箱模型', description: '难以像线性回归那样给出精确的参数解释' }
     ],
-    bestPractices: ['数据量少时减少Epochs防止过拟合', '对于包含类别特征的数据，LSTM可能比统计模型更有优势', '关注Lookback窗口，通常覆盖一个完整周期（如12个月）效果最好', '预测步数不宜过长，避免超出训练数据能支持的horizon'],
+    bestPractices: ['样本量较少时优先减少输入特征数量，避免噪声过多导致不稳定', '对于包含类别特征的数据，LSTM可能比统计模型更有优势', '理解Lookback窗口由系统按样本量自动设置，若训练失败可调整数据窗口或减少预测跨度', '预测步数不宜过长，避免超出训练数据能支持的horizon'],
     performance: {
       speed: { level: 'low', description: '深层网络计算量大，训练耗时' },
       accuracy: { level: 'high', description: '在复杂数据集上通常优于统计模型' },

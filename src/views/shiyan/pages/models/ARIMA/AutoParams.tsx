@@ -61,7 +61,10 @@ const AutoParams: React.FC<AutoParamsProps> = ({ view, data, isLoading, error, o
           </div>
 
           <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200 shadow-sm">
-            <h4 className="text-lg font-semibold text-gray-800 mb-4">最佳模型参数</h4>
+            <h4 className="text-lg font-semibold text-gray-800 mb-2">最佳模型参数</h4>
+            <p className="mb-4 text-sm text-gray-700">
+              差分阶数 d 来自上一页选择；p/q 由系统根据训练样本量自动限制搜索范围，并通过 AIC/BIC 选择。
+            </p>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 bg-white rounded-lg shadow-sm">
                 <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">

@@ -27,7 +27,7 @@ const LSTMMethodInfo: React.FC = () => {
           使用<strong>均方误差（MSE）</strong>作为损失函数，<strong>Adam 优化器</strong>进行参数优化。
         </p>
         <p className="text-gray-800 leading-relaxed text-base">
-          <strong>训练参数</strong>包括最大训练轮数（如 20 轮）、动态批量大小、初始学习率（0.001）和学习率衰减率（0.98）。
+          <strong>系统内部训练参数</strong>包括最大训练轮数（当前默认 20 轮）、动态批量大小、初始学习率（0.001）和学习率衰减率（0.98）；这些参数由系统控制，训练页主要让用户选择归一化方式和输入特征。
         </p>
       </div>
 
