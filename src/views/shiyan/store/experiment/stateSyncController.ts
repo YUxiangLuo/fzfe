@@ -82,13 +82,23 @@ export const createExperimentStateSyncController = ({
   onCompletedStepRecordError: (step: number, error: unknown) => void;
 }): ExperimentStateSyncController => {
   let stateUpdateVersion = 0;
+  let trackedExperimentId: number | null = null;
   let lastConfirmedCompletedStep: number | null = null;
   let lastOptimisticCompletedStep: number | null = null;
 
+  const resetCompletionTracking = (state: ExperimentState) => {
+    trackedExperimentId = state.experiment_id ?? null;
+    lastConfirmedCompletedStep = state.highest_completed_step;
+    lastOptimisticCompletedStep = state.highest_completed_step;
+  };
+
   const synchronizeCompletionTracking = (state: ExperimentState) => {
-    if (lastConfirmedCompletedStep === null || lastOptimisticCompletedStep === null) {
-      lastConfirmedCompletedStep = state.highest_completed_step;
-      lastOptimisticCompletedStep = state.highest_completed_step;
+    if (
+      trackedExperimentId !== (state.experiment_id ?? null) ||
+      lastConfirmedCompletedStep === null ||
+      lastOptimisticCompletedStep === null
+    ) {
+      resetCompletionTracking(state);
       return;
     }
 
@@ -106,11 +116,14 @@ export const createExperimentStateSyncController = ({
       const { throwOnSyncError = false } = options;
       const previousState = getState();
       synchronizeCompletionTracking(previousState);
-      const confirmedCompletedStep =
-        lastConfirmedCompletedStep ?? previousState.highest_completed_step;
 
       const currentUpdateVersion = ++stateUpdateVersion;
       const nextState = buildNextState(previousState, updates);
+      if ((nextState.experiment_id ?? null) !== (previousState.experiment_id ?? null)) {
+        resetCompletionTracking(nextState);
+      }
+      const confirmedCompletedStep =
+        lastConfirmedCompletedStep ?? nextState.highest_completed_step;
       lastOptimisticCompletedStep = nextState.highest_completed_step;
 
       onLocalStateChange(previousState, nextState);

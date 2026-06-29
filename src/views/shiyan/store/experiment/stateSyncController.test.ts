@@ -366,6 +366,41 @@ describe("stateSyncController", () => {
     expect(repository.recordStepEvent).toHaveBeenCalledTimes(1);
   });
 
+  it("resets completed-step tracking when switching to a new experiment run", async () => {
+    let currentState: ExperimentState = {
+      ...buildInitialState(),
+      experiment_id: 42,
+      highest_completed_step: 6,
+      current_step: 7,
+    };
+    const repository = createRepositoryStub();
+
+    const controller = createExperimentStateSyncController({
+      repository,
+      getState: () => currentState,
+      setState: (state) => {
+        currentState = state;
+      },
+      onLocalStateChange: mock(() => {}),
+      onSyncSuccess: mock(() => {}),
+      onSyncError: mock(() => {}),
+      onIgnoreStaleResponse: mock(() => {}),
+      onRemoteProductSelectionChanged: mock(() => {}),
+      onCompletedStepRecordError: mock(() => {}),
+    });
+
+    await controller.updateState({
+      ...buildInitialState(),
+      experiment_id: 43,
+      current_step: 1,
+      highest_completed_step: 0,
+    }, { skipSync: true });
+    await controller.updateState({ highest_completed_step: 1 }, { forceSync: true });
+
+    expect(repository.recordStepEvent).toHaveBeenCalledTimes(1);
+    expect(repository.recordStepEvent).toHaveBeenCalledWith(43, 1, "COMPLETED");
+  });
+
   it("notifies when remote sync changes product selection", async () => {
     let currentState: ExperimentState = {
       ...buildInitialState(),

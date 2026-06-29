@@ -51,6 +51,20 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
     'Not Started': { label: '未开始', color: 'default', icon: <ClockCircleOutlined /> },
 };
 
+const TOTAL_STEPS = STEP_LABELS.length;
+
+const clampCompletedStepCount = (value: number | null | undefined) => {
+    const numericValue = Number(value ?? 0);
+    if (!Number.isFinite(numericValue)) return 0;
+    return Math.min(Math.max(Math.floor(numericValue), 0), TOTAL_STEPS);
+};
+
+const getCompletionMeta = (student: ProgressType) => {
+    const completedSteps = clampCompletedStepCount(student.highest_completed_step);
+    const completionPercent = Math.round((completedSteps / TOTAL_STEPS) * 100);
+    return { completedSteps, totalSteps: TOTAL_STEPS, completionPercent };
+};
+
 const ExperimentProgress: React.FC = () => {
     const [classes, setClasses] = useState<Class[]>([]);
     const [progressData, setProgressData] = useState<ProgressType[]>([]);
@@ -151,14 +165,12 @@ const ExperimentProgress: React.FC = () => {
         const inProgress = progressData.filter(p => p.status === 'In Progress').length;
         const notStarted = total - completed - inProgress;
 
-        // Calculate average completion percentage
+        // Calculate average completion percentage. The experiment_status.highest_completed_step
+        // field is the authoritative progress source used by report submission, while
+        // experiment_step_events are only used below to show available timestamps.
         let averageCompletion = 0;
         if (total > 0) {
-            const completionPercents = progressData.map(p => {
-                const steps = p.steps ?? [];
-                const completedSteps = steps.filter(step => step?.completed_at).length;
-                return Math.round((completedSteps / STEP_LABELS.length) * 100);
-            });
+            const completionPercents = progressData.map(p => getCompletionMeta(p).completionPercent);
             averageCompletion = Math.round(
                 completionPercents.reduce((acc, val) => acc + val, 0) / completionPercents.length
             );
@@ -166,15 +178,6 @@ const ExperimentProgress: React.FC = () => {
 
         return { total, completed, inProgress, notStarted, averageCompletion };
     }, [progressData]);
-
-    // Get completion metadata for a student (for sorting and display)
-    const getCompletionMeta = (student: ProgressType) => {
-        const steps = student.steps ?? [];
-        const completedSteps = steps.filter((step) => step?.completed_at).length;
-        const totalSteps = STEP_LABELS.length;
-        const completionPercent = Math.round((completedSteps / totalSteps) * 100);
-        return { completedSteps, totalSteps, completionPercent };
-    };
 
     // Get status config
     const getStatusConfig = (status: string | null | undefined) => {
@@ -316,7 +319,10 @@ const ExperimentProgress: React.FC = () => {
                         <Row gutter={[8, 8]}>
                             {STEP_LABELS.map((stepDef) => {
                                 const stepData = record.steps?.find((step) => step.step_order === stepDef.order);
-                                const status = stepData?.completed_at
+                                const { completedSteps } = getCompletionMeta(record);
+                                const completedByEvent = Boolean(stepData?.completed_at);
+                                const completedByProgress = !completedByEvent && stepDef.order <= completedSteps;
+                                const status = completedByEvent || completedByProgress
                                     ? 'completed'
                                     : stepData?.started_at
                                         ? 'started'
@@ -344,7 +350,9 @@ const ExperimentProgress: React.FC = () => {
                                                     <Text strong style={{ fontSize: 12 }}>{stepDef.label}</Text>
                                                     <div style={{ fontSize: 11, color: '#666' }}>
                                                         {status === 'completed'
-                                                            ? `完成：${formatTime(stepData?.completed_at ?? null)}`
+                                                            ? completedByEvent
+                                                                ? `完成：${formatTime(stepData?.completed_at ?? null)}`
+                                                                : '已完成（按实验进度）'
                                                             : status === 'started'
                                                                 ? `开始：${formatTime(stepData?.started_at ?? null)}`
                                                                 : '尚未开始'}
