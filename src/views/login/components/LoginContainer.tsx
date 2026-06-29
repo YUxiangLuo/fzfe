@@ -15,6 +15,7 @@ export const LoginContainer: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
   const { toast, showToast, hideToast } = useToast();
+  const currentYear = new Date().getFullYear();
 
   const roleMap: Record<string, string> = {
     student: "Student",
@@ -249,7 +250,7 @@ export const LoginContainer: React.FC = () => {
         {/* 底部信息 */}
         <div className="text-center mt-6">
           <p className="text-white/50 text-xs">
-            © 2025 学校虚拟仿真教学平台
+            © {currentYear} 北京工业大学经管学院
           </p>
         </div>
       </div>
