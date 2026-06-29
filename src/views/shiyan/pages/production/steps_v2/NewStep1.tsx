@@ -23,6 +23,17 @@ const MODEL_NAME_MAP: Record<string, string> = {
   'ensemble_stacking': 'Stacking集成',
 };
 
+const calculateForecastAverageDemand = (predictions: Array<{ prediction: number }>): number | null => {
+  const validDemands = predictions
+    .map((item) => Math.max(0, Math.round(item.prediction)))
+    .filter((value) => Number.isFinite(value));
+
+  if (validDemands.length === 0) return null;
+
+  const total = validDemands.reduce((sum, demand) => sum + demand, 0);
+  return Math.round(total / validDemands.length);
+};
+
 /**
  * Step 1: 制定生产计划的实验流程介绍
  * - 介绍MPS概念、核心目标、关键要素
@@ -44,7 +55,12 @@ const NewStep1: React.FC = () => {
 
   const avgDemand = state.avgDemand;
   const defaultCapacityMultiplier = CAPACITY_CONFIG.SCENARIOS.NORMAL.multiplier;
-  const defaultCapacityLimit = Math.round(avgDemand * defaultCapacityMultiplier);
+  const forecastAvgDemand = React.useMemo(
+    () => calculateForecastAverageDemand(state.predictions ?? []),
+    [state.predictions],
+  );
+  const historicalBufferedCapacity = Math.round(avgDemand * defaultCapacityMultiplier);
+  const defaultCapacityLimit = Math.max(historicalBufferedCapacity, forecastAvgDemand ?? historicalBufferedCapacity);
 
   // 🔒 固定参数
   const INITIAL_INVENTORY = MPS_CALCULATION.INITIAL_INVENTORY; // 初始库存 = 0
@@ -109,8 +125,9 @@ const NewStep1: React.FC = () => {
         serviceLevel: 1.0, // 服务水平 = 100%
       });
 
-      // 🔧 基于历史销售数据计算默认月产能上限（平均需求 × normal 场景倍数）
-      const capacity = defaultCapacityLimit;
+      // 🔧 默认月产能上限取“历史平均需求缓冲产能”和“预测期平均需求”的较大值
+      const generatedForecastAvgDemand = calculateForecastAverageDemand(predictions) ?? avgDemand;
+      const capacity = Math.max(historicalBufferedCapacity, generatedForecastAvgDemand);
 
       // 保存参数（使用固定值）
       updateParameters({
@@ -120,7 +137,7 @@ const NewStep1: React.FC = () => {
         safetyStockZScore: Z_SCORE,
       });
 
-      // 保存产能（基于历史数据计算）
+      // 保存产能（基于历史平均需求缓冲产能与预测期平均需求的较大值计算）
       updateCapacity({
         scenario: 'normal', // 标记为normal场景
         capacity: capacity,
@@ -164,7 +181,7 @@ const NewStep1: React.FC = () => {
                       {defaultCapacityLimit}件/月
                     </div>
                     <div className="mt-1 text-xs text-gray-500">
-                      历史平均需求 {avgDemand} × {(defaultCapacityMultiplier * 100).toFixed(0)}%
+                      max(历史平均需求 {avgDemand} × {(defaultCapacityMultiplier * 100).toFixed(0)}%{forecastAvgDemand != null ? `, 预测期平均需求 ${forecastAvgDemand}` : ''})
                     </div>
                   </div>
                 </div>
@@ -331,8 +348,8 @@ const NewStep1: React.FC = () => {
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
             <h5 className="font-semibold text-amber-900 mb-2">🏭 默认月产能上限</h5>
             <p className="text-sm text-amber-800 leading-relaxed">
-              本实验默认采用“产能正常”场景：<strong>默认月产能上限 = 历史平均需求 × {(defaultCapacityMultiplier * 100).toFixed(0)}%</strong>。
-              当前历史平均需求为 <strong>{avgDemand}</strong> 件/月，因此默认月产能上限为 <strong>{defaultCapacityLimit}</strong> 件/月。
+              本实验默认采用“产能正常”口径：<strong>默认月产能上限 = max(历史平均需求 × {(defaultCapacityMultiplier * 100).toFixed(0)}%, 预测期平均需求)</strong>。
+              当前历史平均需求为 <strong>{avgDemand}</strong> 件/月，历史缓冲产能为 <strong>{historicalBufferedCapacity}</strong> 件/月{forecastAvgDemand != null ? <>，预测期平均需求为 <strong>{forecastAvgDemand}</strong> 件/月</> : '，生成预测后会同步计算预测期平均需求'}，因此默认月产能上限为 <strong>{defaultCapacityLimit}</strong> 件/月。
             </p>
             <p className="mt-2 text-xs text-amber-700 leading-relaxed">
               该值表示每期最多能完成的产出量，不表示企业每期一定生产这么多；后续计算会使用公式：产出量 = min(上月投入量, 产能上限)。
