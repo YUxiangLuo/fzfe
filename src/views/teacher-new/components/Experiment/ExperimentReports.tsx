@@ -39,8 +39,8 @@ import { compareNullableNumber, type SortOrder } from '../../utils/sort';
 const { Title, Text } = Typography;
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
-    submitted: { label: '待评阅', color: 'processing' },
-    graded: { label: '已评阅', color: 'success' },
+    submitted: { label: '待评分', color: 'processing' },
+    graded: { label: '已评分', color: 'success' },
     rejected: { label: '已驳回', color: 'error' },
     draft: { label: '未提交', color: 'default' },
 };
@@ -399,7 +399,7 @@ const ExperimentReports: React.FC = () => {
                 <Col xs={24} sm={12} lg={6}>
                     <Card>
                         <Statistic
-                            title="已提交"
+                            title="提交报告"
                             value={stats.submitted}
                             valueStyle={{ color: '#52c41a' }}
                             prefix={<CheckCircleOutlined />}
@@ -416,7 +416,7 @@ const ExperimentReports: React.FC = () => {
                 <Col xs={24} sm={12} lg={6}>
                     <Card>
                         <Statistic
-                            title="待评阅"
+                            title="待评分"
                             value={stats.pendingReview}
                             valueStyle={{ color: '#1890ff' }}
                             prefix={<SyncOutlined />}

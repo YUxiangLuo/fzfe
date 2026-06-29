@@ -29,20 +29,15 @@ export const getProgressStatus = (grade: StudentGradeOverview): ProgressStatus =
  * Returns the badge configuration (text and color) for a given status.
  */
 export const getEvaluationBadge = (grade: StudentGradeOverview) => {
-    const status = getProgressStatus(grade);
-
-    switch (status) {
-        case 'not-started':
-            return { text: '未开始', color: 'default' };
-        case 'in-progress':
-            return { text: '进行中', color: 'warning' };
-        case 'waiting-evaluation':
+    switch (grade.report_status) {
+        case 'submitted':
             return { text: '待评分', color: 'processing' };
+        case 'graded':
+            return { text: '已评分', color: 'success' };
         case 'rejected':
             return { text: '已驳回', color: 'error' };
-        case 'completed':
         default:
-            return { text: '已完成评分', color: 'success' };
+            return { text: '未提交', color: 'default' };
     }
 };
 

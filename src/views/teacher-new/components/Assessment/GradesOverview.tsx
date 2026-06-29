@@ -53,7 +53,7 @@ import { createAuthObjectUrl } from '../../../../utils/authFile';
 import { useObjectUrl } from '../../../../hooks/useObjectUrl';
 import type { Class, StudentGradeOverview } from '../../types';
 import FinalBreakdown from './FinalBreakdown';
-import { getProgressStatus, getEvaluationBadge, getScoreLevel, SCORE_COLORS } from '../../utils/gradeStatus';
+import { getEvaluationBadge, getScoreLevel, SCORE_COLORS } from '../../utils/gradeStatus';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import { listManagedClassGradeSummaries, listManagedClasses } from '../../utils/portalApi';
 import { compareNaturalText, compareNullableNumber, type SortOrder } from '../../utils/sort';
@@ -474,7 +474,7 @@ const GradesOverview: React.FC = () => {
                                     />
                                     <div className="mt-4 flex justify-between text-sm text-gray-500">
                                         <span>总人数: {summary.total_students}</span>
-                                        <span>已提交: {submittedTotal}</span>
+                                        <span>提交报告: {submittedTotal}</span>
                                     </div>
                                     {summary.rejected_count > 0 && (
                                         <div className="text-xs text-red-500 mt-1">
