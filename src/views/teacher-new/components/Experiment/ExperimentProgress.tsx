@@ -46,7 +46,7 @@ const STEP_LABELS = [
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-    'Completed': { label: '已完成', color: 'success', icon: <CheckCircleOutlined /> },
+    'Completed': { label: '已完成7个实验步骤', color: 'success', icon: <CheckCircleOutlined /> },
     'In Progress': { label: '进行中', color: 'processing', icon: <SyncOutlined spin /> },
     'Not Started': { label: '未开始', color: 'default', icon: <ClockCircleOutlined /> },
 };
@@ -205,7 +205,7 @@ const ExperimentProgress: React.FC = () => {
             title: '状态',
             dataIndex: 'status',
             key: 'status',
-            width: 120,
+            width: 170,
             render: (status: string | null) => {
                 const config = getStatusConfig(status);
                 return (
@@ -427,11 +427,10 @@ const ExperimentProgress: React.FC = () => {
                 <Col xs={24} sm={12} lg={6} xl={5}>
                     <Card>
                         <Statistic
-                            title="已完成"
+                            title="已完成7个实验步骤"
                             value={stats.completed}
                             styles={{ content: { color: '#52c41a' } }}
                             prefix={<CheckCircleOutlined />}
-                            suffix={<Text type="secondary" style={{ fontSize: 12 }}>全部步骤</Text>}
                         />
                     </Card>
                 </Col>
