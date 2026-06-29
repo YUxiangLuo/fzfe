@@ -320,7 +320,7 @@ const TeacherLayout: React.FC = () => {
                     />
 
                     <div style={{ flex: 1, textAlign: 'center' }}>
-                        <Title level={5} style={{ margin: 0 }}>面向企业多源需求融合的生产计划决策虚拟仿真系统</Title>
+                        <Title level={5} style={{ margin: 0 }}>面向企业的需求预测与生产计划决策虚拟仿真系统</Title>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>

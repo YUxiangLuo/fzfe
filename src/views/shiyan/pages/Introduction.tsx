@@ -234,7 +234,7 @@ const Introduction: React.FC = () => {
         return (
           <div className="text-center animate-fade-in">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-              面向企业多源需求融合预测的
+              面向企业的需求预测与
               <br />
               <span className="text-blue-600">生产计划决策虚拟仿真系统</span>
             </h1>

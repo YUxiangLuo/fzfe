@@ -116,7 +116,7 @@ const Header: React.FC = () => {
       <div className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center space-x-4">
           <h1 className="text-xl font-bold text-gray-900">
-            面向企业多源需求融合预测的生产计划决策虚拟仿真系统
+            面向企业的需求预测与生产计划决策虚拟仿真系统
           </h1>
         </div>
 

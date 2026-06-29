@@ -203,7 +203,7 @@ export const LoginContainer: React.FC = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-4 mb-4">
             <h1 className="text-4xl font-bold text-white">
-              面向企业多源需求融合的生产计划决策虚拟仿真系统
+              面向企业的需求预测与生产计划决策虚拟仿真系统
             </h1>
           </div>
         </div>
