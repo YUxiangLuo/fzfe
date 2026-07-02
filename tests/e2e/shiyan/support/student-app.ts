@@ -128,6 +128,13 @@ export class StudentApp {
       await restartButton.click();
     }
 
+    const confirmCompletedRestartButton = this.page.getByRole("button", {
+      name: "确认开始新实验",
+    });
+    if (await confirmCompletedRestartButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await confirmCompletedRestartButton.click();
+    }
+
     await this.expectHash("/industry");
   }
 

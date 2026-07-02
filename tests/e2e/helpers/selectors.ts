@@ -120,8 +120,8 @@ export const ExperimentReportSelectors = {
   modelScoreInput: { placeholder: "请输入模型选择得分" },
   feedbackInput: { placeholder: "请输入评语，可为空" },
   saveReviewBtn: { role: "button", name: "保存评阅结果" },
-  statusSubmitted: "待评阅",
-  statusGraded: "已评阅",
+  statusSubmitted: "待评分",
+  statusGraded: "已评分",
   statusRejected: "已驳回",
 } as const;
 

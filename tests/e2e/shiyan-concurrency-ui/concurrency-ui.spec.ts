@@ -132,26 +132,29 @@ test.describe("@shiyan concurrency ui", () => {
     await app.expectHash("/report");
     await fillReportAnalyses(page);
 
-    const blockerPromise = page.request
-      .post(`${BACKEND_ORIGIN}/api/v1/experiment-runs/${reportStudentB.experimentId}/report`, {
-        headers: authHeaders(reportStudentB.token),
-        data: {
-          report_content: buildSlowReportContent(reportStudentB.experimentId),
-        },
-        timeout: 180_000,
-      });
+    await app.clickEnabledButton(/预览报告/);
+    const previewDialog = page.getByRole("dialog", { name: /报告预览/ });
+    await expect(previewDialog).toBeVisible();
+
+    const blockerPromise = page.request.post(`${BACKEND_ORIGIN}/api/v1/experiment-runs/${reportStudentB.experimentId}/report`, {
+      headers: authHeaders(reportStudentB.token),
+      data: {
+        report_content: buildSlowReportContent(reportStudentB.experimentId),
+      },
+      timeout: 180_000,
+    });
 
     await page.waitForTimeout(10);
-    await app.clickEnabledButton(/保存并提交报告/);
+    await app.clickEnabledButton(/确认无误，提交报告/);
     await expect(
-      page.getByText("PDF 生成服务当前繁忙，排队等待超时。请稍后重新提交报告。"),
+      page.getByText("PDF 生成服务当前繁忙，排队等待超时。请稍后重新提交报告。").first(),
     ).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("button", { name: /保存并提交报告/ })).toBeEnabled();
+    await expect(previewDialog.getByRole("button", { name: /确认无误，提交报告/ })).toBeEnabled();
 
     const blockerResponse = await blockerPromise;
     expect(blockerResponse.status()).toBeLessThan(300);
 
-    await app.clickEnabledButton(/保存并提交报告/);
+    await previewDialog.getByRole("button", { name: /确认无误，提交报告/ }).click();
     await expect(page.getByText("恭喜！实验完成")).toBeVisible({
       timeout: 90_000,
     });

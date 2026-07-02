@@ -106,6 +106,11 @@ export const postModelTrainingStream = async <T>(
     throw await parseResponseError(response, '启动模型训练失败');
   }
 
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType.toLowerCase().includes('application/json')) {
+    return await response.json() as T;
+  }
+
   if (!response.body) {
     throw new Error('当前浏览器不支持读取训练进度流');
   }

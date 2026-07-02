@@ -325,7 +325,7 @@ async function expectClassCardMatchesSummary(page: Page, summary: TeacherClassSu
   await expect(card).toBeVisible();
   await expect(card).toContainText(expectedAverage);
   await expect(card).toContainText(`总人数: ${summary.total_students}`);
-  await expect(card).toContainText(`已提交: ${submittedTotal}`);
+  await expect(card).toContainText(`提交报告: ${submittedTotal}`);
   if (summary.rejected_count > 0) {
     await expect(card).toContainText(`含 ${summary.rejected_count} 份已驳回`);
   }
@@ -518,7 +518,7 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     await openGradeOverviewClassDetail(page, CLASS_NAMES.highPerforming);
 
     const knownRows = [
-      { username: "20247002", fullName: "高分班学生甲", statusText: "已完成评分" },
+      { username: "20247002", fullName: "高分班学生甲", statusText: "已评分" },
       { username: "20247005", fullName: "高分班学生丁", statusText: "待评分" },
     ] as const;
 
@@ -604,8 +604,8 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     const linkedReportStats = computeReportStats(linkedReports);
 
     await expectStatisticNumber(page, "学生总数", linkedReportStats.total);
-    await expectStatisticNumber(page, "已提交", linkedReportStats.submitted);
-    await expectStatisticNumber(page, "待评阅", linkedReportStats.pendingReview);
+    await expectStatisticNumber(page, "提交报告", linkedReportStats.submitted);
+    await expectStatisticNumber(page, "待评分", linkedReportStats.pendingReview);
     if (linkedReportStats.averageGrade !== null) {
       await expectStatisticNumber(page, "报告平均得分", linkedReportStats.averageGrade);
     }
@@ -643,8 +643,8 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     await openExperimentReportsPage(page);
     await chooseClass(page, CLASS_NAMES.highPerforming);
     await expectStatisticNumber(page, "学生总数", beforeReports.total);
-    await expectStatisticNumber(page, "已提交", beforeReports.submitted);
-    await expectStatisticNumber(page, "待评阅", beforeReports.pendingReview);
+    await expectStatisticNumber(page, "提交报告", beforeReports.submitted);
+    await expectStatisticNumber(page, "待评分", beforeReports.pendingReview);
     if (beforeReports.averageGrade !== null) {
       await expectStatisticNumber(page, "报告平均得分", beforeReports.averageGrade);
     }
@@ -689,8 +689,8 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     expect(reviewedGradeRow!.report_status).toBe("graded");
     expect(reviewedGradeRow!.final_score).not.toBeNull();
 
-    await expectStatisticNumber(page, "已提交", afterReports.submitted);
-    await expectStatisticNumber(page, "待评阅", afterReports.pendingReview);
+    await expectStatisticNumber(page, "提交报告", afterReports.submitted);
+    await expectStatisticNumber(page, "待评分", afterReports.pendingReview);
     if (afterReports.averageGrade !== null) {
       await expectStatisticNumber(page, "报告平均得分", afterReports.averageGrade);
     }
@@ -709,7 +709,7 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     await searchStudents(page, GradeOverviewSelectors.searchInput.placeholder, "20247005");
     const reviewedGradeOverviewRow = await expectSearchResultRow(page, "20247005");
     await expect(reviewedGradeOverviewRow).toContainText("高分班学生丁");
-    await expect(reviewedGradeOverviewRow).toContainText("已完成评分");
+    await expect(reviewedGradeOverviewRow).toContainText("已评分");
     await expect(reviewedGradeOverviewRow).toContainText(
       reviewedGradeRow!.final_score!.toFixed(1),
     );
@@ -735,8 +735,8 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     await openExperimentReportsPage(page);
     await chooseClass(page, CLASS_NAMES.linkedFlow);
     await expectStatisticNumber(page, "学生总数", beforeReports.total);
-    await expectStatisticNumber(page, "已提交", beforeReports.submitted);
-    await expectStatisticNumber(page, "待评阅", beforeReports.pendingReview);
+    await expectStatisticNumber(page, "提交报告", beforeReports.submitted);
+    await expectStatisticNumber(page, "待评分", beforeReports.pendingReview);
 
     await searchStudents(page, ExperimentReportSelectors.searchInput.placeholder, "20247013");
     const pendingRow = await expectSearchResultRow(page, "20247013");
@@ -766,8 +766,8 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     expect(afterSummary!.rejected_count).toBe(beforeSummary!.rejected_count + 1);
     expect(afterSummary!.not_submitted_count).toBe(beforeSummary!.not_submitted_count);
 
-    await expectStatisticNumber(page, "已提交", afterReports.submitted);
-    await expectStatisticNumber(page, "待评阅", afterReports.pendingReview);
+    await expectStatisticNumber(page, "提交报告", afterReports.submitted);
+    await expectStatisticNumber(page, "待评分", afterReports.pendingReview);
     const rejectedReportRow = await expectSearchResultRow(page, "20247013");
     await expect(rejectedReportRow).toContainText(ExperimentReportSelectors.statusRejected);
     await expect(rejectedReportRow).toContainText(rejectReason);
@@ -867,8 +867,8 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     await page.reload();
     await openExperimentReportsPage(page);
     await chooseClass(page, CLASS_NAMES.linkedFlow);
-    await expectStatisticNumber(page, "已提交", afterReports.submitted);
-    await expectStatisticNumber(page, "待评阅", afterReports.pendingReview);
+    await expectStatisticNumber(page, "提交报告", afterReports.submitted);
+    await expectStatisticNumber(page, "待评分", afterReports.pendingReview);
     if (afterReports.averageGrade !== null) {
       await expectStatisticNumber(page, "报告平均得分", afterReports.averageGrade);
     }
@@ -891,7 +891,7 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     await searchStudents(page, GradeOverviewSelectors.searchInput.placeholder, "20247015");
     const reviewedGradeOverviewRow = await expectSearchResultRow(page, "20247015");
     await expect(reviewedGradeOverviewRow).toContainText("联动班学生戊");
-    await expect(reviewedGradeOverviewRow).toContainText("已完成评分");
+    await expect(reviewedGradeOverviewRow).toContainText("已评分");
     await expect(reviewedGradeOverviewRow).toContainText(
       reviewedGradeRow!.final_score!.toFixed(1),
     );
@@ -973,8 +973,8 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     await page.reload();
     await openExperimentReportsPage(page);
     await chooseClass(page, CLASS_NAMES.linkedFlow);
-    await expectStatisticNumber(page, "已提交", afterReports.submitted);
-    await expectStatisticNumber(page, "待评阅", afterReports.pendingReview);
+    await expectStatisticNumber(page, "提交报告", afterReports.submitted);
+    await expectStatisticNumber(page, "待评分", afterReports.pendingReview);
     await searchStudents(page, ExperimentReportSelectors.searchInput.placeholder, "20247016");
     const teacherRejectedRow = await expectSearchResultRow(page, "20247016");
     await expect(teacherRejectedRow).toContainText("联动班学生己");
@@ -996,7 +996,7 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     await expect(rejectedGradeOverviewRow).toContainText("已驳回");
   });
 
-  test("教师重新评阅已评阅报告后统计均值与趋势图再次变化", async ({
+  test("教师重新评阅已评分报告后统计均值与趋势图再次变化", async ({
     page,
   }) => {
     await loginAsTeacher(page);
@@ -1060,7 +1060,7 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     expect(afterGradeRow!.final_score).not.toBeNull();
     expect(afterGradeRow!.final_score).not.toBe(beforeGradeRow!.final_score);
 
-    await expectStatisticNumber(page, "已提交", afterReports.submitted);
+    await expectStatisticNumber(page, "提交报告", afterReports.submitted);
     if (afterReports.averageGrade !== null) {
       await expectStatisticNumber(page, "报告平均得分", afterReports.averageGrade);
     }
@@ -1086,7 +1086,7 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     await searchStudents(page, GradeOverviewSelectors.searchInput.placeholder, "20247002");
     const regradedOverviewRow = await expectSearchResultRow(page, "20247002");
     await expect(regradedOverviewRow).toContainText("高分班学生甲");
-    await expect(regradedOverviewRow).toContainText("已完成评分");
+    await expect(regradedOverviewRow).toContainText("已评分");
     await expect(regradedOverviewRow).toContainText(afterGradeRow!.final_score!.toFixed(1));
 
     const renderedTrendTooltips: string[] = [];
@@ -1164,8 +1164,8 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     expect(afterSummary!.rejected_count).toBe(beforeSummary!.rejected_count);
     expect(afterSummary!.average_score).toBe(beforeSummary!.average_score);
 
-    await expectStatisticNumber(page, "已提交", afterReports.submitted);
-    await expectStatisticNumber(page, "待评阅", afterReports.pendingReview);
+    await expectStatisticNumber(page, "提交报告", afterReports.submitted);
+    await expectStatisticNumber(page, "待评分", afterReports.pendingReview);
     if (afterReports.averageGrade !== null) {
       await expectStatisticNumber(page, "报告平均得分", afterReports.averageGrade);
     }
@@ -1242,8 +1242,8 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     await page.reload();
     await openExperimentReportsPage(page);
     await chooseClass(page, CLASS_NAMES.mixedState);
-    await expectStatisticNumber(page, "已提交", afterResubmitReports.submitted);
-    await expectStatisticNumber(page, "待评阅", afterResubmitReports.pendingReview);
+    await expectStatisticNumber(page, "提交报告", afterResubmitReports.submitted);
+    await expectStatisticNumber(page, "待评分", afterResubmitReports.pendingReview);
     await searchStudents(page, ExperimentReportSelectors.searchInput.placeholder, "20247009");
     const pendingRow = await expectSearchResultRow(page, "20247009");
     await expect(pendingRow).toContainText(ExperimentReportSelectors.statusSubmitted);
@@ -1277,8 +1277,8 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     expect(finalSummary!.submitted_count).toBe(beforeSummary!.submitted_count);
     expect(finalSummary!.rejected_count).toBe(beforeSummary!.rejected_count - 1);
 
-    await expectStatisticNumber(page, "已提交", finalReports.submitted);
-    await expectStatisticNumber(page, "待评阅", finalReports.pendingReview);
+    await expectStatisticNumber(page, "提交报告", finalReports.submitted);
+    await expectStatisticNumber(page, "待评分", finalReports.pendingReview);
     if (finalReports.averageGrade !== null) {
       await expectStatisticNumber(page, "报告平均得分", finalReports.averageGrade);
     }
@@ -1302,7 +1302,7 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     await searchStudents(page, GradeOverviewSelectors.searchInput.placeholder, "20247009");
     const recoveredOverviewRow = await expectSearchResultRow(page, "20247009");
     await expect(recoveredOverviewRow).toContainText("混合班学生丙");
-    await expect(recoveredOverviewRow).toContainText("已完成评分");
+    await expect(recoveredOverviewRow).toContainText("已评分");
     await expect(recoveredOverviewRow).toContainText(recoveredGradeRow!.final_score!.toFixed(1));
   });
 
@@ -1371,7 +1371,7 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
     await searchStudents(page, GradeOverviewSelectors.searchInput.placeholder, "20247017");
     const recoveredOverviewRow = await expectSearchResultRow(page, "20247017");
     await expect(recoveredOverviewRow).toContainText("混合班学生己");
-    await expect(recoveredOverviewRow).toContainText("已完成评分");
+    await expect(recoveredOverviewRow).toContainText("已评分");
     await expect(recoveredOverviewRow).toContainText(
       recoveredGradeRow!.final_score!.toFixed(1),
     );
@@ -1460,7 +1460,7 @@ test.describe.serial("@teacher 多班级表格统计与学生联动", () => {
 
     await openExperimentReportsPage(page);
     await chooseClass(page, CLASS_NAMES.linkedFlow);
-    await expectStatisticNumber(page, "已提交", afterReports.submitted);
+    await expectStatisticNumber(page, "提交报告", afterReports.submitted);
     await searchStudents(page, ExperimentReportSelectors.searchInput.placeholder, LIVE_STUDENT.username);
     const submittedRow = await expectSearchResultRow(page, LIVE_STUDENT.username);
     await expect(submittedRow).toContainText(LIVE_STUDENT.fullName);
