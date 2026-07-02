@@ -344,7 +344,7 @@ export async function openGradeOverviewPage(page: Page): Promise<void> {
 }
 
 export async function selectTopFilterOption(page: Page, optionText: string): Promise<void> {
-  const topLevelSelect = page.locator(".ant-select").first();
+  const topLevelSelect = page.locator("main .ant-select").first();
   await topLevelSelect.click();
   const dropdown = page.locator(".ant-select-dropdown").last();
   await expect(dropdown).toBeVisible();

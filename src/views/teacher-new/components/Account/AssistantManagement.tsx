@@ -23,12 +23,15 @@ import { apiClient } from '../../../../utils/apiClient';
 import type { User, Class } from '../../types';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import { getSessionUserOrThrow } from '../../../../utils/session';
+import { listManagedClasses } from '../../utils/portalApi';
+import { useAcademicTerm } from '../../contexts/AcademicTermContext';
 
 const { Title } = Typography;
 
 interface Assistant extends User { }
 
 const AssistantManagement: React.FC = () => {
+    const { selectedTerm, isLoadingTerms } = useAcademicTerm();
     const [assistants, setAssistants] = useState<Assistant[]>([]);
     const [managedClasses, setManagedClasses] = useState<Class[]>([]);
     const [allAssistants, setAllAssistants] = useState<Assistant[]>([]);
@@ -50,6 +53,7 @@ const AssistantManagement: React.FC = () => {
 
     // Fetch initial data
     useEffect(() => {
+        if (isLoadingTerms) return;
         const controller = new AbortController();
 
         const fetchData = async () => {
@@ -60,7 +64,7 @@ const AssistantManagement: React.FC = () => {
 
                 const [assistantsData, classesData] = await Promise.all([
                     apiClient.get(`/teachers/${teacherId}/assistants`, { signal: controller.signal }),
-                    apiClient.get(`/teachers/${teacherId}/classes`, { signal: controller.signal })
+                    listManagedClasses({ signal: controller.signal, academicTerm: selectedTerm })
                 ]);
 
                 if (!controller.signal.aborted) {
@@ -84,7 +88,7 @@ const AssistantManagement: React.FC = () => {
         return () => {
             controller.abort();
         };
-    }, []);
+    }, [isLoadingTerms, selectedTerm]);
 
     // Fetch all assistants when select modal opens
     const fetchAllAssistants = useCallback(async () => {
@@ -100,14 +104,17 @@ const AssistantManagement: React.FC = () => {
     const fetchClassAssignments = useCallback(async (assistantId: number) => {
         try {
             const teacherId = getSessionUserOrThrow().sub;
+            const currentTermClassIds = new Set(managedClasses.map((classItem) => classItem.class_id));
             const data = await apiClient.get(`/teachers/${teacherId}/assistants/${assistantId}/classes`);
-            setClassAssignments(prev => ({ ...prev, [assistantId]: data?.map((c: Class) => c.class_id) || [] }));
-            return data?.map((c: Class) => c.class_id) || [];
+            const assignedClassIds = (data?.map((c: Class) => c.class_id) || [])
+                .filter((classId: number) => currentTermClassIds.has(classId));
+            setClassAssignments(prev => ({ ...prev, [assistantId]: assignedClassIds }));
+            return assignedClassIds;
         } catch (err: unknown) {
             console.error('Failed to fetch class assignments:', err);
             return [];
         }
-    }, []);
+    }, [managedClasses]);
 
     // Create assistant handler
     const handleCreateAssistant = async (values: { username: string; full_name: string; email: string; phone_number?: string; password: string; class_ids: number[] }) => {

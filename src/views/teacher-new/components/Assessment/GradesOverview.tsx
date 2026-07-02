@@ -56,6 +56,7 @@ import FinalBreakdown from './FinalBreakdown';
 import { getEvaluationBadge, getScoreLevel, SCORE_COLORS } from '../../utils/gradeStatus';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import { listManagedClassGradeSummaries, listManagedClasses } from '../../utils/portalApi';
+import { useAcademicTerm } from '../../contexts/AcademicTermContext';
 import { compareNaturalText, compareNullableNumber, type SortOrder } from '../../utils/sort';
 
 const { Title, Text } = Typography;
@@ -66,6 +67,8 @@ const ALL_CLASSES = 'all';
 interface ClassSummary {
     class_id: number;
     class_name: string;
+    academic_year_start: number;
+    semester: number;
     total_students: number;
     graded_count: number;
     submitted_count: number;
@@ -87,6 +90,7 @@ const SCORE_COLORS_DISPLAY: Record<string, { color: string; label: string }> = {
 const CHART_COLORS = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#eb2f96'];
 
 const GradesOverview: React.FC = () => {
+    const { selectedTerm, isLoadingTerms } = useAcademicTerm();
     const [classes, setClasses] = useState<Class[]>([]);
     const [grades, setGrades] = useState<StudentGradeOverview[]>([]);
     const [classSummaries, setClassSummaries] = useState<ClassSummary[]>([]);
@@ -100,14 +104,16 @@ const GradesOverview: React.FC = () => {
 
     // Fetch classes
     useEffect(() => {
+        if (isLoadingTerms) return;
         const controller = new AbortController();
 
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
-                const data = await listManagedClasses({ signal: controller.signal });
+                const data = await listManagedClasses({ signal: controller.signal, academicTerm: selectedTerm });
                 if (controller.signal.aborted) return;
                 setClasses(data || []);
+                setSelectedClassId(ALL_CLASSES);
             } catch (err: unknown) {
                 if (isAbortError(err)) return;
                 if (!controller.signal.aborted) {
@@ -122,11 +128,15 @@ const GradesOverview: React.FC = () => {
 
         fetchClasses();
         return () => { controller.abort(); };
-    }, []);
+    }, [isLoadingTerms, selectedTerm]);
 
     // Fetch grades
     useEffect(() => {
-        if (classes.length === 0) return;
+        if (classes.length === 0) {
+            setGrades([]);
+            setClassSummaries([]);
+            return;
+        }
 
         const controller = new AbortController();
         const requestId = ++fetchRequestIdRef.current;
@@ -136,7 +146,7 @@ const GradesOverview: React.FC = () => {
             setError(null);
             try {
                 if (selectedClassId === ALL_CLASSES) {
-                    const summaries = await listManagedClassGradeSummaries<ClassSummary[]>({ signal: controller.signal });
+                    const summaries = await listManagedClassGradeSummaries<ClassSummary[]>({ signal: controller.signal, academicTerm: selectedTerm });
                     if (requestId !== fetchRequestIdRef.current) return;
                     setClassSummaries(Array.isArray(summaries) ? summaries : []);
                     setGrades([]);
@@ -160,7 +170,7 @@ const GradesOverview: React.FC = () => {
 
         fetchGrades();
         return () => { controller.abort(); };
-    }, [selectedClassId, classes]);
+    }, [selectedClassId, classes, selectedTerm]);
 
     // Filter by search (only for single class view)
     const filteredGrades = useMemo(() => {

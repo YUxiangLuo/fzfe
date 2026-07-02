@@ -1,6 +1,6 @@
-import React, { lazy, Suspense, useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, Typography, Avatar, Dropdown, Modal, Spin } from 'antd';
+import { Layout, Menu, Button, Typography, Avatar, Dropdown, Modal, Spin, Select } from 'antd';
 import type { MenuProps } from 'antd';
 import {
     ExperimentOutlined,
@@ -27,6 +27,14 @@ import {
     isSessionExpired,
 } from '../../../../utils/session';
 import { listManagedClasses } from '../../utils/portalApi';
+import { AcademicTermProvider } from '../../contexts/AcademicTermContext';
+import {
+    deriveAcademicTerms,
+    formatAcademicTerm,
+    getAcademicTermKey,
+    parseAcademicTermKey,
+    type AcademicTerm,
+} from '../../utils/academicTerm';
 
 const PersonalInfo = lazy(() => import('../Account/PersonalInfo'));
 const AssistantManagement = lazy(() => import('../Account/AssistantManagement'));
@@ -62,6 +70,10 @@ const TeacherLayout: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
     const [isAuthorizing, setIsAuthorizing] = useState(true);
     const [assistantHasManagedClasses, setAssistantHasManagedClasses] = useState<boolean | null>(null);
+    const [availableTerms, setAvailableTerms] = useState<AcademicTerm[]>([]);
+    const [selectedTermKey, setSelectedTermKeyState] = useState<string | null>(null);
+    const [isLoadingTerms, setIsLoadingTerms] = useState(true);
+    const [termRefreshTick, setTermRefreshTick] = useState(0);
     const [openKeys, setOpenKeys] = useState<string[]>([]);
     const navigate = useNavigate();
     const location = useLocation();
@@ -88,6 +100,71 @@ const TeacherLayout: React.FC = () => {
         setCurrentUser(user);
         setIsAuthorizing(false);
     }, []);
+
+    const selectedTerm = React.useMemo(
+        () => (selectedTermKey ? parseAcademicTermKey(selectedTermKey) : null),
+        [selectedTermKey],
+    );
+
+    const termStorageKey = currentUser ? `teacherPortal:term:${currentUser.sub}` : null;
+
+    const setSelectedTermKey = useCallback((key: string) => {
+        setSelectedTermKeyState(key);
+        if (termStorageKey) {
+            window.localStorage.setItem(termStorageKey, key);
+        }
+    }, [termStorageKey]);
+
+    const refreshTerms = useCallback(() => {
+        setTermRefreshTick((tick) => tick + 1);
+    }, []);
+
+    useEffect(() => {
+        if (!currentUser || !termStorageKey) return;
+
+        let cancelled = false;
+        setIsLoadingTerms(true);
+
+        listManagedClasses()
+            .then((classes) => {
+                if (cancelled) return;
+                const terms = deriveAcademicTerms(classes);
+                setAvailableTerms(terms);
+
+                const storedKey = window.localStorage.getItem(termStorageKey);
+                const storedTerm = storedKey ? parseAcademicTermKey(storedKey) : null;
+                const storedTermIsAvailable = storedTerm
+                    ? terms.some((term) => getAcademicTermKey(term) === getAcademicTermKey(storedTerm))
+                    : false;
+                const nextKey = storedTermIsAvailable
+                    ? storedKey!
+                    : terms[0]
+                        ? getAcademicTermKey(terms[0])
+                        : null;
+
+                setSelectedTermKeyState(nextKey);
+                if (nextKey) {
+                    window.localStorage.setItem(termStorageKey, nextKey);
+                } else {
+                    window.localStorage.removeItem(termStorageKey);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setAvailableTerms([]);
+                    setSelectedTermKeyState(null);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setIsLoadingTerms(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [currentUser, termStorageKey, termRefreshTick]);
 
     useEffect(() => {
         if (!currentUser) return;
@@ -213,6 +290,15 @@ const TeacherLayout: React.FC = () => {
         setOpenKeys(getOpenKeysByPath(location.pathname));
     }, [location.pathname]);
 
+    const academicTermContextValue = React.useMemo(() => ({
+        availableTerms,
+        selectedTerm,
+        selectedTermKey,
+        setSelectedTermKey,
+        isLoadingTerms,
+        refreshTerms,
+    }), [availableTerms, selectedTerm, selectedTermKey, setSelectedTermKey, isLoadingTerms, refreshTerms]);
+
     if (isAuthorizing) {
         return (
             <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -265,6 +351,7 @@ const TeacherLayout: React.FC = () => {
     };
 
     return (
+        <AcademicTermProvider value={academicTermContextValue}>
         <Layout style={{ minHeight: '100vh' }}>
             <Sider
                 trigger={null}
@@ -324,6 +411,18 @@ const TeacherLayout: React.FC = () => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <Select
+                            value={selectedTermKey ?? undefined}
+                            onChange={setSelectedTermKey}
+                            loading={isLoadingTerms}
+                            disabled={availableTerms.length === 0}
+                            placeholder="选择学年学期"
+                            style={{ width: 220 }}
+                            options={availableTerms.map((term) => ({
+                                value: getAcademicTermKey(term),
+                                label: formatAcademicTerm(term),
+                            }))}
+                        />
                         <div style={{ textAlign: 'right', lineHeight: '1.2' }}>
                             <Text strong style={{ display: 'block' }}>{currentUser?.username || "未知用户"}</Text>
                             <Text type="secondary" style={{ fontSize: '12px' }}>{roleDisplay}</Text>
@@ -377,6 +476,7 @@ const TeacherLayout: React.FC = () => {
                 </Content>
             </Layout>
         </Layout>
+        </AcademicTermProvider>
     );
 };
 

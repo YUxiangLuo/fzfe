@@ -2,6 +2,7 @@ import { apiClient } from "../../../utils/apiClient";
 import type { DecodedToken } from "../../../utils/auth";
 import { getSessionUserOrThrow } from "../../../utils/session";
 import type { Class } from "../types";
+import type { AcademicTerm } from "./academicTerm";
 
 export type TeacherPortalUser = DecodedToken & {
   role: "Teacher" | "Assistant";
@@ -36,10 +37,32 @@ const getGradeSummariesEndpoint = (user: TeacherPortalUser): string => {
     : `/teachers/${user.sub}/grade-summaries`;
 };
 
-export const listManagedClasses = async (options?: RequestInit): Promise<Class[]> => {
-  return await apiClient.get<Class[]>(getManagedClassesEndpoint(getTeacherPortalUserOrThrow()), options);
+export type TeacherPortalRequestOptions = RequestInit & {
+  academicTerm?: AcademicTerm | null;
 };
 
-export const listManagedClassGradeSummaries = async <T>(options?: RequestInit): Promise<T> => {
-  return await apiClient.get<T>(getGradeSummariesEndpoint(getTeacherPortalUserOrThrow()), options);
+const appendAcademicTermQuery = (endpoint: string, academicTerm?: AcademicTerm | null): string => {
+  if (!academicTerm) return endpoint;
+  const params = new URLSearchParams({
+    academic_year_start: String(academicTerm.academic_year_start),
+    semester: String(academicTerm.semester),
+  });
+  return `${endpoint}?${params.toString()}`;
+};
+
+const splitPortalRequestOptions = (options?: TeacherPortalRequestOptions) => {
+  const { academicTerm, ...requestOptions } = options ?? {};
+  return { academicTerm, requestOptions };
+};
+
+export const listManagedClasses = async (options?: TeacherPortalRequestOptions): Promise<Class[]> => {
+  const { academicTerm, requestOptions } = splitPortalRequestOptions(options);
+  const endpoint = appendAcademicTermQuery(getManagedClassesEndpoint(getTeacherPortalUserOrThrow()), academicTerm);
+  return await apiClient.get<Class[]>(endpoint, requestOptions);
+};
+
+export const listManagedClassGradeSummaries = async <T>(options?: TeacherPortalRequestOptions): Promise<T> => {
+  const { academicTerm, requestOptions } = splitPortalRequestOptions(options);
+  const endpoint = appendAcademicTermQuery(getGradeSummariesEndpoint(getTeacherPortalUserOrThrow()), academicTerm);
+  return await apiClient.get<T>(endpoint, requestOptions);
 };

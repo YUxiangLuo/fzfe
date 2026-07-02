@@ -290,7 +290,7 @@ test.describe("@assistant 实验报告", () => {
 
     try {
       const classListPromise = page.waitForResponse(
-        (r) => r.request().method() === "GET" && /\/api\/v1\/assistants\/\d+\/classes$/.test(r.url()),
+        (r) => r.request().method() === "GET" && /\/api\/v1\/assistants\/\d+\/classes(?:\?|$)/.test(r.url()),
       );
       await openExperimentReportsPage(page);
       expect((await classListPromise).ok()).toBeTruthy();
@@ -542,7 +542,7 @@ test.describe("@assistant 考核管理", () => {
 
     try {
       const classListPromise = page.waitForResponse(
-        (r) => r.request().method() === "GET" && /\/api\/v1\/assistants\/\d+\/classes$/.test(r.url()),
+        (r) => r.request().method() === "GET" && /\/api\/v1\/assistants\/\d+\/classes(?:\?|$)/.test(r.url()),
       );
       const summaryPromise = page.waitForResponse(
         (r) => r.request().method() === "GET" && API.assistantGradeSummaries.test(r.url()),

@@ -25,6 +25,7 @@ import type { Class, StudentExperimentLog } from '../../types';
 import { formatDateTime, formatDuration } from '../../utils/format';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import { listManagedClasses } from '../../utils/portalApi';
+import { useAcademicTerm } from '../../contexts/AcademicTermContext';
 
 const { Title, Text } = Typography;
 
@@ -57,6 +58,7 @@ interface StudentExperimentDetailSummary {
 }
 
 const ExperimentLogs: React.FC = () => {
+    const { selectedTerm, isLoadingTerms } = useAcademicTerm();
     const [classes, setClasses] = useState<Class[]>([]);
     const [logs, setLogs] = useState<StudentExperimentLog[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -79,19 +81,19 @@ const ExperimentLogs: React.FC = () => {
 
     // Fetch classes
     useEffect(() => {
+        if (isLoadingTerms) return;
         const controller = new AbortController();
 
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
-                const data = await listManagedClasses({ signal: controller.signal });
+                const data = await listManagedClasses({ signal: controller.signal, academicTerm: selectedTerm });
                 if (controller.signal.aborted) return;
                 const classList = data || [];
                 setClasses(classList);
                 const firstClass = classList[0];
-                if (firstClass) {
-                    setSelectedClassId(String(firstClass.class_id));
-                }
+                setSelectedClassId(firstClass ? String(firstClass.class_id) : '');
+                if (!firstClass) setLogs([]);
             } catch (err: unknown) {
                 if (isAbortError(err)) return;
                 if (!controller.signal.aborted) {
@@ -106,7 +108,7 @@ const ExperimentLogs: React.FC = () => {
 
         fetchClasses();
         return () => { controller.abort(); };
-    }, []);
+    }, [isLoadingTerms, selectedTerm]);
 
     // Fetch logs
     useEffect(() => {

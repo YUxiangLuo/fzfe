@@ -14,7 +14,8 @@ import {
     Typography,
     Result,
     List,
-    Tag
+    Tag,
+    Select
 } from 'antd';
 import type { UploadFile, UploadProps } from 'antd';
 import {
@@ -31,9 +32,14 @@ import type { Class, Student } from '../../types';
 import { formatDate } from '../../utils/format';
 import { getErrorMessage } from '../../utils/error';
 import { getTeacherPortalUserOrThrow, isAssistantTeacherPortalUser, listManagedClasses } from '../../utils/portalApi';
+import { useAcademicTerm } from '../../contexts/AcademicTermContext';
+import { formatAcademicYear } from '../../utils/academicTerm';
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
+
+const currentYear = new Date().getFullYear();
+const ACADEMIC_YEAR_OPTIONS = Array.from({ length: 6 }, (_, index) => currentYear + 1 - index);
 
 interface CreateClassResponse {
     class: Class;
@@ -44,6 +50,7 @@ interface CreateClassResponse {
 }
 
 const ClassManagement: React.FC = () => {
+    const { selectedTerm, refreshTerms } = useAcademicTerm();
     const [classes, setClasses] = useState<Class[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -66,6 +73,11 @@ const ClassManagement: React.FC = () => {
     const [isSaving, setIsSaving] = useState(false);
 
     const canManageClasses = !isAssistantView;
+
+    const getDefaultAcademicTermValues = useCallback(() => ({
+        academic_year_start: selectedTerm?.academic_year_start ?? ACADEMIC_YEAR_OPTIONS[1] ?? currentYear,
+        semester: selectedTerm?.semester ?? 1,
+    }), [selectedTerm]);
 
     // Download CSV template
     const handleDownloadTemplate = () => {
@@ -116,7 +128,7 @@ const ClassManagement: React.FC = () => {
     }, [fetchClasses]);
 
     // Create class handler
-    const handleCreateClass = async (values: { class_name: string; class_code: string; students_file?: UploadFile[] }) => {
+    const handleCreateClass = async (values: { class_name: string; class_code: string; academic_year_start: number; semester: number; students_file?: UploadFile[] }) => {
         if (!canManageClasses) {
             message.warning('助教仅可查看班级信息，不能新增班级');
             return;
@@ -127,6 +139,8 @@ const ClassManagement: React.FC = () => {
             const formData = new FormData();
             formData.append('class_name', values.class_name);
             formData.append('class_code', values.class_code);
+            formData.append('academic_year_start', String(values.academic_year_start));
+            formData.append('semester', String(values.semester));
             const selectedFiles: UploadFile[] = values.students_file || fileList;
             if (selectedFiles && selectedFiles.length > 0) {
                 const file = selectedFiles[0];
@@ -143,6 +157,7 @@ const ClassManagement: React.FC = () => {
             setResultModalOpen(true);
             createForm.resetFields();
             setFileList([]);
+            refreshTerms();
             message.success('班级创建成功');
         } catch (err: unknown) {
             message.error(getErrorMessage(err, '创建失败'));
@@ -152,7 +167,7 @@ const ClassManagement: React.FC = () => {
     };
 
     // Edit class handler
-    const handleEditClass = async (values: { class_name: string; class_code: string }) => {
+    const handleEditClass = async (values: { class_name: string; class_code: string; academic_year_start: number; semester: number }) => {
         if (!canManageClasses) {
             message.warning('助教仅可查看班级信息，不能编辑班级');
             return;
@@ -164,6 +179,8 @@ const ClassManagement: React.FC = () => {
             const updatedClass = await apiClient.put<Class>(`/classes/${selectedClass.class_id}`, {
                 class_name: values.class_name,
                 class_code: values.class_code,
+                academic_year_start: values.academic_year_start,
+                semester: values.semester,
             });
 
             setClasses(prev => prev.map(c =>
@@ -175,6 +192,7 @@ const ClassManagement: React.FC = () => {
             setEditModalOpen(false);
             setSelectedClass(null);
             editForm.resetFields();
+            refreshTerms();
             message.success('班级信息更新成功');
         } catch (err: unknown) {
             message.error(getErrorMessage(err, '更新失败'));
@@ -237,6 +255,8 @@ const ClassManagement: React.FC = () => {
         editForm.setFieldsValue({
             class_name: classItem.class_name,
             class_code: classItem.class_code,
+            academic_year_start: classItem.academic_year_start,
+            semester: classItem.semester,
         });
         setEditModalOpen(true);
     };
@@ -277,6 +297,18 @@ const ClassManagement: React.FC = () => {
             dataIndex: 'class_code',
             key: 'class_code',
             render: (text: string | null) => text || '未设置',
+        },
+        {
+            title: '学年',
+            dataIndex: 'academic_year_start',
+            key: 'academic_year_start',
+            render: (value: number) => formatAcademicYear(value),
+        },
+        {
+            title: '学期',
+            dataIndex: 'semester',
+            key: 'semester',
+            render: (value: number) => `第 ${value} 学期`,
         },
         {
             title: '助教',
@@ -368,7 +400,14 @@ const ClassManagement: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Title level={3} style={{ marginBottom: 0 }}>班级管理</Title>
                 {canManageClasses && (
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => {
+                            createForm.setFieldsValue(getDefaultAcademicTermValues());
+                            setCreateModalOpen(true);
+                        }}
+                    >
                         新增班级
                     </Button>
                 )}
@@ -418,6 +457,29 @@ const ClassManagement: React.FC = () => {
                         ]}
                     >
                         <Input placeholder="请输入班级编号" />
+                    </Form.Item>
+                    <Form.Item
+                        label="学年"
+                        name="academic_year_start"
+                        rules={[{ required: true, message: '请选择学年' }]}
+                    >
+                        <Select
+                            placeholder="请选择学年"
+                            options={ACADEMIC_YEAR_OPTIONS.map((year) => ({ value: year, label: formatAcademicYear(year) }))}
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        label="学期"
+                        name="semester"
+                        rules={[{ required: true, message: '请选择学期' }]}
+                    >
+                        <Select
+                            placeholder="请选择学期"
+                            options={[
+                                { value: 1, label: '第 1 学期' },
+                                { value: 2, label: '第 2 学期' },
+                            ]}
+                        />
                     </Form.Item>
                     <Form.Item
                         name="students_file"
@@ -476,6 +538,29 @@ const ClassManagement: React.FC = () => {
                         ]}
                     >
                         <Input placeholder="请输入班级编号" />
+                    </Form.Item>
+                    <Form.Item
+                        label="学年"
+                        name="academic_year_start"
+                        rules={[{ required: true, message: '请选择学年' }]}
+                    >
+                        <Select
+                            placeholder="请选择学年"
+                            options={ACADEMIC_YEAR_OPTIONS.map((year) => ({ value: year, label: formatAcademicYear(year) }))}
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        label="学期"
+                        name="semester"
+                        rules={[{ required: true, message: '请选择学期' }]}
+                    >
+                        <Select
+                            placeholder="请选择学期"
+                            options={[
+                                { value: 1, label: '第 1 学期' },
+                                { value: 2, label: '第 2 学期' },
+                            ]}
+                        />
                     </Form.Item>
                 </Form>
             </Modal>

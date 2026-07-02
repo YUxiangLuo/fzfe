@@ -29,6 +29,7 @@ import { formatDateTime } from '../../utils/format';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import { listManagedClasses } from '../../utils/portalApi';
 import { compareProgressStatus, normalizeProgressStatus } from '../../utils/sort';
+import { useAcademicTerm } from '../../contexts/AcademicTermContext';
 
 const { Title, Text } = Typography;
 
@@ -66,6 +67,7 @@ const getCompletionMeta = (student: ProgressType) => {
 };
 
 const ExperimentProgress: React.FC = () => {
+    const { selectedTerm, isLoadingTerms } = useAcademicTerm();
     const [classes, setClasses] = useState<Class[]>([]);
     const [progressData, setProgressData] = useState<ProgressType[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -89,19 +91,19 @@ const ExperimentProgress: React.FC = () => {
 
     // Fetch classes
     useEffect(() => {
+        if (isLoadingTerms) return;
         const controller = new AbortController();
 
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
-                const data = await listManagedClasses({ signal: controller.signal });
+                const data = await listManagedClasses({ signal: controller.signal, academicTerm: selectedTerm });
                 if (controller.signal.aborted) return;
                 const classList = data || [];
                 setClasses(classList);
                 const firstClass = classList[0];
-                if (firstClass) {
-                    setSelectedClassId(String(firstClass.class_id));
-                }
+                setSelectedClassId(firstClass ? String(firstClass.class_id) : '');
+                if (!firstClass) setProgressData([]);
             } catch (err: unknown) {
                 if (isAbortError(err)) return;
                 if (!controller.signal.aborted) {
@@ -116,7 +118,7 @@ const ExperimentProgress: React.FC = () => {
 
         fetchClasses();
         return () => { controller.abort(); };
-    }, []);
+    }, [isLoadingTerms, selectedTerm]);
 
     // Fetch progress data
     useEffect(() => {

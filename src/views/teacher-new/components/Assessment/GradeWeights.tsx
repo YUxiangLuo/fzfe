@@ -25,6 +25,7 @@ import { apiClient } from '../../../../utils/apiClient';
 import type { Class, GradeWeights as GradeWeightsApi } from '../../types';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import { listManagedClasses } from '../../utils/portalApi';
+import { useAcademicTerm } from '../../contexts/AcademicTermContext';
 
 const { Title, Text } = Typography;
 
@@ -88,6 +89,7 @@ const DEFAULT_WEIGHTS: GradeWeightsApi = {
 };
 
 const GradeWeights: React.FC = () => {
+    const { selectedTerm, isLoadingTerms } = useAcademicTerm();
     const [classes, setClasses] = useState<Class[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>('');
     const [weights, setWeights] = useState<GradeWeightsApi>(DEFAULT_WEIGHTS);
@@ -98,19 +100,19 @@ const GradeWeights: React.FC = () => {
 
     // Fetch classes
     useEffect(() => {
+        if (isLoadingTerms) return;
         const controller = new AbortController();
 
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
-                const data = await listManagedClasses({ signal: controller.signal });
+                const data = await listManagedClasses({ signal: controller.signal, academicTerm: selectedTerm });
                 if (controller.signal.aborted) return;
                 const classList = data || [];
                 setClasses(classList);
                 const firstClass = classList[0];
-                if (firstClass) {
-                    setSelectedClassId(String(firstClass.class_id));
-                }
+                setSelectedClassId(firstClass ? String(firstClass.class_id) : '');
+                if (!firstClass) setWeights(DEFAULT_WEIGHTS);
             } catch (err: unknown) {
                 if (isAbortError(err)) return;
                 if (!controller.signal.aborted) {
@@ -125,7 +127,7 @@ const GradeWeights: React.FC = () => {
 
         fetchClasses();
         return () => { controller.abort(); };
-    }, []);
+    }, [isLoadingTerms, selectedTerm]);
 
     // Fetch weights
     useEffect(() => {

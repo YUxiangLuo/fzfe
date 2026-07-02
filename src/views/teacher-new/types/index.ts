@@ -15,6 +15,8 @@ export interface Class {
     class_id: number;
     class_name: string;
     class_code: string | null;
+    academic_year_start: number;
+    semester: number;
     teacher_id: number;
     teacher_name?: string | null;
     created_at?: string;

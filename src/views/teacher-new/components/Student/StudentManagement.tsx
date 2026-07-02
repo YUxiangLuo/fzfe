@@ -27,6 +27,7 @@ import { apiClient } from '../../../../utils/apiClient';
 import type { Student, Class } from '../../types';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import { listManagedClasses } from '../../utils/portalApi';
+import { useAcademicTerm } from '../../contexts/AcademicTermContext';
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
@@ -43,6 +44,7 @@ const validateStudentNameCharacters = (_: unknown, value?: string) => {
 };
 
 const StudentManagement: React.FC = () => {
+    const { selectedTerm, isLoadingTerms } = useAcademicTerm();
     const [classes, setClasses] = useState<Class[]>([]);
     const [students, setStudents] = useState<Student[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
@@ -70,19 +72,19 @@ const StudentManagement: React.FC = () => {
 
     // Fetch classes
     useEffect(() => {
+        if (isLoadingTerms) return;
         const controller = new AbortController();
 
         const fetchClasses = async () => {
             setIsLoadingClasses(true);
             try {
-                const data = await listManagedClasses({ signal: controller.signal });
+                const data = await listManagedClasses({ signal: controller.signal, academicTerm: selectedTerm });
                 if (controller.signal.aborted) return;
                 const classList = data || [];
                 setClasses(classList);
                 const firstClass = classList[0];
-                if (firstClass) {
-                    setSelectedClassId(firstClass.class_id);
-                }
+                setSelectedClassId(firstClass ? firstClass.class_id : null);
+                if (!firstClass) setStudents([]);
             } catch (err: unknown) {
                 if (isAbortError(err)) return;
                 if (!controller.signal.aborted) {
@@ -97,7 +99,7 @@ const StudentManagement: React.FC = () => {
 
         fetchClasses();
         return () => { controller.abort(); };
-    }, []);
+    }, [isLoadingTerms, selectedTerm]);
 
     // Fetch students when class changes
     const loadStudents = useCallback(async (classId: number) => {
