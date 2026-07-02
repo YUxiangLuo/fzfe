@@ -2,9 +2,11 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveE2EBackendDir } from "../../helpers/backend-dir";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const BE_DIR = path.resolve(__dirname, "../../../../../fangzhen-be");
+const FE_DIR = path.resolve(__dirname, "../../../..");
+const BE_DIR = resolveE2EBackendDir(FE_DIR);
 
 const SLOT_LOCK_SCRIPT = `
 import mysql from "mysql2/promise";

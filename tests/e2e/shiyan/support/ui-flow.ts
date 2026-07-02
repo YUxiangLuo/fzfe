@@ -114,13 +114,17 @@ export async function completeIntroductionAndStartExperiment(page: Page) {
     await clickLastEnabledButton(page, /继续实验|回到实验/);
   }
 
+  const startNewExperimentButton = page.getByRole("button", {
+    name: /开始新的实验|确认开始新实验/,
+  });
   if (
-    await page
-      .getByRole("button", { name: "开始新的实验" })
-      .isVisible({ timeout: 2_000 })
+    await startNewExperimentButton
+      .first()
+      .waitFor({ state: "visible", timeout: 5_000 })
+      .then(() => true)
       .catch(() => false)
   ) {
-    await clickLastEnabledButton(page, "开始新的实验");
+    await clickLastEnabledButton(page, /开始新的实验|确认开始新实验/);
   }
 
   await expectHashPath(page, "/industry");
@@ -675,7 +679,7 @@ export async function completeProductionAndPlanQuiz(page: Page) {
   });
   await clickLastEnabledButton(page, /进入下一步/);
 
-  await clickLastEnabledButton(page, /获取第二期需求量/);
+  await clickLastEnabledButton(page, /预测第二期需求|获取第二期需求量/);
   await expect(page.getByText("第二期需求预测成功")).toBeVisible({
     timeout: 60_000,
   });
@@ -722,7 +726,10 @@ export async function completeReportAndLogout(page: Page) {
     await textareas.nth(idx).fill(REPORT_ANALYSES[idx]!);
   }
 
-  await clickLastEnabledButton(page, /保存并提交报告/);
+  await clickLastEnabledButton(page, /预览报告/);
+  await expect(page.getByRole("dialog", { name: "报告预览" })).toBeVisible();
+
+  await clickLastEnabledButton(page, /确认无误，提交报告|保存并提交报告/);
   await expect(page.getByText("恭喜！实验完成")).toBeVisible({
     timeout: 60_000,
   });

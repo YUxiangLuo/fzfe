@@ -4,10 +4,11 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
+import { resolveE2EBackendDir } from "../tests/e2e/helpers/backend-dir";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FE_DIR = path.resolve(__dirname, "..");
-const BE_DIR = path.resolve(FE_DIR, "..", "fangzhen-be");
+const BE_DIR = resolveE2EBackendDir(FE_DIR);
 const STARTUP_TIMEOUT_MS = 120_000;
 
 type SuiteName = "all" | "model" | "pdf";

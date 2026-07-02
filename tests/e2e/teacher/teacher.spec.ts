@@ -1149,7 +1149,7 @@ test.describe("@teacher 边缘情况", () => {
     await page.getByPlaceholder(GradeOverviewSelectors.searchInput.placeholder).fill(TEST_DATA.students.perfectScore);
     const perfectRow = tableRowByText(page, TEST_DATA.students.perfectScore);
     await expect(perfectRow).toBeVisible();
-    await expect(perfectRow.getByText("已完成评分")).toBeVisible();
+    await expect(perfectRow.getByText("已评分")).toBeVisible();
 
     // Pass threshold
     await page.getByPlaceholder(GradeOverviewSelectors.searchInput.placeholder).clear();

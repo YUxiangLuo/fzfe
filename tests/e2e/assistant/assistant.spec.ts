@@ -155,7 +155,7 @@ test.describe("@assistant 实验报告", () => {
     await expect(reportRow).toBeVisible();
     await expect(reportRow.getByText(ExperimentReportSelectors.statusSubmitted)).toBeVisible();
     
-    const pendingBefore = await getStatisticValue(page, "待评阅");
+    const pendingBefore = await getStatisticValue(page, "待评分");
 
     // Review
     const reviewModal = await openReportReviewModal(reportRow);
@@ -169,7 +169,7 @@ test.describe("@assistant 实验报告", () => {
     await expectSuccessMessage(page, SuccessMessages.reviewSaved);
     await expect(tableRowByText(page, TEST_DATA.students.pendingReview1).getByText(ExperimentReportSelectors.statusGraded)).toBeVisible();
     
-    const pendingAfter = await getStatisticValue(page, "待评阅");
+    const pendingAfter = await getStatisticValue(page, "待评分");
     expect(pendingAfter).toBe(Math.max(pendingBefore - 1, 0));
   });
 
@@ -177,13 +177,13 @@ test.describe("@assistant 实验报告", () => {
     await loginAsAssistant(page);
     await openExperimentReportsPage(page);
 
-    // 获取当前待评阅数量
+    // 获取当前待评分数量
     // 注意：前面的"检索与评阅"测试可能已经评阅了 pendingReview1 (20240052)
-    // 所以这里只剩下 pendingReview2 (20240055) 一个待评阅学生
-    const pendingBefore = await getStatisticValue(page, "待评阅");
+    // 所以这里只剩下 pendingReview2 (20240055) 一个待评分学生
+    const pendingBefore = await getStatisticValue(page, "待评分");
     expect(pendingBefore).toBeGreaterThanOrEqual(1);
 
-    // 评阅 pendingReview2 (20240055) - 这是种子数据中唯一剩下的待评阅学生
+    // 评阅 pendingReview2 (20240055) - 这是种子数据中唯一剩下的待评分学生
     const searchInput = page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder);
     await searchInput.fill(TEST_DATA.students.pendingReview2);
     
@@ -198,8 +198,8 @@ test.describe("@assistant 实验报告", () => {
     await reviewModal.getByRole(ExperimentReportSelectors.saveReviewBtn.role, { name: ExperimentReportSelectors.saveReviewBtn.name }).click();
     await expectSuccessMessage(page, SuccessMessages.reviewSaved);
 
-    // 验证待评阅数量减少了1
-    const pendingAfter = await getStatisticValue(page, "待评阅");
+    // 验证待评分数量减少了1
+    const pendingAfter = await getStatisticValue(page, "待评分");
     expect(pendingAfter).toBe(pendingBefore - 1);
   });
 
@@ -825,7 +825,7 @@ test.describe("@assistant 评阅边缘测试", () => {
     await loginAsAssistant(page);
     await openExperimentReportsPage(page);
 
-    // 使用 20240051（已评阅的学生），重新评阅为 0 分测试边界值
+    // 使用 20240051（已评分的学生），重新评阅为 0 分测试边界值
     const searchInput = page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder);
     await searchInput.fill("20240051");
     
@@ -850,11 +850,11 @@ test.describe("@assistant 评阅边缘测试", () => {
     await openExperimentReportsPage(page);
 
     // 使用 20240054（进行中的学生），先完成实验并提交报告
-    // 注意：由于该学生没有报告，我们改为验证已评阅学生的状态
+    // 注意：由于该学生没有报告，我们改为验证已评分学生的状态
     // 这里测试满分100的情况
     
     const searchInput = page.getByPlaceholder(ExperimentReportSelectors.searchInput.placeholder);
-    await searchInput.fill("20240051");  // 已评阅的学生
+    await searchInput.fill("20240051");  // 已评分的学生
     
     const reportRow = tableRowByText(page, "20240051");
     await expect(reportRow).toBeVisible();

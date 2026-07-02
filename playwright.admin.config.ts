@@ -1,10 +1,11 @@
 import { defineConfig } from "@playwright/test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveE2EBackendDir } from "./tests/e2e/helpers/backend-dir";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FE_DIR = __dirname;
-const BE_DIR = path.resolve(__dirname, "../fangzhen-be");
+const BE_DIR = resolveE2EBackendDir(FE_DIR);
 const E2E_BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? "54101");
 const E2E_BACKEND_ORIGIN = process.env.E2E_BACKEND_ORIGIN ?? `http://127.0.0.1:${E2E_BACKEND_PORT}`;
 const E2E_FRONTEND_PORT = Number(process.env.E2E_FRONTEND_PORT ?? "55101");

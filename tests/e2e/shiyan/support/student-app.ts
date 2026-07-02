@@ -118,14 +118,20 @@ export class StudentApp {
 
     const startButton = this.page.getByRole("button", { name: "开始实验" });
     if (await startButton.isVisible().catch(() => false)) {
-      await startButton.click();
+      await this.clickEnabledButton("开始实验");
     }
 
     const restartButton = this.page.getByRole("button", {
-      name: "开始新的实验",
+      name: /开始新的实验|确认开始新实验/,
     });
-    if (await restartButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await restartButton.click();
+    if (
+      await restartButton
+        .first()
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      await this.clickEnabledButton(/开始新的实验|确认开始新实验/);
     }
 
     await this.expectHash("/industry");

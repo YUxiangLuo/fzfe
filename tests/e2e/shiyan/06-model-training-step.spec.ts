@@ -25,6 +25,9 @@ const expectJsonFeatureList = (value: unknown, expectedFeatures: string[]) => {
   expect(JSON.parse(value as string)).toEqual(expectedFeatures);
 };
 
+const trainingStreamResult = (data: unknown) =>
+  `${JSON.stringify({ type: "result", data })}\n`;
+
 test.describe("@shiyan model training step", () => {
   test("base-model selection requires at least two models before training can start", async ({
     page,
@@ -96,7 +99,7 @@ test.describe("@shiyan model training step", () => {
       releaseTraining = resolve;
     });
 
-    await page.route("**/api/v1/models/weighted_avg/training", async (route) => {
+    await page.route("**/api/v1/models/weighted_avg/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -106,7 +109,7 @@ test.describe("@shiyan model training step", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: trainingStreamResult({
           status: "success",
           results: {
             metrics: { rmse: 10.2, mae: 8.4, r2: 0.88 },
@@ -127,19 +130,22 @@ test.describe("@shiyan model training step", () => {
     await studentApp.clickEnabledButton("下一步");
 
     await studentApp.expectHash("/model/weighted-ensemble/results");
-    await expect(page.getByText("融合模型训练中")).toBeVisible();
-    await expect(page.getByText("预计需要几分钟时间")).toBeVisible();
+    try {
+      await expect(page.getByTestId("training-progress-panel")).toBeVisible();
+      await expect(page.getByText("加权平均融合训练中")).toBeVisible();
+      await expect(page.getByText("可能需要几分钟")).toBeVisible();
 
-    const profileLink = page.getByRole("link", { name: "个人信息" });
-    await expect(profileLink).toHaveAttribute("aria-disabled", "true");
-    await expect(profileLink).toHaveAttribute("title", /模型训练进行中/);
-    const logoutButton = page.locator("button").filter({ has: page.locator(".lucide-log-out") }).first();
-    await expect(logoutButton).toBeDisabled();
+      const profileLink = page.getByRole("link", { name: "个人信息" });
+      await expect(profileLink).toHaveAttribute("aria-disabled", "true");
+      await expect(profileLink).toHaveAttribute("title", /模型训练进行中/);
+      const logoutButton = page.locator("button").filter({ has: page.locator(".lucide-log-out") }).first();
+      await expect(logoutButton).toBeDisabled();
 
-    await profileLink.click({ force: true });
-    await studentApp.expectHash("/model/weighted-ensemble/results");
-
-    releaseTraining?.();
+      await profileLink.click({ force: true });
+      await studentApp.expectHash("/model/weighted-ensemble/results");
+    } finally {
+      releaseTraining?.();
+    }
 
     await expect(page.getByText("加权平均融合 - 计算结果")).toBeVisible({
       timeout: 30_000,
@@ -157,7 +163,7 @@ test.describe("@shiyan model training step", () => {
     });
 
     let attempts = 0;
-    await page.route("**/api/v1/models/ma/training", async (route) => {
+    await page.route("**/api/v1/models/ma/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -241,7 +247,7 @@ test.describe("@shiyan model training step", () => {
     });
 
     let attempts = 0;
-    await page.route("**/api/v1/models/ma/training", async (route) => {
+    await page.route("**/api/v1/models/ma/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -261,7 +267,7 @@ test.describe("@shiyan model training step", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: trainingStreamResult({
           status: "success",
           results: {
             metrics: { rmse: 7.4, mae: 5.6, r2: 0.91 },
@@ -311,7 +317,7 @@ test.describe("@shiyan model training step", () => {
     });
 
     let attempts = 0;
-    await page.route("**/api/v1/models/ma/training", async (route) => {
+    await page.route("**/api/v1/models/ma/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -332,7 +338,7 @@ test.describe("@shiyan model training step", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: trainingStreamResult({
           status: "success",
           results: {
             metrics: { rmse: 6.1, mae: 4.7, r2: 0.92 },
@@ -374,7 +380,7 @@ test.describe("@shiyan model training step", () => {
     await prepareModelStageExperiment(studentApi);
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/ma/training", async (route) => {
+    await page.route("**/api/v1/models/ma/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -384,7 +390,7 @@ test.describe("@shiyan model training step", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: trainingStreamResult({
           status: "success",
           results: {
             metrics: { rmse: 8.9, mae: 6.8, r2: 0.89 },
@@ -484,7 +490,7 @@ test.describe("@shiyan model training step", () => {
     await prepareModelStageExperiment(studentApi);
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/es/training", async (route) => {
+    await page.route("**/api/v1/models/es/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -494,7 +500,7 @@ test.describe("@shiyan model training step", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: trainingStreamResult({
           status: "success",
           results: {
             metrics: { rmse: 8.2, mae: 6.3, r2: 0.9 },
@@ -808,7 +814,7 @@ test.describe("@shiyan model training step", () => {
     });
 
     let attempts = 0;
-    await page.route("**/api/v1/models/arima/training", async (route) => {
+    await page.route("**/api/v1/models/arima/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -884,7 +890,7 @@ test.describe("@shiyan model training step", () => {
       });
     });
 
-    await page.route("**/api/v1/models/arima/training", async (route) => {
+    await page.route("**/api/v1/models/arima/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -894,7 +900,7 @@ test.describe("@shiyan model training step", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: trainingStreamResult({
           status: "success",
           results: {
             metrics: { rmse: 6.4, mae: 4.8, r2: 0.91 },
@@ -982,7 +988,7 @@ test.describe("@shiyan model training step", () => {
     await prepareModelStageExperiment(studentApi);
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/lstm/training", async (route) => {
+    await page.route("**/api/v1/models/lstm/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -992,7 +998,7 @@ test.describe("@shiyan model training step", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: trainingStreamResult({
           status: "success",
           results: {
             metrics: { rmse: 7.6, mae: 5.4, r2: 0.93 },
@@ -1107,7 +1113,7 @@ test.describe("@shiyan model training step", () => {
     });
 
     let attempts = 0;
-    await page.route("**/api/v1/models/lstm/training", async (route) => {
+    await page.route("**/api/v1/models/lstm/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -1146,7 +1152,7 @@ test.describe("@shiyan model training step", () => {
     await prepareEnsembleReadyExperiment(studentApi);
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/boosting/training", async (route) => {
+    await page.route("**/api/v1/models/boosting/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -1156,7 +1162,7 @@ test.describe("@shiyan model training step", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: trainingStreamResult({
           status: "success",
           results: {
             metrics: { rmse: 8.8, mae: 6.9, r2: 0.92 },
@@ -1214,7 +1220,7 @@ test.describe("@shiyan model training step", () => {
     await prepareEnsembleReadyExperiment(studentApi);
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/stacking/training", async (route) => {
+    await page.route("**/api/v1/models/stacking/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -1224,7 +1230,7 @@ test.describe("@shiyan model training step", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: trainingStreamResult({
           status: "success",
           results: {
             metrics: { rmse: 8.1, mae: 6.1, r2: 0.94 },
@@ -1299,7 +1305,7 @@ test.describe("@shiyan model training step", () => {
     });
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/stacking/training", async (route) => {
+    await page.route("**/api/v1/models/stacking/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -1309,7 +1315,7 @@ test.describe("@shiyan model training step", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: trainingStreamResult({
           status: "success",
           results: {
             metrics: { rmse: 6.9, mae: 5.2, r2: 0.95 },
@@ -1357,7 +1363,7 @@ test.describe("@shiyan model training step", () => {
     await prepareEnsembleReadyExperiment(studentApi);
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/weighted_avg/training", async (route) => {
+    await page.route("**/api/v1/models/weighted_avg/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -1367,7 +1373,7 @@ test.describe("@shiyan model training step", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: trainingStreamResult({
           status: "success",
           results: {
             metrics: { rmse: 9.1, mae: 7.2, r2: 0.9 },
@@ -1471,7 +1477,7 @@ test.describe("@shiyan model training step", () => {
     });
 
     const seenModelSets: string[] = [];
-    await page.route("**/api/v1/models/weighted_avg/training", async (route) => {
+    await page.route("**/api/v1/models/weighted_avg/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;
@@ -1493,7 +1499,7 @@ test.describe("@shiyan model training step", () => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
+        body: trainingStreamResult({
           status: "success",
           results: {
             metrics: { rmse: 7.9, mae: 6.1, r2: 0.9 },
@@ -1546,7 +1552,7 @@ test.describe("@shiyan model training step", () => {
     await prepareEnsembleReadyExperiment(studentApi);
 
     let attempts = 0;
-    await page.route("**/api/v1/models/boosting/training", async (route) => {
+    await page.route("**/api/v1/models/boosting/training/stream", async (route) => {
       if (route.request().method() !== "POST") {
         await route.continue();
         return;

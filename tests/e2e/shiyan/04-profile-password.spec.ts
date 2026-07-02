@@ -2,11 +2,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test, expect } from "./fixtures";
 import { resetUserPassword } from "../setup/setup-utils";
+import { resolveE2EBackendDir } from "../helpers/backend-dir";
 import { STUDENT_PASSWORD, STUDENT_USERNAME } from "./support/constants";
 import { loginStudentViaApi } from "./support/backend";
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const BE_DIR = path.resolve(CURRENT_DIR, "../../../../fangzhen-be");
+const FE_DIR = path.resolve(CURRENT_DIR, "../../..");
+const BE_DIR = resolveE2EBackendDir(FE_DIR);
 
 test("@shiyan profile page shows real user info and supports password rotation", async ({
   studentApp,

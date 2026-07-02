@@ -7,19 +7,18 @@ import {
   REPORT_ANALYSES,
 } from "../shiyan/support/constants";
 import {
-  createStudentApiClient,
   loginStudentViaApi,
 } from "../shiyan/support/backend";
+import { resolveE2EBackendDir } from "../helpers/backend-dir";
 import { acquireAllModelSlots } from "../shiyan/support/model-slot-locks";
 import { StudentApp } from "../shiyan/support/student-app";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FE_DIR = path.resolve(__dirname, "../../..");
-const BE_DIR = path.resolve(FE_DIR, "../fangzhen-be");
+const BE_DIR = resolveE2EBackendDir(FE_DIR);
 const PARALLEL_PASSWORD =
   process.env.E2E_PARALLEL_STUDENT_PASSWORD ?? "StudentParallel!123";
 const REPORT_STUDENT_A = "20246001";
-const REPORT_STUDENT_B = "20246002";
 const PRODUCTION_STUDENT = "20246031";
 
 function runBackendCommand(args: string[], env: Record<string, string> = {}) {
@@ -31,26 +30,6 @@ function runBackendCommand(args: string[], env: Record<string, string> = {}) {
     },
     stdio: "inherit",
   });
-}
-
-function authHeaders(token: string) {
-  return {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
-}
-
-async function latestExperimentId(username: string) {
-  const token = await loginStudentViaApi(username, PARALLEL_PASSWORD);
-  const experiments = await createStudentApiClient(token).listExperiments();
-  const experiment = experiments[0];
-  if (!experiment) {
-    throw new Error(`No experiment found for ${username}`);
-  }
-  return {
-    token,
-    experimentId: experiment.experiment_id,
-  };
 }
 
 async function openAsStudent(page: Page, username: string, hashPath: string) {
@@ -68,13 +47,45 @@ async function fillReportAnalyses(page: Page) {
   }
 }
 
-function buildSlowReportContent(experimentId: number) {
-  return [
-    `# Blocking PDF ${experimentId}`,
-    "",
-    "这份报告用于真实占用 PDF 生成槽位。",
-    "PDF 队列占用内容。".repeat(200),
-  ].join("\n");
+async function openReportPreview(page: Page) {
+  const previewButton = page.getByRole("button", { name: /预览报告/ });
+  await previewButton.scrollIntoViewIfNeeded();
+  await expect(previewButton).toBeEnabled();
+  await previewButton.click();
+  await expect(page.getByRole("dialog", { name: "报告预览" })).toBeVisible();
+}
+
+async function confirmReportSubmission(page: Page) {
+  const previewDialog = page.getByRole("dialog", { name: "报告预览" });
+  await expect(previewDialog).toBeVisible();
+
+  const confirmButton = previewDialog.getByRole("button", { name: /确认无误，提交报告/ });
+  await confirmButton.scrollIntoViewIfNeeded();
+  await expect(confirmButton).toBeEnabled();
+  await confirmButton.click();
+}
+
+async function waitForPdfActiveJobs(page: Page, expected: number) {
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get(`${BACKEND_ORIGIN}/api/v1/runtime-info`);
+        const payload = await response.json() as {
+          data?: { pdfQueue?: { activeJobs?: unknown } };
+          pdfQueue?: { activeJobs?: unknown };
+        };
+        return Number((payload.data ?? payload).pdfQueue?.activeJobs ?? 0);
+      },
+      { timeout: 10_000, intervals: [50, 100, 250, 500] },
+    )
+    .toBe(expected);
+}
+
+async function holdPdfSlot(page: Page, holdMs = 5_000) {
+  return page.request.post(`${BACKEND_ORIGIN}/api/v1/e2e/pdf-slot/hold`, {
+    data: { hold_ms: holdMs },
+    timeout: holdMs + 10_000,
+  });
 }
 
 test.describe("@shiyan concurrency ui", () => {
@@ -127,33 +138,30 @@ test.describe("@shiyan concurrency ui", () => {
       E2E_PDF_BURST_STUDENT_COUNT: "4",
     });
 
-    const reportStudentB = await latestExperimentId(REPORT_STUDENT_B);
     const app = await openAsStudent(page, REPORT_STUDENT_A, "/report");
     await app.expectHash("/report");
     await fillReportAnalyses(page);
 
-    const blockerPromise = page.request
-      .post(`${BACKEND_ORIGIN}/api/v1/experiment-runs/${reportStudentB.experimentId}/report`, {
-        headers: authHeaders(reportStudentB.token),
-        data: {
-          report_content: buildSlowReportContent(reportStudentB.experimentId),
-        },
-        timeout: 180_000,
+    const blockerPromise = holdPdfSlot(page);
+
+    await waitForPdfActiveJobs(page, 1);
+    try {
+      await openReportPreview(page);
+      await confirmReportSubmission(page);
+      await expect(
+        page.getByText("PDF 生成服务当前繁忙，排队等待超时。请稍后重新提交报告。").first(),
+      ).toBeVisible({ timeout: 30_000 });
+
+      const blockerResponse = await blockerPromise;
+      expect(blockerResponse.status()).toBeLessThan(300);
+      await waitForPdfActiveJobs(page, 0);
+
+      await confirmReportSubmission(page);
+      await expect(page.getByText("恭喜！实验完成")).toBeVisible({
+        timeout: 90_000,
       });
-
-    await page.waitForTimeout(10);
-    await app.clickEnabledButton(/保存并提交报告/);
-    await expect(
-      page.getByText("PDF 生成服务当前繁忙，排队等待超时。请稍后重新提交报告。"),
-    ).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("button", { name: /保存并提交报告/ })).toBeEnabled();
-
-    const blockerResponse = await blockerPromise;
-    expect(blockerResponse.status()).toBeLessThan(300);
-
-    await app.clickEnabledButton(/保存并提交报告/);
-    await expect(page.getByText("恭喜！实验完成")).toBeVisible({
-      timeout: 90_000,
-    });
+    } finally {
+      await blockerPromise.catch(() => undefined);
+    }
   });
 });
