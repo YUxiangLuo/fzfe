@@ -10,11 +10,26 @@ export interface User {
     managedClasses?: string[];
 }
 
+export interface AcademicTerm {
+    term_id: number;
+    academic_year: string;
+    semester: 1 | 2;
+    term_label: string;
+    is_active: boolean;
+    created_at: string;
+    class_count?: number;
+}
+
 // Represents a class, matching the database table structure
 export interface Class {
     class_id: number;
     class_name: string;
     class_code: string | null;
+    term_id: number;
+    academic_year: string;
+    semester: 1 | 2;
+    term_label: string;
+    is_current_term: boolean;
     teacher_id: number;
     teacher_name?: string | null;
     created_at?: string;

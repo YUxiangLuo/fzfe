@@ -4,6 +4,7 @@ export const ADMIN_ROUTES = {
   EXPERIMENT_DATA: "/experiment-data",
   USER_MANAGEMENT: "/user-management",
   CLASS_MANAGEMENT: "/class-management",
+  ACADEMIC_TERMS: "/academic-terms",
 } as const;
 
 export const ADMIN_DEFAULT_ROUTE = ADMIN_ROUTES.EXPERIMENT_DATA;

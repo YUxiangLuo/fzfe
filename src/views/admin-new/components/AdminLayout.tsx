@@ -6,6 +6,7 @@ import {
     DatabaseOutlined,
     UserOutlined,
     TeamOutlined,
+    CalendarOutlined,
     LogoutOutlined,
     MenuUnfoldOutlined,
     MenuFoldOutlined,
@@ -87,6 +88,11 @@ const AdminLayout: React.FC = () => {
             key: ADMIN_ROUTES.CLASS_MANAGEMENT,
             icon: <TeamOutlined />,
             label: '班级管理',
+        },
+        {
+            key: ADMIN_ROUTES.ACADEMIC_TERMS,
+            icon: <CalendarOutlined />,
+            label: '学年学期管理',
         },
     ];
 

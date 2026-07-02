@@ -1,7 +1,7 @@
 import { apiClient } from "../../../utils/apiClient";
 import type { DecodedToken } from "../../../utils/auth";
 import { getSessionUserOrThrow } from "../../../utils/session";
-import type { Class } from "../types";
+import type { AcademicTerm, Class } from "../types";
 
 export type TeacherPortalUser = DecodedToken & {
   role: "Teacher" | "Assistant";
@@ -36,10 +36,36 @@ const getGradeSummariesEndpoint = (user: TeacherPortalUser): string => {
     : `/teachers/${user.sub}/grade-summaries`;
 };
 
-export const listManagedClasses = async (options?: RequestInit): Promise<Class[]> => {
-  return await apiClient.get<Class[]>(getManagedClassesEndpoint(getTeacherPortalUserOrThrow()), options);
+export interface TermScopedRequestOptions extends RequestInit {
+  termId?: number | "current" | null;
+}
+
+const appendTermQuery = (endpoint: string, termId: TermScopedRequestOptions["termId"]): string => {
+  if (termId === undefined || termId === null) return endpoint;
+  const separator = endpoint.includes("?") ? "&" : "?";
+  return `${endpoint}${separator}term_id=${encodeURIComponent(String(termId))}`;
 };
 
-export const listManagedClassGradeSummaries = async <T>(options?: RequestInit): Promise<T> => {
-  return await apiClient.get<T>(getGradeSummariesEndpoint(getTeacherPortalUserOrThrow()), options);
+const splitTermScopedOptions = (options?: TermScopedRequestOptions) => {
+  if (!options) return { termId: undefined, requestOptions: undefined };
+  const { termId, ...requestOptions } = options;
+  return { termId, requestOptions };
+};
+
+export const listAcademicTerms = async (options?: RequestInit): Promise<AcademicTerm[]> => {
+  return await apiClient.get<AcademicTerm[]>("/academic-terms", options);
+};
+
+export const getCurrentAcademicTerm = async (options?: RequestInit): Promise<AcademicTerm> => {
+  return await apiClient.get<AcademicTerm>("/academic-terms/current", options);
+};
+
+export const listManagedClasses = async (options?: TermScopedRequestOptions): Promise<Class[]> => {
+  const { termId, requestOptions } = splitTermScopedOptions(options);
+  return await apiClient.get<Class[]>(appendTermQuery(getManagedClassesEndpoint(getTeacherPortalUserOrThrow()), termId), requestOptions);
+};
+
+export const listManagedClassGradeSummaries = async <T>(options?: TermScopedRequestOptions): Promise<T> => {
+  const { termId, requestOptions } = splitTermScopedOptions(options);
+  return await apiClient.get<T>(appendTermQuery(getGradeSummariesEndpoint(getTeacherPortalUserOrThrow()), termId), requestOptions);
 };

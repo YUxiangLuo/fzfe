@@ -9,14 +9,16 @@ import {
     Typography,
     Tabs,
     Descriptions,
-    Tag
+    Tag,
+    Select,
+    Space
 } from "antd";
 import {
     EyeOutlined,
     TeamOutlined,
     UserOutlined
 } from "@ant-design/icons";
-import type { Class, Student, User } from "../types";
+import type { AcademicTerm, Class, Student, User } from "../types";
 import { apiClient } from "../../../utils/apiClient";
 
 const { Title } = Typography;
@@ -39,6 +41,8 @@ export const matchesClassSearch = (classInfo: Pick<Class, 'class_name' | 'class_
 };
 
 const ClassManagement: React.FC = () => {
+    const [terms, setTerms] = useState<AcademicTerm[]>([]);
+    const [selectedTermId, setSelectedTermId] = useState<number | "all">("all");
     const [classes, setClasses] = useState<Class[]>([]);
     const [filteredClasses, setFilteredClasses] = useState<Class[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -47,10 +51,20 @@ const ClassManagement: React.FC = () => {
     const [detailsModalOpen, setDetailsModalOpen] = useState(false);
     const [selectedClass, setSelectedClass] = useState<Class | null>(null);
 
+    const fetchTerms = async () => {
+        try {
+            const data = await apiClient.get<AcademicTerm[]>("/academic-terms");
+            setTerms(data || []);
+        } catch (err: any) {
+            message.error(err.message || "获取学期数据失败");
+        }
+    };
+
     const fetchClasses = async () => {
         setIsLoading(true);
         try {
-            const data = await apiClient.get("/classes");
+            const endpoint = selectedTermId === "all" ? "/classes" : `/classes?term_id=${selectedTermId}`;
+            const data = await apiClient.get(endpoint);
             setClasses(data || []);
             setFilteredClasses(data || []);
         } catch (err: any) {
@@ -61,8 +75,12 @@ const ClassManagement: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchClasses();
+        fetchTerms();
     }, []);
+
+    useEffect(() => {
+        fetchClasses();
+    }, [selectedTermId]);
 
     useEffect(() => {
         setFilteredClasses(classes.filter((classInfo) => matchesClassSearch(classInfo, searchTerm)));
@@ -94,6 +112,14 @@ const ClassManagement: React.FC = () => {
             title: '所属教师',
             dataIndex: 'teacher_name',
             key: 'teacher_name',
+        },
+        {
+            title: '学年/学期',
+            dataIndex: 'term_label',
+            key: 'term_label',
+            render: (value: string, record: Class) => (
+                <Tag color={record.is_current_term ? 'green' : 'default'}>{value}</Tag>
+            ),
         },
         {
             title: '操作',
@@ -131,14 +157,28 @@ const ClassManagement: React.FC = () => {
             </div>
 
             <Card>
-                <div style={{ marginBottom: 16, display: 'flex' }}>
-                    <Search
-                        placeholder="请输入班级名称或编号"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ width: 300 }}
-                        allowClear
-                    />
+                <div style={{ marginBottom: 16 }}>
+                    <Space wrap>
+                        <Select
+                            value={selectedTermId}
+                            onChange={setSelectedTermId}
+                            style={{ width: 220 }}
+                            options={[
+                                { value: "all", label: "全部学期" },
+                                ...terms.map(term => ({
+                                    value: term.term_id,
+                                    label: term.is_active ? `${term.term_label}（当前）` : term.term_label,
+                                })),
+                            ]}
+                        />
+                        <Search
+                            placeholder="请输入班级名称或编号"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{ width: 300 }}
+                            allowClear
+                        />
+                    </Space>
                 </div>
                 <Table
                     dataSource={filteredClasses}
@@ -166,6 +206,7 @@ const ClassManagement: React.FC = () => {
                             <Descriptions.Item label="班级名称">{selectedClass.class_name}</Descriptions.Item>
                             <Descriptions.Item label="班级编号">{formatNullableClassText(selectedClass.class_code)}</Descriptions.Item>
                             <Descriptions.Item label="所属教师">{selectedClass.teacher_name}</Descriptions.Item>
+                            <Descriptions.Item label="学年/学期">{selectedClass.term_label}</Descriptions.Item>
                             <Descriptions.Item label="学生人数">{selectedClass.students?.length || 0}</Descriptions.Item>
                         </Descriptions>
 

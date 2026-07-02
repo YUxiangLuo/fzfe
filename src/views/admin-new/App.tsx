@@ -5,6 +5,7 @@ import ExperimentManualView from './components/ExperimentManual';
 import ExperimentDataView from './components/ExperimentData';
 import UserManagement from './components/UserManagement';
 import ClassManagement from './components/ClassManagement';
+import AcademicTermManagement from './components/AcademicTermManagement';
 import { ADMIN_DEFAULT_ROUTE, ADMIN_ROUTES } from './routes';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
                     <Route path={ADMIN_ROUTES.EXPERIMENT_DATA.slice(1)} element={<ExperimentDataView />} />
                     <Route path={ADMIN_ROUTES.USER_MANAGEMENT.slice(1)} element={<UserManagement />} />
                     <Route path={ADMIN_ROUTES.CLASS_MANAGEMENT.slice(1)} element={<ClassManagement />} />
+                    <Route path={ADMIN_ROUTES.ACADEMIC_TERMS.slice(1)} element={<AcademicTermManagement />} />
                     <Route path="*" element={<Navigate to={ADMIN_ROUTES.ROOT} replace />} />
                 </Route>
             </Routes>

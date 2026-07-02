@@ -51,12 +51,14 @@ import {
 import { apiClient } from '../../../../utils/apiClient';
 import { createAuthObjectUrl } from '../../../../utils/authFile';
 import { useObjectUrl } from '../../../../hooks/useObjectUrl';
-import type { Class, StudentGradeOverview } from '../../types';
+import type { StudentGradeOverview } from '../../types';
 import FinalBreakdown from './FinalBreakdown';
 import { getEvaluationBadge, getScoreLevel, SCORE_COLORS } from '../../utils/gradeStatus';
 import { isAbortError, getErrorMessage } from '../../utils/error';
-import { listManagedClassGradeSummaries, listManagedClasses } from '../../utils/portalApi';
+import { listManagedClassGradeSummaries } from '../../utils/portalApi';
 import { compareNaturalText, compareNullableNumber, type SortOrder } from '../../utils/sort';
+import { useTermManagedClasses } from '../../utils/useTermManagedClasses';
+import AcademicTermSelect from '../AcademicTermSelect';
 
 const { Title, Text } = Typography;
 
@@ -66,6 +68,11 @@ const ALL_CLASSES = 'all';
 interface ClassSummary {
     class_id: number;
     class_name: string;
+    term_id: number;
+    academic_year: string;
+    semester: 1 | 2;
+    term_label: string;
+    is_current_term: boolean;
     total_students: number;
     graded_count: number;
     submitted_count: number;
@@ -87,46 +94,49 @@ const SCORE_COLORS_DISPLAY: Record<string, { color: string; label: string }> = {
 const CHART_COLORS = ['#1890ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#eb2f96'];
 
 const GradesOverview: React.FC = () => {
-    const [classes, setClasses] = useState<Class[]>([]);
+    const {
+        terms,
+        selectedTermId,
+        setSelectedTermId,
+        classes,
+        isLoading: isLoadingClasses,
+        isLoadingTerms,
+        error: classLoadError,
+    } = useTermManagedClasses();
     const [grades, setGrades] = useState<StudentGradeOverview[]>([]);
     const [classSummaries, setClassSummaries] = useState<ClassSummary[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>(ALL_CLASSES);
     const [searchTerm, setSearchTerm] = useState('');
-    const [isLoadingClasses, setIsLoadingClasses] = useState(true);
     const [isLoadingGrades, setIsLoadingGrades] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [expandedRowKeys, setExpandedRowKeys] = useState<number[]>([]);
     const fetchRequestIdRef = useRef(0);
+    const classListKey = useMemo(
+        () => classes.map((classInfo) => classInfo.class_id).join(','),
+        [classes],
+    );
 
-    // Fetch classes
     useEffect(() => {
-        const controller = new AbortController();
+        if (selectedClassId !== ALL_CLASSES && !classes.some((classInfo) => String(classInfo.class_id) === selectedClassId)) {
+            setSelectedClassId(ALL_CLASSES);
+        }
+    }, [classes, selectedClassId]);
 
-        const fetchClasses = async () => {
-            setIsLoadingClasses(true);
-            try {
-                const data = await listManagedClasses({ signal: controller.signal });
-                if (controller.signal.aborted) return;
-                setClasses(data || []);
-            } catch (err: unknown) {
-                if (isAbortError(err)) return;
-                if (!controller.signal.aborted) {
-                    setError(getErrorMessage(err, '获取班级列表失败'));
-                }
-            } finally {
-                if (!controller.signal.aborted) {
-                    setIsLoadingClasses(false);
-                }
-            }
-        };
-
-        fetchClasses();
-        return () => { controller.abort(); };
-    }, []);
+    useEffect(() => {
+        setSelectedClassId(ALL_CLASSES);
+        setSearchTerm('');
+        setGrades([]);
+        setClassSummaries([]);
+        setExpandedRowKeys([]);
+    }, [selectedTermId]);
 
     // Fetch grades
     useEffect(() => {
-        if (classes.length === 0) return;
+        if (!selectedTermId) {
+            setGrades([]);
+            setClassSummaries([]);
+            return;
+        }
 
         const controller = new AbortController();
         const requestId = ++fetchRequestIdRef.current;
@@ -136,7 +146,7 @@ const GradesOverview: React.FC = () => {
             setError(null);
             try {
                 if (selectedClassId === ALL_CLASSES) {
-                    const summaries = await listManagedClassGradeSummaries<ClassSummary[]>({ signal: controller.signal });
+                    const summaries = await listManagedClassGradeSummaries<ClassSummary[]>({ signal: controller.signal, termId: selectedTermId });
                     if (requestId !== fetchRequestIdRef.current) return;
                     setClassSummaries(Array.isArray(summaries) ? summaries : []);
                     setGrades([]);
@@ -160,7 +170,7 @@ const GradesOverview: React.FC = () => {
 
         fetchGrades();
         return () => { controller.abort(); };
-    }, [selectedClassId, classes]);
+    }, [selectedClassId, selectedTermId, classListKey]);
 
     // Filter by search (only for single class view)
     const filteredGrades = useMemo(() => {
@@ -743,6 +753,13 @@ const GradesOverview: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <Title level={3} style={{ marginBottom: 0 }}>成绩总览</Title>
                 <div className="flex gap-4">
+                    <AcademicTermSelect
+                        terms={terms}
+                        value={selectedTermId}
+                        onChange={setSelectedTermId}
+                        loading={isLoadingTerms}
+                        size="large"
+                    />
                     <Select
                         value={selectedClassId}
                         onChange={setSelectedClassId}
@@ -772,7 +789,7 @@ const GradesOverview: React.FC = () => {
                 </div>
             </div>
 
-            {error && <Alert description={error} type="error" showIcon className="mb-6" />}
+            {(classLoadError || error) && <Alert description={classLoadError || error} type="error" showIcon className="mb-6" />}
             {exportError && <Alert description={exportError} type="error" showIcon className="mb-6" closable onClose={() => setExportError(null)} />}
             {exportedFileUrl && (
                 <Alert

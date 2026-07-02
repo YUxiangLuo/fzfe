@@ -24,9 +24,10 @@ import {
     ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import type { Student, Class } from '../../types';
-import { isAbortError, getErrorMessage } from '../../utils/error';
-import { listManagedClasses } from '../../utils/portalApi';
+import type { Student } from '../../types';
+import { getErrorMessage } from '../../utils/error';
+import { useTermManagedClasses } from '../../utils/useTermManagedClasses';
+import AcademicTermSelect from '../AcademicTermSelect';
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
@@ -43,12 +44,19 @@ const validateStudentNameCharacters = (_: unknown, value?: string) => {
 };
 
 const StudentManagement: React.FC = () => {
-    const [classes, setClasses] = useState<Class[]>([]);
+    const {
+        terms,
+        selectedTermId,
+        setSelectedTermId,
+        classes,
+        isLoading: isLoadingClasses,
+        isLoadingTerms,
+        error: classLoadError,
+    } = useTermManagedClasses();
     const [students, setStudents] = useState<Student[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
-    const [isLoadingClasses, setIsLoadingClasses] = useState(true);
     const [isLoadingStudents, setIsLoadingStudents] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -68,36 +76,11 @@ const StudentManagement: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
 
-    // Fetch classes
     useEffect(() => {
-        const controller = new AbortController();
-
-        const fetchClasses = async () => {
-            setIsLoadingClasses(true);
-            try {
-                const data = await listManagedClasses({ signal: controller.signal });
-                if (controller.signal.aborted) return;
-                const classList = data || [];
-                setClasses(classList);
-                const firstClass = classList[0];
-                if (firstClass) {
-                    setSelectedClassId(firstClass.class_id);
-                }
-            } catch (err: unknown) {
-                if (isAbortError(err)) return;
-                if (!controller.signal.aborted) {
-                    setError(getErrorMessage(err, '获取班级列表失败'));
-                }
-            } finally {
-                if (!controller.signal.aborted) {
-                    setIsLoadingClasses(false);
-                }
-            }
-        };
-
-        fetchClasses();
-        return () => { controller.abort(); };
-    }, []);
+        const firstClass = classes[0];
+        setSelectedClassId(firstClass?.class_id ?? null);
+        setStudents([]);
+    }, [classes]);
 
     // Fetch students when class changes
     const loadStudents = useCallback(async (classId: number) => {
@@ -126,6 +109,8 @@ const StudentManagement: React.FC = () => {
     useEffect(() => {
         if (selectedClassId) {
             loadStudents(selectedClassId);
+        } else {
+            setStudents([]);
         }
     }, [selectedClassId, loadStudents]);
 
@@ -382,8 +367,10 @@ const StudentManagement: React.FC = () => {
         );
     }
 
-    if (error && !students.length) {
-        return <Alert message="加载失败" description={error} type="error" showIcon />;
+    const displayError = classLoadError || error;
+
+    if (displayError && !students.length) {
+        return <Alert message="加载失败" description={displayError} type="error" showIcon />;
     }
 
     return (
@@ -428,6 +415,14 @@ const StudentManagement: React.FC = () => {
             {/* Filter Card */}
             <Card style={{ marginBottom: 16 }}>
                 <Space size="large" wrap>
+                    <div>
+                        <AcademicTermSelect
+                            terms={terms}
+                            value={selectedTermId}
+                            onChange={setSelectedTermId}
+                            loading={isLoadingTerms}
+                        />
+                    </div>
                     <div>
                         <Text strong style={{ marginRight: 8 }}>选择班级</Text>
                         <Select

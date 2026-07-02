@@ -29,12 +29,13 @@ import {
 import { apiClient } from '../../../../utils/apiClient';
 import { createAuthObjectUrl, openFileWithAuth } from '../../../../utils/authFile';
 import { useObjectUrl } from '../../../../hooks/useObjectUrl';
-import type { Class, ExperimentReport } from '../../types';
+import type { ExperimentReport } from '../../types';
 import { formatDateTime } from '../../utils/format';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import ReviewReportModal from './ReviewReportModal';
-import { listManagedClasses } from '../../utils/portalApi';
+import { useTermManagedClasses } from '../../utils/useTermManagedClasses';
 import { compareNullableNumber, type SortOrder } from '../../utils/sort';
+import AcademicTermSelect from '../AcademicTermSelect';
 
 const { Title, Text } = Typography;
 
@@ -46,11 +47,18 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 };
 
 const ExperimentReports: React.FC = () => {
-    const [classes, setClasses] = useState<Class[]>([]);
+    const {
+        terms,
+        selectedTermId,
+        setSelectedTermId,
+        classes,
+        isLoading: isLoadingClasses,
+        isLoadingTerms,
+        error: classLoadError,
+    } = useTermManagedClasses();
     const [reports, setReports] = useState<ExperimentReport[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
-    const [isLoadingClasses, setIsLoadingClasses] = useState(true);
     const [isLoadingReports, setIsLoadingReports] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -75,40 +83,18 @@ const ExperimentReports: React.FC = () => {
         clearExportedFileUrl();
     }, [selectedClassId, clearExportedCsvUrl, clearExportedFileUrl]);
 
-    // Fetch classes
     useEffect(() => {
-        const controller = new AbortController();
-
-        const fetchClasses = async () => {
-            setIsLoadingClasses(true);
-            try {
-                const data = await listManagedClasses({ signal: controller.signal });
-                if (controller.signal.aborted) return;
-                const classList = data || [];
-                setClasses(classList);
-                const firstClass = classList[0];
-                if (firstClass) {
-                    setSelectedClassId(String(firstClass.class_id));
-                }
-            } catch (err: unknown) {
-                if (isAbortError(err)) return;
-                if (!controller.signal.aborted) {
-                    setError(getErrorMessage(err, '获取班级列表失败'));
-                }
-            } finally {
-                if (!controller.signal.aborted) {
-                    setIsLoadingClasses(false);
-                }
-            }
-        };
-
-        fetchClasses();
-        return () => { controller.abort(); };
-    }, []);
+        const firstClass = classes[0];
+        setSelectedClassId(firstClass ? String(firstClass.class_id) : '');
+        if (!firstClass) setReports([]);
+    }, [classes]);
 
     // Fetch reports
     useEffect(() => {
-        if (!selectedClassId) return;
+        if (!selectedClassId) {
+            setReports([]);
+            return;
+        }
 
         const controller = new AbortController();
 
@@ -441,6 +427,14 @@ const ExperimentReports: React.FC = () => {
             <Card style={{ marginBottom: 16 }}>
                 <Space size="large" wrap>
                     <div>
+                        <AcademicTermSelect
+                            terms={terms}
+                            value={selectedTermId}
+                            onChange={setSelectedTermId}
+                            loading={isLoadingTerms}
+                        />
+                    </div>
+                    <div>
                         <Text strong style={{ marginRight: 8 }}>选择班级</Text>
                         <Select
                             value={selectedClassId}
@@ -507,7 +501,7 @@ const ExperimentReports: React.FC = () => {
                 </Space>
             </Card>
 
-            {error && <Alert description={error} type="error" showIcon style={{ marginBottom: 16 }} />}
+            {(classLoadError || error) && <Alert description={classLoadError || error} type="error" showIcon style={{ marginBottom: 16 }} />}
 
             {/* Reports Table */}
             <Card>

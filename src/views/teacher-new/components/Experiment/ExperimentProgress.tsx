@@ -24,11 +24,12 @@ import {
     PlayCircleOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import type { Class, StudentExperimentProgress as ProgressType } from '../../types';
+import type { StudentExperimentProgress as ProgressType } from '../../types';
 import { formatDateTime } from '../../utils/format';
 import { isAbortError, getErrorMessage } from '../../utils/error';
-import { listManagedClasses } from '../../utils/portalApi';
+import { useTermManagedClasses } from '../../utils/useTermManagedClasses';
 import { compareProgressStatus, normalizeProgressStatus } from '../../utils/sort';
+import AcademicTermSelect from '../AcademicTermSelect';
 
 const { Title, Text } = Typography;
 
@@ -66,12 +67,19 @@ const getCompletionMeta = (student: ProgressType) => {
 };
 
 const ExperimentProgress: React.FC = () => {
-    const [classes, setClasses] = useState<Class[]>([]);
+    const {
+        terms,
+        selectedTermId,
+        setSelectedTermId,
+        classes,
+        isLoading: isLoadingClasses,
+        isLoadingTerms,
+        error: classLoadError,
+    } = useTermManagedClasses();
     const [progressData, setProgressData] = useState<ProgressType[]>([]);
     const [selectedClassId, setSelectedClassId] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-    const [isLoadingClasses, setIsLoadingClasses] = useState(true);
     const [isLoadingProgress, setIsLoadingProgress] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [expandedRows, setExpandedRows] = useState<number[]>([]);
@@ -87,40 +95,18 @@ const ExperimentProgress: React.FC = () => {
         };
     }, [searchTerm]);
 
-    // Fetch classes
     useEffect(() => {
-        const controller = new AbortController();
-
-        const fetchClasses = async () => {
-            setIsLoadingClasses(true);
-            try {
-                const data = await listManagedClasses({ signal: controller.signal });
-                if (controller.signal.aborted) return;
-                const classList = data || [];
-                setClasses(classList);
-                const firstClass = classList[0];
-                if (firstClass) {
-                    setSelectedClassId(String(firstClass.class_id));
-                }
-            } catch (err: unknown) {
-                if (isAbortError(err)) return;
-                if (!controller.signal.aborted) {
-                    setError(getErrorMessage(err, '获取班级列表失败'));
-                }
-            } finally {
-                if (!controller.signal.aborted) {
-                    setIsLoadingClasses(false);
-                }
-            }
-        };
-
-        fetchClasses();
-        return () => { controller.abort(); };
-    }, []);
+        const firstClass = classes[0];
+        setSelectedClassId(firstClass ? String(firstClass.class_id) : '');
+        if (!firstClass) setProgressData([]);
+    }, [classes]);
 
     // Fetch progress data
     useEffect(() => {
-        if (!selectedClassId) return;
+        if (!selectedClassId) {
+            setProgressData([]);
+            return;
+        }
 
         const controller = new AbortController();
 
@@ -471,6 +457,14 @@ const ExperimentProgress: React.FC = () => {
             <Card style={{ marginBottom: 16 }}>
                 <Space size="large" wrap>
                     <div>
+                        <AcademicTermSelect
+                            terms={terms}
+                            value={selectedTermId}
+                            onChange={setSelectedTermId}
+                            loading={isLoadingTerms}
+                        />
+                    </div>
+                    <div>
                         <Text strong style={{ marginRight: 8 }}>选择班级</Text>
                         <Select
                             value={selectedClassId}
@@ -495,7 +489,7 @@ const ExperimentProgress: React.FC = () => {
                 </Space>
             </Card>
 
-            {error && <Alert description={error} type="error" showIcon style={{ marginBottom: 16 }} />}
+            {(classLoadError || error) && <Alert description={classLoadError || error} type="error" showIcon style={{ marginBottom: 16 }} />}
 
             {/* Data Table */}
             <Card>

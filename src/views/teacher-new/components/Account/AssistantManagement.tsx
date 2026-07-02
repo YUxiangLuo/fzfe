@@ -23,16 +23,26 @@ import { apiClient } from '../../../../utils/apiClient';
 import type { User, Class } from '../../types';
 import { isAbortError, getErrorMessage } from '../../utils/error';
 import { getSessionUserOrThrow } from '../../../../utils/session';
+import { useTermManagedClasses } from '../../utils/useTermManagedClasses';
+import AcademicTermSelect from '../AcademicTermSelect';
 
 const { Title } = Typography;
 
 interface Assistant extends User { }
 
 const AssistantManagement: React.FC = () => {
+    const {
+        terms,
+        selectedTermId,
+        setSelectedTermId,
+        classes: managedClasses,
+        isLoading: isLoadingClasses,
+        isLoadingTerms,
+        error: classLoadError,
+    } = useTermManagedClasses();
     const [assistants, setAssistants] = useState<Assistant[]>([]);
-    const [managedClasses, setManagedClasses] = useState<Class[]>([]);
     const [allAssistants, setAllAssistants] = useState<Assistant[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingAssistants, setIsLoadingAssistants] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     // Modal states
@@ -48,24 +58,23 @@ const AssistantManagement: React.FC = () => {
 
     const [isSaving, setIsSaving] = useState(false);
 
-    // Fetch initial data
     useEffect(() => {
         const controller = new AbortController();
 
         const fetchData = async () => {
-            setIsLoading(true);
+            if (!selectedTermId) {
+                setAssistants([]);
+                return;
+            }
+            setIsLoadingAssistants(true);
             setError(null);
             try {
                 const teacherId = getSessionUserOrThrow().sub;
 
-                const [assistantsData, classesData] = await Promise.all([
-                    apiClient.get(`/teachers/${teacherId}/assistants`, { signal: controller.signal }),
-                    apiClient.get(`/teachers/${teacherId}/classes`, { signal: controller.signal })
-                ]);
+                const assistantsData = await apiClient.get(`/teachers/${teacherId}/assistants?term_id=${selectedTermId}`, { signal: controller.signal });
 
                 if (!controller.signal.aborted) {
                     setAssistants(assistantsData || []);
-                    setManagedClasses(classesData || []);
                 }
             } catch (err: unknown) {
                 if (isAbortError(err)) return;
@@ -74,7 +83,7 @@ const AssistantManagement: React.FC = () => {
                 }
             } finally {
                 if (!controller.signal.aborted) {
-                    setIsLoading(false);
+                    setIsLoadingAssistants(false);
                 }
             }
         };
@@ -84,7 +93,11 @@ const AssistantManagement: React.FC = () => {
         return () => {
             controller.abort();
         };
-    }, []);
+    }, [selectedTermId]);
+
+    useEffect(() => {
+        setClassAssignments({});
+    }, [selectedTermId]);
 
     // Fetch all assistants when select modal opens
     const fetchAllAssistants = useCallback(async () => {
@@ -98,16 +111,17 @@ const AssistantManagement: React.FC = () => {
 
     // Fetch class assignments for an assistant
     const fetchClassAssignments = useCallback(async (assistantId: number) => {
+        if (!selectedTermId) return [];
         try {
             const teacherId = getSessionUserOrThrow().sub;
-            const data = await apiClient.get(`/teachers/${teacherId}/assistants/${assistantId}/classes`);
+            const data = await apiClient.get(`/teachers/${teacherId}/assistants/${assistantId}/classes?term_id=${selectedTermId}`);
             setClassAssignments(prev => ({ ...prev, [assistantId]: data?.map((c: Class) => c.class_id) || [] }));
             return data?.map((c: Class) => c.class_id) || [];
         } catch (err: unknown) {
             console.error('Failed to fetch class assignments:', err);
             return [];
         }
-    }, []);
+    }, [selectedTermId]);
 
     // Create assistant handler
     const handleCreateAssistant = async (values: { username: string; full_name: string; email: string; phone_number?: string; password: string; class_ids: number[] }) => {
@@ -202,6 +216,8 @@ const AssistantManagement: React.FC = () => {
             const totalFailed = [...removeResults, ...addResults].filter(r => r.status === 'rejected').length;
 
             // If no classes assigned, remove from list
+            setClassAssignments(prev => ({ ...prev, [assistantToReassign.user_id]: newClasses }));
+
             if (newClasses.length === 0) {
                 setAssistants(prev => prev.filter(a => a.user_id !== assistantToReassign.user_id));
                 message.info('助教已从所有班级解绑');
@@ -268,6 +284,9 @@ const AssistantManagement: React.FC = () => {
         },
     ];
 
+    const isLoading = isLoadingClasses || isLoadingAssistants;
+    const displayError = classLoadError || error;
+
     if (isLoading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
@@ -278,8 +297,8 @@ const AssistantManagement: React.FC = () => {
         );
     }
 
-    if (error) {
-        return <Alert message="加载失败" description={error} type="error" showIcon />;
+    if (displayError) {
+        return <Alert message="加载失败" description={displayError} type="error" showIcon />;
     }
 
     return (
@@ -303,6 +322,14 @@ const AssistantManagement: React.FC = () => {
             </div>
 
             <Card>
+                <div style={{ marginBottom: 16 }}>
+                    <AcademicTermSelect
+                        terms={terms}
+                        value={selectedTermId}
+                        onChange={setSelectedTermId}
+                        loading={isLoadingTerms}
+                    />
+                </div>
                 <Table
                     dataSource={assistants}
                     columns={columns}

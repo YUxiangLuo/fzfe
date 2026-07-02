@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Card,
     Table,
@@ -7,6 +7,7 @@ import {
     Modal,
     Form,
     Input,
+    Select,
     Upload,
     message,
     Spin,
@@ -30,7 +31,9 @@ import { apiClient } from '../../../../utils/apiClient';
 import type { Class, Student } from '../../types';
 import { formatDate } from '../../utils/format';
 import { getErrorMessage } from '../../utils/error';
-import { getTeacherPortalUserOrThrow, isAssistantTeacherPortalUser, listManagedClasses } from '../../utils/portalApi';
+import { getTeacherPortalUserOrThrow, isAssistantTeacherPortalUser } from '../../utils/portalApi';
+import { useTermManagedClasses } from '../../utils/useTermManagedClasses';
+import AcademicTermSelect from '../AcademicTermSelect';
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
@@ -44,9 +47,16 @@ interface CreateClassResponse {
 }
 
 const ClassManagement: React.FC = () => {
-    const [classes, setClasses] = useState<Class[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const {
+        terms,
+        selectedTermId,
+        setSelectedTermId,
+        classes,
+        setClasses,
+        isLoading,
+        isLoadingTerms,
+        error,
+    } = useTermManagedClasses();
     const [isAssistantView, setIsAssistantView] = useState(false);
 
     // Modal states
@@ -94,31 +104,20 @@ const ClassManagement: React.FC = () => {
         }
     };
 
-    // Fetch classes
-    const fetchClasses = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const currentUser = getTeacherPortalUserOrThrow();
-            setIsAssistantView(isAssistantTeacherPortalUser(currentUser));
-
-            const data = await listManagedClasses();
-            setClasses(data || []);
-        } catch (err: unknown) {
-            setError(getErrorMessage(err, '获取班级列表失败'));
-        } finally {
-            setIsLoading(false);
-        }
+    useEffect(() => {
+        const currentUser = getTeacherPortalUserOrThrow();
+        setIsAssistantView(isAssistantTeacherPortalUser(currentUser));
     }, []);
 
-    useEffect(() => {
-        fetchClasses();
-    }, [fetchClasses]);
-
     // Create class handler
-    const handleCreateClass = async (values: { class_name: string; class_code: string; students_file?: UploadFile[] }) => {
+    const handleCreateClass = async (values: { class_name: string; class_code: string; term_id?: number; students_file?: UploadFile[] }) => {
         if (!canManageClasses) {
             message.warning('助教仅可查看班级信息，不能新增班级');
+            return;
+        }
+        const termId = values.term_id ?? selectedTermId;
+        if (!termId) {
+            message.warning('请先选择学年/学期');
             return;
         }
 
@@ -127,6 +126,7 @@ const ClassManagement: React.FC = () => {
             const formData = new FormData();
             formData.append('class_name', values.class_name);
             formData.append('class_code', values.class_code);
+            formData.append('term_id', String(termId));
             const selectedFiles: UploadFile[] = values.students_file || fileList;
             if (selectedFiles && selectedFiles.length > 0) {
                 const file = selectedFiles[0];
@@ -137,7 +137,10 @@ const ClassManagement: React.FC = () => {
 
             const result = await apiClient.postFormData<CreateClassResponse>('/classes', formData);
 
-            setClasses(prev => [result.class, ...prev]);
+            setSelectedTermId(result.class.term_id);
+            if (result.class.term_id === selectedTermId) {
+                setClasses(prev => [result.class, ...prev]);
+            }
             setCreateResult(result);
             setCreateModalOpen(false);
             setResultModalOpen(true);
@@ -152,7 +155,7 @@ const ClassManagement: React.FC = () => {
     };
 
     // Edit class handler
-    const handleEditClass = async (values: { class_name: string; class_code: string }) => {
+    const handleEditClass = async (values: { class_name: string; class_code: string; term_id?: number }) => {
         if (!canManageClasses) {
             message.warning('助教仅可查看班级信息，不能编辑班级');
             return;
@@ -164,8 +167,10 @@ const ClassManagement: React.FC = () => {
             const updatedClass = await apiClient.put<Class>(`/classes/${selectedClass.class_id}`, {
                 class_name: values.class_name,
                 class_code: values.class_code,
+                term_id: values.term_id,
             });
 
+            setSelectedTermId(updatedClass.term_id);
             setClasses(prev => prev.map(c =>
                 c.class_id === selectedClass.class_id
                     ? { ...c, ...updatedClass }
@@ -237,6 +242,7 @@ const ClassManagement: React.FC = () => {
         editForm.setFieldsValue({
             class_name: classItem.class_name,
             class_code: classItem.class_code,
+            term_id: classItem.term_id,
         });
         setEditModalOpen(true);
     };
@@ -277,6 +283,14 @@ const ClassManagement: React.FC = () => {
             dataIndex: 'class_code',
             key: 'class_code',
             render: (text: string | null) => text || '未设置',
+        },
+        {
+            title: '学年/学期',
+            dataIndex: 'term_label',
+            key: 'term_label',
+            render: (value: string, record: Class) => (
+                <Tag color={record.is_current_term ? 'green' : 'default'}>{value}</Tag>
+            ),
         },
         {
             title: '助教',
@@ -368,13 +382,28 @@ const ClassManagement: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Title level={3} style={{ marginBottom: 0 }}>班级管理</Title>
                 {canManageClasses && (
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModalOpen(true)}>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => {
+                            createForm.setFieldsValue({ term_id: selectedTermId ?? undefined });
+                            setCreateModalOpen(true);
+                        }}
+                    >
                         新增班级
                     </Button>
                 )}
             </div>
 
             <Card>
+                <div style={{ marginBottom: 16 }}>
+                    <AcademicTermSelect
+                        terms={terms}
+                        value={selectedTermId}
+                        onChange={setSelectedTermId}
+                        loading={isLoadingTerms}
+                    />
+                </div>
                 <Table
                     dataSource={classes}
                     columns={columns}
@@ -409,6 +438,19 @@ const ClassManagement: React.FC = () => {
                         ]}
                     >
                         <Input placeholder="请输入班级名称" />
+                    </Form.Item>
+                    <Form.Item
+                        label="学年/学期"
+                        name="term_id"
+                        rules={[{ required: true, message: '请选择学年/学期' }]}
+                    >
+                        <Select
+                            placeholder="请选择学年/学期"
+                            options={terms.map(term => ({
+                                value: term.term_id,
+                                label: term.is_active ? `${term.term_label}（当前）` : term.term_label,
+                            }))}
+                        />
                     </Form.Item>
                     <Form.Item
                         label="班级编号"
@@ -467,6 +509,19 @@ const ClassManagement: React.FC = () => {
                         ]}
                     >
                         <Input placeholder="请输入班级名称" />
+                    </Form.Item>
+                    <Form.Item
+                        label="学年/学期"
+                        name="term_id"
+                        rules={[{ required: true, message: '请选择学年/学期' }]}
+                    >
+                        <Select
+                            placeholder="请选择学年/学期"
+                            options={terms.map(term => ({
+                                value: term.term_id,
+                                label: term.is_active ? `${term.term_label}（当前）` : term.term_label,
+                            }))}
+                        />
                     </Form.Item>
                     <Form.Item
                         label="班级编号"

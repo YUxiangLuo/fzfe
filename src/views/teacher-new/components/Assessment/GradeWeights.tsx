@@ -22,9 +22,10 @@ import {
     InfoCircleOutlined
 } from '@ant-design/icons';
 import { apiClient } from '../../../../utils/apiClient';
-import type { Class, GradeWeights as GradeWeightsApi } from '../../types';
+import type { GradeWeights as GradeWeightsApi } from '../../types';
 import { isAbortError, getErrorMessage } from '../../utils/error';
-import { listManagedClasses } from '../../utils/portalApi';
+import { useTermManagedClasses } from '../../utils/useTermManagedClasses';
+import AcademicTermSelect from '../AcademicTermSelect';
 
 const { Title, Text } = Typography;
 
@@ -88,44 +89,28 @@ const DEFAULT_WEIGHTS: GradeWeightsApi = {
 };
 
 const GradeWeights: React.FC = () => {
-    const [classes, setClasses] = useState<Class[]>([]);
+    const {
+        terms,
+        selectedTermId,
+        setSelectedTermId,
+        classes,
+        isLoading: isLoadingClasses,
+        isLoadingTerms,
+        error: classLoadError,
+    } = useTermManagedClasses();
     const [selectedClassId, setSelectedClassId] = useState<string>('');
     const [weights, setWeights] = useState<GradeWeightsApi>(DEFAULT_WEIGHTS);
-    const [isLoadingClasses, setIsLoadingClasses] = useState(true);
     const [isLoadingWeights, setIsLoadingWeights] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Fetch classes
     useEffect(() => {
-        const controller = new AbortController();
-
-        const fetchClasses = async () => {
-            setIsLoadingClasses(true);
-            try {
-                const data = await listManagedClasses({ signal: controller.signal });
-                if (controller.signal.aborted) return;
-                const classList = data || [];
-                setClasses(classList);
-                const firstClass = classList[0];
-                if (firstClass) {
-                    setSelectedClassId(String(firstClass.class_id));
-                }
-            } catch (err: unknown) {
-                if (isAbortError(err)) return;
-                if (!controller.signal.aborted) {
-                    setError(getErrorMessage(err, '获取班级列表失败'));
-                }
-            } finally {
-                if (!controller.signal.aborted) {
-                    setIsLoadingClasses(false);
-                }
-            }
-        };
-
-        fetchClasses();
-        return () => { controller.abort(); };
-    }, []);
+        const firstClass = classes[0];
+        setSelectedClassId(firstClass ? String(firstClass.class_id) : '');
+        if (!firstClass) {
+            setWeights(DEFAULT_WEIGHTS);
+        }
+    }, [classes]);
 
     // Fetch weights
     useEffect(() => {
@@ -233,7 +218,13 @@ const GradeWeights: React.FC = () => {
 
             {/* Class selector */}
             <Card style={{ marginBottom: 16 }}>
-                <Space>
+                <Space wrap>
+                    <AcademicTermSelect
+                        terms={terms}
+                        value={selectedTermId}
+                        onChange={setSelectedTermId}
+                        loading={isLoadingTerms}
+                    />
                     <Text strong>选择班级：</Text>
                     <Select
                         value={selectedClassId}
@@ -246,7 +237,7 @@ const GradeWeights: React.FC = () => {
                 </Space>
             </Card>
 
-            {error && <Alert description={error} type="error" showIcon style={{ marginBottom: 16 }} />}
+            {(classLoadError || error) && <Alert description={classLoadError || error} type="error" showIcon style={{ marginBottom: 16 }} />}
 
             <Spin spinning={isLoadingWeights}>
                 {/* Top Level Weights */}
