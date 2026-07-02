@@ -239,7 +239,7 @@ export const SuccessMessages = {
   passwordReset: "密码重置成功",
   assistantCreated: "助教创建成功",
   assistantAssigned: "助教分配成功",
-  assistantUnassigned: "助教已从所有班级解绑",
+  assistantUnassigned: "助教已从当前学期班级解绑",
   reviewSaved: "评阅结果保存成功",
   csvExported: "导出成功",
   reportsExported: "报告文件导出成功",

@@ -30,6 +30,15 @@ const { Title } = Typography;
 
 interface Assistant extends User { }
 
+const appendAcademicTermQuery = (endpoint: string, selectedTerm: { academic_year_start: number; semester: number } | null) => {
+    if (!selectedTerm) return endpoint;
+    const params = new URLSearchParams({
+        academic_year_start: String(selectedTerm.academic_year_start),
+        semester: String(selectedTerm.semester),
+    });
+    return `${endpoint}?${params.toString()}`;
+};
+
 const AssistantManagement: React.FC = () => {
     const { selectedTerm, isLoadingTerms } = useAcademicTerm();
     const [assistants, setAssistants] = useState<Assistant[]>([]);
@@ -62,8 +71,9 @@ const AssistantManagement: React.FC = () => {
             try {
                 const teacherId = getSessionUserOrThrow().sub;
 
+                const assistantsEndpoint = appendAcademicTermQuery(`/teachers/${teacherId}/assistants`, selectedTerm);
                 const [assistantsData, classesData] = await Promise.all([
-                    apiClient.get(`/teachers/${teacherId}/assistants`, { signal: controller.signal }),
+                    apiClient.get(assistantsEndpoint, { signal: controller.signal }),
                     listManagedClasses({ signal: controller.signal, academicTerm: selectedTerm })
                 ]);
 
@@ -211,7 +221,7 @@ const AssistantManagement: React.FC = () => {
             // If no classes assigned, remove from list
             if (newClasses.length === 0) {
                 setAssistants(prev => prev.filter(a => a.user_id !== assistantToReassign.user_id));
-                message.info('助教已从所有班级解绑');
+                message.info('助教已从当前学期班级解绑');
             } else if (totalFailed > 0) {
                 message.warning(`班级分配已更新，但 ${totalFailed} 个操作失败`);
             } else {
@@ -381,13 +391,13 @@ const AssistantManagement: React.FC = () => {
                         <Input.Password placeholder="至少6个字符" />
                     </Form.Item>
                     <Form.Item
-                        label="分配到班级"
+                        label="分配到班级（当前学期）"
                         name="class_ids"
                         rules={[{ required: true, message: '请选择至少一个班级' }]}
                     >
                         <Select
                             mode="multiple"
-                            placeholder="选择要分配的班级"
+                            placeholder="选择当前学期要分配的班级"
                             options={managedClasses.map(c => ({ value: c.class_id, label: c.class_name }))}
                         />
                     </Form.Item>
@@ -423,13 +433,13 @@ const AssistantManagement: React.FC = () => {
                         />
                     </Form.Item>
                     <Form.Item
-                        label="分配到班级"
+                        label="分配到班级（当前学期）"
                         name="class_ids"
                         rules={[{ required: true, message: '请选择至少一个班级' }]}
                     >
                         <Select
                             mode="multiple"
-                            placeholder="选择要分配的班级"
+                            placeholder="选择当前学期要分配的班级"
                             options={managedClasses.map(c => ({ value: c.class_id, label: c.class_name }))}
                         />
                     </Form.Item>
@@ -451,16 +461,16 @@ const AssistantManagement: React.FC = () => {
                 cancelText="取消"
             >
                 <Form form={reassignForm} layout="vertical" onFinish={handleReassignAssistant}>
-                    <Form.Item label="分配到班级" name="class_ids">
+                    <Form.Item label="分配到班级（当前学期）" name="class_ids">
                         <Select
                             mode="multiple"
-                            placeholder="选择要分配的班级（留空则解绑）"
+                            placeholder="选择当前学期要分配的班级（留空则解绑）"
                             options={managedClasses.map(c => ({ value: c.class_id, label: c.class_name }))}
                         />
                     </Form.Item>
                     <Alert
                         message="提示"
-                        description="如果不选择任何班级，该助教将从您的助教列表中移除。"
+                        description="如果不选择任何当前学期班级，该助教将从当前学期助教列表中移除；其他学期的班级分配不受影响。"
                         type="info"
                         showIcon
                         style={{ marginTop: 8 }}

@@ -413,6 +413,13 @@ const ClassManagement: React.FC = () => {
                 )}
             </div>
 
+            <Alert
+                type="info"
+                showIcon
+                message="班级管理展示全部学期班级；可在新增或编辑班级时设置所属学年学期。"
+                style={{ marginBottom: 16 }}
+            />
+
             <Card>
                 <Table
                     dataSource={classes}
