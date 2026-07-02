@@ -219,6 +219,7 @@ const ClassManagement: React.FC = () => {
                 try {
                     await apiClient.delete(`/classes/${classItem.class_id}`);
                     setClasses(prev => prev.filter(c => c.class_id !== classItem.class_id));
+                    refreshTerms();
                     message.success('班级删除成功');
                 } catch (err: unknown) {
                     message.error(getErrorMessage(err, '删除失败'));
