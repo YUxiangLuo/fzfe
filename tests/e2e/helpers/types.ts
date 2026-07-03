@@ -26,6 +26,20 @@ export interface ManagedClassRecord {
   class_id: number;
   class_name: string;
   class_code: string | null;
+  term_id?: number;
+  term_label?: string;
+  academic_year?: string;
+  semester?: 1 | 2;
+  is_current_term?: boolean;
+}
+
+export interface AcademicTermRecord {
+  term_id: number;
+  academic_year: string;
+  semester: 1 | 2;
+  term_label: string;
+  is_active: boolean;
+  class_count?: number;
 }
 
 // ===== Teacher/Class Types =====

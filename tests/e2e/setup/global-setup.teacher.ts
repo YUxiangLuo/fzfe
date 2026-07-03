@@ -18,6 +18,8 @@ const BE_DIR = resolveE2EBackendDir(FE_DIR);
 export default async function globalSetup(_: FullConfig) {
   const teacherUsername = process.env.E2E_TEACHER_USERNAME ?? "teacher1";
   const teacherPassword = process.env.E2E_TEACHER_PASSWORD ?? "TeacherE2E!234";
+  const adminUsername = process.env.E2E_ADMIN_USERNAME ?? "admin";
+  const adminPassword = process.env.E2E_ADMIN_PASSWORD ?? "AdminE2E!234";
   const emptyTeacherUsername = process.env.E2E_EMPTY_TEACHER_USERNAME ?? "teacher_empty";
   const emptyTeacherPassword = process.env.E2E_EMPTY_TEACHER_PASSWORD ?? "TeacherE2E!234";
   const emptyTeacherEmailLocalPart = emptyTeacherUsername
@@ -29,6 +31,7 @@ export default async function globalSetup(_: FullConfig) {
 
   await resetDatabase(BE_DIR);
   await cleanupUploadArtifacts(BE_DIR);
+  await resetUserPassword(BE_DIR, adminUsername, adminPassword);
   await resetUserPassword(BE_DIR, teacherUsername, teacherPassword);
   await ensureE2EUser(BE_DIR, {
     username: emptyTeacherUsername,

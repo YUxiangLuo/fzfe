@@ -23,6 +23,7 @@ import {
 } from "./selectors";
 import type {
   ApiResponse,
+  AcademicTermRecord,
   CsvUploadPart,
   CurrentUserProfile,
   ManagedClassRecord,
@@ -174,7 +175,7 @@ export async function openSubMenuPage(
 
   // Try up to 3 times
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    await parentMenu.click({ force: attempt > 0 });
+    await parentMenu.click({ force: attempt > 0, timeout: 5_000 });
 
     if (await heading.isVisible({ timeout: 1_500 }).catch(() => false)) {
       return;
@@ -190,9 +191,10 @@ export async function openSubMenuPage(
     }
 
     try {
-      await childMenu.click();
+      await childMenu.click({ timeout: 5_000 });
     } catch {
-      await childMenu.click({ force: true });
+      if (await heading.isVisible({ timeout: 1_500 }).catch(() => false)) return;
+      await childMenu.click({ force: true, timeout: 3_000 }).catch(() => undefined);
     }
 
     if (await heading.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -344,16 +346,33 @@ export async function openGradeOverviewPage(page: Page): Promise<void> {
 }
 
 export async function selectTopFilterOption(page: Page, optionText: string): Promise<void> {
-  const topLevelSelect = page.locator(".ant-select").first();
-  await topLevelSelect.click();
-  const dropdown = page.locator(".ant-select-dropdown").last();
-  await expect(dropdown).toBeVisible();
-  const option = dropdown
-    .locator(".ant-select-item-option")
-    .filter({ hasText: optionText })
-    .first();
-  await option.scrollIntoViewIfNeeded();
-  await option.click();
+  const selects = page.locator(".ant-select");
+  const count = await selects.count();
+
+  for (let index = 0; index < count; index += 1) {
+    const select = selects.nth(index);
+    if (!(await select.isVisible().catch(() => false))) continue;
+
+    await select.click();
+    const visibleDropdowns = page.locator(".ant-select-dropdown:not(.ant-select-dropdown-hidden)");
+    const hasVisibleDropdown = await visibleDropdowns.first().isVisible({ timeout: 2_000 }).catch(() => false);
+    if (!hasVisibleDropdown) continue;
+
+    const option = visibleDropdowns
+      .getByText(optionText, { exact: false })
+      .last();
+
+    if ((await option.count()) > 0) {
+      await option.scrollIntoViewIfNeeded();
+      await option.click();
+      return;
+    }
+
+    await page.keyboard.press("Escape");
+    await page.locator("body").click({ position: { x: 1, y: 1 } }).catch(() => undefined);
+  }
+
+  throw new Error(`Cannot find top filter option: ${optionText}`);
 }
 
 // ===== Locator Helpers =====
@@ -950,6 +969,23 @@ export async function postAuthedJson(
   });
 }
 
+export async function putAuthedJson(
+  page: Page,
+  backendOrigin: string,
+  path: string,
+  data: unknown,
+  token?: string,
+): Promise<PlaywrightAPIResponse> {
+  const resolvedToken = await resolveAuthToken(page, token);
+  return page.request.put(buildApiUrl(backendOrigin, path), {
+    headers: {
+      Authorization: `Bearer ${resolvedToken}`,
+      "Content-Type": "application/json",
+    },
+    data,
+  });
+}
+
 export async function deleteAuthed(
   page: Page,
   backendOrigin: string,
@@ -972,6 +1008,46 @@ export async function getCurrentUserProfile(
   return getAuthedJson<CurrentUserProfile>(page, backendOrigin, "/api/v1/users/me", token);
 }
 
+export async function listAcademicTermsWithToken(
+  page: Page,
+  backendOrigin: string,
+  token?: string,
+): Promise<AcademicTermRecord[]> {
+  return getAuthedJson<AcademicTermRecord[]>(page, backendOrigin, "/api/v1/academic-terms", token);
+}
+
+export async function createAcademicTermWithToken(
+  page: Page,
+  backendOrigin: string,
+  token: string,
+  input: { academic_year: string; semester: 1 | 2; is_active?: boolean },
+): Promise<AcademicTermRecord> {
+  const response = await postAuthedJson(page, backendOrigin, "/api/v1/academic-terms", input, token);
+  expect(response.ok()).toBeTruthy();
+  return unwrapDataEnvelope<AcademicTermRecord>(await response.json());
+}
+
+export async function updateAcademicTermWithToken(
+  page: Page,
+  backendOrigin: string,
+  token: string,
+  termId: number,
+  input: Partial<Pick<AcademicTermRecord, "academic_year" | "semester" | "is_active">>,
+): Promise<AcademicTermRecord> {
+  const response = await putAuthedJson(page, backendOrigin, `/api/v1/academic-terms/${termId}`, input, token);
+  expect(response.ok()).toBeTruthy();
+  return unwrapDataEnvelope<AcademicTermRecord>(await response.json());
+}
+
+export async function deleteAcademicTermWithToken(
+  page: Page,
+  backendOrigin: string,
+  token: string,
+  termId: number,
+): Promise<PlaywrightAPIResponse> {
+  return deleteAuthed(page, backendOrigin, `/api/v1/academic-terms/${termId}`, token);
+}
+
 export async function createClassWithTeacherToken(
   page: Page,
   backendOrigin: string,
@@ -979,11 +1055,15 @@ export async function createClassWithTeacherToken(
   className: string,
   classCode: string,
   studentCsv?: CsvUploadPart,
+  termId?: number,
 ): Promise<ManagedClassRecord> {
   const multipart: Record<string, string | CsvUploadPart> = {
     class_name: className,
     class_code: classCode,
   };
+  if (termId !== undefined) {
+    multipart.term_id = String(termId);
+  }
   if (studentCsv) {
     multipart.student_list = studentCsv;
   }
@@ -1034,6 +1114,7 @@ export async function createAssistantManagedTempClass(
     classCodePrefix?: string;
     withStudent?: boolean;
     studentPrefix?: string;
+    termId?: number;
     teacherCredentials?: TestCredentials;
   },
 ): Promise<{ teacherToken: string; classRecord: ManagedClassRecord }> {
@@ -1052,6 +1133,7 @@ export async function createAssistantManagedTempClass(
     makeRunId(options.classPrefix),
     `${options.classCodePrefix ?? "AUX"}${Date.now()}`,
     tempStudent?.upload,
+    options.termId,
   );
   const assignResponse = await assignAssistantToClassWithTeacherToken(
     page,

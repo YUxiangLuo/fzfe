@@ -993,7 +993,12 @@ test.describe("@teacher 考核管理", () => {
     
     const summaryResponse = await summaryPromise;
     expect(summaryResponse.ok()).toBeTruthy();
-    const allClassSummaries = unwrapDataEnvelope<TeacherClassSummary[]>(await summaryResponse.json());
+    const currentUser = await getCurrentUserProfile(page, BACKEND_ORIGIN);
+    const allClassSummaries = await getAuthedJson<TeacherClassSummary[]>(
+      page,
+      BACKEND_ORIGIN,
+      `/api/v1/teachers/${currentUser.user_id}/grade-summaries?term_id=current`,
+    );
 
     // Use the first available class from API response
     expect(allClassSummaries.length).toBeGreaterThan(0);
