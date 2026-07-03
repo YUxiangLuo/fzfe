@@ -173,6 +173,14 @@ const Harness = async (currentStepId = 'results') => {
         >
           complete
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            void simpleModel.handleRetry();
+          }}
+        >
+          retry
+        </button>
       </div>
     );
   };
@@ -257,6 +265,41 @@ describe('useSimpleModel', () => {
     await waitFor(() => expect(view!.getByTestId('error').textContent).toBe('sync failed'));
 
     expect(view.getByTestId('results-ready').textContent).toBe('false');
+  });
+
+  it('reapplies completed guided results when retrying after a state sync failure', async () => {
+    let syncAttempts = 0;
+    experimentValue.updateState = mock(async (updates: Record<string, unknown>) => {
+      syncAttempts += 1;
+      if (syncAttempts === 1) {
+        throw new Error('sync failed');
+      }
+      experimentValue = {
+        ...experimentValue,
+        state: {
+          ...experimentValue.state,
+          ...updates,
+        },
+      };
+    });
+    const Component = await Harness();
+
+    view = render(
+      <MemoryRouter initialEntries={['/model/moving-average/results']}>
+        <Component />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(runGuidedTrainingStep).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(view!.getByTestId('error').textContent).toBe('sync failed'));
+    expect(view.getByTestId('results-ready').textContent).toBe('false');
+
+    fireEvent.click(view.getByRole('button', { name: 'retry' }));
+
+    await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
+    expect(view.getByTestId('error').textContent).toBe('');
+    expect(runGuidedTrainingStep).toHaveBeenCalledTimes(1);
+    expect(syncAttempts).toBe(2);
   });
 
   it('propagates completion sync failures to the caller', async () => {

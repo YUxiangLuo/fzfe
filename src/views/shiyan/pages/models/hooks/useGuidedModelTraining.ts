@@ -170,11 +170,36 @@ export function useGuidedModelTraining<TFinalResult>({
     }
   }, [applyFinalResult, ensureSession, getErrorMessage, lockPath, modelType, setTrainingLock]);
 
-  const handleRetry = useCallback(() => {
-    if (retryCount <= MODEL_RETRY_LIMITS.maxRetries) {
-      setError(null);
+  const handleRetry = useCallback(async () => {
+    if (retryCount > MODEL_RETRY_LIMITS.maxRetries) {
+      return;
     }
-  }, [retryCount]);
+
+    setError(null);
+
+    if (session?.status !== 'completed' || !session.result || inFlightRef.current) {
+      return;
+    }
+
+    try {
+      inFlightRef.current = true;
+      setIsLoading(true);
+      await applyFinalResult(session);
+    } catch (retryError) {
+      const message = getErrorMessage
+        ? getErrorMessage(retryError)
+        : resolveErrorMessage(retryError, '分阶段训练执行失败');
+      if (isMountedRef.current) {
+        setError(message);
+        setRetryCount((previous) => previous + 1);
+      }
+    } finally {
+      inFlightRef.current = false;
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [applyFinalResult, getErrorMessage, retryCount, session]);
 
   return {
     session,
