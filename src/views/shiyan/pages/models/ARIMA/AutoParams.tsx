@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import CalculationStatus from '../components/CalculationStatus';
 import PredictionChart from '../components/PredictionChart';
+import GuidedTrainingPanel from '../components/GuidedTrainingPanel';
 import type { ModelJobProgressEvent } from '../hooks/useModelJob';
+import type { GuidedTrainingSession } from '../../../services/guidedTraining';
 
 interface AutoParamsProps {
   view: 'params' | 'results';
@@ -10,15 +11,28 @@ interface AutoParamsProps {
     metrics: { rmse: number; mae: number; r2: number };
     order: { p: number; d: number; q: number };
   } | null;
+  guidedSession?: GuidedTrainingSession | null;
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
+  onInitialize?: () => void;
+  onRunNextStep?: () => void;
   onShowInformationCriteriaInfo: () => void;
   currentProgress?: ModelJobProgressEvent | null;
   progressEvents?: ModelJobProgressEvent[];
 }
 
-const AutoParams: React.FC<AutoParamsProps> = ({ view, data, isLoading, error, onRetry, onShowInformationCriteriaInfo, currentProgress, progressEvents }) => {
+const AutoParams: React.FC<AutoParamsProps> = ({
+  view,
+  data,
+  guidedSession,
+  isLoading,
+  error,
+  onRetry,
+  onInitialize,
+  onRunNextStep,
+  onShowInformationCriteriaInfo,
+}) => {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
 
   const calculateAccuracy = (actual: number, predicted: number | null): string => {
@@ -37,17 +51,17 @@ const AutoParams: React.FC<AutoParamsProps> = ({ view, data, isLoading, error, o
     return 'bg-red-50 text-red-700 font-semibold';
   };
 
-  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} modelType="arima" currentProgress={currentProgress} progressEvents={progressEvents} />;
-  if (isLoading || error) {
-    return status;
-  }
-
   if (!data) {
     return (
-      <div>
-        {status}
-        <p>没有可用的结果。</p>
-      </div>
+      <GuidedTrainingPanel
+        title="ARIMA 自动参数寻优 - 分阶段训练"
+        session={guidedSession ?? null}
+        isLoading={isLoading}
+        error={error}
+        onInitialize={onInitialize ?? (() => {})}
+        onRunNextStep={onRunNextStep ?? (() => {})}
+        onRetry={onRetry}
+      />
     );
   }
 

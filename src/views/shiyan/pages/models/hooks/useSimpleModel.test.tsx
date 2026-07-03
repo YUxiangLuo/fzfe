@@ -7,6 +7,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react';
 import type { RenderResult } from '@testing-library/react';
 import React, { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import type { GuidedTrainingSession } from '../../../services/guidedTraining';
 
 mock.restore();
 
@@ -14,9 +15,9 @@ const r = (path: string) => resolve(import.meta.dir, path);
 
 const experimentContextModulePath = r('../../../contexts/ExperimentContext.zustand.tsx');
 const apiClientModulePath = r('../../../../../utils/apiClient.ts');
-const modelTrainingStreamModulePath = r('../../../services/modelTrainingStream.ts');
+const guidedTrainingModulePath = r('../../../services/guidedTraining.ts');
 
-const postModelTrainingStream = mock(async () => ({
+const successfulGuidedResult = {
   status: 'success',
   results: {
     eval_y_true: [172, 181],
@@ -24,7 +25,36 @@ const postModelTrainingStream = mock(async () => ({
     evaluate_months: ['2024-09', '2024-10'],
     metrics: { rmse: 20.55, mae: 19.67, r2: -9.49 },
   },
-}));
+};
+
+const readyGuidedSession = (): GuidedTrainingSession => ({
+  session_id: 'guided-1',
+  experiment_id: 12,
+  model_type: 'ma',
+  status: 'ready',
+  current_step_id: 'evaluate',
+  next_step_id: 'evaluate',
+  steps: [],
+  step_outputs: {},
+  result: null,
+  error_message: null,
+});
+
+const completedGuidedSession = (): GuidedTrainingSession => ({
+  session_id: 'guided-1',
+  experiment_id: 12,
+  model_type: 'ma',
+  status: 'completed',
+  current_step_id: null,
+  next_step_id: null,
+  steps: [],
+  step_outputs: {},
+  result: successfulGuidedResult,
+  error_message: null,
+});
+
+const createGuidedTrainingSession = mock(async () => readyGuidedSession());
+const runGuidedTrainingStep = mock(async () => completedGuidedSession());
 
 let experimentValue = {
   state: {
@@ -83,8 +113,10 @@ mock.module(apiClientModulePath, () => ({
   },
 }));
 
-mock.module(modelTrainingStreamModulePath, () => ({
-  postModelTrainingStream,
+mock.module(guidedTrainingModulePath, () => ({
+  createGuidedTrainingSession,
+  runGuidedTrainingStep,
+  fetchGuidedTrainingSession: mock(async () => null),
 }));
 
 const Harness = async (currentStepId = 'results') => {
@@ -126,6 +158,14 @@ const Harness = async (currentStepId = 'results') => {
         <button
           type="button"
           onClick={() => {
+            void simpleModel.initializeGuidedSession();
+          }}
+        >
+          init
+        </button>
+        <button
+          type="button"
+          onClick={() => {
             void simpleModel.markAsCompleted().catch((error) => {
               setCompletionError(error instanceof Error ? error.message : 'complete failed');
             });
@@ -144,7 +184,10 @@ describe('useSimpleModel', () => {
   let view: RenderResult | null = null;
 
   beforeEach(() => {
-    postModelTrainingStream.mockClear();
+    createGuidedTrainingSession.mockClear();
+    createGuidedTrainingSession.mockResolvedValue(readyGuidedSession());
+    runGuidedTrainingStep.mockClear();
+    runGuidedTrainingStep.mockResolvedValue(completedGuidedSession());
     experimentValue = {
       state: {
         experiment_id: 12,
@@ -210,7 +253,7 @@ describe('useSimpleModel', () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(postModelTrainingStream).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(runGuidedTrainingStep).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(view!.getByTestId('error').textContent).toBe('sync failed'));
 
     expect(view.getByTestId('results-ready').textContent).toBe('false');
@@ -231,5 +274,21 @@ describe('useSimpleModel', () => {
     fireEvent.click(view.getByRole('button', { name: 'complete' }));
 
     await waitFor(() => expect(view!.getByTestId('completion-error').textContent).toBe('sync failed'));
+  });
+
+  it('restores results from an already completed guided session', async () => {
+    createGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSession());
+    const Component = await Harness('params');
+
+    view = render(
+      <MemoryRouter initialEntries={['/model/moving-average/results']}>
+        <Component />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(view.getByRole('button', { name: 'init' }));
+
+    await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
+    expect(runGuidedTrainingStep).not.toHaveBeenCalled();
   });
 });

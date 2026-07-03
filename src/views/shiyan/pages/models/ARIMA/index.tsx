@@ -13,16 +13,15 @@ import AutoParams from './AutoParams';
 import ModelComparison from './ModelComparison';
 import { useExperiment, type AdfStationarityRow } from '../../../contexts/ExperimentContext.zustand';
 import { apiClient } from '../../../../../utils/apiClient';
-import { postModelTrainingStream } from '../../../services/modelTrainingStream';
 import { ARIMA_CONSTANTS, MODEL_RETRY_LIMITS } from '../constants';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useModelJob } from '../hooks/useModelJob';
+import { useGuidedModelTraining } from '../hooks/useGuidedModelTraining';
 import RetryExceededFallback from '../components/RetryExceededFallback';
 import { alignPredictionRows } from '../resultAlignment';
 
 const MODEL_NAME = 'ARIMA 模型';
 const BASE_PATH = '/model/arima';
-const MIN_BASE_MODEL_PROGRESS_MS = 6000;
 
 const STEPS = [
   { id: 'intro', name: '方法步骤', path: `${BASE_PATH}/intro`, component: Intro },
@@ -54,7 +53,6 @@ const ARIMAStepper: React.FC = () => {
   const [results, setResults] = useState<any>(null);
   const [autoParamsView, setAutoParamsView] = useState<'params' | 'results'>('params');
   const adfJob = useModelJob();
-  const trainingJob = useModelJob();
   const {
     isLoading: isAdfLoading,
     error: adfError,
@@ -63,17 +61,6 @@ const ARIMAStepper: React.FC = () => {
     setError: setAdfError,
     resetRetryCount: resetAdfRetryCount,
   } = adfJob;
-  const {
-    isLoading: isTrainingLoading,
-    error: trainingError,
-    retryCount: trainingRetryCount,
-    currentProgress: trainingProgress,
-    progressEvents: trainingProgressEvents,
-    runJob: runTrainingJob,
-    setError: setTrainingError,
-    handleRetry: handleTrainingRetry,
-    resetRetryCount: resetTrainingRetryCount,
-  } = trainingJob;
 
   const isAutoregressionInfoPage = useMemo(() => location.pathname === AUTOREGRESSION_INFO_PATH, [location.pathname]);
   const isStationarityTablePage = useMemo(() => location.pathname === STATIONARITY_TABLE_PATH, [location.pathname]);
@@ -182,16 +169,12 @@ const ARIMAStepper: React.FC = () => {
     void handleRunAdf();
   }, [adfRetryCount, handleRunAdf, isAdfLoading]);
 
-  const handleCalculate = useCallback(async () => {
-    // 计算之前清除所有错误和已有结果
-    setTrainingError(null);
-    setResults(null);
+  const buildTrainingRequestBody = useCallback(() => {
     if (!state.experiment_id) {
-      setTrainingError('实验状态未初始化，无法训练模型。');
-      return;
+      return null;
     }
 
-    const requestBody = {
+    return {
       experiment_id: state.experiment_id,
       selected_industry: state.selected_industry,
       selected_company: state.selected_company,
@@ -202,50 +185,7 @@ const ARIMAStepper: React.FC = () => {
       data_window_evaluate_end_index: state.data_window_evaluate_end_index,
       arimaD: selectedD,
     };
-    await runTrainingJob<any>({
-      lockPath: location.pathname,
-      setTrainingLock,
-      request: (signal, onProgress) => postModelTrainingStream<any>(
-        "/models/arima/training/stream",
-        requestBody,
-        { signal, onProgress }
-      ),
-      minLoadingMs: MIN_BASE_MODEL_PROGRESS_MS,
-      onSuccess: async (response) => {
-        if (response.status !== "success") {
-          throw new Error(response.message || "计算失败，请重试...");
-        }
-
-        const apiResults = response.results;
-        const fallbackMonths = productSalesData?.monthlySales
-          .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
-          .map(item => item.month) || [];
-
-        const nextResults = {
-          predictions: alignPredictionRows({
-            actualValues: apiResults.eval_y_true,
-            predictedValues: apiResults.eval_predictions,
-            backendMonths: apiResults.evaluate_months,
-            fallbackMonths,
-          }),
-          metrics: apiResults.metrics,
-          order: apiResults.best_order,
-        };
-
-        await updateState({
-          arima_p: apiResults.best_order.p,
-          arima_q: apiResults.best_order.q,
-          arima_metrics_rmse: apiResults.metrics.rmse,
-          arima_metrics_mae: apiResults.metrics.mae,
-          arima_metrics_r2: apiResults.metrics.r2,
-        }, { forceSync: true, throwOnSyncError: true });
-        setResults(nextResults);
-      },
-      getErrorMessage: (jobError) =>
-        jobError instanceof Error ? jobError.message : '遇到错误，请重试...',
-    });
   }, [
-    location.pathname,
     state.experiment_id,
     state.selected_industry,
     state.selected_company,
@@ -255,11 +195,63 @@ const ARIMAStepper: React.FC = () => {
     state.data_window_evaluate_start_index,
     state.data_window_evaluate_end_index,
     selectedD,
+  ]);
+
+  const handleTrainingFinalResult = useCallback(async (response: any) => {
+    if (response.status !== "success") {
+      throw new Error(response.message || "计算失败，请重试...");
+    }
+
+    const apiResults = response.results;
+    const fallbackMonths = productSalesData?.monthlySales
+      .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
+      .map(item => item.month) || [];
+
+    const nextResults = {
+      predictions: alignPredictionRows({
+        actualValues: apiResults.eval_y_true,
+        predictedValues: apiResults.eval_predictions,
+        backendMonths: apiResults.evaluate_months,
+        fallbackMonths,
+      }),
+      metrics: apiResults.metrics,
+      order: apiResults.best_order,
+    };
+
+    await updateState({
+      arima_p: apiResults.best_order.p,
+      arima_q: apiResults.best_order.q,
+      arima_metrics_rmse: apiResults.metrics.rmse,
+      arima_metrics_mae: apiResults.metrics.mae,
+      arima_metrics_r2: apiResults.metrics.r2,
+    }, { forceSync: true, throwOnSyncError: true });
+    setResults(nextResults);
+  }, [
     productSalesData,
-    runTrainingJob,
-    setTrainingLock,
+    state.data_window_evaluate_end_index,
+    state.data_window_evaluate_start_index,
     updateState
   ]);
+
+  const {
+    session: guidedTrainingSession,
+    isLoading: isTrainingLoading,
+    error: trainingError,
+    setError: setTrainingError,
+    retryCount: trainingRetryCount,
+    initializeSession: initializeGuidedTrainingSession,
+    runNextStep: runNextGuidedTrainingStep,
+    handleRetry: handleTrainingRetry,
+    resetGuidedTraining,
+  } = useGuidedModelTraining<any>({
+    modelType: 'arima',
+    buildRequestBody: buildTrainingRequestBody,
+    onFinalResult: handleTrainingFinalResult,
+    lockPath: location.pathname,
+    setTrainingLock,
+    getErrorMessage: (jobError) =>
+      jobError instanceof Error ? jobError.message : '遇到错误，请重试...',
+  });
 
   useAutoCalculation({
     calculationStepId: 'stationarity-table',
@@ -270,15 +262,11 @@ const ARIMAStepper: React.FC = () => {
     isLoading: isAdfLoading,
     error: adfError,
   });
-  useAutoCalculation({
-    calculationStepId: 'autoparams',
-    currentStepId: currentStep?.id,
-    handleCalculate: handleCalculate,
-    canCalculate: selectedD !== '',
-    results,
-    isLoading: isTrainingLoading,
-    error: trainingError,
-  });
+  useEffect(() => {
+    if (currentStep?.id === 'autoparams' && selectedD !== '' && !results && !trainingError) {
+      void initializeGuidedTrainingSession();
+    }
+  }, [currentStep?.id, initializeGuidedTrainingSession, results, selectedD, trainingError]);
 
   useEffect(() => {
     if (!isStationarityTablePage) {
@@ -290,8 +278,8 @@ const ARIMAStepper: React.FC = () => {
   useEffect(() => {
     setResults(null);
     setTrainingError(null);
-    resetTrainingRetryCount();
-  }, [resetTrainingRetryCount, selectedD, setTrainingError]);
+    resetGuidedTraining();
+  }, [resetGuidedTraining, selectedD, setTrainingError]);
 
   const handleNext = async () => {
     if (currentStep?.id === 'stationarity') {
@@ -339,6 +327,11 @@ const ARIMAStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'autoparams') {
+      if (!results) {
+        setTrainingError('请先完成分阶段训练，生成自动参数结果后再进入下一步。');
+        return;
+      }
+
       if (autoParamsView === 'params') {
         setAutoParamsView('results');
         return;
@@ -463,7 +456,17 @@ const ARIMAStepper: React.FC = () => {
     'stationarity-table': { adfResults, isLoading: isAdfLoading, error: adfError, onRetry: handleAdfRetry, navigate },
     differencing: { selectedD, setSelectedD, error: trainingError, onShowDifferencingInfo: handleShowDifferencingInfo },
     'differencing-validation': { selectedD, adfResults },
-    autoparams: { view: autoParamsView, data: results, isLoading: isTrainingLoading, error: trainingError, onRetry: handleTrainingRetry, onShowInformationCriteriaInfo: handleShowInformationCriteriaInfo, currentProgress: trainingProgress, progressEvents: trainingProgressEvents },
+    autoparams: {
+      view: autoParamsView,
+      data: results,
+      guidedSession: guidedTrainingSession,
+      isLoading: isTrainingLoading,
+      error: trainingError,
+      onRetry: handleTrainingRetry,
+      onInitialize: initializeGuidedTrainingSession,
+      onRunNextStep: runNextGuidedTrainingStep,
+      onShowInformationCriteriaInfo: handleShowInformationCriteriaInfo,
+    },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
@@ -510,7 +513,8 @@ const ARIMAStepper: React.FC = () => {
         isAutoregressionInfoPage ||
         isDifferencingInfoPage ||
         isInformationCriteriaInfoPage ||
-        (isDifferencingValidationPage && !isValidDifferencing)
+        (isDifferencingValidationPage && !isValidDifferencing) ||
+        (currentStep.id === 'autoparams' && !results)
       }
       nextButtonText={isModelComparisonPage ? '完成' : '下一步'}
     >
