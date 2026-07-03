@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import CalculationStatus from '../components/CalculationStatus';
+import GuidedTrainingPanel from '../components/GuidedTrainingPanel';
 import WeightsPieChart from '../components/WeightsPieChart';
+import type { GuidedTrainingSession } from '../../../services/guidedTraining';
 import type { ModelJobProgressEvent } from '../hooks/useModelJob';
 
 export interface ResultsProps {
@@ -11,11 +12,22 @@ export interface ResultsProps {
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
+  guidedSession?: GuidedTrainingSession | null;
+  onInitialize: () => void;
+  onRunNextStep: () => void;
   currentProgress?: ModelJobProgressEvent | null;
   progressEvents?: ModelJobProgressEvent[];
 }
 
-const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry, currentProgress, progressEvents }) => {
+const Results: React.FC<ResultsProps> = ({
+  data,
+  isLoading,
+  error,
+  onRetry,
+  guidedSession,
+  onInitialize,
+  onRunNextStep,
+}) => {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('chart');
 
   const modelIdToName: Record<string, string> = {
@@ -25,16 +37,23 @@ const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry, curr
     lstm: 'LSTM模型',
   };
 
-  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} modelType="weighted_avg" isEnsembleModel={true} currentProgress={currentProgress} progressEvents={progressEvents} />;
-  if (isLoading || error) {
-    return status;
-  }
+  const guidedPanel = (
+    <GuidedTrainingPanel
+      title="加权平均融合 - 分阶段训练"
+      session={guidedSession ?? null}
+      isLoading={isLoading}
+      error={error}
+      onInitialize={onInitialize}
+      onRunNextStep={onRunNextStep}
+      onRetry={onRetry}
+    />
+  );
 
   if (!data) {
     return (
-      <div>
-        {status}
-        <p>没有可用的结果。</p>
+      <div className="space-y-6">
+        {guidedPanel}
+        <p className="text-sm text-gray-600">完成全部训练阶段后会显示权重结果。</p>
       </div>
     );
   }
@@ -46,7 +65,7 @@ const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry, curr
 
   return (
     <div className="space-y-6">
-      {status}
+      {guidedPanel}
       <div className="flex justify-between items-center">
         <h3 className="text-2xl font-bold text-gray-800">加权平均融合 - 计算结果</h3>
         <div>

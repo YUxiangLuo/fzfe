@@ -1,6 +1,6 @@
 import { apiClient } from '@/utils/apiClient';
 
-export type GuidedModelType = 'ma' | 'es' | 'arima' | 'lstm';
+export type GuidedModelType = 'ma' | 'es' | 'arima' | 'lstm' | 'weighted_avg' | 'stacking' | 'boosting';
 export type GuidedTrainingStatus = 'ready' | 'running' | 'failed' | 'completed';
 export type GuidedStepStatus = 'pending' | 'active' | 'completed' | 'failed';
 
