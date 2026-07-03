@@ -49,7 +49,8 @@ mock.module(
 );
 
 const renderHeader = async (initialEntry = "/industry") => {
-  const { default: Header } = await import("./Header");
+  const modulePath = "./Header?header-component-test";
+  const { default: Header } = await import(modulePath) as typeof import("./Header");
   let view!: ReturnType<typeof render>;
 
   await act(async () => {
