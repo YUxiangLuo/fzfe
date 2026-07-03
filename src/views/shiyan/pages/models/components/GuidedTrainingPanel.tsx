@@ -11,6 +11,63 @@ import {
 import Button from '../../../shared/components/common/Button';
 import type { GuidedTrainingSession, GuidedTrainingStep } from '../../../services/guidedTraining';
 
+const outputKeyLabels: Record<string, string> = {
+  actual: '真实值',
+  aic: 'AIC',
+  alpha: '平滑系数',
+  batch_size: '批大小',
+  best_order: '最优阶数',
+  bic: 'BIC',
+  converged: '是否收敛',
+  d: '差分阶数',
+  data_points: '数据点数',
+  early_stopped: '是否早停',
+  effective_train_size: '差分后样本数',
+  encoded_feature_count: '编码后特征数',
+  epochs: '训练轮数',
+  epochs_ran: '实际轮数',
+  epochs_requested: '计划轮数',
+  evaluate_months: '评估月份',
+  evaluate_size: '评估样本数',
+  evaluated_points: '评估点数',
+  feature_keys: '特征字段',
+  feature_types: '字段类型',
+  final_loss: '最终损失',
+  fitted_points: '拟合点数',
+  forecast_horizon: '预测跨度',
+  forecast_steps: '预测步数',
+  history_end_index: '历史结束点',
+  history_start_index: '历史起始点',
+  input_shape: '输入形状',
+  level: '平滑水平',
+  look_back: '回看窗口',
+  lower: '下界',
+  mae: 'MAE',
+  mape: 'MAPE',
+  max_p: '最大 p',
+  max_q: '最大 q',
+  mean_residual: '平均残差',
+  metrics: '误差指标',
+  normalization: '归一化方式',
+  order: '模型阶数',
+  predicted: '预测值',
+  predicted_points: '预测点数',
+  preview: '结果预览',
+  r2: 'R²',
+  residual_points: '残差点数',
+  rmse: 'RMSE',
+  selection_criterion: '选择依据',
+  std_dev_residuals: '残差波动',
+  target_key: '目标字段',
+  target_shape: '标签形状',
+  train_size: '训练样本数',
+  upper: '上界',
+  window: '窗口长度',
+  window_values: '窗口数据',
+};
+
+const formatKey = (key: string) => outputKeyLabels[key] ?? key;
+
 interface GuidedTrainingPanelProps {
   session: GuidedTrainingSession | null;
   isLoading: boolean;
@@ -41,7 +98,7 @@ const formatValue = (value: unknown): string => {
     const record = value as Record<string, unknown>;
     return Object.entries(record)
       .slice(0, 4)
-      .map(([key, item]) => `${key}: ${formatValue(item)}`)
+      .map(([key, item]) => `${formatKey(key)}: ${formatValue(item)}`)
       .join('；');
   }
   return String(value);
@@ -53,7 +110,7 @@ const outputRows = (output: unknown) => {
   }
 
   return Object.entries(output as Record<string, unknown>)
-    .map(([key, value]) => ({ key, value: formatValue(value) }))
+    .map(([key, value]) => ({ key, label: formatKey(key), value: formatValue(value) }))
     .filter((row) => row.value.length > 0)
     .slice(0, 6);
 };
@@ -174,7 +231,7 @@ const GuidedTrainingPanel: React.FC<GuidedTrainingPanelProps> = ({
                       <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                         {rows.map((row) => (
                           <div key={row.key} className="rounded-md bg-gray-50 px-3 py-2">
-                            <dt className="text-xs font-semibold uppercase text-gray-500">{row.key}</dt>
+                            <dt className="text-xs font-semibold text-gray-500">{row.label}</dt>
                             <dd className="mt-1 truncate text-gray-800" title={row.value}>{row.value}</dd>
                           </div>
                         ))}
