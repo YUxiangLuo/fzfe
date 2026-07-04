@@ -105,6 +105,7 @@ export interface StudentGradeOverview {
     report_quality: number | null;
     final_score: number | null;
     report_status?: 'submitted' | 'graded' | 'rejected' | null;
+    report_feedback?: string | null;
     exp_flow_breakdown?: GradeBreakdownEntry[] | null;
     final_score_breakdown?: FinalScoreBreakdown | null;
 }

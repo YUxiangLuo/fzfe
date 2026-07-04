@@ -57,6 +57,7 @@ const GRADE_EXPORT_HEADER = [
   "模型选择",
   "实验报告",
   "报告状态",
+  "报告评语",
   "最终得分",
 ];
 
@@ -201,6 +202,7 @@ function expectedGradeCsvRow(grade: StudentGradeOverview): string[] {
     visibleUnlessRejected(formatNumeric(grade.model_quality)),
     isGraded ? formatNumeric(grade.report_quality) : "",
     gradeStatusLabel(grade.report_status),
+    grade.report_feedback ?? "",
     isGraded ? formatNumeric(grade.final_score) : "",
   ];
 }
