@@ -3,6 +3,7 @@ import { CheckCircle, Circle, Lock, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ProductionPlanProvider, useProductionPlan } from './ProductionPlanContextV2';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
+import { ROUTES } from '../../constants/routes';
 import { useToast } from '../../shared/hooks/useToast';
 import { Toast } from '../../shared/components/common/Toast';
 import MPSTableViewV2 from './components/MPSTableViewV2';
@@ -20,7 +21,7 @@ const COMPLETE_PLAN_STEP_ID = 6;
 const ProductionPlanContent: React.FC = () => {
   const navigate = useNavigate();
   const { state, goToStep, resetAll, saveMPSDataToGlobal } = useProductionPlan();
-  const { state: experimentState, updateState } = useExperiment();
+  const { updateState } = useExperiment();
   const { toast, showToast, hideToast } = useToast();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const previousHasCompletedPlanRef = useRef(state.completedSteps.includes(5));
@@ -123,7 +124,7 @@ const ProductionPlanContent: React.FC = () => {
 
   // 完成生产计划并进入测验
   const handleComplete = async () => {
-    const nextRoute = experimentState.quiz_about_plan_completed ? '/report' : '/quiz-plan';
+    const nextRoute = ROUTES.QUIZ_PLAN;
 
     try {
       // 避免在保存进行中提前进入测验，防止出现“未保存即跳转”的竞态。

@@ -657,7 +657,9 @@ export async function completeEvaluationAndModelQuiz(
   await expectHashPath(page, "/quiz");
   await expect(page.getByText("预测模型知识测验")).toBeVisible();
   await answerAllQuizQuestions(page);
-  await clickLastEnabledButton(page, /提交答案，开始制定生产计划/);
+  await clickLastEnabledButton(page, /提交答案，查看答题结果/);
+  await expect(page.getByRole("heading", { name: "答题结果" })).toBeVisible();
+  await clickLastEnabledButton(page, /进入生产计划/);
 
   await expectHashPath(page, "/production/scenario");
 }
@@ -711,7 +713,9 @@ export async function completeProductionAndPlanQuiz(page: Page) {
 
   await expect(page.getByText("生产计划知识测验")).toBeVisible();
   await answerAllQuizQuestions(page);
-  await clickLastEnabledButton(page, /提交答案，开始编写实验报告/);
+  await clickLastEnabledButton(page, /提交答案，查看答题结果/);
+  await expect(page.getByRole("heading", { name: "答题结果" })).toBeVisible();
+  await clickLastEnabledButton(page, /进入实验报告/);
 
   await expectHashPath(page, "/report");
 }

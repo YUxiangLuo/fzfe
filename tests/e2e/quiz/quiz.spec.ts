@@ -48,7 +48,9 @@ interface QuizQuestion {
 interface QuizAnswerResult {
   question_id: number;
   is_correct: boolean;
-  correct_answers?: never;
+  correct_answers: string[];
+  submitted_answer: string[];
+  question_text: string;
 }
 
 interface GradeSummaryRow {
@@ -376,7 +378,7 @@ test.describe("@quiz 题库与测验", () => {
           response.request().method() === "POST" &&
           response.url().includes("/api/v1/quizzes/answers"),
       );
-      await page.getByRole("button", { name: "提交答案，开始制定生产计划" }).click();
+      await page.getByRole("button", { name: "提交答案，查看答题结果" }).click();
 
       const submitResponse = await submitResponsePromise;
       expect(submitResponse.status()).toBe(201);
@@ -388,9 +390,32 @@ test.describe("@quiz 题库与测验", () => {
         const result = resultsById.get(plan.source.question_id);
         expect(result).toBeDefined();
         expect(result?.is_correct).toBe(plan.expectedCorrect);
-        expect(result).not.toHaveProperty("correct_answers");
+        expect(result?.correct_answers).toEqual(plan.source.correct_answers);
+        expect(result?.submitted_answer).toEqual(plan.chosenValues);
       }
 
+      await expect(page.getByRole("heading", { name: "答题结果" })).toBeVisible();
+      await expect.poll(() => new URL(page.url()).hash).toBe("#/quiz");
+      await expect(page.getByRole("button", { name: "重新作答" })).toHaveCount(0);
+
+      const restoredResultsResponsePromise = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes("/api/v1/quizzes/model/results"),
+      );
+      await page.reload();
+      const restoredResultsResponse = await restoredResultsResponsePromise;
+      expect(restoredResultsResponse.ok()).toBeTruthy();
+      const restoredResults = unwrapDataEnvelope<QuizAnswerResult[]>(
+        await restoredResultsResponse.json(),
+      );
+      expect(restoredResults).toHaveLength(answerPlans.length);
+      await expect(page.getByRole("heading", { name: "答题结果" })).toBeVisible();
+      await expect(page.getByText(results[0]!.question_text)).toBeVisible();
+      await expect(page.getByRole("button", { name: "重新作答" })).toHaveCount(0);
+      await expect.poll(() => new URL(page.url()).hash).toBe("#/quiz");
+
+      await page.getByRole("button", { name: "进入生产计划" }).click();
       await expect.poll(() => new URL(page.url()).hash).toMatch(/^#\/production/);
 
       const activeExperiment = await studentApi.getActiveExperiment();
@@ -433,7 +458,7 @@ test.describe("@quiz 题库与测验", () => {
         .then(() => true)
         .catch(() => false);
 
-      await page.getByRole("button", { name: "提交答案，开始制定生产计划" }).click();
+      await page.getByRole("button", { name: "提交答案，查看答题结果" }).click();
       await expect(page.getByText(/请完成所有题目后再提交/)).toBeVisible();
       expect(await sawSubmitRequest).toBe(false);
 
@@ -565,7 +590,7 @@ test.describe("@quiz 题库与测验", () => {
           response.request().method() === "POST" &&
           response.url().includes("/api/v1/quizzes/answers"),
       );
-      await page.getByRole("button", { name: "提交答案，开始编写实验报告" }).click();
+      await page.getByRole("button", { name: "提交答案，查看答题结果" }).click();
 
       const submitResponse = await submitResponsePromise;
       expect(submitResponse.status()).toBe(201);
@@ -577,9 +602,13 @@ test.describe("@quiz 题库与测验", () => {
         const result = resultsById.get(plan.source.question_id);
         expect(result).toBeDefined();
         expect(result?.is_correct).toBe(plan.expectedCorrect);
-        expect(result).not.toHaveProperty("correct_answers");
+        expect(result?.correct_answers).toEqual(plan.source.correct_answers);
+        expect(result?.submitted_answer).toEqual(plan.chosenValues);
       }
 
+      await expect(page.getByRole("heading", { name: "答题结果" })).toBeVisible();
+      await expect.poll(() => new URL(page.url()).hash).toBe("#/quiz-plan");
+      await page.getByRole("button", { name: "进入实验报告" }).click();
       await expect.poll(() => new URL(page.url()).hash).toBe("#/report");
 
       const activeExperiment = await studentApi.getActiveExperiment();

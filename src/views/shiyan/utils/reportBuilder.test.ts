@@ -152,6 +152,22 @@ describe("reportBuilder", () => {
         decision: "decision analysis",
       },
       viewModel,
+      quizResults: {
+        model: [
+          {
+            question_id: 101,
+            quiz_type: "quiz_about_model",
+            knowledge_point: "预测模型",
+            question_type: "Single Choice",
+            question_text: "RMSE | MAE\n哪个越小越好？",
+            options: { A: "越大越好", B: "越小|越好" },
+            submitted_answer: ["A"],
+            correct_answers: ["B"],
+            is_correct: false,
+          },
+        ],
+        plan: [],
+      },
     });
 
     expect(markdown).toContain("# Alice的实验报告");
@@ -160,6 +176,11 @@ describe("reportBuilder", () => {
     expect(markdown).toContain("95%");
     expect(markdown).toContain("decision analysis");
     expect(markdown).toContain("| P1 | 100 | 10 | 110 |");
+    expect(markdown).toContain("## 六、知识测验答题记录");
+    expect(markdown).toContain("- **正确题数**: 0 / 1");
+    expect(markdown).toContain("RMSE \\| MAE<br>哪个越小越好？");
+    expect(markdown).toContain("B. 越小\\|越好");
+    expect(markdown).toContain("### 生产计划知识测验\n\n暂无答题记录");
   });
 
   it("renders fallback sections when report data is incomplete", () => {

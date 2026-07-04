@@ -24,6 +24,7 @@ import {
 import Button from '../shared/components/common/Button';
 import { useConfirm } from "../shared/contexts/ConfirmContext";
 import { clearSessionAndRedirect } from "../../../utils/session";
+import { getExperimentResumePath } from "../utils/routeGuards";
 
 interface Manual {
   file_name: string;
@@ -47,18 +48,6 @@ const isMissingActiveManualError = (error: unknown): boolean => {
 };
 
 const TOTAL_EXPERIMENT_STEPS = 7;
-
-// 实验步骤路由映射
-const STEP_ROUTES: Record<number, string> = {
-  1: "/industry",
-  2: "/company",
-  3: "/product",
-  4: "/data",
-  5: "/model",
-  6: "/evaluation",
-  7: "/production",
-  8: "/report",
-};
 
 // 导航步骤配置
 const NAVIGATION_STEPS = [
@@ -188,9 +177,7 @@ const Introduction: React.FC = () => {
 
   // 继续实验
   const continueExperiment = () => {
-    const targetRoute =
-      STEP_ROUTES[experimentState.current_step] || "/industry";
-    navigate(targetRoute);
+    navigate(getExperimentResumePath(experimentState));
   };
 
   const handleNext = () => {
