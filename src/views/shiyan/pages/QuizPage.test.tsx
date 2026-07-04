@@ -118,4 +118,46 @@ describe("QuizPage", () => {
     expect(apiGet).toHaveBeenCalledTimes(1);
     expect(apiGet).not.toHaveBeenCalledWith("/quizzes/model/questions");
   });
+
+  it("shows answer explanations only for incorrect submitted answers", async () => {
+    apiGet.mockResolvedValue([
+      {
+        question_id: 101,
+        quiz_type: "quiz_about_model",
+        knowledge_point: "预测模型-ARIMA模型",
+        question_type: "Single Choice",
+        question_text: "ARIMA 中 d 表示什么？",
+        options: { A: "差分阶数", B: "移动平均阶数" },
+        submitted_answer: ["B"],
+        correct_answers: ["A"],
+        answer_explanation: "d 表示差分阶数，用于使时间序列平稳。",
+        is_correct: false,
+      },
+      {
+        question_id: 102,
+        quiz_type: "quiz_about_model",
+        knowledge_point: "预测模型-评估指标",
+        question_type: "Single Choice",
+        question_text: "RMSE 越小表示什么？",
+        options: { A: "误差更小", B: "误差更大" },
+        submitted_answer: ["A"],
+        correct_answers: ["A"],
+        answer_explanation: "正确题不需要展示解析。",
+        is_correct: true,
+      },
+    ]);
+
+    let view!: RenderResult;
+    await act(async () => {
+      view = await renderModelQuizPage();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(view.getByRole("heading", { name: "答题结果" })).not.toBeNull();
+    });
+    expect(view.getByText("答案解析")).not.toBeNull();
+    expect(view.getByText("d 表示差分阶数，用于使时间序列平稳。")).not.toBeNull();
+    expect(view.queryByText("正确题不需要展示解析。")).toBeNull();
+  });
 });

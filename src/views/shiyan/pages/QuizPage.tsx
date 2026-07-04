@@ -24,6 +24,7 @@ export interface QuizAnswerDetail {
   options: Record<string, string> | string[] | null;
   submitted_answer: string[];
   correct_answers: string[];
+  answer_explanation: string | null;
   is_correct: boolean;
 }
 
@@ -207,6 +208,13 @@ const QuizResultView: React.FC<{
                       <div className="text-gray-900">{formatAnswerList(result.correct_answers, result.options)}</div>
                     </div>
                   </div>
+
+                  {!result.is_correct && result.answer_explanation && (
+                    <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+                      <div className="font-medium text-amber-800 mb-1">答案解析</div>
+                      <p className="text-amber-900 leading-6 whitespace-pre-wrap">{result.answer_explanation}</p>
+                    </div>
+                  )}
                 </article>
               ))}
             </div>

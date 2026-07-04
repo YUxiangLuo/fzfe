@@ -118,6 +118,7 @@ export interface Question {
     question_text: string;
     options?: Record<string, string> | string[] | null;
     correct_answers: string[];
+    answer_explanation?: string | null;
     creator_id?: number | null;
     creator_name?: string | null;
 }

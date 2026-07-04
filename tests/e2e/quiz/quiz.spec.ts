@@ -34,6 +34,7 @@ interface QuestionBankRecord {
   question_text: string;
   options?: Record<string, string> | string[] | null;
   correct_answers: string[];
+  answer_explanation?: string | null;
 }
 
 interface QuizQuestion {
@@ -175,10 +176,8 @@ async function fillTagSelectOptions(
   label: string,
   optionTexts: string[],
 ) {
-  const formItem = modal.locator(CommonSelectors.formItem).filter({ hasText: label }).first();
-  await expect(formItem).toBeVisible();
-
-  const combobox = formItem.getByRole("combobox").first();
+  const combobox = modal.getByRole("combobox", { name: label }).first();
+  await expect(combobox).toBeVisible();
   for (const optionText of optionTexts) {
     await combobox.click();
     await combobox.fill(optionText);
@@ -253,6 +252,8 @@ test.describe("@quiz 题库与测验", () => {
     const { teacherToken } = await loadTeacherQuestionBank(page);
     const createdQuestionText = `E2E测验题-${Date.now()}`;
     const updatedQuestionText = `${createdQuestionText}-更新`;
+    const createdExplanation = "E2E 创建解析：选项甲和选项丙共同满足题意。";
+    const updatedExplanation = "E2E 更新解析：选项乙和选项丙共同满足题意。";
     const optionTexts = ["选项甲", "选项乙", "选项丙"];
 
     const createModal = await openCreateQuestionModal(page);
@@ -260,6 +261,7 @@ test.describe("@quiz 题库与测验", () => {
     await selectQuestionFormOption(page, createModal, "题目类型", "多选题");
     await selectQuestionFormOption(page, createModal, "一级知识点", "预测模型");
     await selectQuestionFormOption(page, createModal, "二级知识点", "ARIMA模型");
+    await fillFormField(createModal, "答案解析（选填）", createdExplanation);
     await fillTagSelectOptions(page, createModal, "选项", optionTexts);
     await selectQuestionFormMultiOptions(page, createModal, "正确答案", [optionTexts[0]!, optionTexts[2]!]);
     await createModal.getByRole("button", { name: /保\s*存/ }).click();
@@ -282,9 +284,11 @@ test.describe("@quiz 题库与测验", () => {
     expect(createdQuestion?.question_type).toBe("Multiple Choice");
     expect(createdQuestion?.knowledge_point).toBe("预测模型-ARIMA模型");
     expect(createdQuestion?.correct_answers).toEqual(["A", "C"]);
+    expect(createdQuestion?.answer_explanation).toBe(createdExplanation);
 
     const editModal = await openQuestionEditModal(createdRow);
     await fillFormField(editModal, "题目内容", updatedQuestionText);
+    await fillFormField(editModal, "答案解析（选填）", updatedExplanation);
     await clearMultiSelectByLabel(editModal, "正确答案");
     await selectQuestionFormMultiOptions(page, editModal, "正确答案", [optionTexts[1]!, optionTexts[2]!]);
     await editModal.getByRole("button", { name: /保\s*存/ }).click();
@@ -300,6 +304,8 @@ test.describe("@quiz 题库与测验", () => {
     await expect(previewModal.getByText(updatedQuestionText)).toBeVisible();
     await expect(previewModal.getByText("A. 选项甲")).toBeVisible();
     await expect(previewModal.getByText("正确答案：B. 选项乙, C. 选项丙")).toBeVisible();
+    await expect(previewModal.getByText("答案解析")).toBeVisible();
+    await expect(previewModal.getByText(updatedExplanation)).toBeVisible();
     await closeModalWithCloseButton(previewModal);
 
     const updatedQuestions = await getAuthedJson<QuestionBankRecord[]>(
@@ -312,6 +318,7 @@ test.describe("@quiz 题库与测验", () => {
     expect(updatedQuestion).toBeDefined();
     expect(updatedQuestion?.question_text).toBe(updatedQuestionText);
     expect(updatedQuestion?.correct_answers).toEqual(["B", "C"]);
+    expect(updatedQuestion?.answer_explanation).toBe(updatedExplanation);
 
     await confirmQuestionDelete(updatedRow);
     await expectSuccessMessage(page, SuccessMessages.questionDeleted);
