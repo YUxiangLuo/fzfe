@@ -183,11 +183,11 @@ const GuidedTrainingPanel: React.FC<GuidedTrainingPanelProps> = ({
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
         <h3 className="text-xl font-bold text-gray-900">{title}</h3>
         <p className="mt-2 text-sm leading-6 text-gray-700">
-          系统会把真实训练过程拆成多个阶段，每个阶段执行完成后展示关键证据，再进入下一阶段。
+          系统会把真实训练过程拆成多个阶段。每完成一个阶段，都会展示关键输入、输出和判断依据，再进入下一阶段。
         </p>
         <Button onClick={onInitialize} disabled={isLoading} className="mt-4">
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-          准备分阶段训练
+          进入分阶段训练
         </Button>
       </div>
     );
@@ -217,7 +217,7 @@ const GuidedTrainingPanel: React.FC<GuidedTrainingPanelProps> = ({
           <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="font-semibold">训练阶段执行失败</p>
+              <p className="font-semibold">当前阶段执行失败</p>
               <p className="mt-1 leading-6">{error}</p>
               <Button onClick={onRetry} variant="outline" size="sm" className="mt-3">
                 <RotateCcw className="h-4 w-4" />
@@ -243,7 +243,7 @@ const GuidedTrainingPanel: React.FC<GuidedTrainingPanelProps> = ({
                         {step.status === 'completed'
                           ? '已完成'
                           : step.status === 'active'
-                            ? '待执行'
+                            ? '当前阶段'
                             : step.status === 'failed'
                               ? '失败'
                               : '未开始'}
