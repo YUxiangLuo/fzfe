@@ -677,6 +677,7 @@ export async function completeProductionAndPlanQuiz(page: Page) {
   await expect(page.getByText("第一期数据生成成功")).toBeVisible({
     timeout: 120_000,
   });
+  await clickLastEnabledButton(page, /选择产能正常/);
   await clickLastEnabledButton(page, /进入下一步/);
 
   await clickLastEnabledButton(page, /预测第二期需求|获取第二期需求量/);

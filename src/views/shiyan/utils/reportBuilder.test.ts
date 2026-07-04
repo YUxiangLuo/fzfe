@@ -91,6 +91,8 @@ describe("reportBuilder", () => {
       selected_product: "widget",
       production_target_service_level: 0.95,
       production_safety_stock_z_score: 1.65,
+      production_capacity_mode: "scenario" as const,
+      production_capacity_scenario: "normal" as const,
       production_capacity: 500,
       selected_best_model: "ensemble_weighted" as const,
       production_mps_table: [
@@ -158,8 +160,36 @@ describe("reportBuilder", () => {
     expect(markdown).toContain("| 行业 | electronics |");
     expect(markdown).toContain("**选定模型**: 加权平均融合");
     expect(markdown).toContain("95%");
+    expect(markdown).toContain("| 产能模式 | 产能正常 |");
     expect(markdown).toContain("decision analysis");
     expect(markdown).toContain("| P1 | 100 | 10 | 110 |");
+  });
+
+  it("prioritizes explicit capacity mode over a leftover scenario label", () => {
+    const state = {
+      ...buildInitialState(),
+      production_target_service_level: 0.95,
+      production_safety_stock_z_score: 1.65,
+      production_capacity_mode: "custom" as const,
+      production_capacity_scenario: "normal" as const,
+      production_capacity: 500,
+    };
+
+    const markdown = buildExperimentReportMarkdown({
+      state,
+      userInfo: null,
+      analyses: {
+        data: "",
+        comparison: "",
+        selection: "",
+        params: "",
+        decision: "",
+      },
+      viewModel: buildReportViewModel(state, productSalesData),
+    });
+
+    expect(markdown).toContain("| 产能模式 | 自定义产能 |");
+    expect(markdown).not.toContain("| 产能模式 | 产能正常 |");
   });
 
   it("renders fallback sections when report data is incomplete", () => {

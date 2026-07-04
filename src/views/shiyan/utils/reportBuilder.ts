@@ -73,6 +73,21 @@ const MODEL_DISPLAY_NAME_MAP: Record<string, string> = {
   lstm: "LSTM模型",
 };
 
+const CAPACITY_SCENARIO_LABELS: Record<string, string> = {
+  tight: "产能紧张",
+  normal: "产能正常",
+  abundant: "产能充裕",
+};
+
+const formatCapacityMode = (state: ExperimentState): string => {
+  if (state.production_capacity_mode === "custom") return "自定义产能";
+  if (state.production_capacity_mode === "auto") return "自动计算";
+  if (state.production_capacity_scenario) {
+    return CAPACITY_SCENARIO_LABELS[state.production_capacity_scenario] ?? state.production_capacity_scenario;
+  }
+  return "N/A";
+};
+
 const stripHtmlTags = (text: string): string =>
   text.replace(/<[^>]*>/g, "");
 
@@ -376,6 +391,7 @@ ${stripHtmlTags(analyses.selection)}
 |------|-----|
 | 目标服务水平 | ${state.production_target_service_level ? `${state.production_target_service_level * 100}%` : "N/A"} |
 | 安全库存Z值 | ${state.production_safety_stock_z_score || "N/A"} |
+| 产能模式 | ${formatCapacityMode(state)} |
 | 产能上限/期 | ${state.production_capacity ? `${state.production_capacity.toLocaleString()} 件` : "N/A"} |
 
 ### 4.2 数据对比
