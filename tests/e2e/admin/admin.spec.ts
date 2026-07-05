@@ -10,13 +10,14 @@
  * - Auth guards and edge cases
  */
 
-import { expect, test, type Page, type Response } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Response } from "@playwright/test";
 import {
   // Generators
   makeRunId,
   makePhone,
   buildCsv,
   buildWindowsExcelCsv,
+  ACCOUNTS,
   // Navigation
   openTopLevelPage,
   // Locators
@@ -34,6 +35,7 @@ import {
   // Portal
   expectGuestRedirect,
   loginAsAdminAccount,
+  logout,
   togglePortalMenuAndAssert,
   // Selectors
   AdminManualSelectors,
@@ -46,6 +48,7 @@ import {
 } from "../helpers";
 
 const BACKEND_ORIGIN = process.env.E2E_BACKEND_ORIGIN ?? `http://127.0.0.1:${process.env.E2E_BACKEND_PORT ?? "54101"}`;
+const ADMIN_TEMP_PASSWORD = process.env.E2E_ADMIN_TEMP_PASSWORD ?? "AdminE2E!567";
 
 // ===== Admin-specific Utilities =====
 
@@ -106,8 +109,23 @@ async function waitForAuthedFileResponse(
 
 // ===== Setup =====
 
-async function loginAsAdmin(page: Page): Promise<void> {
-  await loginAsAdminAccount(page);
+async function loginAsAdmin(page: Page, password = ACCOUNTS.admin.password): Promise<void> {
+  await loginAsAdminAccount(page, password);
+}
+
+async function openAdminPasswordModal(page: Page) {
+  await page.locator(".ant-avatar").first().click();
+  await page.getByRole("menuitem", { name: "修改密码" }).click();
+  return getVisibleModal(page, "修改密码");
+}
+
+async function fillAdminPasswordForm(
+  modal: Locator,
+  values: { currentPassword: string; newPassword: string; confirmPassword: string },
+): Promise<void> {
+  await fillFormField(modal, "当前密码", values.currentPassword);
+  await fillFormField(modal, "新密码", values.newPassword);
+  await fillFormField(modal, "确认新密码", values.confirmPassword);
 }
 
 // ===== Test Suite =====
@@ -1108,5 +1126,65 @@ test.describe("@admin 认证与边缘测试", () => {
     await tableRowByText(page, manualName).getByRole("button", { name: `删除 ${manualName}` }).click();
     await confirmDelete(page);
     await expectSuccessMessage(page, SuccessMessages.deleteSuccess);
+  });
+});
+
+test.describe("@admin 修改密码", () => {
+  test("头像菜单提供修改密码入口，当前密码错误时保持弹窗", async ({ page }) => {
+    await loginAsAdmin(page);
+
+    const passwordModal = await openAdminPasswordModal(page);
+    await fillAdminPasswordForm(passwordModal, {
+      currentPassword: "WrongPassword!234",
+      newPassword: ADMIN_TEMP_PASSWORD,
+      confirmPassword: ADMIN_TEMP_PASSWORD,
+    });
+    await passwordModal.getByRole("button", { name: "保存新密码" }).click();
+
+    await expectErrorMessage(page, "当前密码错误");
+    await expect(passwordModal).toBeVisible();
+    await cancelModal(passwordModal);
+  });
+
+  test("修改密码校验：两次输入的密码不一致", async ({ page }) => {
+    await loginAsAdmin(page);
+
+    const passwordModal = await openAdminPasswordModal(page);
+    await fillAdminPasswordForm(passwordModal, {
+      currentPassword: ACCOUNTS.admin.password,
+      newPassword: ADMIN_TEMP_PASSWORD,
+      confirmPassword: `${ADMIN_TEMP_PASSWORD}X`,
+    });
+    await passwordModal.getByRole("button", { name: "保存新密码" }).click();
+
+    await expect(passwordModal.getByText(ErrorMessages.passwordMismatch)).toBeVisible();
+    await cancelModal(passwordModal);
+  });
+
+  test("修改密码后可用新密码登录并回滚", async ({ page }) => {
+    await loginAsAdmin(page);
+
+    const passwordModal = await openAdminPasswordModal(page);
+    await fillAdminPasswordForm(passwordModal, {
+      currentPassword: ACCOUNTS.admin.password,
+      newPassword: ADMIN_TEMP_PASSWORD,
+      confirmPassword: ADMIN_TEMP_PASSWORD,
+    });
+    await passwordModal.getByRole("button", { name: "保存新密码" }).click();
+    await expectSuccessMessage(page, SuccessMessages.passwordChanged);
+    await expect(passwordModal).not.toBeVisible();
+
+    await logout(page);
+    await loginAsAdmin(page, ADMIN_TEMP_PASSWORD);
+
+    const rollbackModal = await openAdminPasswordModal(page);
+    await fillAdminPasswordForm(rollbackModal, {
+      currentPassword: ADMIN_TEMP_PASSWORD,
+      newPassword: ACCOUNTS.admin.password,
+      confirmPassword: ACCOUNTS.admin.password,
+    });
+    await rollbackModal.getByRole("button", { name: "保存新密码" }).click();
+    await expectSuccessMessage(page, SuccessMessages.passwordChanged);
+    await expect(rollbackModal).not.toBeVisible();
   });
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Typography, Avatar, Dropdown, Modal, Spin } from 'antd';
+import { Layout, Menu, Button, Typography, Avatar, Dropdown, Modal, Spin, Form, Input, message } from 'antd';
 import type { MenuProps } from 'antd';
 import {
     BookOutlined,
@@ -8,6 +8,7 @@ import {
     TeamOutlined,
     CalendarOutlined,
     LogoutOutlined,
+    LockOutlined,
     MenuUnfoldOutlined,
     MenuFoldOutlined,
 } from '@ant-design/icons';
@@ -20,6 +21,7 @@ import {
     hasSessionRole,
     isSessionExpired,
 } from '../../../utils/session';
+import { apiClient } from '../../../utils/apiClient';
 import { ADMIN_DEFAULT_ROUTE, ADMIN_ROUTES } from '../routes';
 
 const { Header, Sider, Content } = Layout;
@@ -29,6 +31,9 @@ const AdminLayout: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [currentUser, setCurrentUser] = useState<DecodedToken | null>(null);
     const [isAuthorizing, setIsAuthorizing] = useState(true);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
+    const [passwordForm] = Form.useForm();
     const location = useLocation();
     const navigate = useNavigate();
 
@@ -62,6 +67,34 @@ const AdminLayout: React.FC = () => {
                 clearSessionAndRedirect();
             },
         });
+    };
+
+    const handleClosePasswordModal = () => {
+        if (isChangingPassword) return;
+        setIsPasswordModalOpen(false);
+        passwordForm.resetFields();
+    };
+
+    const handlePasswordSubmit = async (values: { currentPassword: string; newPassword: string }) => {
+        setIsChangingPassword(true);
+        try {
+            await apiClient.put('/users/me/password', {
+                currentPassword: values.currentPassword,
+                newPassword: values.newPassword,
+            });
+            message.success('密码修改成功');
+            setIsPasswordModalOpen(false);
+            passwordForm.resetFields();
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : '密码修改失败，请稍后重试';
+            if (errorMessage.includes('当前密码错误') || errorMessage.includes('Invalid current password')) {
+                message.error('当前密码错误');
+            } else {
+                message.error(`密码修改失败: ${errorMessage}`);
+            }
+        } finally {
+            setIsChangingPassword(false);
+        }
     };
 
     const roleDisplay = currentUser
@@ -102,6 +135,12 @@ const AdminLayout: React.FC = () => {
 
     const userMenu = {
         items: [
+            {
+                key: 'change-password',
+                label: '修改密码',
+                icon: <LockOutlined />,
+                onClick: () => setIsPasswordModalOpen(true),
+            },
             {
                 key: 'logout',
                 label: '退出登录',
@@ -172,6 +211,58 @@ const AdminLayout: React.FC = () => {
                     <Outlet />
                 </Content>
             </Layout>
+            <Modal
+                title="修改密码"
+                open={isPasswordModalOpen}
+                onCancel={handleClosePasswordModal}
+                onOk={() => passwordForm.submit()}
+                confirmLoading={isChangingPassword}
+                okText="保存新密码"
+                cancelText="取消"
+                destroyOnHidden
+            >
+                <Form
+                    form={passwordForm}
+                    layout="vertical"
+                    onFinish={handlePasswordSubmit}
+                >
+                    <Form.Item
+                        label="当前密码"
+                        name="currentPassword"
+                        rules={[{ required: true, message: '请输入当前密码' }]}
+                    >
+                        <Input.Password placeholder="请输入当前密码" autoComplete="current-password" />
+                    </Form.Item>
+                    <Form.Item
+                        label="新密码"
+                        name="newPassword"
+                        rules={[
+                            { required: true, message: '请输入新密码' },
+                            { min: 6, message: '密码至少需要6个字符' },
+                        ]}
+                    >
+                        <Input.Password placeholder="至少6个字符" autoComplete="new-password" />
+                    </Form.Item>
+                    <Form.Item
+                        label="确认新密码"
+                        name="confirmPassword"
+                        dependencies={['newPassword']}
+                        rules={[
+                            { required: true, message: '请确认新密码' },
+                            ({ getFieldValue }) => ({
+                                validator(_, value) {
+                                    if (!value || getFieldValue('newPassword') === value) {
+                                        return Promise.resolve();
+                                    }
+                                    return Promise.reject(new Error('两次输入的密码不一致'));
+                                },
+                            }),
+                        ]}
+                    >
+                        <Input.Password placeholder="再次输入新密码" autoComplete="new-password" />
+                    </Form.Item>
+                </Form>
+            </Modal>
         </Layout>
     );
 };

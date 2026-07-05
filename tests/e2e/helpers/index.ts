@@ -1329,10 +1329,13 @@ export async function loginAsAssistantAccount(
   });
 }
 
-export async function loginAsAdminAccount(page: Page): Promise<void> {
+export async function loginAsAdminAccount(
+  page: Page,
+  password = ACCOUNTS.admin.password,
+): Promise<void> {
   await loginAs(page, {
     username: ACCOUNTS.admin.username,
-    password: ACCOUNTS.admin.password,
+    password,
     role: "admin",
   });
 }
