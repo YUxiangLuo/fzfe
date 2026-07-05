@@ -18,16 +18,17 @@ test.describe("@shiyan bootstrap", () => {
     expect(activeExperiment?.status).not.toBe("Completed");
   });
 
-  test("default bootstrap skips report-status wall when the latest report is not rejected", async ({
+  test("default bootstrap enters the introduction page when the latest experiment has no report", async ({
     studentApi,
     studentApp,
   }) => {
-    await studentApi.cleanupInProgressExperiments();
+    await studentApi.ensureFreshExperiment();
     await studentApp.open("/");
     await studentApp.expectHash("/introduction");
 
     const reportStatus = await studentApi.getLatestReportStatus();
     expect(reportStatus.is_rejected).toBe(false);
+    expect(reportStatus.has_report).toBe(false);
   });
 
   test("active experiment API returns 404 only when no in-progress experiment exists", async ({

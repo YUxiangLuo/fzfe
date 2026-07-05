@@ -11,7 +11,7 @@ mock.restore();
 
 const r = (p: string) => resolve(import.meta.dir, p);
 
-const apiGet = mock(async (): Promise<any> => ({ is_rejected: false }));
+const apiGet = mock(async (): Promise<any> => ({ is_rejected: false, has_report: false }));
 const createNewExperiment = mock(async () => {});
 const setIsSubmitting = mock((_value: boolean) => {});
 const useAuthObjectUrlMock = mock(() => "about:blank");
@@ -74,7 +74,7 @@ describe("ReportStatusCheck", () => {
 
   beforeEach(() => {
     apiGet.mockReset();
-    apiGet.mockResolvedValue({ is_rejected: false });
+    apiGet.mockResolvedValue({ is_rejected: false, has_report: false });
     createNewExperiment.mockReset();
     createNewExperiment.mockResolvedValue(undefined);
     setIsSubmitting.mockReset();
@@ -94,12 +94,102 @@ describe("ReportStatusCheck", () => {
     mock.clearAllMocks();
   });
 
-  it("redirects to the introduction page when no rejected report exists", async () => {
+  it("redirects to the introduction page when no latest report exists", async () => {
     view = await renderReportStatusCheck();
 
     await waitFor(() => {
       expect(view!.getByTestId("location-display").textContent).toBe("/introduction");
     });
+  });
+
+  it("renders submitted report status and keeps the introduction entry available", async () => {
+    apiGet.mockResolvedValueOnce({
+      is_rejected: false,
+      has_report: true,
+      experiment: {
+        experiment_id: 123,
+        status: "Completed",
+        current_step: 8,
+        start_time: "2026-03-01T08:00:00Z",
+        last_activity_at: "2026-03-01T10:00:00Z",
+        completion_time: "2026-03-01T11:00:00Z",
+      },
+      report: {
+        report_id: 9,
+        experiment_id: 123,
+        student_id: 8,
+        report_content: "content",
+        pdf_file_path: "/reports/123.pdf",
+        status: "submitted",
+        submitted_at: "2026-03-01T11:30:00Z",
+        grade: null,
+        feedback: null,
+        graded_by: null,
+      },
+    });
+
+    view = await renderReportStatusCheck();
+
+    expect(view.getByText("您的实验报告已提交")).toBeDefined();
+    expect(view.getByText("待评分")).toBeDefined();
+    expect(view.getByText("暂未评分，请等待教师或助教完成评阅。")).toBeDefined();
+    expect(createNewExperiment).not.toHaveBeenCalled();
+
+    const downloadLink = view.getByRole("link", { name: "下载 PDF" });
+    expect(downloadLink.getAttribute("href")).toBe("about:blank");
+
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "进入实验首页" }));
+    });
+
+    await waitFor(() => {
+      expect(view!.getByTestId("location-display").textContent).toBe("/introduction");
+    });
+    expect(createNewExperiment).not.toHaveBeenCalled();
+  });
+
+  it("renders graded report score and feedback without creating a new experiment", async () => {
+    apiGet.mockResolvedValueOnce({
+      is_rejected: false,
+      has_report: true,
+      experiment: {
+        experiment_id: 123,
+        status: "Completed",
+        current_step: 8,
+        start_time: "2026-03-01T08:00:00Z",
+        last_activity_at: "2026-03-01T10:00:00Z",
+        completion_time: "2026-03-01T11:00:00Z",
+      },
+      report: {
+        report_id: 9,
+        experiment_id: 123,
+        student_id: 8,
+        report_content: "content",
+        pdf_file_path: "/reports/123.pdf",
+        status: "graded",
+        submitted_at: "2026-03-01T11:30:00Z",
+        grade: 92.5,
+        feedback: "报告结构完整，误差分析充分。",
+        graded_by: 5,
+      },
+    });
+
+    view = await renderReportStatusCheck();
+
+    expect(view.getByText("您的实验报告已评分")).toBeDefined();
+    expect(view.getByText("已评分")).toBeDefined();
+    expect(view.getByText("92.5")).toBeDefined();
+    expect(view.getByText("报告结构完整，误差分析充分。")).toBeDefined();
+    expect(createNewExperiment).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "进入实验首页" }));
+    });
+
+    await waitFor(() => {
+      expect(view!.getByTestId("location-display").textContent).toBe("/introduction");
+    });
+    expect(createNewExperiment).not.toHaveBeenCalled();
   });
 
   it("shows only the safe fallback message when loading the status fails", async () => {

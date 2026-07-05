@@ -27,4 +27,12 @@ test("@shiyan weighted ensemble path completes report submission against the rea
 
   const latestReportStatus = await studentApi.getLatestReportStatus();
   expect(latestReportStatus.is_rejected).toBe(false);
+  expect(latestReportStatus.has_report).toBe(true);
+  expect(latestReportStatus.report?.status).toBe("submitted");
+
+  await studentApp.open("/");
+  await expect(page.getByText("您的实验报告已提交")).toBeVisible();
+  await expect(page.getByText("待评分")).toBeVisible();
+  await page.getByRole("button", { name: "进入实验首页" }).click();
+  await studentApp.expectHash("/introduction");
 });

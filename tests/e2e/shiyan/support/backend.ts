@@ -21,8 +21,20 @@ export interface ExperimentRecord {
 
 export interface LatestReportStatus {
   is_rejected: boolean;
+  has_report?: boolean;
   experiment?: Record<string, unknown>;
-  report?: Record<string, unknown>;
+  report?: {
+    report_id?: number;
+    experiment_id?: number;
+    student_id?: number;
+    pdf_file_path?: string | null;
+    status?: "submitted" | "graded" | "rejected";
+    submitted_at?: string | null;
+    grade?: number | null;
+    feedback?: string | null;
+    graded_by?: number | null;
+    [key: string]: unknown;
+  };
 }
 
 export class ApiError extends Error {
