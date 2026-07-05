@@ -224,7 +224,8 @@ const ensembleModels: EnsembleModel[] = [
     implementationNotes: [
       '常见 Stacking 实现会用交叉验证预测训练元模型；时间序列数据不能随意打乱做普通K折。',
       '本系统按时间顺序划分 Level-0 和 Level-1：基础模型在前段训练，对后段预测，元模型再学习组合。',
-      '元模型使用非负线性回归且无截距，系数归一化为权重；样本不足或共线性严重时回退为 inverse-MAE 权重。'
+      '元模型使用非负线性回归且无截距，系数归一化为权重；样本不足或共线性严重时回退为 inverse-MAE 权重。',
+      '训练数据较少或基础模型较多时，Level-1 样本不足会触发 inverse-MAE 回退，此时 Stacking 实际退化为逆误差加权；计算结果页会明确提示是否发生了回退及原因。'
     ],
     mathematics: {
       description: '两层堆叠结构（Meta-Model采用非负线性权重）：',
