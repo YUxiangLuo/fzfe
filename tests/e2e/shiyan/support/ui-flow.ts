@@ -74,6 +74,52 @@ export async function clickLastEnabledButton(
   throw new Error(`Cannot find enabled button for: ${String(name)}`);
 }
 
+const GUIDED_TRAINING_ACTION_BUTTON =
+  /进入分阶段训练|校验数据|准备窗口|生成预测|估计残差|计算指标|保存结果|拟合模型|准备搜索|运行 AIC|运行 BIC|选择模型|解析数据|构造样本|构建网络|训练模型|划分数据|训练并预测|计算权重|生成评估预测|组合评估|划分层级|生成二层特征|拟合元模型|初始化残差|评估候选|重训模型链/;
+
+export async function completeGuidedTraining(
+  page: Page,
+  resultText: RegExp | string,
+  timeout = 180_000,
+) {
+  const resultLocator = page.getByText(resultText).first();
+  const deadline = Date.now() + timeout;
+
+  while (Date.now() < deadline) {
+    if (await resultLocator.isVisible().catch(() => false)) {
+      return;
+    }
+
+    const failure = page.getByText("当前阶段执行失败");
+    if (await failure.isVisible().catch(() => false)) {
+      const detail = await page
+        .locator(".rounded-lg.border.border-red-200")
+        .first()
+        .innerText()
+        .catch(() => "当前阶段执行失败");
+      throw new Error(`Guided training failed: ${detail}`);
+    }
+
+    const buttons = page.getByRole("button", { name: GUIDED_TRAINING_ACTION_BUTTON });
+    const count = await buttons.count();
+    let clicked = false;
+    for (let idx = count - 1; idx >= 0; idx -= 1) {
+      const candidate = buttons.nth(idx);
+      if ((await candidate.isVisible()) && (await candidate.isEnabled())) {
+        await candidate.click();
+        clicked = true;
+        break;
+      }
+    }
+
+    if (!clicked) {
+      await page.waitForTimeout(500);
+    }
+  }
+
+  throw new Error(`Timed out waiting for guided training result: ${String(resultText)}`);
+}
+
 function buildWhitespaceAgnosticRegex(text: string): RegExp {
   const compactChars = Array.from(text.replace(/\s+/g, ""));
   const escaped = compactChars.map((char) =>
@@ -326,9 +372,7 @@ export async function completeMovingAverage(page: Page) {
   await expect(page.getByText("时间窗口填写正确")).toBeVisible();
   await clickLastEnabledButton(page, "下一步");
 
-  await expect(page.getByText("移动平均法 - 计算结果")).toBeVisible({
-    timeout: 60_000,
-  });
+  await completeGuidedTraining(page, "移动平均法 - 计算结果", 120_000);
   await clickLastEnabledButton(page, "下一步");
 
   await expect(page.getByText("模型指标对比")).toBeVisible();
@@ -353,9 +397,7 @@ export async function completeExponentialSmoothing(page: Page) {
   await expect(page.getByText("平滑系数填写正确")).toBeVisible();
   await clickLastEnabledButton(page, "下一步");
 
-  await expect(page.getByText("指数平滑法 - 计算结果")).toBeVisible({
-    timeout: 60_000,
-  });
+  await completeGuidedTraining(page, "指数平滑法 - 计算结果", 120_000);
   await clickLastEnabledButton(page, "下一步");
 
   await expect(page.getByText("模型指标对比")).toBeVisible();
@@ -398,10 +440,8 @@ export async function completeARIMA(page: Page) {
   await expect(page.getByText("检验通过")).toBeVisible();
   await clickLastEnabledButton(page, "下一步");
 
-  // → auto-params (triggers training)
-  await expect(page.getByText(/ARIMA.*自动参数寻优|最佳模型/)).toBeVisible({
-    timeout: 120_000,
-  });
+  // → auto-params (guided training)
+  await completeGuidedTraining(page, /ARIMA 法 - 自动参数寻优计算|最佳模型/, 180_000);
   await clickLastEnabledButton(page, "下一步");
 
   // → results view
@@ -459,12 +499,8 @@ export async function completeLSTM(page: Page) {
 
   await clickLastEnabledButton(page, "下一步", 30_000);
 
-  // → results: wait for training to complete
-  await expect(
-    page.getByRole("heading", { name: "LSTM 法 - 计算结果" }),
-  ).toBeVisible({
-    timeout: 180_000,
-  });
+  // → results: drive guided training to completion
+  await completeGuidedTraining(page, "LSTM 法 - 计算结果", 240_000);
   await clickLastEnabledButton(page, "下一步", 120_000);
 
   // → comparison
@@ -513,9 +549,7 @@ export async function completeWeightedEnsemble(page: Page) {
   await clickLastEnabledButton(page, "下一步");
 
   await expectHashPath(page, "/model/weighted-ensemble/results");
-  await expect(page.getByText("加权平均融合 - 计算结果")).toBeVisible({
-    timeout: 180_000,
-  });
+  await completeGuidedTraining(page, "加权平均融合 - 计算结果", 240_000);
   await clickLastEnabledButton(page, "下一步");
 
   await expectHashPath(page, "/model/weighted-ensemble/prediction-comparison");
@@ -551,9 +585,7 @@ export async function completeWeightedEnsembleWithLSTM(page: Page) {
   await clickLastEnabledButton(page, "下一步");
 
   await expectHashPath(page, "/model/weighted-ensemble/results");
-  await expect(page.getByText("加权平均融合 - 计算结果")).toBeVisible({
-    timeout: 300_000,
-  });
+  await completeGuidedTraining(page, "加权平均融合 - 计算结果", 360_000);
   await clickLastEnabledButton(page, "下一步");
 
   await expectHashPath(page, "/model/weighted-ensemble/prediction-comparison");
@@ -589,9 +621,7 @@ export async function completeStackingEnsemble(page: Page) {
   await clickLastEnabledButton(page, "下一步");
 
   await expectHashPath(page, "/model/stacking-ensemble/results");
-  await expect(
-    page.getByText("Stacking 融合 - 计算结果"),
-  ).toBeVisible({ timeout: 180_000 });
+  await completeGuidedTraining(page, "Stacking 融合 - 计算结果", 240_000);
   await clickLastEnabledButton(page, "下一步");
 
   await expectHashPath(
@@ -619,9 +649,7 @@ export async function completeBoostingEnsemble(page: Page) {
   await clickLastEnabledButton(page, "下一步");
 
   await expectHashPath(page, "/model/boosting-ensemble/results");
-  await expect(
-    page.getByText("Boosting 融合 - 计算结果"),
-  ).toBeVisible({ timeout: 180_000 });
+  await completeGuidedTraining(page, "Boosting 融合 - 计算结果", 240_000);
   await clickLastEnabledButton(page, "下一步");
 
   await expectHashPath(

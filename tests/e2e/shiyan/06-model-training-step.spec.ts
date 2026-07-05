@@ -1,8 +1,10 @@
 import { test, expect } from "./fixtures";
+import type { Page } from "@playwright/test";
 import {
   prepareEnsembleReadyExperiment,
   prepareModelStageExperiment,
 } from "./support/model-training";
+import { completeGuidedTraining } from "./support/ui-flow";
 
 const advanceBaseModelIntroToSelection = async (
   clickEnabledButton: (name: string | RegExp, timeout?: number) => Promise<void>,
@@ -25,8 +27,153 @@ const expectJsonFeatureList = (value: unknown, expectedFeatures: string[]) => {
   expect(JSON.parse(value as string)).toEqual(expectedFeatures);
 };
 
-const trainingStreamResult = (data: unknown) =>
-  `${JSON.stringify({ type: "result", data })}\n`;
+type GuidedModelType = "ma" | "es" | "arima" | "lstm" | "weighted_avg" | "stacking" | "boosting";
+
+type GuidedTrainingResult = {
+  status: string;
+  message?: string;
+  results: Record<string, unknown>;
+  inferred_feature_types?: unknown;
+};
+
+type GuidedTrainingFailure = {
+  status?: number;
+  error: string;
+};
+
+type MockGuidedTrainingOptions = {
+  result: GuidedTrainingResult;
+  actionLabel?: string;
+  onCreate?: (body: Record<string, unknown>) => void;
+  beforeRun?: (attempt: number, requestBody: Record<string, unknown>) => Promise<void> | void;
+  failRun?: (
+    attempt: number,
+    requestBody: Record<string, unknown>,
+  ) => GuidedTrainingFailure | null | Promise<GuidedTrainingFailure | null>;
+};
+
+const createMockGuidedSession = (
+  modelType: GuidedModelType,
+  status: "ready" | "running" | "failed" | "completed",
+  result: GuidedTrainingResult | null,
+  errorMessage: string | null,
+  actionLabel = "校验数据",
+) => ({
+  session_id: `${modelType}-guided-e2e-session`,
+  experiment_id: 1,
+  model_type: modelType,
+  status,
+  current_step_id: status === "completed" ? null : "complete",
+  next_step_id: status === "completed" ? null : "complete",
+  steps: [
+    {
+      id: "complete",
+      label: "E2E 分阶段训练",
+      description: "执行端到端测试中的模拟训练阶段。",
+      actionLabel,
+      status:
+        status === "completed"
+          ? "completed"
+          : status === "failed"
+            ? "failed"
+            : "active",
+      output: status === "completed" ? { status: "success" } : {},
+    },
+  ],
+  step_outputs: {},
+  result,
+  error_message: errorMessage,
+});
+
+const mockGuidedTraining = async (
+  page: Page,
+  modelType: GuidedModelType,
+  options: MockGuidedTrainingOptions,
+) => {
+  let latestRequestBody: Record<string, unknown> = {};
+  let attempts = 0;
+
+  await page.route(`**/api/v1/models/${modelType}/guided-training/sessions`, async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+
+    latestRequestBody = route.request().postDataJSON() as Record<string, unknown>;
+    options.onCreate?.(latestRequestBody);
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: createMockGuidedSession(
+          modelType,
+          "ready",
+          null,
+          null,
+          options.actionLabel,
+        ),
+      }),
+    });
+  });
+
+  await page.route(`**/api/v1/models/${modelType}/guided-training/sessions/**/steps/**/run`, async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+
+    attempts += 1;
+    await options.beforeRun?.(attempts, latestRequestBody);
+    const failure = await options.failRun?.(attempts, latestRequestBody);
+    if (failure) {
+      await route.fulfill({
+        status: failure.status ?? 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: failure.error }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: createMockGuidedSession(
+          modelType,
+          "completed",
+          options.result,
+          null,
+          options.actionLabel,
+        ),
+      }),
+    });
+  });
+
+  return {
+    get attempts() {
+      return attempts;
+    },
+    get latestRequestBody() {
+      return latestRequestBody;
+    },
+  };
+};
+
+const runGuidedTrainingAttempt = async (page: Page) => {
+  const initializeButton = page.getByRole("button", { name: "进入分阶段训练" });
+  if (await initializeButton.isVisible().catch(() => false)) {
+    await expect(initializeButton).toBeEnabled();
+    await initializeButton.click();
+  }
+
+  const runButton = page.getByRole("button", {
+    name: /校验数据|准备窗口|生成预测|估计残差|计算指标|保存结果|拟合模型|准备搜索|运行 AIC|运行 BIC|选择模型|解析数据|构造样本|构建网络|训练模型|划分数据|训练并预测|计算权重|生成评估预测|组合评估|划分层级|生成二层特征|拟合元模型|初始化残差|评估候选|重训模型链/,
+  }).last();
+  await expect(runButton).toBeVisible({ timeout: 30_000 });
+  await expect(runButton).toBeEnabled();
+  await runButton.click();
+};
 
 test.describe("@shiyan model training step", () => {
   test("base-model selection requires at least two models before training can start", async ({
@@ -99,27 +246,20 @@ test.describe("@shiyan model training step", () => {
       releaseTraining = resolve;
     });
 
-    await page.route("**/api/v1/models/weighted_avg/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      await trainingGate;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: trainingStreamResult({
-          status: "success",
-          results: {
-            metrics: { rmse: 10.2, mae: 8.4, r2: 0.88 },
-            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
-            eval_predictions: [101, 109, 121, 128, 142, 149, 159, 171],
-            weights: [0.58, 0.42],
-            model_names: ["ma", "es"],
-          },
-        }),
-      });
+    await mockGuidedTraining(page, "weighted_avg", {
+      beforeRun: async () => {
+        await trainingGate;
+      },
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 10.2, mae: 8.4, r2: 0.88 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [101, 109, 121, 128, 142, 149, 159, 171],
+          weights: [0.58, 0.42],
+          model_names: ["ma", "es"],
+        },
+      },
     });
 
     await studentApp.open("/model/weighted-ensemble/select-models");
@@ -131,9 +271,8 @@ test.describe("@shiyan model training step", () => {
 
     await studentApp.expectHash("/model/weighted-ensemble/results");
     try {
-      await expect(page.getByTestId("training-progress-panel")).toBeVisible();
-      await expect(page.getByText("加权平均融合训练中")).toBeVisible();
-      await expect(page.getByText("可能需要几分钟")).toBeVisible();
+      await runGuidedTrainingAttempt(page);
+      await expect(page.getByRole("button", { name: "校验数据" })).toBeDisabled();
 
       const profileLink = page.getByRole("link", { name: "个人信息" });
       await expect(profileLink).toHaveAttribute("aria-disabled", "true");
@@ -162,23 +301,21 @@ test.describe("@shiyan model training step", () => {
       moving_average_window: 6,
     });
 
-    let attempts = 0;
-    await page.route("**/api/v1/models/ma/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      attempts += 1;
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "forced e2e persistent failure" }),
-      });
+    const guidedMock = await mockGuidedTraining(page, "ma", {
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 8.9, mae: 6.8, r2: 0.89 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [99, 111, 118, 131, 141, 149, 161, 168],
+        },
+      },
+      failRun: () => ({ error: "forced e2e persistent failure" }),
     });
 
     await studentApp.open("/model/moving-average/results");
     await studentApp.expectHash("/model/moving-average/results");
+    await runGuidedTrainingAttempt(page);
 
     const retryButton = page.getByRole("button", { name: "重试" });
     await expect(retryButton).toBeVisible();
@@ -188,7 +325,7 @@ test.describe("@shiyan model training step", () => {
     await expect(
       page.getByText("我们已经重试一次，但仍然无法成功计算。"),
     ).toBeVisible({ timeout: 30_000 });
-    expect(attempts).toBe(2);
+    expect(guidedMock.attempts).toBe(2);
 
     await page.getByRole("button", { name: "重新选择数据时段" }).click();
     await studentApp.expectHash("/model/window");
@@ -246,40 +383,24 @@ test.describe("@shiyan model training step", () => {
       moving_average_window: 6,
     });
 
-    let attempts = 0;
-    await page.route("**/api/v1/models/ma/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      attempts += 1;
-
-      if (attempts <= 3) {
-        await route.fulfill({
-          status: 429,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "模型服务繁忙，请稍后再试" }),
-        });
-        return;
-      }
-
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: trainingStreamResult({
-          status: "success",
-          results: {
-            metrics: { rmse: 7.4, mae: 5.6, r2: 0.91 },
-            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
-            eval_predictions: [101, 109, 121, 129, 141, 148, 162, 169],
-          },
-        }),
-      });
+    const guidedMock = await mockGuidedTraining(page, "ma", {
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 7.4, mae: 5.6, r2: 0.91 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [101, 109, 121, 129, 141, 148, 162, 169],
+        },
+      },
+      failRun: (attempt) =>
+        attempt <= 3
+          ? { status: 429, error: "模型服务繁忙，请稍后再试" }
+          : null,
     });
 
     await studentApp.open("/model/moving-average/results");
     await studentApp.expectHash("/model/moving-average/results");
+    await runGuidedTrainingAttempt(page);
 
     await expect(page.getByText(/模型服务当前繁忙/)).toBeVisible({
       timeout: 30_000,
@@ -304,7 +425,7 @@ test.describe("@shiyan model training step", () => {
       page.getByText("我们已经重试一次，但仍然无法成功计算。"),
     ).toHaveCount(0);
     await expect(page.getByRole("button", { name: "下一步" })).toBeEnabled();
-    expect(attempts).toBe(4);
+    expect(guidedMock.attempts).toBe(4);
   });
 
   test("moving-average allows parameter changes to clear stale errors and retry budget", async ({
@@ -316,41 +437,24 @@ test.describe("@shiyan model training step", () => {
       moving_average_window: 6,
     });
 
-    let attempts = 0;
-    await page.route("**/api/v1/models/ma/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      const body = route.request().postDataJSON() as Record<string, unknown>;
-      attempts += 1;
-
-      if (body.moving_average_window === 6) {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "forced ma failure for window 6" }),
-        });
-        return;
-      }
-
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: trainingStreamResult({
-          status: "success",
-          results: {
-            metrics: { rmse: 6.1, mae: 4.7, r2: 0.92 },
-            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
-            eval_predictions: [99, 111, 121, 129, 141, 149, 161, 168],
-          },
-        }),
-      });
+    const guidedMock = await mockGuidedTraining(page, "ma", {
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 6.1, mae: 4.7, r2: 0.92 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [99, 111, 121, 129, 141, 149, 161, 168],
+        },
+      },
+      failRun: (_attempt, body) =>
+        body.moving_average_window === 6
+          ? { error: "forced ma failure for window 6" }
+          : null,
     });
 
     await studentApp.open("/model/moving-average/results");
     await studentApp.expectHash("/model/moving-average/results");
+    await runGuidedTrainingAttempt(page);
     await expect(page.getByText("forced ma failure for window 6")).toBeVisible({
       timeout: 30_000,
     });
@@ -365,11 +469,9 @@ test.describe("@shiyan model training step", () => {
     await studentApp.clickEnabledButton("下一步");
     await studentApp.expectHash("/model/moving-average/results");
 
-    await expect(
-      page.getByRole("heading", { name: "移动平均法 - 计算结果" }),
-    ).toBeVisible({ timeout: 30_000 });
+    await completeGuidedTraining(page, "移动平均法 - 计算结果", 120_000);
     await expect(page.getByText("forced ma failure for window 6")).toHaveCount(0);
-    expect(attempts).toBe(2);
+    expect(guidedMock.attempts).toBe(2);
   });
 
   test("moving-average training persists parameter, metrics, and completion state", async ({
@@ -380,25 +482,18 @@ test.describe("@shiyan model training step", () => {
     await prepareModelStageExperiment(studentApi);
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/ma/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      capturedRequest = route.request().postDataJSON() as Record<string, unknown>;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: trainingStreamResult({
-          status: "success",
-          results: {
-            metrics: { rmse: 8.9, mae: 6.8, r2: 0.89 },
-            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
-            eval_predictions: [99, 111, 118, 131, 141, 149, 161, 168],
-          },
-        }),
-      });
+    await mockGuidedTraining(page, "ma", {
+      onCreate: (body) => {
+        capturedRequest = body;
+      },
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 8.9, mae: 6.8, r2: 0.89 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [99, 111, 118, 131, 141, 149, 161, 168],
+        },
+      },
     });
 
     await studentApp.open("/model/moving-average/params");
@@ -412,9 +507,7 @@ test.describe("@shiyan model training step", () => {
 
     await studentApp.clickEnabledButton("下一步");
     await studentApp.expectHash("/model/moving-average/results");
-    await expect(
-      page.getByRole("heading", { name: "移动平均法 - 计算结果" }),
-    ).toBeVisible({ timeout: 30_000 });
+    await completeGuidedTraining(page, "移动平均法 - 计算结果", 120_000);
 
     await page.getByRole("button", { name: "图表" }).click();
     await page.getByRole("button", { name: "表格" }).click();
@@ -490,25 +583,18 @@ test.describe("@shiyan model training step", () => {
     await prepareModelStageExperiment(studentApi);
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/es/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      capturedRequest = route.request().postDataJSON() as Record<string, unknown>;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: trainingStreamResult({
-          status: "success",
-          results: {
-            metrics: { rmse: 8.2, mae: 6.3, r2: 0.9 },
-            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
-            eval_predictions: [100, 109, 121, 132, 139, 151, 158, 172],
-          },
-        }),
-      });
+    await mockGuidedTraining(page, "es", {
+      onCreate: (body) => {
+        capturedRequest = body;
+      },
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 8.2, mae: 6.3, r2: 0.9 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [100, 109, 121, 132, 139, 151, 158, 172],
+        },
+      },
     });
 
     await studentApp.open("/model/exponential-smoothing/params");
@@ -522,9 +608,7 @@ test.describe("@shiyan model training step", () => {
 
     await studentApp.clickEnabledButton("下一步");
     await studentApp.expectHash("/model/exponential-smoothing/results");
-    await expect(
-      page.getByRole("heading", { name: "指数平滑法 - 计算结果" }),
-    ).toBeVisible({ timeout: 30_000 });
+    await completeGuidedTraining(page, "指数平滑法 - 计算结果", 120_000);
 
     await page.getByRole("button", { name: "图表" }).click();
     await page.getByRole("button", { name: "表格" }).click();
@@ -813,23 +897,23 @@ test.describe("@shiyan model training step", () => {
       ],
     });
 
-    let attempts = 0;
-    await page.route("**/api/v1/models/arima/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      attempts += 1;
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "forced arima training failure" }),
-      });
+    const guidedMock = await mockGuidedTraining(page, "arima", {
+      actionLabel: "准备搜索",
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 6.4, mae: 4.8, r2: 0.91 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [98, 111, 121, 129, 142, 151, 158, 171],
+          best_order: { p: 2, d: 1, q: 1 },
+        },
+      },
+      failRun: () => ({ error: "forced arima training failure" }),
     });
 
     await studentApp.open("/model/arima/autoparams");
     await studentApp.expectHash("/model/arima/autoparams");
+    await runGuidedTrainingAttempt(page);
 
     const retryButton = page.getByRole("button", { name: "重试" });
     await expect(retryButton).toBeVisible();
@@ -839,7 +923,7 @@ test.describe("@shiyan model training step", () => {
     await expect(
       page.getByText("我们已经重试一次，但仍然无法成功计算。"),
     ).toBeVisible({ timeout: 30_000 });
-    expect(attempts).toBe(2);
+    expect(guidedMock.attempts).toBe(2);
 
     await page.getByRole("button", { name: "重新选择数据时段" }).click();
     await studentApp.expectHash("/model/window");
@@ -890,26 +974,20 @@ test.describe("@shiyan model training step", () => {
       });
     });
 
-    await page.route("**/api/v1/models/arima/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      capturedRequest = route.request().postDataJSON() as Record<string, unknown>;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: trainingStreamResult({
-          status: "success",
-          results: {
-            metrics: { rmse: 6.4, mae: 4.8, r2: 0.91 },
-            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
-            eval_predictions: [98, 111, 121, 129, 142, 151, 158, 171],
-            best_order: { p: 2, d: 1, q: 1 },
-          },
-        }),
-      });
+    await mockGuidedTraining(page, "arima", {
+      actionLabel: "准备搜索",
+      onCreate: (body) => {
+        capturedRequest = body;
+      },
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 6.4, mae: 4.8, r2: 0.91 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [98, 111, 121, 129, 142, 151, 158, 171],
+          best_order: { p: 2, d: 1, q: 1 },
+        },
+      },
     });
 
     await studentApp.open("/model/arima/stationarity-table");
@@ -942,9 +1020,7 @@ test.describe("@shiyan model training step", () => {
 
     await studentApp.clickEnabledButton("下一步");
     await studentApp.expectHash("/model/arima/autoparams");
-    await expect(page.getByText("ARIMA 法 - 自动参数寻优计算")).toBeVisible({
-      timeout: 30_000,
-    });
+    await completeGuidedTraining(page, /ARIMA 法 - 自动参数寻优计算|最佳模型/, 180_000);
     await expect(page.getByText(/ARIMA\(2,\s*1,\s*1\)/)).toBeVisible();
 
     await page.getByRole("button", { name: "信息准则函数法" }).click();
@@ -988,25 +1064,19 @@ test.describe("@shiyan model training step", () => {
     await prepareModelStageExperiment(studentApi);
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/lstm/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      capturedRequest = route.request().postDataJSON() as Record<string, unknown>;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: trainingStreamResult({
-          status: "success",
-          results: {
-            metrics: { rmse: 7.6, mae: 5.4, r2: 0.93 },
-            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
-            eval_predictions: [102, 111, 119, 131, 141, 148, 161, 169],
-          },
-        }),
-      });
+    await mockGuidedTraining(page, "lstm", {
+      actionLabel: "解析数据",
+      onCreate: (body) => {
+        capturedRequest = body;
+      },
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 7.6, mae: 5.4, r2: 0.93 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [102, 111, 119, 131, 141, 148, 161, 169],
+        },
+      },
     });
 
     await studentApp.open("/model/lstm/preprocessing");
@@ -1034,9 +1104,7 @@ test.describe("@shiyan model training step", () => {
 
     await studentApp.clickEnabledButton("下一步");
     await studentApp.expectHash("/model/lstm/results");
-    await expect(page.getByText("LSTM 法 - 计算结果")).toBeVisible({
-      timeout: 30_000,
-    });
+    await completeGuidedTraining(page, "LSTM 法 - 计算结果", 240_000);
 
     await studentApp.clickEnabledButton("下一步");
     await studentApp.expectHash("/model/lstm/comparison");
@@ -1112,23 +1180,22 @@ test.describe("@shiyan model training step", () => {
       lstm_target_field: "销售数量",
     });
 
-    let attempts = 0;
-    await page.route("**/api/v1/models/lstm/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      attempts += 1;
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "forced lstm training failure" }),
-      });
+    const guidedMock = await mockGuidedTraining(page, "lstm", {
+      actionLabel: "解析数据",
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 7.6, mae: 5.4, r2: 0.93 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [102, 111, 119, 131, 141, 148, 161, 169],
+        },
+      },
+      failRun: () => ({ error: "forced lstm training failure" }),
     });
 
     await studentApp.open("/model/lstm/results");
     await studentApp.expectHash("/model/lstm/results");
+    await runGuidedTrainingAttempt(page);
 
     const retryButton = page.getByRole("button", { name: "重试" });
     await expect(retryButton).toBeVisible();
@@ -1138,7 +1205,7 @@ test.describe("@shiyan model training step", () => {
     await expect(
       page.getByText("我们已经重试一次，但仍然无法成功计算。"),
     ).toBeVisible({ timeout: 30_000 });
-    expect(attempts).toBe(2);
+    expect(guidedMock.attempts).toBe(2);
 
     await page.getByRole("button", { name: "重新选择数据时段" }).click();
     await studentApp.expectHash("/model/window");
@@ -1152,25 +1219,19 @@ test.describe("@shiyan model training step", () => {
     await prepareEnsembleReadyExperiment(studentApi);
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/boosting/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      capturedRequest = route.request().postDataJSON() as Record<string, unknown>;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: trainingStreamResult({
-          status: "success",
-          results: {
-            metrics: { rmse: 8.8, mae: 6.9, r2: 0.92 },
-            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
-            eval_predictions: [101, 109, 121, 128, 141, 149, 161, 169],
-          },
-        }),
-      });
+    await mockGuidedTraining(page, "boosting", {
+      actionLabel: "初始化残差",
+      onCreate: (body) => {
+        capturedRequest = body;
+      },
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 8.8, mae: 6.9, r2: 0.92 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [101, 109, 121, 128, 141, 149, 161, 169],
+        },
+      },
     });
 
     await studentApp.open("/model/boosting-ensemble/select-models");
@@ -1181,9 +1242,7 @@ test.describe("@shiyan model training step", () => {
     await studentApp.clickEnabledButton("下一步");
 
     await studentApp.expectHash("/model/boosting-ensemble/results");
-    await expect(
-      page.getByRole("heading", { name: "Boosting 融合 - 计算结果" }),
-    ).toBeVisible({ timeout: 30_000 });
+    await completeGuidedTraining(page, "Boosting 融合 - 计算结果", 240_000);
 
     await page.getByRole("button", { name: "图表" }).click();
     await page.getByRole("button", { name: "表格" }).click();
@@ -1220,29 +1279,23 @@ test.describe("@shiyan model training step", () => {
     await prepareEnsembleReadyExperiment(studentApi);
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/stacking/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      capturedRequest = route.request().postDataJSON() as Record<string, unknown>;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: trainingStreamResult({
-          status: "success",
-          results: {
-            metrics: { rmse: 8.1, mae: 6.1, r2: 0.94 },
-            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
-            eval_predictions: [100, 111, 120, 129, 142, 150, 162, 170],
-            meta_model: {
-              intercept: 0.75,
-              coefficients: [0.6, 0.4],
-            },
+    await mockGuidedTraining(page, "stacking", {
+      actionLabel: "划分层级",
+      onCreate: (body) => {
+        capturedRequest = body;
+      },
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 8.1, mae: 6.1, r2: 0.94 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [100, 111, 120, 129, 142, 150, 162, 170],
+          meta_model: {
+            intercept: 0.75,
+            coefficients: [0.6, 0.4],
           },
-        }),
-      });
+        },
+      },
     });
 
     await studentApp.open("/model/stacking-ensemble/select-models");
@@ -1253,9 +1306,7 @@ test.describe("@shiyan model training step", () => {
     await studentApp.clickEnabledButton("下一步");
 
     await studentApp.expectHash("/model/stacking-ensemble/results");
-    await expect(
-      page.getByRole("heading", { name: "Stacking 融合 - 计算结果" }),
-    ).toBeVisible({ timeout: 30_000 });
+    await completeGuidedTraining(page, "Stacking 融合 - 计算结果", 240_000);
 
     await page.getByRole("button", { name: "图表" }).click();
     await page.getByRole("button", { name: "表格" }).click();
@@ -1305,29 +1356,23 @@ test.describe("@shiyan model training step", () => {
     });
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/stacking/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      capturedRequest = route.request().postDataJSON() as Record<string, unknown>;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: trainingStreamResult({
-          status: "success",
-          results: {
-            metrics: { rmse: 6.9, mae: 5.2, r2: 0.95 },
-            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
-            eval_predictions: [99, 110, 121, 130, 141, 149, 161, 171],
-            meta_model: {
-              intercept: 0.5,
-              coefficients: [0.55, 0.45],
-            },
+    await mockGuidedTraining(page, "stacking", {
+      actionLabel: "划分层级",
+      onCreate: (body) => {
+        capturedRequest = body;
+      },
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 6.9, mae: 5.2, r2: 0.95 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [99, 110, 121, 130, 141, 149, 161, 171],
+          meta_model: {
+            intercept: 0.5,
+            coefficients: [0.55, 0.45],
           },
-        }),
-      });
+        },
+      },
     });
 
     await studentApp.open("/model/stacking-ensemble/select-models");
@@ -1338,9 +1383,7 @@ test.describe("@shiyan model training step", () => {
     await studentApp.clickEnabledButton("下一步");
 
     await studentApp.expectHash("/model/stacking-ensemble/results");
-    await expect(
-      page.getByRole("heading", { name: "Stacking 融合 - 计算结果" }),
-    ).toBeVisible({ timeout: 30_000 });
+    await completeGuidedTraining(page, "Stacking 融合 - 计算结果", 240_000);
 
     await studentApp.clickEnabledButton("下一步");
     await studentApp.expectHash("/model/stacking-ensemble/model-metrics-comparison");
@@ -1363,27 +1406,21 @@ test.describe("@shiyan model training step", () => {
     await prepareEnsembleReadyExperiment(studentApi);
 
     let capturedRequest: Record<string, unknown> | null = null;
-    await page.route("**/api/v1/models/weighted_avg/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      capturedRequest = route.request().postDataJSON() as Record<string, unknown>;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: trainingStreamResult({
-          status: "success",
-          results: {
-            metrics: { rmse: 9.1, mae: 7.2, r2: 0.9 },
-            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
-            eval_predictions: [99, 111, 121, 129, 141, 151, 159, 171],
-            weights: [0.58, 0.42],
-            model_names: ["ma", "es"],
-          },
-        }),
-      });
+    await mockGuidedTraining(page, "weighted_avg", {
+      actionLabel: "划分数据",
+      onCreate: (body) => {
+        capturedRequest = body;
+      },
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 9.1, mae: 7.2, r2: 0.9 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [99, 111, 121, 129, 141, 151, 159, 171],
+          weights: [0.58, 0.42],
+          model_names: ["ma", "es"],
+        },
+      },
     });
 
     await studentApp.open("/model/weighted-ensemble/select-models");
@@ -1400,9 +1437,7 @@ test.describe("@shiyan model training step", () => {
     await nextButton.click();
 
     await studentApp.expectHash("/model/weighted-ensemble/results");
-    await expect(page.getByText("加权平均融合 - 计算结果")).toBeVisible({
-      timeout: 30_000,
-    });
+    await completeGuidedTraining(page, "加权平均融合 - 计算结果", 240_000);
 
     await page.getByRole("button", { name: "表格" }).click();
     await expect(page.getByText("移动平均法")).toBeVisible();
@@ -1477,39 +1512,28 @@ test.describe("@shiyan model training step", () => {
     });
 
     const seenModelSets: string[] = [];
-    await page.route("**/api/v1/models/weighted_avg/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      const body = route.request().postDataJSON() as Record<string, unknown>;
-      const models = String(body.models ?? "");
-      seenModelSets.push(models);
-
-      if (models === "ma,es") {
-        await route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "forced weighted failure for ma,es" }),
-        });
-        return;
-      }
-
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: trainingStreamResult({
-          status: "success",
-          results: {
-            metrics: { rmse: 7.9, mae: 6.1, r2: 0.9 },
-            eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
-            eval_predictions: [100, 109, 121, 128, 142, 149, 160, 170],
-            weights: [0.62, 0.38],
-            model_names: ["ma", "arima"],
-          },
-        }),
-      });
+    await mockGuidedTraining(page, "weighted_avg", {
+      actionLabel: "划分数据",
+      onCreate: (body) => {
+        const models = String(body.models ?? "");
+        seenModelSets.push(models);
+      },
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 7.9, mae: 6.1, r2: 0.9 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [100, 109, 121, 128, 142, 149, 160, 170],
+          weights: [0.62, 0.38],
+          model_names: ["ma", "arima"],
+        },
+      },
+      failRun: (_attempt, body) => {
+        const models = String(body.models ?? "");
+        return models === "ma,es"
+          ? { error: "forced weighted failure for ma,es" }
+          : null;
+      },
     });
 
     await studentApp.open("/model/weighted-ensemble/select-models");
@@ -1519,6 +1543,7 @@ test.describe("@shiyan model training step", () => {
     await page.getByRole("checkbox", { name: "指数平滑法" }).check();
     await studentApp.clickEnabledButton("下一步");
     await studentApp.expectHash("/model/weighted-ensemble/results");
+    await runGuidedTrainingAttempt(page);
     await expect(page.getByText("forced weighted failure for ma,es")).toBeVisible({
       timeout: 30_000,
     });
@@ -1535,9 +1560,7 @@ test.describe("@shiyan model training step", () => {
     await nextButton.click();
 
     await studentApp.expectHash("/model/weighted-ensemble/results");
-    await expect(page.getByText("加权平均融合 - 计算结果")).toBeVisible({
-      timeout: 30_000,
-    });
+    await completeGuidedTraining(page, "加权平均融合 - 计算结果", 240_000);
     await page.getByRole("button", { name: "表格" }).click();
     await expect(page.getByText("移动平均法")).toBeVisible();
     await expect(page.getByText("ARIMA模型")).toBeVisible();
@@ -1551,19 +1574,17 @@ test.describe("@shiyan model training step", () => {
   }) => {
     await prepareEnsembleReadyExperiment(studentApi);
 
-    let attempts = 0;
-    await page.route("**/api/v1/models/boosting/training/stream", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      attempts += 1;
-      await route.fulfill({
-        status: 500,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "forced boosting training failure" }),
-      });
+    const guidedMock = await mockGuidedTraining(page, "boosting", {
+      actionLabel: "初始化残差",
+      result: {
+        status: "success",
+        results: {
+          metrics: { rmse: 8.8, mae: 6.9, r2: 0.92 },
+          eval_y_true: [100, 110, 120, 130, 140, 150, 160, 170],
+          eval_predictions: [101, 109, 121, 128, 141, 149, 161, 169],
+        },
+      },
+      failRun: () => ({ error: "forced boosting training failure" }),
     });
 
     await studentApp.open("/model/boosting-ensemble/select-models");
@@ -1572,6 +1593,7 @@ test.describe("@shiyan model training step", () => {
     await page.getByRole("checkbox", { name: "移动平均法" }).check();
     await page.getByRole("checkbox", { name: "指数平滑法" }).check();
     await studentApp.clickEnabledButton("下一步");
+    await runGuidedTrainingAttempt(page);
 
     const retryButton = page.getByRole("button", { name: "重试" });
     await expect(retryButton).toBeVisible({ timeout: 30_000 });
@@ -1581,7 +1603,7 @@ test.describe("@shiyan model training step", () => {
     await expect(
       page.getByText("我们已经重试一次，但仍然无法成功计算。"),
     ).toBeVisible({ timeout: 30_000 });
-    expect(attempts).toBe(2);
+    expect(guidedMock.attempts).toBe(2);
 
     await page.getByRole("button", { name: "重新选择产品" }).click();
     await studentApp.expectHash("/product");
