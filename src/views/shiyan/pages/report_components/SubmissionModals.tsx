@@ -118,6 +118,12 @@ const renderMarkdownPreview = (markdown: string): React.ReactNode[] => {
 
     const blockKey = `preview-block-${blocks.length}`;
 
+    if (trimmed === '<div class="report-appendix-break"></div>') {
+      blocks.push(<hr key={blockKey} className="my-8 border-gray-300 border-dashed" />);
+      index += 1;
+      continue;
+    }
+
     if (/^-{3,}$/.test(trimmed)) {
       blocks.push(<hr key={blockKey} className="my-6 border-gray-200" />);
       index += 1;

@@ -37,6 +37,18 @@ export interface ReportPlanSummary {
   totalPeriods: number;
 }
 
+interface SalesDataSummary {
+  totalCount: number;
+  validCount: number;
+  startMonth: string;
+  endMonth: string;
+  min: number | null;
+  max: number | null;
+  mean: number | null;
+  variance: number | null;
+  stdDev: number | null;
+}
+
 export interface ReportQuizAnswerDetail {
   question_id: number;
   quiz_type: "quiz_about_model" | "quiz_about_plan";
@@ -112,6 +124,11 @@ const stripHtmlTags = (text: string): string =>
 const formatSales = (value: number | null | undefined): string => {
   if (value == null) return "N/A";
   return value.toLocaleString();
+};
+
+const formatSalesStatistic = (value: number | null | undefined): string => {
+  if (value == null) return "N/A";
+  return value.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
 };
 
 const formatMetricValue = (value: number | null | undefined, precision: number = 4): string => {
@@ -196,6 +213,81 @@ ${results
 const getEnsembleParams = (baseModels: string[] | null | undefined): string => {
   if (!baseModels || baseModels.length === 0) return "N/A";
   return baseModels.map((key) => MODEL_DISPLAY_NAME_MAP[key] || key).join(", ");
+};
+
+const getValidSalesValues = (data: ProductSalesData["monthlySales"]): number[] =>
+  data
+    .map((item) => item.sales)
+    .filter((sales): sales is number => typeof sales === "number" && Number.isFinite(sales));
+
+const buildSalesDataSummary = (data: ProductSalesData["monthlySales"]): SalesDataSummary => {
+  const values = getValidSalesValues(data);
+  const totalCount = data.length;
+  const validCount = values.length;
+
+  if (validCount === 0) {
+    return {
+      totalCount,
+      validCount,
+      startMonth: data[0]?.month ?? "N/A",
+      endMonth: data[data.length - 1]?.month ?? "N/A",
+      min: null,
+      max: null,
+      mean: null,
+      variance: null,
+      stdDev: null,
+    };
+  }
+
+  const sum = values.reduce((total, value) => total + value, 0);
+  const mean = sum / validCount;
+  const variance = validCount > 1
+    ? values.reduce((total, value) => total + ((value - mean) ** 2), 0) / (validCount - 1)
+    : 0;
+
+  return {
+    totalCount,
+    validCount,
+    startMonth: data[0]?.month ?? "N/A",
+    endMonth: data[data.length - 1]?.month ?? "N/A",
+    min: Math.min(...values),
+    max: Math.max(...values),
+    mean,
+    variance,
+    stdDev: Math.sqrt(variance),
+  };
+};
+
+const buildSalesSummaryRow = (
+  label: string,
+  data: ProductSalesData["monthlySales"],
+): string => {
+  const summary = buildSalesDataSummary(data);
+  return `| ${label} | ${summary.totalCount} | ${summary.validCount} | ${summary.startMonth} 至 ${summary.endMonth} | ${formatSalesStatistic(summary.min)} | ${formatSalesStatistic(summary.max)} | ${formatSalesStatistic(summary.mean)} | ${formatSalesStatistic(summary.variance)} | ${formatSalesStatistic(summary.stdDev)} |`;
+};
+
+const buildSalesSampleTable = (data: ProductSalesData["monthlySales"]): string => {
+  if (data.length === 0) return "暂无数据";
+
+  const sampleRows = data.length > 10
+    ? [
+      ...data.slice(0, 5).map((item) => `| ${item.month} | ${formatSales(item.sales)} |`),
+      `| ... | 已省略 ${data.length - 10} 条，完整明细见附录 |`,
+      ...data.slice(-5).map((item) => `| ${item.month} | ${formatSales(item.sales)} |`),
+    ]
+    : data.map((item) => `| ${item.month} | ${formatSales(item.sales)} |`);
+
+  return `| 月份 | 销量 |
+|---|---|
+${sampleRows.join("\n")}`;
+};
+
+const buildFullSalesTable = (data: ProductSalesData["monthlySales"]): string => {
+  if (data.length === 0) return "暂无数据";
+
+  return `| 月份 | 销量 |
+|---|---|
+${data.map((item) => `| ${item.month} | ${formatSales(item.sales)} |`).join("\n")}`;
 };
 
 const buildPlanSummary = (table: MPSTableRow[]): ReportPlanSummary | null => {
@@ -411,6 +503,11 @@ ${state.production_mps_table
 
 ${buildQuizResultSection("生产计划知识测验", quizResults?.plan)}`;
 
+  const salesSummarySection = `| 数据集 | 总条数 | 有效销量 | 起止月份 | 最小销量 | 最大销量 | 平均销量 | 样本方差 | 样本标准差 |
+|------|------|------|------|------|------|------|------|------|
+${buildSalesSummaryRow("训练集", viewModel.trainingData)}
+${buildSalesSummaryRow("评估集", viewModel.evaluationData)}`;
+
   return `# ${userInfo?.full_name || "学生"}的实验报告
 
 ## 报告信息
@@ -434,15 +531,14 @@ ${buildQuizResultSection("生产计划知识测验", quizResults?.plan)}`;
 
 ### 1.2 数据预处理
 
-#### 训练集 (${viewModel.trainingData.length}条)
-| 月份 | 销量 |
-|---|---|
-${viewModel.trainingData.map((item) => `| ${item.month} | ${formatSales(item.sales)} |`).join("\n")}
+#### 数据窗口统计摘要
+${salesSummarySection}
 
-#### 评估集 (${viewModel.evaluationData.length}条)
-| 月份 | 销量 |
-|---|---|
-${viewModel.evaluationData.map((item) => `| ${item.month} | ${formatSales(item.sales)} |`).join("\n")}
+#### 训练集样例 (${viewModel.trainingData.length}条)
+${buildSalesSampleTable(viewModel.trainingData)}
+
+#### 评估集样例 (${viewModel.evaluationData.length}条)
+${buildSalesSampleTable(viewModel.evaluationData)}
 
 ### 1.3 分析
 ${stripHtmlTags(analyses.data)}
@@ -509,5 +605,15 @@ ${stripHtmlTags(analyses.decision)}
 
 ## 六、知识测验答题记录
 
-${quizResultsSection}`;
+${quizResultsSection}
+
+<div class="report-appendix-break"></div>
+
+## 附录：原始销量明细
+
+### A.1 训练集完整明细 (${viewModel.trainingData.length}条)
+${buildFullSalesTable(viewModel.trainingData)}
+
+### A.2 评估集完整明细 (${viewModel.evaluationData.length}条)
+${buildFullSalesTable(viewModel.evaluationData)}`;
 };

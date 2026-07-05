@@ -23,6 +23,35 @@ describe("ReportPreviewModal", () => {
     expect(view.getByRole("cell", { name: "1.2345" })).not.toBeNull();
   });
 
+  it("hides the appendix page-break marker while rendering appendix content", () => {
+    const view = render(
+      <ReportPreviewModal
+        markdown={`## 六、知识测验答题记录
+
+暂无答题记录
+
+<div class="report-appendix-break"></div>
+
+## 附录：原始销量明细
+
+### A.1 训练集完整明细
+| 月份 | 销量 |
+|---|---|
+| 2024-01 | 100 |`}
+        isSubmitting={false}
+        submitError={null}
+        onClose={mock(() => {})}
+        onConfirm={mock(() => {})}
+      />,
+    );
+
+    expect(view.queryByText(/report-appendix-break/)).toBeNull();
+    expect(view.getByRole("heading", { name: "附录：原始销量明细" })).not.toBeNull();
+    expect(view.getByRole("heading", { name: "A.1 训练集完整明细" })).not.toBeNull();
+    expect(view.getByRole("cell", { name: "2024-01" })).not.toBeNull();
+    expect(view.getByRole("cell", { name: "100" })).not.toBeNull();
+  });
+
   it("keeps escaped table pipes inside quiz detail cells and wraps long columns", () => {
     const view = render(
       <ReportPreviewModal

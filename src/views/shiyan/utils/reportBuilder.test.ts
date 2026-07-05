@@ -22,6 +22,16 @@ const productSalesData: ProductSalesData = {
   ],
 };
 
+const createMonthlySales = (count: number): ProductSalesData["monthlySales"] =>
+  Array.from({ length: count }, (_, index) => {
+    const year = 2022 + Math.floor(index / 12);
+    const month = (index % 12) + 1;
+    return {
+      month: `${year}-${String(month).padStart(2, "0")}`,
+      sales: index + 1,
+    };
+  });
+
 describe("reportBuilder", () => {
   it("builds a report view model from selected ranges and completed models", () => {
     const state = {
@@ -243,5 +253,77 @@ describe("reportBuilder", () => {
     expect(markdown).toContain("**选定模型**: N/A");
     expect(markdown).toContain("**📝 说明：生产计划数据未保存**");
     expect(markdown).toContain("**📝 说明：无汇总数据**");
+  });
+
+  it("summarizes large sales windows in the body and keeps complete details in the appendix", () => {
+    const largeSalesData: ProductSalesData = {
+      ...productSalesData,
+      monthlySales: createMonthlySales(42),
+    };
+    const state = {
+      ...buildInitialState(),
+      data_window_train_start_index: 0,
+      data_window_train_end_index: 29,
+      data_window_evaluate_start_index: 30,
+      data_window_evaluate_end_index: 41,
+    };
+
+    const markdown = buildExperimentReportMarkdown({
+      state,
+      userInfo: null,
+      analyses: {
+        data: "data",
+        comparison: "",
+        selection: "",
+        params: "",
+        decision: "",
+      },
+      viewModel: buildReportViewModel(state, largeSalesData),
+    });
+
+    const [body, appendix] = markdown.split("## 附录：原始销量明细");
+
+    expect(body).toContain("#### 数据窗口统计摘要");
+    expect(body).toContain("| 数据集 | 总条数 | 有效销量 | 起止月份 | 最小销量 | 最大销量 | 平均销量 | 样本方差 | 样本标准差 |");
+    expect(body).toContain("| 训练集 | 30 | 30 | 2022-01 至 2024-06 | 1 | 30 | 15.5 | 77.5 | 8.8 |");
+    expect(body).toContain("| 评估集 | 12 | 12 | 2024-07 至 2025-06 | 31 | 42 | 36.5 | 13 | 3.61 |");
+    expect(body).toContain("| ... | 已省略 20 条，完整明细见附录 |");
+    expect(body).toContain("| ... | 已省略 2 条，完整明细见附录 |");
+    expect(body).not.toContain("| 2022-10 | 10 |");
+    expect(body).not.toContain("| 2025-01 | 37 |");
+
+    expect(markdown).toContain('<div class="report-appendix-break"></div>');
+    expect(appendix).toContain("### A.1 训练集完整明细 (30条)");
+    expect(appendix).toContain("### A.2 评估集完整明细 (12条)");
+    expect(appendix).toContain("| 2022-10 | 10 |");
+    expect(appendix).toContain("| 2025-01 | 37 |");
+    expect(appendix).toContain("| 2025-06 | 42 |");
+  });
+
+  it("reports zero sample variance for a one-point sales window", () => {
+    const singlePointData: ProductSalesData = {
+      ...productSalesData,
+      monthlySales: [{ month: "2024-01", sales: 100 }],
+    };
+    const state = {
+      ...buildInitialState(),
+      data_window_train_start_index: 0,
+      data_window_train_end_index: 0,
+    };
+
+    const markdown = buildExperimentReportMarkdown({
+      state,
+      userInfo: null,
+      analyses: {
+        data: "",
+        comparison: "",
+        selection: "",
+        params: "",
+        decision: "",
+      },
+      viewModel: buildReportViewModel(state, singlePointData),
+    });
+
+    expect(markdown).toContain("| 训练集 | 1 | 1 | 2024-01 至 2024-01 | 100 | 100 | 100 | 0 | 0 |");
   });
 });
