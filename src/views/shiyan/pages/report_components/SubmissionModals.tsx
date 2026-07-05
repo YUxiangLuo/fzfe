@@ -1,20 +1,50 @@
 import React from 'react';
 import { CheckCircle, AlertTriangle, Loader2, X } from 'lucide-react';
 
-const splitMarkdownTableRow = (line: string): string[] =>
-  line
-    .trim()
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split('|')
-    .map((cell) => cell.trim());
+const isEscapedCharacter = (text: string, index: number): boolean => {
+  let slashCount = 0;
+  for (let cursor = index - 1; cursor >= 0 && text[cursor] === '\\'; cursor -= 1) {
+    slashCount += 1;
+  }
+  return slashCount % 2 === 1;
+};
+
+const trimOuterTablePipes = (line: string): string => {
+  let trimmed = line.trim();
+  if (trimmed.startsWith('|')) {
+    trimmed = trimmed.slice(1);
+  }
+  if (trimmed.endsWith('|') && !isEscapedCharacter(trimmed, trimmed.length - 1)) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  return trimmed;
+};
+
+const splitMarkdownTableRow = (line: string): string[] => {
+  const cells: string[] = [];
+  let currentCell = '';
+  const row = trimOuterTablePipes(line);
+
+  for (let index = 0; index < row.length; index += 1) {
+    const character = row[index];
+    if (character === '|' && !isEscapedCharacter(row, index)) {
+      cells.push(currentCell.trim().replace(/\\\|/g, '|'));
+      currentCell = '';
+      continue;
+    }
+    currentCell += character;
+  }
+
+  cells.push(currentCell.trim().replace(/\\\|/g, '|'));
+  return cells;
+};
 
 const isMarkdownTableSeparator = (line: string): boolean => {
   const cells = splitMarkdownTableRow(line);
   return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, '')));
 };
 
-const renderInlineMarkdown = (text: string, keyPrefix: string): React.ReactNode[] => {
+const renderBoldMarkdown = (text: string, keyPrefix: string): React.ReactNode[] => {
   const parts = text.split(/(\*\*[^*]+\*\*)/g).filter((part) => part.length > 0);
   return parts.map((part, index) => {
     const key = `${keyPrefix}-${index}`;
@@ -23,6 +53,14 @@ const renderInlineMarkdown = (text: string, keyPrefix: string): React.ReactNode[
     }
     return <React.Fragment key={key}>{part}</React.Fragment>;
   });
+};
+
+const renderInlineMarkdown = (text: string, keyPrefix: string): React.ReactNode[] => {
+  const lines = text.split(/<br\s*\/?>/i);
+  return lines.flatMap((line, lineIndex) => [
+    ...(lineIndex > 0 ? [<br key={`${keyPrefix}-br-${lineIndex}`} />] : []),
+    ...renderBoldMarkdown(line, `${keyPrefix}-line-${lineIndex}`),
+  ]);
 };
 
 const renderHeading = (level: number, content: React.ReactNode[], key: string) => {
@@ -36,6 +74,32 @@ const renderHeading = (level: number, content: React.ReactNode[], key: string) =
     default:
       return <h4 key={key} className="text-lg font-semibold text-gray-800 mt-4 mb-2">{content}</h4>;
   }
+};
+
+const getTableCellClassName = (
+  headers: string[],
+  cellIndex: number,
+  isHeader: boolean,
+): string => {
+  const header = headers[cellIndex] ?? '';
+  const baseClass = isHeader
+    ? 'px-3 py-2 align-top text-left font-semibold text-gray-700'
+    : 'px-3 py-2 align-top text-gray-700';
+  const compactColumns = new Set(['序号', '题型', '结果']);
+
+  if (compactColumns.has(header)) {
+    return `${baseClass} w-16 whitespace-nowrap`;
+  }
+
+  if (header === '题目') {
+    return `${baseClass} min-w-[18rem] max-w-md whitespace-normal break-words leading-6`;
+  }
+
+  if (header === '学生答案' || header === '正确答案') {
+    return `${baseClass} min-w-[12rem] max-w-sm whitespace-normal break-words leading-6`;
+  }
+
+  return `${baseClass} whitespace-normal break-words`;
 };
 
 const renderMarkdownPreview = (markdown: string): React.ReactNode[] => {
@@ -90,7 +154,10 @@ const renderMarkdownPreview = (markdown: string): React.ReactNode[] => {
               <thead className="bg-gray-100">
                 <tr>
                   {header.map((cell, cellIndex) => (
-                    <th key={`${blockKey}-head-${cellIndex}`} className="px-3 py-2 text-left font-semibold text-gray-700 whitespace-nowrap">
+                    <th
+                      key={`${blockKey}-head-${cellIndex}`}
+                      className={getTableCellClassName(header, cellIndex, true)}
+                    >
                       {renderInlineMarkdown(cell, `${blockKey}-head-${cellIndex}`)}
                     </th>
                   ))}
@@ -100,7 +167,10 @@ const renderMarkdownPreview = (markdown: string): React.ReactNode[] => {
                 {bodyRows.map((row, rowIndex) => (
                   <tr key={`${blockKey}-row-${rowIndex}`}>
                     {row.map((cell, cellIndex) => (
-                      <td key={`${blockKey}-cell-${rowIndex}-${cellIndex}`} className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                      <td
+                        key={`${blockKey}-cell-${rowIndex}-${cellIndex}`}
+                        className={getTableCellClassName(header, cellIndex, false)}
+                      >
                         {renderInlineMarkdown(cell, `${blockKey}-cell-${rowIndex}-${cellIndex}`)}
                       </td>
                     ))}

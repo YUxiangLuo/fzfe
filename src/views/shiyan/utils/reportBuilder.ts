@@ -37,6 +37,23 @@ export interface ReportPlanSummary {
   totalPeriods: number;
 }
 
+export interface ReportQuizAnswerDetail {
+  question_id: number;
+  quiz_type: "quiz_about_model" | "quiz_about_plan";
+  knowledge_point: string | null;
+  question_type: "Single Choice" | "Multiple Choice" | "True/False";
+  question_text: string;
+  options: Record<string, string> | string[] | null;
+  submitted_answer: string[];
+  correct_answers: string[];
+  is_correct: boolean;
+}
+
+export interface ReportQuizResults {
+  model: ReportQuizAnswerDetail[];
+  plan: ReportQuizAnswerDetail[];
+}
+
 export interface ReportViewModel {
   trainingData: ProductSalesData["monthlySales"];
   evaluationData: ProductSalesData["monthlySales"];
@@ -50,6 +67,7 @@ interface BuildExperimentReportMarkdownInput {
   userInfo: ReportUserSummary | null;
   analyses: ReportAnalysisValues;
   viewModel: ReportViewModel;
+  quizResults?: ReportQuizResults;
 }
 
 const MODEL_LABELS: Record<SelectedBestModel, string> = {
@@ -89,6 +107,75 @@ const formatDate = (dateString: string | null): string => {
   return dateString
     ? new Date(dateString).toLocaleString("zh-CN", { hour12: false })
     : "未知";
+};
+
+const formatQuestionType = (type: ReportQuizAnswerDetail["question_type"]): string => {
+  switch (type) {
+    case "Single Choice":
+      return "单选题";
+    case "Multiple Choice":
+      return "多选题";
+    case "True/False":
+      return "判断题";
+    default:
+      return type;
+  }
+};
+
+const escapeMarkdownTableCell = (value: string): string =>
+  value
+    .replace(/\r?\n/g, "<br>")
+    .replace(/\|/g, "\\|");
+
+const formatQuizAnswerValue = (
+  value: string,
+  options: ReportQuizAnswerDetail["options"],
+): string => {
+  if (!options) return value;
+  if (Array.isArray(options)) return value;
+  if (Object.prototype.hasOwnProperty.call(options, value)) {
+    return `${value}. ${options[value]}`;
+  }
+
+  const matchingOption = Object.entries(options).find(([, text]) => text === value);
+  return matchingOption ? `${matchingOption[0]}. ${matchingOption[1]}` : value;
+};
+
+const formatQuizAnswerList = (
+  answers: string[],
+  options: ReportQuizAnswerDetail["options"],
+): string => {
+  if (answers.length === 0) return "未作答";
+  return answers.map((answer) => formatQuizAnswerValue(answer, options)).join("、");
+};
+
+const buildQuizResultSection = (
+  title: string,
+  results: ReportQuizAnswerDetail[] | undefined,
+): string => {
+  if (!results || results.length === 0) {
+    return `### ${title}
+
+暂无答题记录`;
+  }
+
+  const correctCount = results.filter((result) => result.is_correct).length;
+  const score = ((correctCount / results.length) * 100).toFixed(2);
+
+  return `### ${title}
+
+- **正确题数**: ${correctCount} / ${results.length}
+- **测验得分**: ${score} 分
+
+| 序号 | 题目 | 题型 | 学生答案 | 正确答案 | 结果 |
+|------|------|------|----------|----------|------|
+${results
+  .map((result, index) => {
+    const submittedAnswer = formatQuizAnswerList(result.submitted_answer, result.options);
+    const correctAnswer = formatQuizAnswerList(result.correct_answers, result.options);
+    return `| ${index + 1} | ${escapeMarkdownTableCell(result.question_text)} | ${formatQuestionType(result.question_type)} | ${escapeMarkdownTableCell(submittedAnswer)} | ${escapeMarkdownTableCell(correctAnswer)} | ${result.is_correct ? "正确" : "错误"} |`;
+  })
+  .join("\n")}`;
 };
 
 const getEnsembleParams = (baseModels: string[] | null | undefined): string => {
@@ -260,6 +347,7 @@ export const buildExperimentReportMarkdown = ({
   userInfo,
   analyses,
   viewModel,
+  quizResults,
 }: BuildExperimentReportMarkdownInput): string => {
   const currentDate = new Date().toLocaleString("zh-CN", { hour12: false });
   const [period1, period2] = state.production_mps_table;
@@ -303,6 +391,10 @@ ${state.production_mps_table
 | 平均期末库存 | ${Math.round(viewModel.planSummary.avgInventory).toLocaleString()} 件 |
 | 缺货周期数 | ${viewModel.planSummary.periodsWithStockout} / ${viewModel.planSummary.totalPeriods} |`
     : "**📝 说明：无汇总数据**";
+
+  const quizResultsSection = `${buildQuizResultSection("预测模型知识测验", quizResults?.model)}
+
+${buildQuizResultSection("生产计划知识测验", quizResults?.plan)}`;
 
   return `# ${userInfo?.full_name || "学生"}的实验报告
 
@@ -395,5 +487,11 @@ ${mpsTableSection}
 ${planSummarySection}
 
 ### 5.3 分析
-${stripHtmlTags(analyses.decision)}`;
+${stripHtmlTags(analyses.decision)}
+
+---
+
+## 六、知识测验答题记录
+
+${quizResultsSection}`;
 };
