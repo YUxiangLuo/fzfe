@@ -1,8 +1,18 @@
 /// <reference types="bun-types" />
 
 import { describe, expect, it } from "bun:test";
+import { renderHook } from "@testing-library/react";
+import { createElement } from "react";
+import type { ReactNode } from "react";
 import { buildInitialState } from "../../store/experiment/initialState";
-import { buildInitialProductionPlanState } from "./ProductionPlanContextV2";
+import {
+  ProductionPlanProvider,
+  buildInitialProductionPlanState,
+  useProductionPlan,
+} from "./ProductionPlanContextV2";
+
+const wrapper = ({ children }: { children: ReactNode }) =>
+  createElement(ProductionPlanProvider, { avgDemand: 100, children });
 
 describe("buildInitialProductionPlanState", () => {
   it("hydrates persisted production forecasts and MPS data", () => {
@@ -85,7 +95,7 @@ describe("buildInitialProductionPlanState", () => {
     expect(state.predictions).toBeNull();
     expect(state.fullMPSTable).toEqual([]);
     expect(state.isFullPlanGenerated).toBe(false);
-    expect(state.productionCapacity).toBe(130);
+    expect(state.productionCapacity).toBeNull();
     expect(state.hasSavedToGlobal).toBe(false);
   });
 
@@ -103,5 +113,14 @@ describe("buildInitialProductionPlanState", () => {
     expect(state.capacityMode).toBe("scenario");
     expect(state.productionCapacity).toBe(180);
     expect(state.customCapacity).toBeNull();
+  });
+
+  it("requires a capacity scenario before generating a full MPS", () => {
+    const { result } = renderHook(() => useProductionPlan(), { wrapper });
+
+    expect(() => result.current.generateFullMPS([
+      { prediction: 100, std_dev: 10 },
+      { prediction: 120, std_dev: 10 },
+    ])).toThrow("请先选择月产能模式");
   });
 });

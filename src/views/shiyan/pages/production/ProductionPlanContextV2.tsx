@@ -59,7 +59,7 @@ export interface ProductionPlanState {
   // 产能参数
   capacityMode: CapacityMode;
   capacityScenario: CapacityScenario;   // 用户选择的产能场景：tight | normal | abundant
-  productionCapacity: number;           // 实际产能值（每期最多能生产多少件，MPS计算的核心约束）
+  productionCapacity: number | null;    // 实际产能值（每期最多能生产多少件，MPS计算的核心约束）
   customCapacity: number | null;
 
   // 初始估算值（基于历史数据的平均值，用于默认显示和fallback计算）
@@ -107,9 +107,9 @@ interface ProductionPlanContextValue {
   updateCapacity: (params: {
     mode?: CapacityMode;
     scenario?: CapacityScenario;
-    calculatedValue?: number;
-    customValue?: number;
-    capacity?: number;
+    calculatedValue?: number | null;
+    customValue?: number | null;
+    capacity?: number | null;
   }) => void;
 
   // 第1期数据填充（一次性填充完整数据，用于显示参考）
@@ -201,9 +201,6 @@ export const buildInitialProductionPlanState = ({
   // 使用真实的平均需求（基于历史数据）或默认值
   const defaultAvgDemand = avgDemand ?? 1050;
 
-  // 计算默认月产能上限（基于真实需求，使用 normal 场景的倍数 1.3）
-  const defaultCapacity = Math.round(defaultAvgDemand * 1.3);
-
   const persistedPredictions = Array.isArray(persistedState?.production_forecast_results)
     ? persistedState.production_forecast_results.filter(isPredictionPoint)
     : null;
@@ -220,9 +217,9 @@ export const buildInitialProductionPlanState = ({
   const productionCapacity = capacityMode === 'custom'
     ? (persistedState?.production_custom_capacity
         ?? persistedState?.production_capacity
-        ?? defaultCapacity)
+        ?? null)
     : (persistedState?.production_capacity
-        ?? defaultCapacity);
+        ?? null);
   const forecastPeriods = persistedState?.production_forecast_periods
     ?? (hasPersistedPlan ? persistedMpsTable.length : DEFAULT_PARAMETERS.forecastPeriods);
 
@@ -329,9 +326,9 @@ export const ProductionPlanProvider: React.FC<{
   const updateCapacity = (params: {
     mode?: CapacityMode;
     scenario?: CapacityScenario;
-    calculatedValue?: number;
-    customValue?: number;
-    capacity?: number;
+    calculatedValue?: number | null;
+    customValue?: number | null;
+    capacity?: number | null;
   }) => {
     setState((prev) => {
       const nextMode = params.mode ?? prev.capacityMode;
@@ -341,7 +338,8 @@ export const ProductionPlanProvider: React.FC<{
         params.calculatedValue ??
         params.capacity ??
         params.customValue ??
-        prev.productionCapacity;
+        prev.productionCapacity ??
+        null;
 
       const shouldUseCustom = nextMode === 'custom';
       const nextCustom = shouldUseCustom
@@ -352,7 +350,7 @@ export const ProductionPlanProvider: React.FC<{
           resolvedValue
         : null;
 
-      let productionCapacity = resolvedValue;
+      let productionCapacity: number | null = resolvedValue;
       let customCapacity: number | null = null;
       if (shouldUseCustom) {
         customCapacity = nextCustom ?? resolvedValue;
@@ -410,6 +408,9 @@ export const ProductionPlanProvider: React.FC<{
   const generateFullMPS = (predictions: Array<{ prediction: number; std_dev: number }>) => {
     if (predictions.length < 2) {
       throw new Error('预测数据不足，至少需要2期数据');
+    }
+    if (state.productionCapacity == null) {
+      throw new Error('请先选择月产能模式');
     }
 
     // Period1 是标准化基准期，安全库存固定为 0，因此不校验 safetyStock
@@ -579,6 +580,9 @@ export const ProductionPlanProvider: React.FC<{
       // 转换MPS表格数据类型
       const globalMPSTable = convertToGlobalMPSTable(mpsTableToSave);
       const predictionsToSave = predictionsOverride ?? currentState.predictions;
+      if (currentState.productionCapacity == null) {
+        throw new Error('请先选择月产能模式');
+      }
 
       await updateStateFunc({
         production_plan_completed: true,

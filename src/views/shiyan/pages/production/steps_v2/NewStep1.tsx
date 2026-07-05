@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { Factory, ArrowRight, Info, Loader2, TrendingUp } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Factory, Gauge, Info, Loader2, Scale, ShieldAlert, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
-import { MPS_CALCULATION, SERVICE_LEVELS, CAPACITY_CONFIG } from '../config/mpsConstants';
+import { MPS_CALCULATION, SERVICE_LEVELS } from '../config/mpsConstants';
 import { validatePredictions } from '../utils/predictionValidator';
 import { predictWithBestModel } from '../../../services/modelLifecycle';
 import { useToast } from '../../../shared/hooks/useToast';
 import { Toast } from '../../../shared/components/common/Toast';
 import ProductionForecastAssumptionNote from '../components/ProductionForecastAssumptionNote';
+import {
+  calculateCapacityScenarioOptions,
+  type CapacityScenarioOption,
+} from '../utils/productionCapacityHelper';
 
 // 固定预测期数为6期（不在UI显示）
 const FIXED_FORECAST_PERIODS = 6;
@@ -23,15 +27,37 @@ const MODEL_NAME_MAP: Record<string, string> = {
   'ensemble_stacking': 'Stacking集成',
 };
 
-const calculateForecastAverageDemand = (predictions: Array<{ prediction: number }>): number | null => {
-  const validDemands = predictions
-    .map((item) => Math.max(0, Math.round(item.prediction)))
-    .filter((value) => Number.isFinite(value));
-
-  if (validDemands.length === 0) return null;
-
-  const total = validDemands.reduce((sum, demand) => sum + demand, 0);
-  return Math.round(total / validDemands.length);
+const CAPACITY_CARD_CLASSES = {
+  tight: {
+    border: 'border-red-200',
+    selectedBorder: 'border-red-500 ring-2 ring-red-200',
+    bg: 'bg-red-50',
+    title: 'text-red-900',
+    text: 'text-red-800',
+    badge: 'bg-red-100 text-red-700',
+    button: 'bg-red-600 hover:bg-red-700',
+    Icon: ShieldAlert,
+  },
+  normal: {
+    border: 'border-blue-200',
+    selectedBorder: 'border-blue-500 ring-2 ring-blue-200',
+    bg: 'bg-blue-50',
+    title: 'text-blue-900',
+    text: 'text-blue-800',
+    badge: 'bg-blue-100 text-blue-700',
+    button: 'bg-blue-600 hover:bg-blue-700',
+    Icon: Scale,
+  },
+  abundant: {
+    border: 'border-green-200',
+    selectedBorder: 'border-green-500 ring-2 ring-green-200',
+    bg: 'bg-green-50',
+    title: 'text-green-900',
+    text: 'text-green-800',
+    badge: 'bg-green-100 text-green-700',
+    button: 'bg-green-600 hover:bg-green-700',
+    Icon: Gauge,
+  },
 };
 
 /**
@@ -53,19 +79,21 @@ const NewStep1: React.FC = () => {
     safetyStock: number;
   } | null>(null);
 
-  const avgDemand = state.avgDemand;
-  const defaultCapacityMultiplier = CAPACITY_CONFIG.SCENARIOS.NORMAL.multiplier;
-  const forecastAvgDemand = React.useMemo(
-    () => calculateForecastAverageDemand(state.predictions ?? []),
-    [state.predictions],
-  );
-  const historicalBufferedCapacity = Math.round(avgDemand * defaultCapacityMultiplier);
-  const defaultCapacityLimit = Math.max(historicalBufferedCapacity, forecastAvgDemand ?? historicalBufferedCapacity);
-
   // 🔒 固定参数
   const INITIAL_INVENTORY = MPS_CALCULATION.INITIAL_INVENTORY; // 初始库存 = 0
   const TARGET_SERVICE_LEVEL = SERVICE_LEVELS.EXCELLENT.value; // 目标服务水平 = 99%
   const Z_SCORE = SERVICE_LEVELS.EXCELLENT.zScore; // Z分数 = 2.33
+  const capacityOptions = React.useMemo(
+    () => calculateCapacityScenarioOptions(state.predictions ?? [], Z_SCORE),
+    [state.predictions, Z_SCORE],
+  );
+  const selectedCapacityOption = state.productionCapacity == null
+    ? null
+    : capacityOptions.find((option) => option.id === state.capacityScenario) ?? null;
+  const hasGeneratedPeriod1 = isPeriod1Generated
+    || (state.period1Data.demandForecast != null && Boolean(state.predictions?.length));
+  const displayedPeriod1Demand = period1Data?.demand ?? state.period1Data.demandForecast;
+  const isCapacityLocked = state.completedSteps.includes(1);
 
   // 🔹 预测第一期需求
   const handlePredictPeriod1 = async () => {
@@ -125,22 +153,12 @@ const NewStep1: React.FC = () => {
         serviceLevel: 1.0, // 服务水平 = 100%
       });
 
-      // 🔧 默认月产能上限取“历史平均需求缓冲产能”和“预测期平均需求”的较大值
-      const generatedForecastAvgDemand = calculateForecastAverageDemand(predictions) ?? avgDemand;
-      const capacity = Math.max(historicalBufferedCapacity, generatedForecastAvgDemand);
-
       // 保存参数（使用固定值）
       updateParameters({
         forecastPeriods: FIXED_FORECAST_PERIODS,
         initialInventory: INITIAL_INVENTORY,
         targetServiceLevel: TARGET_SERVICE_LEVEL,
         safetyStockZScore: Z_SCORE,
-      });
-
-      // 保存产能（基于历史平均需求缓冲产能与预测期平均需求的较大值计算）
-      updateCapacity({
-        scenario: 'normal', // 标记为normal场景
-        capacity: capacity,
       });
 
       setIsPeriod1Generated(true);
@@ -152,18 +170,133 @@ const NewStep1: React.FC = () => {
     }
   };
 
+  const handleSelectCapacity = (option: CapacityScenarioOption) => {
+    if (isCapacityLocked) return;
+    updateCapacity({
+      mode: 'scenario',
+      scenario: option.id,
+      capacity: option.capacity,
+    });
+  };
+
   // 🔹 进入下一步
   const handleNext = () => {
+    if (state.productionCapacity == null) {
+      showToast('请先选择一种月产能模式，再进入下一步', 'error');
+      return;
+    }
     completeCurrentStep();
   };
 
+  const renderCapacitySelection = () => {
+    if (!hasGeneratedPeriod1) return null;
+
+    if (capacityOptions.length === 0) {
+      return (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          预测数据尚未准备好，暂时无法计算产能模式。
+        </div>
+      );
+    }
+
+    const { averageForecastLoad, peakForecastLoad, forecastLoadPoints } = capacityOptions[0]!;
+
+    return (
+      <div className="mt-4 space-y-4">
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h4 className="font-semibold text-slate-900">选择月产能模式</h4>
+              <p className="mt-1 text-sm text-slate-600 leading-relaxed">
+                本实验使用预测负荷作为产能规划基准：预测负荷 = 预测需求 + 安全库存。月产能上限表示每期最多能完成的产出量，不代表每期固定生产这么多。
+              </p>
+              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                这里的安全库存仅用于估算产能模式；MPS 表第 1 期仍按标准化规则填写，安全库存为 0。
+              </p>
+            </div>
+            <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <div>平均预测负荷：<strong>{averageForecastLoad.toLocaleString()}</strong> 件/月</div>
+              <div>最高预测负荷：<strong>{peakForecastLoad.toLocaleString()}</strong> 件/月</div>
+            </div>
+          </div>
+
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-slate-500">
+                  <th className="py-2 pr-3 font-medium">期数</th>
+                  <th className="py-2 pr-3 font-medium">预测需求</th>
+                  <th className="py-2 pr-3 font-medium">安全库存</th>
+                  <th className="py-2 pr-3 font-medium">预测负荷</th>
+                </tr>
+              </thead>
+              <tbody>
+                {forecastLoadPoints.map((point) => (
+                  <tr key={point.period} className="border-b border-slate-100 text-slate-700">
+                    <td className="py-2 pr-3">期 {point.period}</td>
+                    <td className="py-2 pr-3">{point.demand.toLocaleString()}</td>
+                    <td className="py-2 pr-3">{point.safetyStock.toLocaleString()}</td>
+                    <td className="py-2 pr-3 font-medium text-slate-900">{point.forecastLoad.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          {capacityOptions.map((option) => {
+            const classes = CAPACITY_CARD_CLASSES[option.id];
+            const Icon = classes.Icon;
+            const isSelected = state.productionCapacity != null && state.capacityScenario === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => handleSelectCapacity(option)}
+                disabled={isCapacityLocked}
+                aria-pressed={isSelected}
+                className={`text-left rounded-lg border-2 p-4 transition-all ${classes.bg} ${
+                  isSelected ? classes.selectedBorder : classes.border
+                } ${isCapacityLocked ? 'cursor-default opacity-90' : 'hover:shadow-md'}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Icon className={`w-5 h-5 ${classes.title}`} />
+                    <div className={`font-semibold ${classes.title}`}>{option.name}</div>
+                  </div>
+                  <span className={`rounded-full px-2 py-1 text-xs font-medium ${classes.badge}`}>
+                    {option.badge}
+                  </span>
+                </div>
+                <div className="mt-4 text-3xl font-bold text-slate-950">
+                  {option.capacity.toLocaleString()}
+                  <span className="ml-1 text-sm font-normal text-slate-600">件/月</span>
+                </div>
+                <div className={`mt-2 text-xs font-medium ${classes.text}`}>{option.formulaLabel}</div>
+                <p className={`mt-3 text-sm leading-relaxed ${classes.text}`}>{option.description}</p>
+                <p className="mt-2 text-xs leading-relaxed text-slate-600">{option.recommendation}</p>
+                <div className={`mt-4 inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium ${
+                  isSelected ? `${classes.button} text-white` : 'bg-white/80 text-slate-700'
+                }`}>
+                  {isSelected && <CheckCircle2 className="w-4 h-4" />}
+                  {isSelected ? '已选择' : `选择${option.name}`}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const renderPeriod1Action = () => {
-    if (isPeriod1Generated && period1Data) {
+    if (hasGeneratedPeriod1 && displayedPeriod1Demand != null) {
       return (
         <div className="bg-green-50 border-2 border-green-400 rounded-lg p-4">
-          <div className="flex flex-col xl:flex-row xl:items-center gap-4">
+          <div className="flex flex-col xl:flex-row xl:items-start gap-4">
             <div className="flex items-start space-x-3 flex-1 min-w-0">
-              <div className="text-green-600 text-2xl flex-shrink-0">✅</div>
+              <CheckCircle2 className="w-7 h-7 text-green-600 flex-shrink-0" />
               <div className="min-w-0">
                 <h4 className="font-semibold text-green-900 mb-2">第一期数据生成成功</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
@@ -173,28 +306,36 @@ const NewStep1: React.FC = () => {
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-green-200">
                     <div className="text-xs text-gray-600 mb-1">第一期预测需求</div>
-                    <div className="text-xl font-bold text-gray-900">{period1Data.demand}</div>
+                    <div className="text-xl font-bold text-gray-900">{displayedPeriod1Demand}</div>
                   </div>
                   <div className="bg-white rounded-lg p-3 border border-green-200">
-                    <div className="text-xs text-gray-600 mb-1">默认月产能上限</div>
+                    <div className="text-xs text-gray-600 mb-1">当前月产能模式</div>
                     <div className="text-xl font-bold text-gray-900">
-                      {defaultCapacityLimit}件/月
+                      {selectedCapacityOption
+                        ? `${selectedCapacityOption.name} · ${selectedCapacityOption.capacity.toLocaleString()}件/月`
+                        : '待选择'}
                     </div>
                     <div className="mt-1 text-xs text-gray-500">
-                      max(历史平均需求 {avgDemand} × {(defaultCapacityMultiplier * 100).toFixed(0)}%{forecastAvgDemand != null ? `, 预测期平均需求 ${forecastAvgDemand}` : ''})
+                      {selectedCapacityOption?.formulaLabel ?? '选择后将用于后续每期产出约束'}
                     </div>
                   </div>
                 </div>
                 <p className="mt-2 text-xs text-gray-600">
-                  MPS 表第一排已按标准化规则填充：期初库存=0、产出量=需求、期末库存=0、缺货=0、服务水平=100%。默认月产能上限用于约束后续每期产出量，不代表固定产出量。
+                  MPS 表第一排已按标准化规则填充：期初库存=0、产出量=需求、期末库存=0、缺货=0、服务水平=100%。下一步开始，所选月产能上限会用于约束每期产出量。
                 </p>
+                {renderCapacitySelection()}
               </div>
             </div>
             <div className="flex xl:justify-end flex-shrink-0">
               <button
                 type="button"
                 onClick={handleNext}
-                className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md hover:shadow-lg"
+                disabled={state.productionCapacity == null}
+                className={`flex items-center space-x-2 px-6 py-3 rounded-lg transition-colors font-medium shadow-md ${
+                  state.productionCapacity == null
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg'
+                }`}
               >
                 <span>进入下一步</span>
                 <ArrowRight className="w-5 h-5" />
@@ -346,13 +487,13 @@ const NewStep1: React.FC = () => {
             </p>
           </div>
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <h5 className="font-semibold text-amber-900 mb-2">🏭 默认月产能上限</h5>
+            <h5 className="font-semibold text-amber-900 mb-2">🏭 月产能模式</h5>
             <p className="text-sm text-amber-800 leading-relaxed">
-              本实验默认采用“产能正常”口径：<strong>默认月产能上限 = max(历史平均需求 × {(defaultCapacityMultiplier * 100).toFixed(0)}%, 预测期平均需求)</strong>。
-              当前历史平均需求为 <strong>{avgDemand}</strong> 件/月，历史缓冲产能为 <strong>{historicalBufferedCapacity}</strong> 件/月{forecastAvgDemand != null ? <>，预测期平均需求为 <strong>{forecastAvgDemand}</strong> 件/月</> : '，生成预测后会同步计算预测期平均需求'}，因此默认月产能上限为 <strong>{defaultCapacityLimit}</strong> 件/月。
+              本实验不再使用固定默认产能。生成未来 6 期需求预测后，系统会计算每期<strong>预测负荷 = 预测需求 + 安全库存</strong>，
+              并提供“产能紧张、产能正常、产能充裕”三种模式供你选择。
             </p>
             <p className="mt-2 text-xs text-amber-700 leading-relaxed">
-              该值表示每期最多能完成的产出量，不表示企业每期一定生产这么多；后续计算会使用公式：产出量 = min(上月投入量, 产能上限)。
+              三种模式代表不同的资源配置策略。月产能上限表示每期最多能完成的产出量，不表示企业每期一定生产这么多；后续计算会使用公式：产出量 = min(上月投入量, 产能上限)。
             </p>
           </div>
         </div>

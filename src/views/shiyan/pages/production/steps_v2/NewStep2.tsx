@@ -40,7 +40,7 @@ const NewStep2: React.FC = () => {
   // 🆕 第2期产出量 = 第1期投入量（受产能约束限制）
   // 产出量 = min(上月投入量, 产能上限)
   const period1PlannedProduction = state.period1Data.plannedProduction ?? 0;
-  const productionCapacity = state.productionCapacity;
+  const productionCapacity = state.productionCapacity ?? 0;
   const productionOutput = Math.min(period1PlannedProduction, productionCapacity);
   const isCapacityConstrained = period1PlannedProduction > productionCapacity;
 
