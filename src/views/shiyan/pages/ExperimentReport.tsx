@@ -125,10 +125,12 @@ const ExperimentReport: React.FC = () => {
       return;
     }
     if (!validateAnalyses(analysisValues)) {
+      setShowPreviewModal(false);
       setShowValidationErrorModal(true);
       return;
     }
 
+    setShowValidationErrorModal(false);
     setIsPreparingPreview(true);
     setSubmitError(null);
     try {
@@ -146,23 +148,27 @@ const ExperimentReport: React.FC = () => {
     if (!state.experiment_id) {
       setSubmitError('实验ID不存在，无法提交报告');
       setShowPreviewModal(false);
+      setShowValidationErrorModal(false);
       return;
     }
     if (!previewMarkdown) {
       setSubmitError('报告预览内容不存在，请重新生成预览');
       setShowPreviewModal(false);
+      setShowValidationErrorModal(false);
       return;
     }
 
     setIsSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(false);
+    setShowValidationErrorModal(false);
 
     try {
       await submitExperimentReport(state.experiment_id, previewMarkdown);
 
       setSubmitSuccess(true);
       setShowPreviewModal(false);
+      setShowValidationErrorModal(false);
       const now = new Date().toISOString();
       await updateState({ status: 'Completed', completion_time: now }, { skipSync: true });
       setShowCompletionModal(true);
