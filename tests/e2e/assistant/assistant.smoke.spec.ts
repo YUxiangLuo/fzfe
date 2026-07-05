@@ -3,6 +3,7 @@ import {
   expectGuestRedirect,
   loginAsAssistantAccount,
   logout,
+  openOperationManualAndAssert,
   openTopLevelPage,
   togglePortalMenuAndAssert,
 } from "../helpers";
@@ -17,6 +18,7 @@ test.describe("@assistant @smoke 核心路径", () => {
 
     await expect(page).toHaveURL(/\/teacher\.html#\/experiment-progress$/);
     await expect(page.getByRole("heading", { level: 4, name: "助教端" })).toBeVisible();
+    await openOperationManualAndAssert(page, /\/operation-manuals\/assistant\.html$/, "助教端操作手册");
     await expect(page.getByRole("menuitem", { name: "助教管理" })).toHaveCount(0);
     await togglePortalMenuAndAssert(page, "assistant");
 

@@ -3,6 +3,7 @@ import {
   expectGuestRedirect,
   loginAsAdminAccount,
   logout,
+  openOperationManualAndAssert,
   openTopLevelPage,
   togglePortalMenuAndAssert,
 } from "../helpers";
@@ -17,6 +18,7 @@ test.describe("@admin @smoke 核心路径", () => {
 
     await expect(page).toHaveURL(/\/admin\.html#\/experiment-data$/);
     await expect(page.getByRole("heading", { level: 4, name: "管理员端" })).toBeVisible();
+    await openOperationManualAndAssert(page, /\/operation-manuals\/admin\.html$/, "管理员端操作手册");
     await togglePortalMenuAndAssert(page, "admin");
 
     await openTopLevelPage(page, "实验手册管理", "实验手册管理");

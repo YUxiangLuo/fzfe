@@ -3,6 +3,7 @@ import {
   expectGuestRedirect,
   loginAsTeacherAccount,
   logout,
+  openOperationManualAndAssert,
   openSubMenuPage,
   openTopLevelPage,
   togglePortalMenuAndAssert,
@@ -18,6 +19,7 @@ test.describe("@teacher @smoke 核心路径", () => {
 
     await expect(page).toHaveURL(/\/teacher\.html#\/experiment-progress$/);
     await expect(page.getByRole("heading", { level: 4, name: "教师端" })).toBeVisible();
+    await openOperationManualAndAssert(page, /\/operation-manuals\/teacher\.html$/, "教师端操作手册");
     await togglePortalMenuAndAssert(page, "teacher");
 
     await openTopLevelPage(page, "班级管理", "班级管理");

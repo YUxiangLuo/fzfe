@@ -9,6 +9,7 @@ import {
     CalendarOutlined,
     LogoutOutlined,
     LockOutlined,
+    QuestionCircleOutlined,
     MenuUnfoldOutlined,
     MenuFoldOutlined,
 } from '@ant-design/icons';
@@ -26,6 +27,7 @@ import { ADMIN_DEFAULT_ROUTE, ADMIN_ROUTES } from '../routes';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
+const ADMIN_OPERATION_MANUAL_HREF = '/operation-manuals/admin.html';
 
 const AdminLayout: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
@@ -189,6 +191,14 @@ const AdminLayout: React.FC = () => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <Button
+                            href={ADMIN_OPERATION_MANUAL_HREF}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            icon={<QuestionCircleOutlined />}
+                        >
+                            操作手册
+                        </Button>
                         <div style={{ textAlign: 'right', lineHeight: '1.2' }}>
                             <Text strong style={{ display: 'block' }}>{currentUser?.username || "未知用户"}</Text>
                             <Text type="secondary" style={{ fontSize: '12px' }}>{roleDisplay}</Text>

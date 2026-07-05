@@ -154,6 +154,22 @@ export async function openTopLevelPage(
   await expect(page.getByRole("heading", { name: headingText, level: 3 })).toBeVisible();
 }
 
+export async function openOperationManualAndAssert(
+  page: Page,
+  expectedPath: RegExp,
+  expectedHeading: string,
+): Promise<void> {
+  const [manualPage] = await Promise.all([
+    page.waitForEvent("popup"),
+    page.getByRole("link", { name: "操作手册" }).click(),
+  ]);
+
+  await manualPage.waitForLoadState("domcontentloaded");
+  await expect(manualPage).toHaveURL(expectedPath);
+  await expect(manualPage.getByRole("heading", { level: 1, name: expectedHeading })).toBeVisible();
+  await manualPage.close();
+}
+
 /**
  * Navigate to a submenu page with retry logic
  */

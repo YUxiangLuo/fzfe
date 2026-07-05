@@ -41,6 +41,8 @@ const GradesOverview = lazy(() => import('../Assessment/GradesOverview'));
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
+const TEACHER_OPERATION_MANUAL_HREF = '/operation-manuals/teacher.html';
+const ASSISTANT_OPERATION_MANUAL_HREF = '/operation-manuals/assistant.html';
 
 const RouteLoading: React.FC = () => (
     <div style={{ minHeight: 220, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -126,6 +128,9 @@ const TeacherLayout: React.FC = () => {
 
     const portalTitle = currentRoleId === 'assistant' ? '助教端' : '教师端';
     const collapsedPortalTitle = currentRoleId === 'assistant' ? '助' : '教';
+    const operationManualHref = currentRoleId === 'assistant'
+        ? ASSISTANT_OPERATION_MANUAL_HREF
+        : TEACHER_OPERATION_MANUAL_HREF;
 
     // Menu items with nested structure - filtered by role
     const menuItems = React.useMemo<MenuItemType[]>(() => {
@@ -324,6 +329,14 @@ const TeacherLayout: React.FC = () => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <Button
+                            href={operationManualHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            icon={<QuestionCircleOutlined />}
+                        >
+                            操作手册
+                        </Button>
                         <div style={{ textAlign: 'right', lineHeight: '1.2' }}>
                             <Text strong style={{ display: 'block' }}>{currentUser?.username || "未知用户"}</Text>
                             <Text type="secondary" style={{ fontSize: '12px' }}>{roleDisplay}</Text>
