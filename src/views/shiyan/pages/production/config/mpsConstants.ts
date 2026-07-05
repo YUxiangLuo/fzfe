@@ -84,30 +84,26 @@ export const FORECAST_PERIODS = {
 
 /**
  * 产能配置
- * （引用自 productionCapacityHelper.ts 的场景配置）
+ * 三种场景的实际数值由 productionCapacityHelper.ts 基于预测负荷计算。
  */
 export const CAPACITY_CONFIG = {
   /**
-   * 默认产能上限场景
+   * 推荐初始展示场景
    */
   DEFAULT_SCENARIO: 'normal' as const,
 
-  /**
-   * 产能场景倍数
-   * 用于完整MPS计算（结果视图及后续）
-   */
   SCENARIOS: {
     TIGHT: {
-      multiplier: 0.9,
-      label: '产能紧张（90%）',
+      label: '产能紧张',
+      formula: '预测负荷均值 × 90%',
     },
     NORMAL: {
-      multiplier: 1.3,
-      label: '产能正常（130%）',
+      label: '产能正常',
+      formula: '预测负荷均值',
     },
     ABUNDANT: {
-      multiplier: 1.8,
-      label: '产能充裕（180%）',
+      label: '产能充裕',
+      formula: 'max(最高预测负荷, 预测负荷均值 × 110%)',
     },
   } as const,
 } as const;

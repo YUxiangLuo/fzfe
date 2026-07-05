@@ -32,7 +32,11 @@ const useAuthObjectUrlMock = mock((value?: string | null) => (value ? "about:bla
 let experimentValue = {
   state: {
     start_time: null as string | null,
+    status: "Not Started",
     current_step: 1,
+    highest_completed_step: 0,
+    quiz_about_model_completed: false,
+    quiz_about_plan_completed: false,
     last_activity_at: null as string | null,
   },
   ui: {
@@ -134,8 +138,13 @@ describe("Introduction", () => {
     useAuthObjectUrlMock.mockImplementation((value?: string | null) => (value ? "about:blank" : null));
     experimentValue = {
       state: {
+        ...experimentValue.state,
         start_time: null,
+        status: "Not Started",
         current_step: 1,
+        highest_completed_step: 0,
+        quiz_about_model_completed: false,
+        quiz_about_plan_completed: false,
         last_activity_at: null,
       },
       ui: {
@@ -250,8 +259,13 @@ describe("Introduction", () => {
     experimentValue = {
       ...experimentValue,
       state: {
+        ...experimentValue.state,
         start_time: "2026-03-01T08:00:00Z",
+        status: "In Progress",
         current_step: 6,
+        highest_completed_step: 5,
+        quiz_about_model_completed: false,
+        quiz_about_plan_completed: false,
         last_activity_at: "2026-03-01T10:00:00Z",
       },
     };
@@ -282,12 +296,52 @@ describe("Introduction", () => {
     expect(createNewExperiment).not.toHaveBeenCalled();
   });
 
+  it("continues a report-ready experiment through the plan quiz result checkpoint", async () => {
+    experimentValue = {
+      ...experimentValue,
+      state: {
+        ...experimentValue.state,
+        start_time: "2026-03-01T08:00:00Z",
+        status: "In Progress",
+        current_step: 7,
+        highest_completed_step: 7,
+        quiz_about_model_completed: true,
+        quiz_about_plan_completed: true,
+        last_activity_at: "2026-03-01T10:00:00Z",
+      },
+    };
+
+    view = await renderIntroduction("/introduction");
+
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "下一步" }));
+    });
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "开始实验" }));
+    });
+    await act(async () => {
+      fireEvent.click(view!.getByRole("button", { name: "继续未完成的实验" }));
+    });
+
+    await waitFor(() => {
+      expect(view!.getByTestId("location-display").textContent).toBe("/quiz-plan");
+    });
+  });
+
   it("returns to the originating experiment route instead of opening the resume dialog", async () => {
     experimentValue = {
       ...experimentValue,
       state: {
+        ...experimentValue.state,
         start_time: "2026-03-01T08:00:00Z",
+        status: "In Progress",
         current_step: 4,
+        highest_completed_step: 3,
+        quiz_about_model_completed: false,
+        quiz_about_plan_completed: false,
         last_activity_at: "2026-03-01T10:00:00Z",
       },
     };

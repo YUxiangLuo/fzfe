@@ -77,6 +77,7 @@ interface QuestionFormValues {
     knowledge_point_detail: string;
     options?: string[];
     correct_answers: string | string[];
+    answer_explanation?: string | null;
 }
 
 // ─── Pure helper functions ────────────────────────────────────────────────────
@@ -333,6 +334,7 @@ const QuestionBank: React.FC = () => {
                 correct_answers: question.question_type === 'Multiple Choice'
                     ? answers
                     : answers[0] ?? undefined,
+                answer_explanation: question.answer_explanation ?? undefined,
             });
         } else {
             form.resetFields();
@@ -383,6 +385,7 @@ const QuestionBank: React.FC = () => {
             const optionTexts = toStringArray(values.options);
             const answerTexts = toStringArray(values.correct_answers);
             const optionsRecord = isTrueFalse ? undefined : buildOptionsRecord(optionTexts);
+            const answerExplanation = values.answer_explanation?.trim();
             const payload = {
                 question_text: values.question_text.trim(),
                 question_type: values.question_type,
@@ -395,6 +398,7 @@ const QuestionBank: React.FC = () => {
                 correct_answers: isTrueFalse
                     ? answerTexts
                     : sortAnswersByOptionOrder(mapAnswersToKeys(answerTexts, optionTexts), optionsRecord),
+                answer_explanation: answerExplanation || null,
             };
 
             if (isEditing && editingQuestion) {
@@ -649,6 +653,14 @@ const QuestionBank: React.FC = () => {
                             type="success"
                             style={{ marginTop: 16 }}
                         />
+                        {previewQuestion.answer_explanation && (
+                            <Alert
+                                message="答案解析"
+                                description={previewQuestion.answer_explanation}
+                                type="info"
+                                style={{ marginTop: 12 }}
+                            />
+                        )}
                     </div>
                 )}
             </Modal>
@@ -678,6 +690,18 @@ const QuestionBank: React.FC = () => {
                         rules={[{ required: true, message: '请输入题目内容' }]}
                     >
                         <TextArea rows={3} placeholder="请输入题目内容" />
+                    </Form.Item>
+
+                    <Form.Item
+                        label="答案解析（选填）"
+                        name="answer_explanation"
+                    >
+                        <TextArea
+                            rows={3}
+                            maxLength={4000}
+                            showCount
+                            placeholder="可填写本题的解题思路或知识点说明。学生提交后，仅错题会显示该解析。"
+                        />
                     </Form.Item>
 
                     <Form.Item

@@ -226,6 +226,7 @@ test.describe("@shiyan production prediction manual retries", () => {
     await expect(page.getByText("第一期数据生成成功")).toBeVisible({
       timeout: 30_000,
     });
+    await studentApp.clickEnabledButton(/选择产能正常/);
     await studentApp.clickEnabledButton(/进入下一步/);
 
     await studentApp.clickEnabledButton(/预测第二期需求|获取第二期需求量/);

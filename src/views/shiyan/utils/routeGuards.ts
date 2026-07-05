@@ -38,6 +38,35 @@ export const getPlanQuizFallbackPath = (
   state: Pick<ExperimentState, "current_step">,
 ): string => getStepPath(state.current_step);
 
+export const getExperimentResumePath = (
+  state: Pick<
+    ExperimentState,
+    | "current_step"
+    | "highest_completed_step"
+    | "quiz_about_model_completed"
+    | "quiz_about_plan_completed"
+    | "status"
+  >,
+): string => {
+  if (state.status === "Completed" || hasReachedLegacyReportState(state)) {
+    return ROUTES.REPORT;
+  }
+
+  if (state.current_step < STEPS.PRODUCTION) {
+    return getStepPath(state.current_step);
+  }
+
+  if (!state.quiz_about_model_completed) {
+    return ROUTES.QUIZ_MODEL;
+  }
+
+  if (state.highest_completed_step < STEPS.PRODUCTION) {
+    return ROUTES.PRODUCTION;
+  }
+
+  return ROUTES.QUIZ_PLAN;
+};
+
 export const canAccessReport = (
   state: Pick<ExperimentState, "quiz_about_model_completed" | "quiz_about_plan_completed" | "current_step" | "status">,
 ): boolean =>

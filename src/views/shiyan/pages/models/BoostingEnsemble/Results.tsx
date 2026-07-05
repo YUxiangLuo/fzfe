@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import PredictionResultsTable from '../components/PredictionResultsTable';
-import CalculationStatus from '../components/CalculationStatus';
+import GuidedTrainingPanel from '../components/GuidedTrainingPanel';
 import PredictionChart from '../components/PredictionChart';
+import type { GuidedTrainingSession } from '../../../services/guidedTraining';
 import type { ModelJobProgressEvent } from '../hooks/useModelJob';
 
 export interface ResultsProps {
@@ -12,30 +13,48 @@ export interface ResultsProps {
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
+  guidedSession?: GuidedTrainingSession | null;
+  onInitialize: () => void;
+  onRunNextStep: () => void;
   currentProgress?: ModelJobProgressEvent | null;
   progressEvents?: ModelJobProgressEvent[];
 }
 
-const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry, currentProgress, progressEvents }) => {
+const Results: React.FC<ResultsProps> = ({
+  data,
+  isLoading,
+  error,
+  onRetry,
+  guidedSession,
+  onInitialize,
+  onRunNextStep,
+}) => {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
 
-  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} modelType="boosting" isEnsembleModel={true} currentProgress={currentProgress} progressEvents={progressEvents} />;
-  if (isLoading || error) {
-    return status;
-  }
+  const guidedPanel = (
+    <GuidedTrainingPanel
+      title="Boosting 融合 - 分阶段训练"
+      session={guidedSession ?? null}
+      isLoading={isLoading}
+      error={error}
+      onInitialize={onInitialize}
+      onRunNextStep={onRunNextStep}
+      onRetry={onRetry}
+    />
+  );
 
   if (!data) {
     return (
-      <div>
-        {status}
-        <p>没有可用的结果。</p>
+      <div className="space-y-6">
+        {guidedPanel}
+        <p className="text-sm text-gray-600">完成全部训练阶段后会显示预测结果。</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {status}
+      {guidedPanel}
       <div className="flex justify-end">
         <button
           onClick={() => setViewMode('table')}

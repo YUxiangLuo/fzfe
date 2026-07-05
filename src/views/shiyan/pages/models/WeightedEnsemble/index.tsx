@@ -41,10 +41,12 @@ const WeightedEnsembleStepper: React.FC = () => {
     error,
     setError,
     isValidSelection,
-    handleCalculate,
+    initializeGuidedSession,
+    runNextGuidedStep,
     markAsCompleted,
     handleRetry,
     retryCount,
+    guidedSession,
     currentProgress,
     progressEvents,
   } = useEnsembleModel({
@@ -85,7 +87,7 @@ const WeightedEnsembleStepper: React.FC = () => {
   useAutoCalculation({
     calculationStepId: 'results',
     currentStepId: currentStep?.id,
-    handleCalculate,
+    handleCalculate: initializeGuidedSession,
     canCalculate: isValidSelection,
     results,
     isLoading,
@@ -101,6 +103,10 @@ const WeightedEnsembleStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'results') {
+      if (!results) {
+        setError('请先完成分阶段训练，生成融合结果后再进入下一步。');
+        return;
+      }
       navigate(PREDICTION_COMPARISON_PATH);
       return;
     }
@@ -158,6 +164,9 @@ const WeightedEnsembleStepper: React.FC = () => {
       isLoading,
       error,
       onRetry: handleRetry,
+      guidedSession,
+      onInitialize: initializeGuidedSession,
+      onRunNextStep: runNextGuidedStep,
       currentProgress,
       progressEvents
     },
@@ -192,7 +201,7 @@ const WeightedEnsembleStepper: React.FC = () => {
       onNext={handleNext}
       onPrevious={handlePrevious}
       isPreviousDisabled={isLoading || retryCount >= MODEL_RETRY_LIMITS.maxFailures}
-      isNextDisabled={isLoading || !!error || (currentStep.id==="select-models"&&!(selectedModels.length>1))}
+      isNextDisabled={isLoading || !!error || (currentStep.id==="select-models"&&!(selectedModels.length>1)) || (currentStep.id === 'results' && !results)}
       nextButtonText={
         currentStep?.id === 'model-metrics-comparison' ? '完成' : '下一步'
       }

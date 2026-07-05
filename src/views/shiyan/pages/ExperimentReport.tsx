@@ -9,6 +9,7 @@ import {
   buildExperimentReportMarkdown,
   buildReportViewModel,
   type ReportAnalysisValues,
+  type ReportQuizResults,
   type ReportUserSummary,
 } from '../utils/reportBuilder';
 import { clearSession, clearSessionAndRedirect, redirectToLogin } from '../../../utils/session';
@@ -25,6 +26,7 @@ const ExperimentReport: React.FC = () => {
   const navigate = useNavigate();
 
   const [userInfo, setUserInfo] = useState<ReportUserSummary | null>(null);
+  const [isPreparingPreview, setIsPreparingPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -95,14 +97,29 @@ const ExperimentReport: React.FC = () => {
     [productSalesData, state],
   );
 
-  const buildCurrentReportMarkdown = () => buildExperimentReportMarkdown({
+  const buildCurrentReportMarkdown = (quizResults: ReportQuizResults) => buildExperimentReportMarkdown({
     state,
     userInfo,
     analyses: analysisValues,
     viewModel: reportViewModel,
+    quizResults,
   });
 
-  const handlePreview = () => {
+  const fetchQuizResults = async (): Promise<ReportQuizResults> => {
+    if (!state.experiment_id) {
+      throw new Error('实验ID不存在，无法生成报告预览');
+    }
+
+    const query = `experiment_id=${encodeURIComponent(String(state.experiment_id))}`;
+    const [model, plan] = await Promise.all([
+      apiClient.get<ReportQuizResults['model']>(`/quizzes/model/results?${query}`),
+      apiClient.get<ReportQuizResults['plan']>(`/quizzes/plan/results?${query}`),
+    ]);
+
+    return { model, plan };
+  };
+
+  const handlePreview = async () => {
     if (!state.experiment_id) {
       setSubmitError('实验ID不存在，无法提交报告');
       return;
@@ -112,9 +129,17 @@ const ExperimentReport: React.FC = () => {
       return;
     }
 
+    setIsPreparingPreview(true);
     setSubmitError(null);
-    setPreviewMarkdown(buildCurrentReportMarkdown());
-    setShowPreviewModal(true);
+    try {
+      const quizResults = await fetchQuizResults();
+      setPreviewMarkdown(buildCurrentReportMarkdown(quizResults));
+      setShowPreviewModal(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : '生成报告预览失败，请重试');
+    } finally {
+      setIsPreparingPreview(false);
+    }
   };
 
   const handleConfirmSubmit = async () => {
@@ -224,13 +249,13 @@ const ExperimentReport: React.FC = () => {
           <div className="pt-8 flex justify-end">
             <button
               onClick={handlePreview}
-              disabled={isSubmitting || submitSuccess}
+              disabled={isSubmitting || isPreparingPreview || submitSuccess}
               className="inline-flex items-center justify-center px-8 py-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? (
+              {isSubmitting || isPreparingPreview ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  提交中...
+                  {isSubmitting ? '提交中...' : '生成预览中...'}
                 </>
               ) : submitSuccess ? (
                 <>

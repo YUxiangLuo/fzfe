@@ -91,6 +91,8 @@ describe("reportBuilder", () => {
       selected_product: "widget",
       production_target_service_level: 0.95,
       production_safety_stock_z_score: 1.65,
+      production_capacity_mode: "scenario" as const,
+      production_capacity_scenario: "normal" as const,
       production_capacity: 500,
       selected_best_model: "ensemble_weighted" as const,
       production_mps_table: [
@@ -152,14 +154,63 @@ describe("reportBuilder", () => {
         decision: "decision analysis",
       },
       viewModel,
+      quizResults: {
+        model: [
+          {
+            question_id: 101,
+            quiz_type: "quiz_about_model",
+            knowledge_point: "预测模型",
+            question_type: "Single Choice",
+            question_text: "RMSE | MAE\n哪个越小越好？",
+            options: { A: "越大越好", B: "越小|越好" },
+            submitted_answer: ["A"],
+            correct_answers: ["B"],
+            is_correct: false,
+          },
+        ],
+        plan: [],
+      },
     });
 
     expect(markdown).toContain("# Alice的实验报告");
     expect(markdown).toContain("| 行业 | electronics |");
     expect(markdown).toContain("**选定模型**: 加权平均融合");
     expect(markdown).toContain("95%");
+    expect(markdown).toContain("| 产能模式 | 产能正常 |");
     expect(markdown).toContain("decision analysis");
     expect(markdown).toContain("| P1 | 100 | 10 | 110 |");
+    expect(markdown).toContain("## 六、知识测验答题记录");
+    expect(markdown).toContain("- **正确题数**: 0 / 1");
+    expect(markdown).toContain("RMSE \\| MAE<br>哪个越小越好？");
+    expect(markdown).toContain("B. 越小\\|越好");
+    expect(markdown).toContain("### 生产计划知识测验\n\n暂无答题记录");
+  });
+
+  it("prioritizes explicit capacity mode over a leftover scenario label", () => {
+    const state = {
+      ...buildInitialState(),
+      production_target_service_level: 0.95,
+      production_safety_stock_z_score: 1.65,
+      production_capacity_mode: "custom" as const,
+      production_capacity_scenario: "normal" as const,
+      production_capacity: 500,
+    };
+
+    const markdown = buildExperimentReportMarkdown({
+      state,
+      userInfo: null,
+      analyses: {
+        data: "",
+        comparison: "",
+        selection: "",
+        params: "",
+        decision: "",
+      },
+      viewModel: buildReportViewModel(state, productSalesData),
+    });
+
+    expect(markdown).toContain("| 产能模式 | 自定义产能 |");
+    expect(markdown).not.toContain("| 产能模式 | 产能正常 |");
   });
 
   it("renders fallback sections when report data is incomplete", () => {

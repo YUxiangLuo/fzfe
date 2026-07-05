@@ -5,6 +5,7 @@ import {
   canAccessModelQuiz,
   canAccessPlanQuiz,
   canAccessReport,
+  getExperimentResumePath,
   getModelQuizFallbackPath,
   getPlanQuizFallbackPath,
   getProtectedRouteRedirectPath,
@@ -138,6 +139,80 @@ describe("routeGuards", () => {
         () => false,
       ),
     ).toBe("/data");
+  });
+
+  it("routes experiment resume through the fixed quiz checkpoints", () => {
+    expect(
+      getExperimentResumePath({
+        current_step: 6,
+        highest_completed_step: 5,
+        quiz_about_model_completed: false,
+        quiz_about_plan_completed: false,
+        status: "In Progress",
+      }),
+    ).toBe("/evaluation");
+
+    expect(
+      getExperimentResumePath({
+        current_step: 7,
+        highest_completed_step: 6,
+        quiz_about_model_completed: false,
+        quiz_about_plan_completed: false,
+        status: "In Progress",
+      }),
+    ).toBe("/quiz");
+
+    expect(
+      getExperimentResumePath({
+        current_step: 7,
+        highest_completed_step: 6,
+        quiz_about_model_completed: true,
+        quiz_about_plan_completed: false,
+        status: "In Progress",
+      }),
+    ).toBe("/production");
+
+    expect(
+      getExperimentResumePath({
+        current_step: 7,
+        highest_completed_step: 7,
+        quiz_about_model_completed: true,
+        quiz_about_plan_completed: false,
+        status: "In Progress",
+      }),
+    ).toBe("/quiz-plan");
+
+    expect(
+      getExperimentResumePath({
+        current_step: 7,
+        highest_completed_step: 7,
+        quiz_about_model_completed: true,
+        quiz_about_plan_completed: true,
+        status: "In Progress",
+      }),
+    ).toBe("/quiz-plan");
+  });
+
+  it("keeps legacy and completed experiment resume paths compatible", () => {
+    expect(
+      getExperimentResumePath({
+        current_step: 8,
+        highest_completed_step: 7,
+        quiz_about_model_completed: false,
+        quiz_about_plan_completed: false,
+        status: "In Progress",
+      }),
+    ).toBe("/report");
+
+    expect(
+      getExperimentResumePath({
+        current_step: 7,
+        highest_completed_step: 7,
+        quiz_about_model_completed: true,
+        quiz_about_plan_completed: true,
+        status: "Completed",
+      }),
+    ).toBe("/report");
   });
 
   it("redirects locked navigation only when the current path differs from the lock path", () => {

@@ -29,7 +29,8 @@ mock.module(
 );
 
 const renderSidebar = async (initialEntry = "/product") => {
-  const { default: Sidebar } = await import("./Sidebar");
+  const modulePath = "./Sidebar?sidebar-component-test";
+  const { default: Sidebar } = await import(modulePath) as typeof import("./Sidebar");
   let view!: RenderResult;
 
   await act(async () => {

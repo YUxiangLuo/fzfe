@@ -34,6 +34,7 @@ interface QuestionBankRecord {
   question_text: string;
   options?: Record<string, string> | string[] | null;
   correct_answers: string[];
+  answer_explanation?: string | null;
 }
 
 interface QuizQuestion {
@@ -48,7 +49,9 @@ interface QuizQuestion {
 interface QuizAnswerResult {
   question_id: number;
   is_correct: boolean;
-  correct_answers?: never;
+  correct_answers: string[];
+  submitted_answer: string[];
+  question_text: string;
 }
 
 interface GradeSummaryRow {
@@ -173,10 +176,8 @@ async function fillTagSelectOptions(
   label: string,
   optionTexts: string[],
 ) {
-  const formItem = modal.locator(CommonSelectors.formItem).filter({ hasText: label }).first();
-  await expect(formItem).toBeVisible();
-
-  const combobox = formItem.getByRole("combobox").first();
+  const combobox = modal.getByRole("combobox", { name: label }).first();
+  await expect(combobox).toBeVisible();
   for (const optionText of optionTexts) {
     await combobox.click();
     await combobox.fill(optionText);
@@ -251,6 +252,8 @@ test.describe("@quiz 题库与测验", () => {
     const { teacherToken } = await loadTeacherQuestionBank(page);
     const createdQuestionText = `E2E测验题-${Date.now()}`;
     const updatedQuestionText = `${createdQuestionText}-更新`;
+    const createdExplanation = "E2E 创建解析：选项甲和选项丙共同满足题意。";
+    const updatedExplanation = "E2E 更新解析：选项乙和选项丙共同满足题意。";
     const optionTexts = ["选项甲", "选项乙", "选项丙"];
 
     const createModal = await openCreateQuestionModal(page);
@@ -258,6 +261,7 @@ test.describe("@quiz 题库与测验", () => {
     await selectQuestionFormOption(page, createModal, "题目类型", "多选题");
     await selectQuestionFormOption(page, createModal, "一级知识点", "预测模型");
     await selectQuestionFormOption(page, createModal, "二级知识点", "ARIMA模型");
+    await fillFormField(createModal, "答案解析（选填）", createdExplanation);
     await fillTagSelectOptions(page, createModal, "选项", optionTexts);
     await selectQuestionFormMultiOptions(page, createModal, "正确答案", [optionTexts[0]!, optionTexts[2]!]);
     await createModal.getByRole("button", { name: /保\s*存/ }).click();
@@ -280,9 +284,11 @@ test.describe("@quiz 题库与测验", () => {
     expect(createdQuestion?.question_type).toBe("Multiple Choice");
     expect(createdQuestion?.knowledge_point).toBe("预测模型-ARIMA模型");
     expect(createdQuestion?.correct_answers).toEqual(["A", "C"]);
+    expect(createdQuestion?.answer_explanation).toBe(createdExplanation);
 
     const editModal = await openQuestionEditModal(createdRow);
     await fillFormField(editModal, "题目内容", updatedQuestionText);
+    await fillFormField(editModal, "答案解析（选填）", updatedExplanation);
     await clearMultiSelectByLabel(editModal, "正确答案");
     await selectQuestionFormMultiOptions(page, editModal, "正确答案", [optionTexts[1]!, optionTexts[2]!]);
     await editModal.getByRole("button", { name: /保\s*存/ }).click();
@@ -298,6 +304,8 @@ test.describe("@quiz 题库与测验", () => {
     await expect(previewModal.getByText(updatedQuestionText)).toBeVisible();
     await expect(previewModal.getByText("A. 选项甲")).toBeVisible();
     await expect(previewModal.getByText("正确答案：B. 选项乙, C. 选项丙")).toBeVisible();
+    await expect(previewModal.getByText("答案解析")).toBeVisible();
+    await expect(previewModal.getByText(updatedExplanation)).toBeVisible();
     await closeModalWithCloseButton(previewModal);
 
     const updatedQuestions = await getAuthedJson<QuestionBankRecord[]>(
@@ -310,6 +318,7 @@ test.describe("@quiz 题库与测验", () => {
     expect(updatedQuestion).toBeDefined();
     expect(updatedQuestion?.question_text).toBe(updatedQuestionText);
     expect(updatedQuestion?.correct_answers).toEqual(["B", "C"]);
+    expect(updatedQuestion?.answer_explanation).toBe(updatedExplanation);
 
     await confirmQuestionDelete(updatedRow);
     await expectSuccessMessage(page, SuccessMessages.questionDeleted);
@@ -376,7 +385,7 @@ test.describe("@quiz 题库与测验", () => {
           response.request().method() === "POST" &&
           response.url().includes("/api/v1/quizzes/answers"),
       );
-      await page.getByRole("button", { name: "提交答案，开始制定生产计划" }).click();
+      await page.getByRole("button", { name: "提交答案，查看答题结果" }).click();
 
       const submitResponse = await submitResponsePromise;
       expect(submitResponse.status()).toBe(201);
@@ -388,9 +397,32 @@ test.describe("@quiz 题库与测验", () => {
         const result = resultsById.get(plan.source.question_id);
         expect(result).toBeDefined();
         expect(result?.is_correct).toBe(plan.expectedCorrect);
-        expect(result).not.toHaveProperty("correct_answers");
+        expect(result?.correct_answers).toEqual(plan.source.correct_answers);
+        expect(result?.submitted_answer).toEqual(plan.chosenValues);
       }
 
+      await expect(page.getByRole("heading", { name: "答题结果" })).toBeVisible();
+      await expect.poll(() => new URL(page.url()).hash).toBe("#/quiz");
+      await expect(page.getByRole("button", { name: "重新作答" })).toHaveCount(0);
+
+      const restoredResultsResponsePromise = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          response.url().includes("/api/v1/quizzes/model/results"),
+      );
+      await page.reload();
+      const restoredResultsResponse = await restoredResultsResponsePromise;
+      expect(restoredResultsResponse.ok()).toBeTruthy();
+      const restoredResults = unwrapDataEnvelope<QuizAnswerResult[]>(
+        await restoredResultsResponse.json(),
+      );
+      expect(restoredResults).toHaveLength(answerPlans.length);
+      await expect(page.getByRole("heading", { name: "答题结果" })).toBeVisible();
+      await expect(page.getByText(results[0]!.question_text)).toBeVisible();
+      await expect(page.getByRole("button", { name: "重新作答" })).toHaveCount(0);
+      await expect.poll(() => new URL(page.url()).hash).toBe("#/quiz");
+
+      await page.getByRole("button", { name: "进入生产计划" }).click();
       await expect.poll(() => new URL(page.url()).hash).toMatch(/^#\/production/);
 
       const activeExperiment = await studentApi.getActiveExperiment();
@@ -433,7 +465,7 @@ test.describe("@quiz 题库与测验", () => {
         .then(() => true)
         .catch(() => false);
 
-      await page.getByRole("button", { name: "提交答案，开始制定生产计划" }).click();
+      await page.getByRole("button", { name: "提交答案，查看答题结果" }).click();
       await expect(page.getByText(/请完成所有题目后再提交/)).toBeVisible();
       expect(await sawSubmitRequest).toBe(false);
 
@@ -565,7 +597,7 @@ test.describe("@quiz 题库与测验", () => {
           response.request().method() === "POST" &&
           response.url().includes("/api/v1/quizzes/answers"),
       );
-      await page.getByRole("button", { name: "提交答案，开始编写实验报告" }).click();
+      await page.getByRole("button", { name: "提交答案，查看答题结果" }).click();
 
       const submitResponse = await submitResponsePromise;
       expect(submitResponse.status()).toBe(201);
@@ -577,9 +609,13 @@ test.describe("@quiz 题库与测验", () => {
         const result = resultsById.get(plan.source.question_id);
         expect(result).toBeDefined();
         expect(result?.is_correct).toBe(plan.expectedCorrect);
-        expect(result).not.toHaveProperty("correct_answers");
+        expect(result?.correct_answers).toEqual(plan.source.correct_answers);
+        expect(result?.submitted_answer).toEqual(plan.chosenValues);
       }
 
+      await expect(page.getByRole("heading", { name: "答题结果" })).toBeVisible();
+      await expect.poll(() => new URL(page.url()).hash).toBe("#/quiz-plan");
+      await page.getByRole("button", { name: "进入实验报告" }).click();
       await expect.poll(() => new URL(page.url()).hash).toBe("#/report");
 
       const activeExperiment = await studentApi.getActiveExperiment();

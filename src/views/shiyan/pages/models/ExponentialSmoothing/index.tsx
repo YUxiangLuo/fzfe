@@ -7,7 +7,6 @@ import Params, { type ParamsProps } from './Params';
 import Validation, { type ValidationProps } from './Validation';
 import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
-import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useSimpleModel } from '../hooks/useSimpleModel';
 import { EXPONENTIAL_SMOOTHING_CONSTANTS, MODEL_RETRY_LIMITS } from '../constants';
 import RetryExceededFallback from '../components/RetryExceededFallback';
@@ -40,15 +39,18 @@ const ExponentialSmoothingStepper: React.FC = () => {
     error,
     setError,
     isValidParam: isValidAlpha,
-    handleCalculate,
+    initializeGuidedSession,
+    runNextGuidedStep,
     markAsCompleted,
     handleRetry,
     retryCount,
+    guidedSession,
     currentProgress,
     progressEvents,
   } = useSimpleModel<number | ''>({
     type: 'exponential_smoothing',
     apiEndpoint: '/models/es/training',
+    guidedModelType: 'es',
     stateKeys: {
       param: 'exponential_smoothing_alpha',
       completed: 'exponential_smoothing_completed',
@@ -89,15 +91,11 @@ const ExponentialSmoothingStepper: React.FC = () => {
     return STEPS[currentStepIndex];
   }, [currentStepIndex, isValidationPage, isComparisonPage]);
 
-  useAutoCalculation({
-    calculationStepId: 'results',
-    currentStepId: currentStep?.id,
-    handleCalculate,
-    canCalculate: isValidAlpha,
-    results,
-    isLoading,
-    error,
-  });
+  useEffect(() => {
+    if (currentStep?.id === 'results' && isValidAlpha && !results && !error) {
+      void initializeGuidedSession();
+    }
+  }, [currentStep?.id, error, initializeGuidedSession, isValidAlpha, results]);
 
   const handleNext = async () => {
     if (currentStep?.id === 'params') {
@@ -115,6 +113,10 @@ const ExponentialSmoothingStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'results') {
+      if (!results) {
+        setError('请先完成分阶段训练，生成计算结果后再进入下一步。');
+        return;
+      }
       try {
         await markAsCompleted();
       } catch {
@@ -165,7 +167,17 @@ const ExponentialSmoothingStepper: React.FC = () => {
   const componentProps: { [key: string]: ParamsProps | ValidationProps | ResultsProps | {} } = {
     params: { alpha, setAlpha },
     validation: { alpha, isValid: isValidAlpha },
-    results: { data: results, isLoading, error, onRetry: handleRetry, currentProgress, progressEvents },
+    results: {
+      data: results,
+      guidedSession,
+      isLoading,
+      error,
+      onRetry: handleRetry,
+      onInitialize: initializeGuidedSession,
+      onRunNextStep: runNextGuidedStep,
+      currentProgress,
+      progressEvents,
+    },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
@@ -197,7 +209,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
       onNext={handleNext}
       onPrevious={handlePrevious}
       isPreviousDisabled={retryCount >= MODEL_RETRY_LIMITS.maxFailures || isLoading}
-      isNextDisabled={isLoading || !!error || (isValidationPage && !isValidAlpha)}
+      isNextDisabled={isLoading || !!error || (isValidationPage && !isValidAlpha) || (currentStep.id === 'results' && !results)}
       nextButtonText={getNextButtonText()}
     >
       {renderContent()}

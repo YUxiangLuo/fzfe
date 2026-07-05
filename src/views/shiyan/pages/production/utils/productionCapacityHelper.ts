@@ -1,10 +1,12 @@
+import { MPS_CALCULATION } from '../config/mpsConstants';
+
 /**
  * 生产能力计算工具
  *
  * 支持多种模式：
- * 1. scenario - 场景选择模式（当前使用）
- * 2. auto - 自动计算模式（未来切换）
- * 3. custom - 自定义输入模式（高级选项）
+ * 1. scenario - 场景选择模式（学生从三种教学场景中选择）
+ * 2. auto - 自动计算模式（保留兼容）
+ * 3. custom - 自定义输入模式（保留兼容）
  */
 
 // 产能计算模式
@@ -18,11 +20,25 @@ export interface ScenarioConfig {
   id: CapacityScenario;
   name: string;
   description: string;
-  multiplier: number; // 相对于平均需求的倍数
   riskLevel: 'high' | 'medium' | 'low';
   badge: string;
   color: string;
+  formulaLabel: string;
   recommendation?: string;
+}
+
+export interface ForecastLoadPoint {
+  period: number;
+  demand: number;
+  safetyStock: number;
+  forecastLoad: number;
+}
+
+export interface CapacityScenarioOption extends ScenarioConfig {
+  capacity: number;
+  averageForecastLoad: number;
+  peakForecastLoad: number;
+  forecastLoadPoints: ForecastLoadPoint[];
 }
 
 // 产能场景定义
@@ -30,34 +46,80 @@ export const CAPACITY_SCENARIOS: ScenarioConfig[] = [
   {
     id: 'tight',
     name: '产能紧张',
-    description: '产能仅为平均需求的 90%',
-    multiplier: 0.9,
+    description: '低于预测平均负荷，适合观察产能不足的后果',
     riskLevel: 'high',
     badge: '高风险',
     color: 'red',
-    recommendation: '⚠️ 容易缺货，服务水平难以保证，适合理解产能不足的后果',
+    formulaLabel: '预测负荷均值 × 90%',
+    recommendation: '容易缺货，服务水平难以保证，适合理解产能不足的后果',
   },
   {
     id: 'normal',
     name: '产能正常',
-    description: '产能为平均需求的 130%',
-    multiplier: 1.3,
+    description: '覆盖预测平均负荷，适合观察均衡配置',
     riskLevel: 'medium',
     badge: '推荐',
     color: 'blue',
-    recommendation: '✓ 有适当缓冲，可应对需求波动，推荐大多数场景使用',
+    formulaLabel: '预测负荷均值',
+    recommendation: '覆盖平均负荷，但峰值月份仍可能受约束，适合理解平衡取舍',
   },
   {
     id: 'abundant',
     name: '产能充裕',
-    description: '产能为平均需求的 180%',
-    multiplier: 1.8,
+    description: '覆盖预测最高负荷，并保留最低 10% 机动空间',
     riskLevel: 'low',
     badge: '低风险',
     color: 'green',
-    recommendation: '✓ 很少缺货，但可能产能利用率较低，适合理解产能过剩的成本',
+    formulaLabel: 'max(最高预测负荷, 预测负荷均值 × 110%)',
+    recommendation: '很少缺货，但可能产能利用率较低，适合理解产能过剩的成本',
   },
 ];
+
+const normalizeDemand = (value: unknown): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(0, Math.round(parsed));
+};
+
+const normalizeStdDev = (value: unknown, demand: number): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return demand * MPS_CALCULATION.DEFAULT_STD_DEV_RATIO;
+  }
+  return parsed;
+};
+
+export const calculateForecastLoadPoints = (
+  predictions: Array<{ prediction: number; std_dev?: number | null }>,
+  zScore: number,
+): ForecastLoadPoint[] => predictions.map((prediction, index) => {
+  const demand = normalizeDemand(prediction.prediction);
+  const stdDev = normalizeStdDev(prediction.std_dev, demand);
+  const safetyStock = Math.max(0, Math.round(zScore * stdDev));
+
+  return {
+    period: index + 1,
+    demand,
+    safetyStock,
+    forecastLoad: demand + safetyStock,
+  };
+});
+
+export const calculateForecastLoadStats = (
+  predictions: Array<{ prediction: number; std_dev?: number | null }>,
+  zScore: number,
+): { averageForecastLoad: number; peakForecastLoad: number; forecastLoadPoints: ForecastLoadPoint[] } => {
+  const forecastLoadPoints = calculateForecastLoadPoints(predictions, zScore);
+  if (forecastLoadPoints.length === 0) {
+    return { averageForecastLoad: 0, peakForecastLoad: 0, forecastLoadPoints };
+  }
+
+  const totalLoad = forecastLoadPoints.reduce((sum, point) => sum + point.forecastLoad, 0);
+  const averageForecastLoad = Math.round(totalLoad / forecastLoadPoints.length);
+  const peakForecastLoad = Math.max(...forecastLoadPoints.map((point) => point.forecastLoad));
+
+  return { averageForecastLoad, peakForecastLoad, forecastLoadPoints };
+};
 
 /**
  * 计算平均需求
@@ -81,11 +143,36 @@ export const calculateMaxDemand = (predictions: Array<{ prediction: number }>): 
  */
 export const calculateCapacityByScenario = (
   scenario: CapacityScenario,
-  avgDemand: number
+  averageForecastLoad: number,
+  peakForecastLoad: number = averageForecastLoad,
 ): number => {
-  const config = CAPACITY_SCENARIOS.find(s => s.id === scenario);
-  if (!config) return Math.round(avgDemand * 1.3); // 默认normal
-  return Math.round(avgDemand * config.multiplier);
+  switch (scenario) {
+    case 'tight':
+      return Math.max(0, Math.round(averageForecastLoad * 0.9));
+    case 'normal':
+      return Math.max(0, Math.round(averageForecastLoad));
+    case 'abundant':
+      return Math.max(
+        0,
+        Math.max(peakForecastLoad, Math.round(averageForecastLoad * 1.1)),
+      );
+  }
+};
+
+export const calculateCapacityScenarioOptions = (
+  predictions: Array<{ prediction: number; std_dev?: number | null }>,
+  zScore: number,
+): CapacityScenarioOption[] => {
+  const { averageForecastLoad, peakForecastLoad, forecastLoadPoints } =
+    calculateForecastLoadStats(predictions, zScore);
+
+  return CAPACITY_SCENARIOS.map((scenario) => ({
+    ...scenario,
+    capacity: calculateCapacityByScenario(scenario.id, averageForecastLoad, peakForecastLoad),
+    averageForecastLoad,
+    peakForecastLoad,
+    forecastLoadPoints,
+  }));
 };
 
 /**
@@ -170,14 +257,19 @@ export const calculateProductionCapacity = (
     customValue?: number;
     predictions?: Array<{ prediction: number; std_dev: number }>;
     avgDemand?: number;
+    peakForecastLoad?: number;
   }
 ): number => {
   switch (mode) {
     case 'scenario':
-      if (!params.scenario || !params.avgDemand) {
-        throw new Error('Scenario mode requires scenario and avgDemand');
+      if (!params.scenario || params.avgDemand === undefined) {
+        throw new Error('Scenario mode requires scenario and average forecast load');
       }
-      return calculateCapacityByScenario(params.scenario, params.avgDemand);
+      return calculateCapacityByScenario(
+        params.scenario,
+        params.avgDemand,
+        params.peakForecastLoad,
+      );
 
     case 'auto':
       if (!params.predictions) {

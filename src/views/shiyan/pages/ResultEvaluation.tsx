@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useExperiment, type ModelMetrics, type SelectedBestModel } from '../contexts/ExperimentContext.zustand';
 import { toastEventBus } from '../utils/toastEventBus';
 import { useStepStartRecorder } from '../hooks/useStepStartRecorder';
+import { ROUTES } from '../constants/routes';
 import { STEPS } from '../constants/steps';
 
 const ResultEvaluation: React.FC = () => {
@@ -32,11 +33,7 @@ const ResultEvaluation: React.FC = () => {
       }
     }
 
-    if (state.quiz_about_model_completed) {
-      navigate('/production');
-    } else {
-      navigate('/quiz');
-    }
+    navigate(ROUTES.QUIZ_MODEL);
   };
 
   const allModels: Array<{

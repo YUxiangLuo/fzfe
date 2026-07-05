@@ -2,7 +2,7 @@
 /// <reference lib="dom" />
 
 import { describe, expect, it, mock } from "bun:test";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, within } from "@testing-library/react";
 import { ReportPreviewModal } from "./SubmissionModals";
 
 describe("ReportPreviewModal", () => {
@@ -21,6 +21,32 @@ describe("ReportPreviewModal", () => {
     expect(view.getByRole("heading", { name: "张三的实验报告" })).not.toBeNull();
     expect(view.getByRole("columnheader", { name: "指标" })).not.toBeNull();
     expect(view.getByRole("cell", { name: "1.2345" })).not.toBeNull();
+  });
+
+  it("keeps escaped table pipes inside quiz detail cells and wraps long columns", () => {
+    const view = render(
+      <ReportPreviewModal
+        markdown={`## 六、知识测验答题记录
+
+| 序号 | 题目 | 题型 | 学生答案 | 正确答案 | 结果 |
+|------|------|------|----------|----------|------|
+| 1 | RMSE \\| MAE<br>哪个越小越好？ | 单选题 | A. 越大越好 | B. 越小\\|越好 | 错误 |`}
+        isSubmitting={false}
+        submitError={null}
+        onClose={mock(() => {})}
+        onConfirm={mock(() => {})}
+      />,
+    );
+
+    const questionCell = view.getByRole("cell", { name: /RMSE \| MAE/ });
+    expect(questionCell).not.toBeNull();
+    expect(questionCell.textContent).toContain("哪个越小越好？");
+    expect(view.getByRole("cell", { name: "B. 越小|越好" })).not.toBeNull();
+
+    const quizRow = questionCell.closest("tr");
+    expect(quizRow).not.toBeNull();
+    expect(within(quizRow!).getAllByRole("cell")).toHaveLength(6);
+    expect(questionCell.className).toContain("whitespace-normal");
   });
 
   it("requires explicit confirmation before submitting", () => {

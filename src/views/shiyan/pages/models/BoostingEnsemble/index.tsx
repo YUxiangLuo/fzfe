@@ -39,10 +39,12 @@ const BoostingEnsembleStepper: React.FC = () => {
     error,
     setError,
     isValidSelection,
-    handleCalculate,
+    initializeGuidedSession,
+    runNextGuidedStep,
     markAsCompleted,
     handleRetry,
     retryCount,
+    guidedSession,
     currentProgress,
     progressEvents,
   } = useEnsembleModel({
@@ -79,7 +81,7 @@ const BoostingEnsembleStepper: React.FC = () => {
   useAutoCalculation({
     calculationStepId: 'results',
     currentStepId: currentStep?.id,
-    handleCalculate,
+    handleCalculate: initializeGuidedSession,
     canCalculate: isValidSelection,
     results,
     isLoading,
@@ -97,6 +99,10 @@ const BoostingEnsembleStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'results') {
+      if (!results) {
+        setError('请先完成分阶段训练，生成融合结果后再进入下一步。');
+        return;
+      }
       try {
         await markAsCompleted();
       } catch {
@@ -140,7 +146,17 @@ const BoostingEnsembleStepper: React.FC = () => {
 
   const componentProps: { [key: string]: SelectModelsProps | ResultsProps | ModelMetricsComparisonProps | {} } = {
     'select-models': { selectedModels, setSelectedModels, error },
-    results: { data: results, isLoading, error, onRetry: handleRetry, currentProgress, progressEvents },
+    results: {
+      data: results,
+      isLoading,
+      error,
+      onRetry: handleRetry,
+      guidedSession,
+      onInitialize: initializeGuidedSession,
+      onRunNextStep: runNextGuidedStep,
+      currentProgress,
+      progressEvents,
+    },
     'model-metrics-comparison': {
       data: results ? { metrics: results.metrics } : null,
       baseModelIds: selectedModels
@@ -169,7 +185,7 @@ const BoostingEnsembleStepper: React.FC = () => {
       onNext={handleNext}
       onPrevious={handlePrevious}
       isPreviousDisabled={isLoading || retryCount >= MODEL_RETRY_LIMITS.maxFailures}
-      isNextDisabled={isLoading || !!error || (currentStep.id==="select-models"&&!(selectedModels.length>1))}
+      isNextDisabled={isLoading || !!error || (currentStep.id==="select-models"&&!(selectedModels.length>1)) || (currentStep.id === 'results' && !results)}
       nextButtonText={
         currentStep?.id === 'model-metrics-comparison' ? '完成' : '下一步'
       }

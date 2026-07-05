@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
-import { postModelTrainingStream } from '../../../services/modelTrainingStream';
 import { MODEL_ID_MAP, ENSEMBLE_CONSTANTS } from '../constants';
 import { alignPredictionRows } from '../resultAlignment';
-import { useModelJob } from './useModelJob';
+import { useGuidedModelTraining } from './useGuidedModelTraining';
+import type { GuidedModelType } from '../../../services/guidedTraining';
 import type { ExperimentState } from '../../../store/experiment/types';
 import { normalizeBaseModelSelection } from '../../../utils/modelCatalog';
 
@@ -47,14 +47,34 @@ interface EnsembleResults {
   };
 }
 
-/**
- * Shared hook for ensemble model logic (Weighted, Boosting, Stacking)
- * Eliminates 85% code duplication across ensemble models
- */
+interface EnsembleGuidedResult {
+  status: string;
+  message?: string;
+  results: {
+    eval_y_true?: unknown;
+    eval_predictions?: unknown;
+    evaluate_months?: unknown;
+    metrics: {
+      rmse: number;
+      mae: number;
+      r2: number;
+    };
+    weights?: number[];
+    model_names?: string[];
+    meta_model?: EnsembleResults['meta_model'];
+  };
+}
+
+const guidedModelTypeFor = (type: EnsembleType): GuidedModelType => {
+  if (type === 'weighted') {
+    return 'weighted_avg';
+  }
+  return type;
+};
+
 export function useEnsembleModel(config: EnsembleModelConfig) {
   const { state, updateState, productSalesData, setTrainingLock } = useExperiment();
   const location = useLocation();
-  const { isLoading, error, setError, retryCount, currentProgress, progressEvents, runJob, handleRetry, resetRetryCount } = useModelJob();
   const persistedSelectedModels = (state[config.stateKey.baseModels] as string[]) ?? [];
   const normalizedPersistedSelectedModels = useMemo(
     () => normalizeBaseModelSelection(persistedSelectedModels),
@@ -66,7 +86,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
   );
 
   const [selectedModels, setSelectedModels] = useState<string[]>(
-    normalizedPersistedSelectedModels
+    normalizedPersistedSelectedModels,
   );
   const [results, setResults] = useState<EnsembleResults | null>(null);
   const lastSelectionSignatureRef = useRef(
@@ -87,11 +107,12 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     });
   }, [normalizedPersistedSelectedModels, persistedSelectionSignature]);
 
-  // Calculate evaluate months
   const evaluateMonths = useMemo(() => {
-    if (!productSalesData ||
-        state.data_window_evaluate_start_index === null ||
-        state.data_window_evaluate_end_index === null) {
+    if (
+      !productSalesData
+      || state.data_window_evaluate_start_index === null
+      || state.data_window_evaluate_end_index === null
+    ) {
       return [];
     }
     const start = state.data_window_evaluate_start_index;
@@ -99,33 +120,17 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     return productSalesData.monthlySales.slice(start, end + 1).map(item => item.month);
   }, [productSalesData, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
 
-  // Validate selected models
   const isValidSelection = useMemo(() => {
     return selectedModels.length >= ENSEMBLE_CONSTANTS.MIN_BASE_MODELS;
   }, [selectedModels]);
 
-  // Any base-model change starts a new training attempt context.
-  useEffect(() => {
-    if (lastSelectionSignatureRef.current === selectedSelectionSignature) {
-      return;
-    }
-
-    lastSelectionSignatureRef.current = selectedSelectionSignature;
-    setResults(null);
-    setError(null);
-    resetRetryCount();
-  }, [selectedSelectionSignature, resetRetryCount, setError]);
-
-  // Handle model training
-  const handleCalculate = useCallback(async () => {
+  const buildRequestBody = useCallback(() => {
     if (!state.experiment_id) {
-      setError('实验状态未初始化，无法训练模型。');
-      return;
+      return null;
     }
 
     const normalizedSelectedModels = normalizeBaseModelSelection(selectedModels);
     const backendModels = normalizedSelectedModels.map(id => MODEL_ID_MAP[id] || id);
-
     const requestBody: Record<string, any> = {
       experiment_id: state.experiment_id,
       selected_industry: state.selected_industry,
@@ -135,7 +140,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       data_window_train_end_index: state.data_window_train_end_index,
       data_window_evaluate_start_index: state.data_window_evaluate_start_index,
       data_window_evaluate_end_index: state.data_window_evaluate_end_index,
-      [`models`]: backendModels.join(","),
+      models: backendModels.join(','),
     };
 
     if (backendModels.includes('arima')) requestBody.arimaD = state.arima_d;
@@ -147,71 +152,104 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       requestBody.lstmNormalization = state.lstm_normalization;
     }
 
-    await runJob<any>({
-      lockPath: location.pathname,
-      setTrainingLock,
-      request: (signal, onProgress) => postModelTrainingStream<any>(`${config.apiEndpoint}/stream`, requestBody, { signal, onProgress }),
-      onSuccess: async (result) => {
-        if (result.status !== "success") {
-          throw new Error(result.message || "模型训练失败。");
-        }
-
-        const apiResults = result.results;
-        const ensembleResults: EnsembleResults = {
-          predictions: alignPredictionRows({
-            actualValues: apiResults.eval_y_true,
-            predictedValues: apiResults.eval_predictions,
-            backendMonths: apiResults.evaluate_months,
-            fallbackMonths: evaluateMonths,
-          }),
-          metrics: apiResults.metrics,
-        };
-
-        if (config.type === 'weighted') {
-          ensembleResults.weights = apiResults.weights;
-          ensembleResults.model_names = apiResults.model_names;
-        } else if (config.type === 'stacking') {
-          ensembleResults.meta_model = apiResults.meta_model;
-        }
-
-        await updateState({
-          [config.stateKey.baseModels]: normalizedSelectedModels,
-          [config.stateKey.metricsRmse]: apiResults.metrics.rmse,
-          [config.stateKey.metricsMae]: apiResults.metrics.mae,
-          [config.stateKey.metricsR2]: apiResults.metrics.r2,
-        }, { forceSync: true, throwOnSyncError: true });
-        setResults(ensembleResults);
-      },
-      getErrorMessage: (jobError) =>
-        jobError instanceof Error ? jobError.message : '模型训练时发生错误。',
-    });
+    return requestBody;
   }, [
     selectedModels,
-    state.experiment_id,
-    state.selected_industry,
-    state.selected_company,
-    state.selected_product,
-    state.data_window_train_start_index,
-    state.data_window_train_end_index,
-    state.data_window_evaluate_start_index,
-    state.data_window_evaluate_end_index,
     state.arima_d,
+    state.data_window_evaluate_end_index,
+    state.data_window_evaluate_start_index,
+    state.data_window_train_end_index,
+    state.data_window_train_start_index,
+    state.experiment_id,
     state.exponential_smoothing_alpha,
-    state.moving_average_window,
     state.lstm_features,
-    state.lstm_target_field,
     state.lstm_normalization,
-    evaluateMonths,
-    config.apiEndpoint,
-    config.type,
+    state.lstm_target_field,
+    state.moving_average_window,
+    state.selected_company,
+    state.selected_industry,
+    state.selected_product,
+  ]);
+
+  const handleFinalResult = useCallback(async (result: EnsembleGuidedResult) => {
+    if (result.status !== 'success') {
+      throw new Error(result.message || '模型训练失败。');
+    }
+
+    const apiResults = result.results;
+    const normalizedSelectedModels = normalizeBaseModelSelection(selectedModels);
+    const ensembleResults: EnsembleResults = {
+      predictions: alignPredictionRows({
+        actualValues: apiResults.eval_y_true,
+        predictedValues: apiResults.eval_predictions,
+        backendMonths: apiResults.evaluate_months,
+        fallbackMonths: evaluateMonths,
+      }),
+      metrics: apiResults.metrics,
+    };
+
+    if (config.type === 'weighted') {
+      ensembleResults.weights = apiResults.weights;
+      ensembleResults.model_names = apiResults.model_names;
+    } else if (config.type === 'stacking') {
+      ensembleResults.meta_model = apiResults.meta_model;
+    }
+
+    await updateState({
+      [config.stateKey.baseModels]: normalizedSelectedModels,
+      [config.stateKey.metricsRmse]: apiResults.metrics.rmse,
+      [config.stateKey.metricsMae]: apiResults.metrics.mae,
+      [config.stateKey.metricsR2]: apiResults.metrics.r2,
+    }, { forceSync: true, throwOnSyncError: true });
+    setResults(ensembleResults);
+  }, [
     config.stateKey,
-    location.pathname,
-    runJob,
-    setTrainingLock,
+    config.type,
+    evaluateMonths,
+    selectedModels,
     updateState,
   ]);
 
-  // Mark model as completed
+  const {
+    session: guidedSession,
+    isLoading,
+    error,
+    setError,
+    retryCount,
+    initializeSession: initializeGuidedSession,
+    runNextStep: runNextGuidedStep,
+    handleRetry,
+    resetGuidedTraining,
+  } = useGuidedModelTraining<EnsembleGuidedResult>({
+    modelType: guidedModelTypeFor(config.type),
+    buildRequestBody,
+    onFinalResult: handleFinalResult,
+    lockPath: location.pathname,
+    setTrainingLock,
+    getErrorMessage: (jobError) =>
+      jobError instanceof Error ? jobError.message : '模型训练时发生错误。',
+  });
+
+  useEffect(() => {
+    if (lastSelectionSignatureRef.current === selectedSelectionSignature) {
+      return;
+    }
+
+    lastSelectionSignatureRef.current = selectedSelectionSignature;
+    setResults(null);
+    setError(null);
+    resetGuidedTraining();
+  }, [selectedSelectionSignature, resetGuidedTraining, setError]);
+
+  const handleCalculate = useCallback(async () => {
+    if (!state.experiment_id) {
+      setError('实验状态未初始化，无法训练模型。');
+      return;
+    }
+
+    await runNextGuidedStep();
+  }, [runNextGuidedStep, setError, state.experiment_id]);
+
   const markAsCompleted = useCallback(async () => {
     await updateState(
       { [config.stateKey.completed]: true },
@@ -224,15 +262,18 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     setSelectedModels,
     results,
     setResults,
+    guidedSession,
     isLoading,
     error,
     setError,
     isValidSelection,
     handleCalculate,
+    initializeGuidedSession,
+    runNextGuidedStep,
     markAsCompleted,
     handleRetry,
     retryCount,
-    currentProgress,
-    progressEvents,
+    currentProgress: null,
+    progressEvents: [],
   };
 }

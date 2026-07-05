@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ModelStepLayout from '../components/ModelStepLayout';
 import Intro from './Intro';
@@ -11,7 +11,6 @@ import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { useSimpleModel } from '../hooks/useSimpleModel';
 import { MODEL_RETRY_LIMITS } from '../constants';
 import RetryExceededFallback from '../components/RetryExceededFallback';
-import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { isValidMovingAverageWindow } from './movingAverageValidation';
 
 const MODEL_NAME = '移动平均法';
@@ -53,14 +52,17 @@ const MovingAverageStepper: React.FC = () => {
     setError,
     isValidParam: isValidWindowSize,
     markAsCompleted,
-    handleCalculate,
+    initializeGuidedSession,
+    runNextGuidedStep,
     handleRetry,
     retryCount,
+    guidedSession,
     currentProgress,
     progressEvents,
   } = useSimpleModel<number | ''>({
     type: 'moving_average',
     apiEndpoint: '/models/ma/training',
+    guidedModelType: 'ma',
     stateKeys: {
       param: 'moving_average_window',
       completed: 'moving_average_completed',
@@ -117,6 +119,10 @@ const MovingAverageStepper: React.FC = () => {
 
     // 结果页进入指标对比
     if (currentStep?.id === 'results') {
+      if (!results) {
+        setError('请先完成分阶段训练，生成计算结果后再进入下一步。');
+        return;
+      }
       try {
         await markAsCompleted(); // 一定要先标记完成，不然找不到刚完成的自己
       } catch {
@@ -165,15 +171,11 @@ const MovingAverageStepper: React.FC = () => {
   };
 
 
-  useAutoCalculation({
-    calculationStepId: 'results',
-    currentStepId: currentStep?.id,
-    handleCalculate,
-    canCalculate: isValidWindowSize,
-    results,
-    isLoading,
-    error,
-  });
+  useEffect(() => {
+    if (currentStep?.id === 'results' && isValidWindowSize && !results && !error) {
+      void initializeGuidedSession();
+    }
+  }, [currentStep?.id, error, initializeGuidedSession, isValidWindowSize, results]);
 
   if (!currentStep) {
     return null;
@@ -188,7 +190,17 @@ const MovingAverageStepper: React.FC = () => {
   const componentProps: { [key: string]: ParamsProps | ValidationProps | ResultsProps | {} } = {
     params: { windowSize, setWindowSize },
     validation: { windowSize, isValid: isValidWindowSize, trainDataLength },
-    results: { data: results, isLoading, error, onRetry: handleRetry, currentProgress, progressEvents },
+    results: {
+      data: results,
+      guidedSession,
+      isLoading,
+      error,
+      onRetry: handleRetry,
+      onInitialize: initializeGuidedSession,
+      onRunNextStep: runNextGuidedStep,
+      currentProgress,
+      progressEvents,
+    },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
@@ -222,7 +234,7 @@ const MovingAverageStepper: React.FC = () => {
       onPrevious={handlePrevious}
       isPreviousDisabled={retryCount >= MODEL_RETRY_LIMITS.maxFailures || isLoading}
       // 计算请求loading的时候 计算请求返回错误的时候 window验证失败的时候不能点击下一步
-      isNextDisabled={isLoading || !!error || (isValidationPage && !isValidWindowSize)}
+      isNextDisabled={isLoading || !!error || (isValidationPage && !isValidWindowSize) || (currentStep.id === 'results' && !results)}
       nextButtonText={getNextButtonText()}
     >
       {renderContent()}
