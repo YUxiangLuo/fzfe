@@ -15,6 +15,8 @@
     "e2e:teacher:smoke:run": "bunx playwright test --config=playwright.teacher.config.ts --grep @smoke",
     "e2e:teacher": "bun run e2e:gen && bunx playwright test --config=playwright.teacher.config.ts",
     "e2e:teacher:headed": "bun run e2e:gen && bunx playwright test --config=playwright.teacher.config.ts --headed",
+    "e2e:auth": "bun run e2e:gen && E2E_BACKEND_PORT=54127 bunx playwright test --config=playwright.auth.config.ts",
+    "e2e:runtime-cleanup": "E2E_BACKEND_PORT=54128 bunx playwright test --config=playwright.runtime-cleanup.config.ts",
     "e2e:quiz": "bun run e2e:gen && E2E_BACKEND_PORT=54126 E2E_FRONTEND_PORT=55126 bunx playwright test --config=playwright.quiz.config.ts",
     "e2e:quiz:headed": "bun run e2e:gen && E2E_BACKEND_PORT=54126 E2E_FRONTEND_PORT=55126 bunx playwright test --config=playwright.quiz.config.ts --headed",
     "e2e:assistant:smoke": "bun run e2e:gen && bun run e2e:assistant:smoke:run",
@@ -36,7 +38,7 @@
     "e2e:shiyan:concurrency:server": "E2E_CONCURRENCY_MODEL_JOBS=50 E2E_CONCURRENCY_MODEL_CAPACITY_REQUESTS=50 E2E_CONCURRENCY_PDF_JOBS=12 E2E_CONCURRENCY_PDF_STUDENTS=50 E2E_CONCURRENCY_PDF_QUEUE_TIMEOUT_MS=60000 E2E_CONCURRENCY_EXPECT_PDF_503=0 DB_CONNECTION_LIMIT=140 bun run scripts/shiyan-concurrency-suite.ts all",
     "e2e:session": "bun run e2e:gen && bunx playwright test --config=playwright.session.config.ts",
     "e2e:session:headed": "bun run e2e:gen && bunx playwright test --config=playwright.session.config.ts --headed",
-    "e2e:all": "bun run e2e:gen && bunx playwright test --config=playwright.teacher.config.ts && bunx playwright test --config=playwright.assistant.config.ts && bunx playwright test --config=playwright.admin.config.ts && bunx playwright test --config=playwright.shiyan.config.ts && bunx playwright test --config=playwright.session.config.ts"
+    "e2e:all": "bun run e2e:gen && bunx playwright test --config=playwright.auth.config.ts && bunx playwright test --config=playwright.runtime-cleanup.config.ts && bunx playwright test --config=playwright.teacher.config.ts && bunx playwright test --config=playwright.assistant.config.ts && bunx playwright test --config=playwright.admin.config.ts && bunx playwright test --config=playwright.shiyan.config.ts && bunx playwright test --config=playwright.session.config.ts"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

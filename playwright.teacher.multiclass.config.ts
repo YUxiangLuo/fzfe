@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveE2EBackendDir } from "./tests/e2e/helpers/backend-dir";
+import { buildE2EBackendEnv } from "./tests/e2e/helpers/e2e-env";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FE_DIR = __dirname;
@@ -79,11 +80,10 @@ export default defineConfig({
       url: `${E2E_BACKEND_ORIGIN}/api/v1/runtime-info`,
       timeout: 300_000,
       reuseExistingServer: false,
-      env: {
-        ...process.env,
+      env: buildE2EBackendEnv({
         ...MULTICLASS_ENV,
         PORT: String(E2E_BACKEND_PORT),
-      },
+      }),
     },
     {
       command: `VITE_API_URL=${E2E_BACKEND_ORIGIN}/api/v1 bunx vite --host 127.0.0.1 --port ${E2E_FRONTEND_PORT}`,

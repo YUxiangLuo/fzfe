@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveE2EBackendDir } from "./tests/e2e/helpers/backend-dir";
+import { buildE2EBackendEnv } from "./tests/e2e/helpers/e2e-env";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FE_DIR = __dirname;
@@ -51,10 +52,9 @@ export default defineConfig({
       url: `${E2E_BACKEND_ORIGIN}/api/v1/runtime-info`,
       timeout: 120_000,
       reuseExistingServer: !process.env.CI,
-      env: {
-        ...process.env,
+      env: buildE2EBackendEnv({
         PORT: String(E2E_BACKEND_PORT),
-      },
+      }),
     },
     {
       command: `bun run dev -- --host 127.0.0.1 --port ${E2E_FRONTEND_PORT}`,

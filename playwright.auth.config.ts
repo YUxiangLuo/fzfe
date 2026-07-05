@@ -7,44 +7,29 @@ import { buildE2EBackendEnv } from "./tests/e2e/helpers/e2e-env";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FE_DIR = __dirname;
 const BE_DIR = resolveE2EBackendDir(FE_DIR);
-const E2E_BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? "54105");
+const E2E_BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? "54127");
 const E2E_BACKEND_ORIGIN = process.env.E2E_BACKEND_ORIGIN ?? `http://127.0.0.1:${E2E_BACKEND_PORT}`;
-const E2E_FRONTEND_PORT = Number(process.env.E2E_FRONTEND_PORT ?? "55105");
-const E2E_FRONTEND_ORIGIN = process.env.E2E_FRONTEND_ORIGIN ?? `http://127.0.0.1:${E2E_FRONTEND_PORT}`;
 
 process.env.E2E_BACKEND_PORT ??= String(E2E_BACKEND_PORT);
 process.env.E2E_BACKEND_ORIGIN ??= E2E_BACKEND_ORIGIN;
-process.env.E2E_FRONTEND_PORT ??= String(E2E_FRONTEND_PORT);
-process.env.E2E_FRONTEND_ORIGIN ??= E2E_FRONTEND_ORIGIN;
 
 export default defineConfig({
-  testDir: path.resolve(FE_DIR, "tests/e2e/session"),
+  testDir: path.resolve(FE_DIR, "tests/e2e/auth"),
   testMatch: "**/*.spec.ts",
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
-  timeout: 90_000,
+  timeout: 60_000,
   expect: {
-    timeout: 15_000,
+    timeout: 10_000,
   },
-  reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report/session" }]],
-  outputDir: "test-results/session",
+  reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report/auth" }]],
+  outputDir: "test-results/auth",
   globalSetup: path.resolve(FE_DIR, "tests/e2e/setup/global-setup.session.ts"),
   use: {
-    baseURL: E2E_FRONTEND_ORIGIN,
-    headless: true,
+    baseURL: E2E_BACKEND_ORIGIN,
     trace: "retain-on-failure",
-    video: "retain-on-failure",
-    screenshot: "only-on-failure",
   },
-  projects: [
-    {
-      name: "session-suite-chromium",
-      use: {
-        browserName: "chromium",
-      },
-    },
-  ],
   webServer: [
     {
       command: "bun run src/e2e-server.ts",
@@ -54,14 +39,13 @@ export default defineConfig({
       reuseExistingServer: false,
       env: buildE2EBackendEnv({
         PORT: String(E2E_BACKEND_PORT),
+        AUTH_LOGIN_RATE_LIMIT_WINDOW_MS: "60000",
+        AUTH_LOGIN_RATE_LIMIT_MAX_PER_ACCOUNT: "2",
+        AUTH_LOGIN_RATE_LIMIT_MAX_PER_IP: "100",
+        AUTH_REGISTER_RATE_LIMIT_WINDOW_MS: "60000",
+        AUTH_REGISTER_RATE_LIMIT_MAX_PER_ACCOUNT: "2",
+        AUTH_REGISTER_RATE_LIMIT_MAX_PER_IP: "100",
       }),
-    },
-    {
-      command: `VITE_API_URL=${E2E_BACKEND_ORIGIN}/api/v1 bunx vite --host 127.0.0.1 --port ${E2E_FRONTEND_PORT}`,
-      cwd: FE_DIR,
-      url: `${E2E_FRONTEND_ORIGIN}/__runtime_info__`,
-      timeout: 120_000,
-      reuseExistingServer: !process.env.CI,
     },
   ],
 });
