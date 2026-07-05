@@ -13,10 +13,35 @@ mock.restore();
 const r = (path: string) => resolve(import.meta.dir, path);
 
 const experimentContextModulePath = r('../../../contexts/ExperimentContext.zustand.tsx');
-const apiClientModulePath = r('../../../../../utils/apiClient.ts');
-const modelTrainingStreamModulePath = r('../../../services/modelTrainingStream.ts');
+const guidedTrainingModulePath = r('../../../services/guidedTraining.ts');
 
-const postModelTrainingStream = mock(async () => ({
+const completedGuidedSession = () => ({
+  session_id: 'guided-ensemble-1',
+  experiment_id: 12,
+  model_type: 'weighted_avg',
+  status: 'completed',
+  current_step_id: null,
+  next_step_id: null,
+  steps: [],
+  step_outputs: {},
+  error_message: null,
+  result: {
+    status: 'success',
+    results: {
+      eval_y_true: [100, 120],
+      eval_predictions: [98, 121],
+      evaluate_months: ['2024-04', '2024-05'],
+      metrics: { rmse: 2.1, mae: 1.7, r2: 0.95 },
+      weights: [0.6, 0.4],
+      model_names: ['ma', 'lstm'],
+    },
+  },
+});
+
+const createGuidedTrainingSession = mock(async () => completedGuidedSession());
+const runGuidedTrainingStep = mock(async () => completedGuidedSession());
+
+const successfulGuidedResult = {
   status: 'success',
   results: {
     eval_y_true: [100, 120],
@@ -26,7 +51,7 @@ const postModelTrainingStream = mock(async () => ({
     weights: [0.6, 0.4],
     model_names: ['ma', 'lstm'],
   },
-}));
+};
 
 let experimentValue = {
   state: {
@@ -79,15 +104,10 @@ mock.module(experimentContextModulePath, () => ({
   useExperiment: () => experimentValue,
 }));
 
-mock.module(apiClientModulePath, () => ({
-  API_BASE_URL: '/api/v1',
-  apiClient: {
-    post: mock(async () => null),
-  },
-}));
-
-mock.module(modelTrainingStreamModulePath, () => ({
-  postModelTrainingStream,
+mock.module(guidedTrainingModulePath, () => ({
+  createGuidedTrainingSession,
+  runGuidedTrainingStep,
+  fetchGuidedTrainingSession: mock(async () => null),
 }));
 
 const Harness = async () => {
@@ -110,7 +130,7 @@ const Harness = async () => {
     useAutoCalculation({
       calculationStepId: 'results',
       currentStepId: 'results',
-      handleCalculate: ensemble.handleCalculate,
+      handleCalculate: ensemble.initializeGuidedSession,
       canCalculate: ensemble.isValidSelection,
       results: ensemble.results,
       isLoading: ensemble.isLoading,
@@ -133,7 +153,10 @@ describe('useEnsembleModel', () => {
   let view: RenderResult | null = null;
 
   beforeEach(() => {
-    postModelTrainingStream.mockClear();
+    createGuidedTrainingSession.mockClear();
+    createGuidedTrainingSession.mockResolvedValue(completedGuidedSession());
+    runGuidedTrainingStep.mockClear();
+    runGuidedTrainingStep.mockResolvedValue(completedGuidedSession());
     experimentValue = {
       state: {
         experiment_id: 12,
@@ -197,7 +220,7 @@ describe('useEnsembleModel', () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(postModelTrainingStream).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(createGuidedTrainingSession).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
 
     view.rerender(
@@ -208,11 +231,13 @@ describe('useEnsembleModel', () => {
 
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
 
-    expect(postModelTrainingStream).toHaveBeenCalledTimes(1);
-    const firstRequestBody = (postModelTrainingStream.mock.calls[0] as unknown[] | undefined)?.[1];
+    expect(createGuidedTrainingSession).toHaveBeenCalledTimes(1);
+    expect(runGuidedTrainingStep).not.toHaveBeenCalled();
+    const firstRequestBody = (createGuidedTrainingSession.mock.calls[0] as unknown[] | undefined)?.[1];
     expect(firstRequestBody).toMatchObject({
       lstmFeatures: JSON.stringify(['销售数量']),
     });
+    expect(completedGuidedSession().result).toEqual(successfulGuidedResult);
     expect(view.getByTestId('loading').textContent).toBe('false');
     expect(view.getByTestId('results-ready').textContent).toBe('true');
   });
@@ -229,7 +254,7 @@ describe('useEnsembleModel', () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(postModelTrainingStream).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(createGuidedTrainingSession).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(view!.getByTestId('error').textContent).toBe('sync failed'));
 
     expect(view.getByTestId('results-ready').textContent).toBe('false');

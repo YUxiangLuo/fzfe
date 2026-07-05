@@ -1,41 +1,52 @@
 import React, { useState } from 'react';
 import PredictionResultsTable from '../components/PredictionResultsTable';
-import CalculationStatus from '../components/CalculationStatus';
 import PredictionChart from '../components/PredictionChart';
+import GuidedTrainingPanel from '../components/GuidedTrainingPanel';
 import type { ModelJobProgressEvent } from '../hooks/useModelJob';
+import type { GuidedTrainingSession } from '../../../services/guidedTraining';
 
 export interface ResultsProps {
   data: {
     predictions: { date: string; actual: number; predicted: number | null }[];
     metrics: { rmse: number; mae: number; r2: number };
   } | null;
+  guidedSession?: GuidedTrainingSession | null;
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
+  onInitialize?: () => void;
+  onRunNextStep?: () => void;
   currentProgress?: ModelJobProgressEvent | null;
   progressEvents?: ModelJobProgressEvent[];
 }
 
-const Results: React.FC<ResultsProps> = ({ data, isLoading, error, onRetry, currentProgress, progressEvents }) => {
+const Results: React.FC<ResultsProps> = ({
+  data,
+  guidedSession,
+  isLoading,
+  error,
+  onRetry,
+  onInitialize,
+  onRunNextStep,
+}) => {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
-
-  const status = <CalculationStatus isLoading={isLoading} error={error} onRetry={onRetry} modelType="es" currentProgress={currentProgress} progressEvents={progressEvents} />;
-  if (isLoading || error) {
-    return status;
-  }
 
   if (!data) {
     return (
-      <div>
-        {status}
-        <p>没有可用的结果。</p>
-      </div>
+      <GuidedTrainingPanel
+        title="指数平滑法 - 分阶段训练"
+        session={guidedSession ?? null}
+        isLoading={isLoading}
+        error={error}
+        onInitialize={onInitialize ?? (() => {})}
+        onRunNextStep={onRunNextStep ?? (() => {})}
+        onRetry={onRetry}
+      />
     );
   }
 
   return (
     <div className="space-y-6">
-      {status}
       <div className="flex justify-end">
         <button
           onClick={() => setViewMode('table')}

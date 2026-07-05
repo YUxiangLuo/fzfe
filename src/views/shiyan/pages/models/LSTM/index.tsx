@@ -9,16 +9,13 @@ import LSTMMethodInfo from './LSTMMethodInfo';
 import Results, { type ResultsProps } from './Results';
 import ModelComparison from './ModelComparison';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
-import { postModelTrainingStream } from '../../../services/modelTrainingStream';
 import { MODEL_RETRY_LIMITS } from '../constants';
-import { useAutoCalculation } from '../hooks/useAutoCalculation';
-import { useModelJob } from '../hooks/useModelJob';
+import { useGuidedModelTraining } from '../hooks/useGuidedModelTraining';
 import RetryExceededFallback from '../components/RetryExceededFallback';
 import { alignPredictionRows } from '../resultAlignment';
 
 const MODEL_NAME = 'LSTM模型';
 const BASE_PATH = '/model/lstm';
-const MIN_BASE_MODEL_PROGRESS_MS = 6000;
 
 const STEPS = [
   { id: 'intro', name: '方法步骤', path: `${BASE_PATH}/intro`, component: Intro },
@@ -46,17 +43,6 @@ const LSTMStepper: React.FC = () => {
   const [features, setFeatures] = useState<string[]>(state.lstm_features ?? []);
   const [target, setTarget] = useState<string | null>(state.lstm_target_field);
   const [results, setResults] = useState<any>(null);
-  const {
-    isLoading,
-    error,
-    setError,
-    retryCount,
-    currentProgress,
-    progressEvents,
-    runJob,
-    handleRetry,
-    resetRetryCount,
-  } = useModelJob();
 
   const isNormalizationInfoPage = useMemo(() => location.pathname === NORMALIZATION_INFO_PATH, [location.pathname]);
   const isLSTMMethodInfoPage = useMemo(() => location.pathname === LSTM_METHOD_INFO_PATH, [location.pathname]);
@@ -71,6 +57,84 @@ const LSTMStepper: React.FC = () => {
     return productSalesData.monthlySales.slice(start, end + 1).map(item => item.month);
   }, [productSalesData, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
 
+  const buildTrainingRequestBody = useCallback(() => {
+    if (!state.experiment_id) {
+      return null;
+    }
+
+    return {
+      experiment_id: state.experiment_id,
+      selected_industry: state.selected_industry,
+      selected_company: state.selected_company,
+      selected_product: state.selected_product,
+      data_window_train_start_index: state.data_window_train_start_index,
+      data_window_train_end_index: state.data_window_train_end_index,
+      data_window_evaluate_start_index: state.data_window_evaluate_start_index,
+      data_window_evaluate_end_index: state.data_window_evaluate_end_index,
+      lstmNormalization: normalization,
+      lstmTargetFeature: target ?? '销售数量',
+      lstmFeatures: JSON.stringify(features),
+    };
+  }, [
+    features,
+    normalization,
+    state.data_window_evaluate_end_index,
+    state.data_window_evaluate_start_index,
+    state.data_window_train_end_index,
+    state.data_window_train_start_index,
+    state.experiment_id,
+    state.selected_company,
+    state.selected_industry,
+    state.selected_product,
+    target,
+  ]);
+
+  const handleTrainingFinalResult = useCallback(async (response: any) => {
+    if (response.status !== "success") {
+      throw new Error(response.message || "计算失败，请重试...");
+    }
+
+    const apiResults = response.results;
+    const nextResults = {
+      predictions: alignPredictionRows({
+        actualValues: apiResults.eval_y_true,
+        predictedValues: apiResults.eval_predictions,
+        backendMonths: apiResults.evaluate_months,
+        fallbackMonths: evaluateMonths,
+      }),
+      metrics: apiResults.metrics,
+    };
+
+    await updateState({
+      lstm_features: features,
+      lstm_target_field: target,
+      lstm_metrics_rmse: apiResults.metrics.rmse,
+      lstm_metrics_mae: apiResults.metrics.mae,
+      lstm_metrics_r2: apiResults.metrics.r2,
+    }, { forceSync: true, throwOnSyncError: true });
+    setResults(nextResults);
+  }, [evaluateMonths, features, target, updateState]);
+
+  const {
+    session: guidedTrainingSession,
+    isLoading,
+    error,
+    setError,
+    retryCount,
+    initializeSession: initializeGuidedTrainingSession,
+    runNextStep: runNextGuidedTrainingStep,
+    handleRetry,
+    resetGuidedTraining,
+  } = useGuidedModelTraining<any>({
+    modelType: 'lstm',
+    buildRequestBody: buildTrainingRequestBody,
+    onFinalResult: handleTrainingFinalResult,
+    lockPath: location.pathname,
+    setTrainingLock,
+    getErrorMessage: (jobError) =>
+      jobError instanceof Error ? jobError.message : '遇到错误，请重试...',
+  });
+
   useEffect(() => {
     if (target) {
       setFeatures(prev => prev.includes(target) ? prev.filter(f => f !== target) : prev);
@@ -80,8 +144,8 @@ const LSTMStepper: React.FC = () => {
   useEffect(() => {
     setResults(null);
     setError(null);
-    resetRetryCount();
-  }, [features, normalization, resetRetryCount, setError, target]);
+    resetGuidedTraining();
+  }, [features, normalization, resetGuidedTraining, setError, target]);
 
   const currentStepIndex = useMemo(() => {
     if (isNormalizationInfoPage) {
@@ -126,84 +190,6 @@ const LSTMStepper: React.FC = () => {
     }
   }, [currentStep?.id, target, productFieldOptions]);
 
-  const handleCalculate = useCallback(async () => {
-    setError(null);
-    setResults(null);
-    if (!state.experiment_id) {
-      setError('实验状态未初始化，无法训练模型。');
-      return;
-    }
-
-    const requestBody = {
-      experiment_id: state.experiment_id,
-      selected_industry: state.selected_industry,
-      selected_company: state.selected_company,
-      selected_product: state.selected_product,
-      data_window_train_start_index: state.data_window_train_start_index,
-      data_window_train_end_index: state.data_window_train_end_index,
-      data_window_evaluate_start_index: state.data_window_evaluate_start_index,
-      data_window_evaluate_end_index: state.data_window_evaluate_end_index,
-      lstmNormalization: normalization,
-      lstmTargetFeature: target ?? '销售数量',
-      lstmFeatures: JSON.stringify(features),
-    };
-
-    await runJob<any>({
-      lockPath: location.pathname,
-      setTrainingLock,
-      request: (signal, onProgress) => postModelTrainingStream<any>(
-        "/models/lstm/training/stream",
-        requestBody,
-        { signal, onProgress }
-      ),
-      minLoadingMs: MIN_BASE_MODEL_PROGRESS_MS,
-      onSuccess: async (response) => {
-        if (response.status !== "success") {
-          throw new Error(response.message || "计算失败，请重试...");
-        }
-
-        const apiResults = response.results;
-        const nextResults = {
-          predictions: alignPredictionRows({
-            actualValues: apiResults.eval_y_true,
-            predictedValues: apiResults.eval_predictions,
-            backendMonths: apiResults.evaluate_months,
-            fallbackMonths: evaluateMonths,
-          }),
-          metrics: apiResults.metrics,
-        };
-
-        await updateState({
-          lstm_features: features,
-          lstm_target_field: target,
-          lstm_metrics_rmse: apiResults.metrics.rmse,
-          lstm_metrics_mae: apiResults.metrics.mae,
-          lstm_metrics_r2: apiResults.metrics.r2,
-        }, { forceSync: true, throwOnSyncError: true });
-        setResults(nextResults);
-      },
-      getErrorMessage: (jobError) =>
-        jobError instanceof Error ? jobError.message : '遇到错误，请重试...',
-    });
-  }, [
-    location.pathname,
-    state.experiment_id,
-    state.selected_industry,
-    state.selected_company,
-    state.selected_product,
-    state.data_window_train_start_index,
-    state.data_window_train_end_index,
-    state.data_window_evaluate_start_index,
-    state.data_window_evaluate_end_index,
-    normalization,
-    target,
-    features,
-    evaluateMonths,
-    runJob,
-    setTrainingLock,
-    updateState
-  ]);
-
   const areParamsValid = useMemo(() => {
     return !!normalization && !!target && features.length > 0;
   }, [normalization, target, features]);
@@ -212,15 +198,11 @@ const LSTMStepper: React.FC = () => {
     return !!normalization;
   }, [normalization])
 
-  useAutoCalculation({
-    calculationStepId: 'results',
-    currentStepId: currentStep?.id,
-    handleCalculate,
-    canCalculate: areParamsValid,
-    results,
-    isLoading,
-    error,
-  });
+  useEffect(() => {
+    if (currentStep?.id === 'results' && areParamsValid && !results && !error) {
+      void initializeGuidedTrainingSession();
+    }
+  }, [areParamsValid, currentStep?.id, error, initializeGuidedTrainingSession, results]);
 
   const handleNext = async () => {
     if (currentStep?.id === 'preprocessing') {
@@ -244,6 +226,10 @@ const LSTMStepper: React.FC = () => {
     }
 
     if (currentStep?.id === 'results') {
+      if (!results) {
+        setError('请先完成分阶段训练，生成计算结果后再进入下一步。');
+        return;
+      }
       try {
         await updateState(
           { lstm_completed: true },
@@ -321,7 +307,15 @@ const LSTMStepper: React.FC = () => {
       csvData: productSalesData?.csvData,
       onShowLSTMMethodInfo: handleShowLSTMMethodInfo
     },
-    results: { data: results, isLoading, error, onRetry: handleRetry, currentProgress, progressEvents },
+    results: {
+      data: results,
+      guidedSession: guidedTrainingSession,
+      isLoading,
+      error,
+      onRetry: handleRetry,
+      onInitialize: initializeGuidedTrainingSession,
+      onRunNextStep: runNextGuidedTrainingStep,
+    },
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};
@@ -348,7 +342,7 @@ const LSTMStepper: React.FC = () => {
       onNext={handleNext}
       onPrevious={handlePrevious}
       isPreviousDisabled={retryCount >= MODEL_RETRY_LIMITS.maxFailures || isLoading}
-      isNextDisabled={isLoading || !!error || isNormalizationInfoPage || isLSTMMethodInfoPage || (currentStep?.id === 'preprocessing'&&!normSelected) || (currentStep?.id === 'build'&&!areParamsValid)}
+      isNextDisabled={isLoading || !!error || isNormalizationInfoPage || isLSTMMethodInfoPage || (currentStep?.id === 'preprocessing'&&!normSelected) || (currentStep?.id === 'build'&&!areParamsValid) || (currentStep?.id === 'results' && !results)}
       nextButtonText={isComparisonPage ? '完成' : '下一步'}
     >
       {renderContent()}
