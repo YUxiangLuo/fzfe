@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { createAuthObjectUrl } from "../utils/authFile";
 
+interface UseAuthObjectUrlOptions {
+  onError?: (error: unknown) => void;
+  logErrors?: boolean;
+}
+
 /**
  * Declaratively fetches an authenticated file and returns an Object URL.
  *
@@ -11,7 +16,11 @@ import { createAuthObjectUrl } from "../utils/authFile";
  *
  * For imperative usage (e.g. export callbacks) use `useObjectUrl` instead.
  */
-export function useAuthObjectUrl(filePath: string | null | undefined): string | null {
+export function useAuthObjectUrl(
+  filePath: string | null | undefined,
+  options: UseAuthObjectUrlOptions = {},
+): string | null {
+  const { onError, logErrors = true } = options;
   const [url, setUrl] = useState<string | null>(null);
   const urlRef = useRef<string | null>(null);
   const requestIdRef = useRef(0);
@@ -44,7 +53,10 @@ export function useAuthObjectUrl(filePath: string | null | undefined): string | 
       })
       .catch((err) => {
         if (cancelled || requestId !== requestIdRef.current) return;
-        console.error("Failed to load authenticated file:", err);
+        if (logErrors) {
+          console.error("Failed to load authenticated file:", err);
+        }
+        onError?.(err);
         setUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
           return null;
@@ -55,7 +67,7 @@ export function useAuthObjectUrl(filePath: string | null | undefined): string | 
     return () => {
       cancelled = true;
     };
-  }, [filePath]);
+  }, [filePath, logErrors, onError]);
 
   useEffect(() => {
     return () => {

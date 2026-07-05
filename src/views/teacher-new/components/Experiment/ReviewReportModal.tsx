@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
     Modal,
     Row,
@@ -74,7 +74,16 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
     });
     const [isSaving, setIsSaving] = useState(false);
     const [isPreviewLoadError, setIsPreviewLoadError] = useState(false);
-    const pdfPreviewUrl = useAuthObjectUrl(open ? report?.pdf_file_path : null);
+    const [previewErrorMessage, setPreviewErrorMessage] = useState<string | null>(null);
+    const isPdfMissing = report?.pdf_file_available === false;
+    const handlePreviewLoadError = useCallback((err: unknown) => {
+        setIsPreviewLoadError(true);
+        setPreviewErrorMessage(getErrorMessage(err, 'PDF 加载失败'));
+    }, []);
+    const pdfPreviewUrl = useAuthObjectUrl(open && !isPdfMissing ? report?.pdf_file_path : null, {
+        onError: handlePreviewLoadError,
+        logErrors: false,
+    });
 
     // Reset state when report changes
     React.useEffect(() => {
@@ -88,6 +97,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
             setTempFeedback(report.feedback || '');
             setRejectReason('');
             setIsPreviewLoadError(false);
+            setPreviewErrorMessage(null);
 
             const eg = report.experiment_grade;
             setExpFlowScores({
@@ -250,6 +260,9 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
 
     if (!report) return null;
     const pdfFilePath = report.pdf_file_path;
+    const previewUnavailableMessage = isPdfMissing
+        ? '服务器上的 PDF 文件缺失，仍可继续评分或驳回。'
+        : (previewErrorMessage ? `${previewErrorMessage}，仍可继续评分或驳回。` : 'PDF 加载失败，仍可继续评分或驳回。');
 
     return (
         <Modal
@@ -268,7 +281,7 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
             <Row style={{ height: '100%' }}>
                 {/* Left side - PDF Preview */}
                 <Col span={16} style={{ height: '100%', padding: 24, borderRight: '1px solid #f0f0f0' }}>
-                    {pdfFilePath && !isPreviewLoadError ? (
+                    {pdfFilePath && !isPdfMissing && !isPreviewLoadError ? (
                         <div style={{ height: '100%', background: '#f5f5f5', borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
                             <iframe
                                 src={pdfPreviewUrl ?? undefined}
@@ -279,20 +292,28 @@ const ReviewReportModal: React.FC<ReviewReportModalProps> = ({
                         </div>
                     ) : pdfFilePath ? (
                         <div style={{ height: '100%', background: '#f5f5f5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <div style={{ textAlign: 'center', color: '#999' }}>
+                            <div style={{ width: 'min(520px, 90%)', textAlign: 'center', color: '#999' }}>
                                 <FileTextOutlined style={{ fontSize: 48, marginBottom: 16 }} />
-                                <p>PDF 加载失败</p>
-                                <Button
-                                    type="link"
-                                    onClick={() => {
-                                        if (!pdfFilePath) return;
-                                        openFileWithAuth(pdfFilePath).catch((err: unknown) => {
-                                            message.error(getErrorMessage(err, '下载失败'));
-                                        });
-                                    }}
-                                >
-                                    点击下载查看
-                                </Button>
+                                <Alert
+                                    type={isPdfMissing ? 'warning' : 'error'}
+                                    message={isPdfMissing ? '报告文件缺失' : 'PDF 加载失败'}
+                                    description={previewUnavailableMessage}
+                                    showIcon
+                                    style={{ marginBottom: 12, textAlign: 'left' }}
+                                />
+                                {!isPdfMissing && (
+                                    <Button
+                                        type="link"
+                                        onClick={() => {
+                                            if (!pdfFilePath) return;
+                                            openFileWithAuth(pdfFilePath).catch((err: unknown) => {
+                                                message.error(getErrorMessage(err, '下载失败'));
+                                            });
+                                        }}
+                                    >
+                                        点击下载查看
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     ) : (

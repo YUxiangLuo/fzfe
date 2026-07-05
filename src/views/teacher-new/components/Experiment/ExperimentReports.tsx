@@ -220,12 +220,12 @@ const ExperimentReports: React.FC = () => {
     }, [selectedClassId, hasClassReports, isExportingReports, clearExportedFileUrl, setExportedFileUrl]);
 
     // Download report
-    const handleDownload = (filePath: string | null) => {
-        if (!filePath) {
+    const handleDownload = (report: ExperimentReport) => {
+        if (!report.pdf_file_path || report.pdf_file_available === false) {
             message.warning('报告文件不存在');
             return;
         }
-        openFileWithAuth(filePath).catch((err: unknown) => {
+        openFileWithAuth(report.pdf_file_path).catch((err: unknown) => {
             message.error(getErrorMessage(err, '下载失败'));
         });
     };
@@ -326,33 +326,38 @@ const ExperimentReports: React.FC = () => {
             title: '操作',
             key: 'action',
             width: 180,
-            render: (_: unknown, record: ExperimentReport) => (
-                <Space>
-                    {record.pdf_file_path && (
-                        <Tooltip title="下载报告">
-                            <Button
-                                type="link"
-                                icon={<DownloadOutlined />}
-                                onClick={() => handleDownload(record.pdf_file_path)}
-                            >
-                                下载
-                            </Button>
-                        </Tooltip>
-                    )}
-                    {record.report_id && (
-                        <Tooltip title="评阅">
-                            <Button
-                                type="primary"
-                                ghost
-                                icon={<EditOutlined />}
-                                onClick={() => openReviewModal(record)}
-                            >
-                                评阅
-                            </Button>
-                        </Tooltip>
-                    )}
-                </Space>
-            ),
+            render: (_: unknown, record: ExperimentReport) => {
+                const isPdfMissing = Boolean(record.pdf_file_path && record.pdf_file_available === false);
+
+                return (
+                    <Space>
+                        {record.pdf_file_path && (
+                            <Tooltip title={isPdfMissing ? '服务器上的 PDF 文件缺失' : '下载报告'}>
+                                <Button
+                                    type="link"
+                                    icon={<DownloadOutlined />}
+                                    disabled={isPdfMissing}
+                                    onClick={() => handleDownload(record)}
+                                >
+                                    {isPdfMissing ? '文件缺失' : '下载'}
+                                </Button>
+                            </Tooltip>
+                        )}
+                        {record.report_id && (
+                            <Tooltip title="评阅">
+                                <Button
+                                    type="primary"
+                                    ghost
+                                    icon={<EditOutlined />}
+                                    onClick={() => openReviewModal(record)}
+                                >
+                                    评阅
+                                </Button>
+                            </Tooltip>
+                        )}
+                    </Space>
+                );
+            },
         },
     ];
 

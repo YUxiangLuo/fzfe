@@ -133,6 +133,7 @@ export interface ExperimentReport {
     status?: 'submitted' | 'graded' | 'rejected';
     submitted_at: string | null;
     pdf_file_path: string | null;
+    pdf_file_available?: boolean;
     grade: number | null;
     feedback: string | null;
     grader_name: string | null;

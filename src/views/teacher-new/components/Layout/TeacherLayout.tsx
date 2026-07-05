@@ -360,6 +360,7 @@ const TeacherLayout: React.FC = () => {
                             <Route path="/student-management" element={<StudentManagement />} />
 
                             {/* Phase 6: Assessment */}
+                            <Route path="/question-bank" element={<Navigate to="/assessment-questions" replace />} />
                             <Route path="/assessment-questions" element={renderAssessmentRoute(<QuestionBank />)} />
                             <Route path="/assessment-weights" element={renderAssessmentRoute(<GradeWeights />)} />
                             <Route path="/assessment-grades" element={renderAssessmentRoute(<GradesOverview />)} />
@@ -372,6 +373,7 @@ const TeacherLayout: React.FC = () => {
                                     ? <Navigate to="/account-personal" replace />
                                     : <AssistantManagement />}
                             />
+                            <Route path="*" element={<Navigate to="/experiment-progress" replace />} />
                         </Routes>
                     </Suspense>
                 </Content>
