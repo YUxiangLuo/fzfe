@@ -29,6 +29,8 @@ const outputKeyLabels: Record<string, string> = {
   early_stopped: '是否早停',
   effective_train_size: '差分后样本数',
   encoded_feature_count: '编码后特征数',
+  recurrent_units: '隐藏单元数',
+  dense_units: '全连接单元数',
   epochs: '训练轮数',
   epochs_ran: '实际轮数',
   epochs_requested: '计划轮数',

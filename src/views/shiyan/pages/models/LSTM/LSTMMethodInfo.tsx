@@ -18,7 +18,7 @@ const LSTMMethodInfo: React.FC = () => {
 
       <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-purple-200 shadow-sm">
         <p className="text-gray-800 leading-relaxed text-base">
-          定义<strong>模型架构</strong>时，需要确定输入特征数量、LSTM 层数、隐藏单元数以及输出步数。本系统使用两层 LSTM 加全连接层，隐藏单元数会根据训练样本量和编码后的特征数量动态确定。
+          定义<strong>模型架构</strong>时，需要确定输入特征数量、LSTM 层数、隐藏单元数以及输出步数。本系统使用单层 LSTM 加全连接层，并配合 Dropout 与 L2 正则以抑制小样本过拟合；隐藏单元数会根据训练样本量动态确定。
         </p>
       </div>
 
