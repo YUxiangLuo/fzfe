@@ -65,7 +65,7 @@ function runtimeInfoPlugin(): Plugin {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react(), spaFallbackPlugin(), runtimeInfoPlugin()],
 
   resolve: {
@@ -73,6 +73,13 @@ export default defineConfig({
       '@': resolve(__dirname, './src'),
     },
   },
+
+  // 生产构建中移除调试输出，避免课堂/生产环境泄露内部状态或噪声日志。
+  esbuild: mode === 'production'
+    ? {
+        drop: ['console', 'debugger'],
+      }
+    : undefined,
 
   // 多页面应用配置
   build: {
@@ -105,4 +112,4 @@ export default defineConfig({
   preview: {
     port: 4000,
   },
-});
+}));

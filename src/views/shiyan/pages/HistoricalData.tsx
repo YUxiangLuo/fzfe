@@ -1,73 +1,29 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExperiment } from '../contexts/ExperimentContext.zustand';
-import { BarChart3, Calendar, Info, ArrowRight, Loader2, AlertTriangle, Download, X, Table, Settings } from 'lucide-react';
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  ScatterChart,
-  Scatter,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  Cell,
-} from 'recharts';
+import { Info, ArrowRight, Loader2 } from 'lucide-react';
 import { useToast } from '../shared/hooks/useToast';
 import { Toast } from '../shared/components/common/Toast';
 import { ROUTES } from '../constants/routes';
 import Button from '../shared/components/common/Button';
 import { fillMissingMonths, isBlankValue } from '../utils/dataProcessing';
 import { useStepStartRecorder } from '../hooks/useStepStartRecorder';
+import type { ProductSalesData } from '../store/experiment/types';
+import { BlankDataDialog } from './historical-data/BlankDataDialog';
+import { HistoricalDataChartPanel } from './historical-data/HistoricalDataChartPanel';
+import { HistoricalDataCsvTable } from './historical-data/HistoricalDataCsvTable';
+import { HistoricalDataStatisticsTable } from './historical-data/HistoricalDataStatisticsTable';
+import { CHART_TYPES, type ChartType, type HistogramBin, type HistoricalPeriod, type StatisticsData } from './historical-data/types';
 
 // 常量配置
 const CURRENT_STEP = 4;
 const NEXT_STEP = 5;
-const MIN_DATA_MONTHS = 24;
 const HISTOGRAM_BINS = 10;
 
 const PATHS = {
   PREVIOUS: ROUTES.PRODUCT,
   NEXT: ROUTES.MODEL,
 } as const;
-
-// 图表类型
-type ChartType = 'line' | 'histogram' | 'bar' | 'scatter';
-
-interface ChartTypeOption {
-  value: ChartType;
-  label: string;
-}
-
-const CHART_TYPES: ChartTypeOption[] = [
-  { value: 'line', label: '折线图' },
-  { value: 'histogram', label: '直方图' },
-  { value: 'bar', label: '条形图' },
-  { value: 'scatter', label: '散点图' },
-];
-
-// 统计数据接口
-interface StatisticsData {
-  variableName: string;
-  count: number;
-  sum: number;
-  mean: number;
-  max: number;
-  min: number;
-  variance: number;
-  stdDev: number;
-}
-
-// 直方图数据接口
-interface HistogramBin {
-  range: string;
-  count: number;
-  minValue: number;
-}
 
 const HistoricalData: React.FC = () => {
   const navigate = useNavigate();
@@ -81,10 +37,9 @@ const HistoricalData: React.FC = () => {
     recordStepEvent,
     setIsSubmitting,
   } = useExperiment();
-  const [selectedPeriod, setSelectedPeriod] = useState<'all' | '12months' | '6months'>('all');
+  const [selectedPeriod, setSelectedPeriod] = useState<HistoricalPeriod>('all');
   const [chartType, setChartType] = useState<ChartType>('line');
   const [showBlankDataDialog, setShowBlankDataDialog] = useState(false);
-  const [hasBlankData, setHasBlankData] = useState(false);
   const [blankMonths, setBlankMonths] = useState<string[]>([]);
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -95,7 +50,7 @@ const HistoricalData: React.FC = () => {
 
   const { selected_industry, selected_company, selected_product } = state;
   const hasCheckedBlankData = useRef(false);
-  const [processedSalesData, setProcessedSalesData] = useState<typeof productSalesData>(null);
+  const [processedSalesData, setProcessedSalesData] = useState<ProductSalesData | null>(null);
   useStepStartRecorder(CURRENT_STEP, state.highest_completed_step, recordStepEvent);
 
   // 加载产品销售数据
@@ -192,7 +147,6 @@ const HistoricalData: React.FC = () => {
       });
 
       const hasBlank = blanks.length > 0;
-      setHasBlankData(hasBlank);
       setBlankMonths(blanks);
 
       if (hasBlank) {
@@ -471,112 +425,6 @@ const HistoricalData: React.FC = () => {
     }
   };
 
-  // 渲染图表
-  const renderChart = () => {
-    const productInfo = activeDataset?.meta;
-    if (!productInfo) return null;
-
-    const commonProps = {
-      margin: { top: 10, right: 30, left: 0, bottom: 0 },
-    };
-
-    switch (chartType) {
-      case 'line':
-        return (
-          <LineChart data={filteredData} {...commonProps}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey="month" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
-            <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => value.toLocaleString()} />
-            <Tooltip
-              formatter={(value) => [`${Number(value).toLocaleString()} ${productInfo.unit}`, '销量']}
-              labelFormatter={(label) => `${label} 月度销量`}
-            />
-            <Legend />
-            <Line
-              type="monotone"
-              dataKey="sales"
-              name={`${productInfo.name} 月销量`}
-              stroke="#2563eb"
-              strokeWidth={3}
-              dot={{ r: 4 }}
-              activeDot={{ r: 6 }}
-            />
-          </LineChart>
-        );
-
-      case 'histogram':
-        return (
-          <BarChart data={histogramData} {...commonProps}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey="range" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
-            <YAxis tick={{ fontSize: 12 }} label={{ value: '频数', angle: -90, position: 'insideLeft' }} />
-            <Tooltip
-              formatter={(value) => [`${value} 个月`, '频数']}
-              labelFormatter={(label) => `销量区间: ${label}`}
-            />
-            <Legend />
-            <Bar dataKey="count" name="频数分布" fill="#3b82f6" />
-          </BarChart>
-        );
-
-      case 'bar':
-        return (
-          <BarChart data={filteredData} {...commonProps}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey="month" tick={{ fontSize: 12 }} angle={-15} textAnchor="end" height={60} />
-            <YAxis tick={{ fontSize: 12 }} tickFormatter={(value) => value.toLocaleString()} />
-            <Tooltip
-              formatter={(value) => [`${Number(value).toLocaleString()} ${productInfo.unit}`, '销量']}
-              labelFormatter={(label) => `${label} 月度销量`}
-            />
-            <Legend />
-            <Bar dataKey="sales" name={`${productInfo.name} 月销量`} fill="#10b981">
-              {filteredData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={`hsl(${(index * 360) / filteredData.length}, 70%, 50%)`} />
-              ))}
-            </Bar>
-          </BarChart>
-        );
-
-      case 'scatter':
-        return (
-          <ScatterChart {...commonProps}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis
-              type="number"
-              dataKey="index"
-              name="序号"
-              tick={{ fontSize: 12 }}
-              label={{ value: '月份序号', position: 'insideBottom', offset: -5 }}
-            />
-            <YAxis
-              type="number"
-              dataKey="sales"
-              name="销量"
-              tick={{ fontSize: 12 }}
-              tickFormatter={(value) => value.toLocaleString()}
-            />
-            <Tooltip
-              cursor={{ strokeDasharray: '3 3' }}
-              formatter={(value, name) => {
-                if (name === '销量') return [`${Number(value).toLocaleString()} ${productInfo.unit}`, name];
-                return [value, name];
-              }}
-              labelFormatter={(value, payload) => {
-                const data = payload?.[0]?.payload;
-                return data ? `${data.month} (第${data.index}个月)` : '';
-              }}
-            />
-            <Legend />
-            <Scatter name={`${productInfo.name} 月销量`} data={scatterData} fill="#8b5cf6" />
-          </ScatterChart>
-        );
-
-      default:
-        return null;
-    }
-  };
-
   if (ui.isLoadingSales) {
     return (
       <div className="p-8 flex justify-center items-center h-96">
@@ -643,211 +491,35 @@ const HistoricalData: React.FC = () => {
         </div>
 
         {/* 统计性表格 */}
-        {statistics && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">统计性表格</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-700">变量名</th>
-                    <th className="border border-gray-300 px-4 py-3 text-right font-semibold text-gray-700">观测数量</th>
-                    <th className="border border-gray-300 px-4 py-3 text-right font-semibold text-gray-700">总和</th>
-                    <th className="border border-gray-300 px-4 py-3 text-right font-semibold text-gray-700">均值</th>
-                    <th className="border border-gray-300 px-4 py-3 text-right font-semibold text-gray-700">最大值</th>
-                    <th className="border border-gray-300 px-4 py-3 text-right font-semibold text-gray-700">最小值</th>
-                    <th className="border border-gray-300 px-4 py-3 text-right font-semibold text-gray-700">方差</th>
-                    <th className="border border-gray-300 px-4 py-3 text-right font-semibold text-gray-700">标准差</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="hover:bg-gray-50">
-                    <td className="border border-gray-300 px-4 py-3 font-medium text-gray-900">{statistics.variableName}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-right text-gray-700">{statistics.count}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-right text-gray-700">{statistics.sum.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-right text-gray-700">{statistics.mean.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-right text-gray-700">{statistics.max.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-right text-gray-700">{statistics.min.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-right text-gray-700">{statistics.variance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-right text-gray-700">{statistics.stdDev.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        {statistics && <HistoricalDataStatisticsTable statistics={statistics} />}
 
-                {/* 图表区域 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold text-gray-900 flex items-center">
-              <BarChart3 className="w-6 h-6 mr-3 text-blue-600" />
-              数据可视化图表
-            </h2>
-            <div className="flex items-center gap-4">
-              {/* 时间段选择器 */}
-              <select
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value as typeof selectedPeriod)}
-                className="border border-gray-300 rounded-lg px-4 py-2 bg-white"
-              >
-                <option value="all">全部 ({totalMonths}个月)</option>
-                {totalMonths >= 12 && <option value="12months">近12个月</option>}
-                {totalMonths >= 6 && <option value="6months">近6个月</option>}
-              </select>
-
-              {/* 图表类型选择器 */}
-              <select
-                value={chartType}
-                onChange={(e) => setChartType(e.target.value as ChartType)}
-                className="border border-gray-300 rounded-lg px-4 py-2 bg-white"
-              >
-                {CHART_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-
-              {/* 保存按钮 */}
-              <button
-                onClick={handleSaveChart}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Download className="w-4 h-4" />
-                <span>保存图表</span>
-              </button>
-            </div>
-          </div>
-
-          {/* 图表说明 */}
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-600">
-              {chartType === 'line' && '折线图：展示销量随时间的变化趋势'}
-              {chartType === 'histogram' && '直方图：展示销量数据的分布情况（频数统计）'}
-              {chartType === 'bar' && '条形图：展示每个月份的销量对比'}
-              {chartType === 'scatter' && '散点图：展示销量数据的离散分布'}
-            </p>
-          </div>
-
-          {/* 图表渲染区域 */}
-          <div ref={chartRef} className="h-96 bg-gray-50 rounded-lg p-4">
-            <ResponsiveContainer width="100%" height="100%">
-              {renderChart()}
-            </ResponsiveContainer>
-          </div>
-        </div>
+        {/* 图表区域 */}
+        <HistoricalDataChartPanel
+          chartRef={chartRef}
+          chartType={chartType}
+          filteredData={filteredData}
+          histogramData={histogramData}
+          productInfo={productInfo}
+          scatterData={scatterData}
+          selectedPeriod={selectedPeriod}
+          totalMonths={totalMonths}
+          onChartTypeChange={setChartType}
+          onSaveChart={handleSaveChart}
+          onSelectedPeriodChange={setSelectedPeriod}
+        />
 
         {/* 原始CSV数据表格 */}
         {activeDataset?.csvData && activeDataset.csvData.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-                <Table className="w-6 h-6 mr-3 text-green-600" />
-                原始数据表格
-              </h2>
-              <div className="flex items-center gap-3">
-                {/* 列选择按钮 */}
-                <div className="relative" ref={columnSelectorRef}>
-                  <button
-                    onClick={() => setShowColumnSelector(!showColumnSelector)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span>选择列 ({visibleColumns.size}/{activeDataset.csvData[0]?.length || 0})</span>
-                  </button>
-
-                  {/* 列选择下拉面板 */}
-                  {showColumnSelector && (
-                    <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-96 overflow-y-auto">
-                      <div className="p-3 border-b border-gray-200 flex justify-between items-center">
-                        <span className="font-medium text-gray-900">选择要显示的列</span>
-                        <button
-                          onClick={toggleAllColumns}
-                          className="text-sm text-blue-600 hover:text-blue-700"
-                        >
-                          {visibleColumns.size === activeDataset.csvData[0]?.length ? '取消全选' : '全选'}
-                        </button>
-                      </div>
-                      <div className="p-2">
-                        {activeDataset.csvData[0]?.map((header, index) => (
-                          <label
-                            key={index}
-                            className="flex items-center px-3 py-2 hover:bg-gray-50 rounded cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={visibleColumns.has(index)}
-                              onChange={() => toggleColumn(index)}
-                              className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                            />
-                            <span className="ml-3 text-sm text-gray-700">{header}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* 下载CSV按钮 */}
-                <button
-                  onClick={handleDownloadCSV}
-                  disabled={visibleColumns.size === 0}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                    visibleColumns.size === 0
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : 'bg-green-600 text-white hover:bg-green-700'
-                  }`}
-                >
-                  <Download className="w-4 h-4" />
-                  <span>下载CSV</span>
-                </button>
-              </div>
-            </div>
-
-            {/* 数据表格 */}
-            {visibleColumns.size > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-gradient-to-r from-green-50 to-blue-50">
-                      {activeDataset.csvData[0]?.map((header, index) =>
-                        visibleColumns.has(index) ? (
-                          <th
-                            key={index}
-                            className="border border-gray-300 px-3 py-2 text-left font-semibold text-gray-700 whitespace-nowrap"
-                          >
-                            {header}
-                          </th>
-                        ) : null
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeDataset.csvData.slice(1).map((row, rowIndex) => (
-                      <tr key={rowIndex} className="hover:bg-gray-50">
-                        {row.map((cell, cellIndex) =>
-                          visibleColumns.has(cellIndex) ? (
-                            <td
-                              key={cellIndex}
-                              className="border border-gray-300 px-3 py-2 text-gray-700"
-                            >
-                              {cell}
-                            </td>
-                          ) : null
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Info className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                <p>请至少选择一列以显示数据</p>
-              </div>
-            )}
-          </div>
+          <HistoricalDataCsvTable
+            csvData={activeDataset.csvData}
+            columnSelectorRef={columnSelectorRef}
+            showColumnSelector={showColumnSelector}
+            visibleColumns={visibleColumns}
+            onDownloadCSV={handleDownloadCSV}
+            onShowColumnSelectorChange={setShowColumnSelector}
+            onToggleAllColumns={toggleAllColumns}
+            onToggleColumn={toggleColumn}
+          />
         )}
 
 
@@ -875,67 +547,10 @@ const HistoricalData: React.FC = () => {
 
       {/* 空白数据提示弹窗 */}
       {showBlankDataDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
-            <div className="bg-gradient-to-r from-yellow-500 to-orange-600 px-6 py-5 flex items-center justify-between">
-              <h3 className="text-2xl font-bold text-white">检测到空白数据</h3>
-              <button
-                onClick={() => setShowBlankDataDialog(false)}
-                className="text-white hover:bg-white/20 rounded-lg p-1 transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-yellow-800 font-medium mb-2">⚠️ 重要提示</p>
-                <p className="text-yellow-700 text-sm">
-                  系统检测到数据中存在 <strong>{blankMonths.length}</strong> 个月份的空白值（缺失数据）。
-                </p>
-              </div>
-
-              {/* 显示空白月份列表 */}
-              <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
-                <h4 className="font-semibold text-gray-900 mb-2">空白月份：</h4>
-                <div className="flex flex-wrap gap-2">
-                  {blankMonths.map((month, index) => (
-                    <span
-                      key={index}
-                      className="inline-block px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm font-medium"
-                    >
-                      {month}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3 mb-6">
-                <h4 className="font-semibold text-gray-900">空白数据说明：</h4>
-                <ul className="space-y-2 text-sm text-gray-700">
-                  <li className="flex items-start">
-                    <span className="mr-2">•</span>
-                    <span>空白数据可以正常导入和查看</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="mr-2">•</span>
-                    <span>空白数据<strong>不能用于需求预测</strong></span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="mr-2">•</span>
-                    <span>建议先进行数据清洗或填补缺失值后再进行预测分析</span>
-                  </li>
-                </ul>
-              </div>
-
-              <button
-                onClick={() => setShowBlankDataDialog(false)}
-                className="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
-              >
-                我已了解
-              </button>
-            </div>
-          </div>
-        </div>
+        <BlankDataDialog
+          blankMonths={blankMonths}
+          onClose={() => setShowBlankDataDialog(false)}
+        />
       )}
 
       {toast && (
