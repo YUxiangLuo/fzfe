@@ -35,7 +35,7 @@ const Formula: React.FC = () => {
           </div>
           <div className="flex items-start gap-3">
             <span className="font-mono font-semibold text-blue-600 min-w-[3rem]">α</span>
-            <span>—— 平滑系数，本系统要求 0 &lt; α ≤ 1</span>
+            <span>—— 平滑系数，本系统要求 0 &lt; α &lt; 1</span>
           </div>
         </div>
       </div>

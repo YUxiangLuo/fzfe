@@ -61,7 +61,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
     paramKey: 'exponential_smoothing_alpha',
     validateParam: (alpha) => {
       if (alpha === '' || alpha <= EXPONENTIAL_SMOOTHING_CONSTANTS.MIN_ALPHA) return false;
-      if (alpha > EXPONENTIAL_SMOOTHING_CONSTANTS.MAX_ALPHA) return false;
+      if (alpha >= EXPONENTIAL_SMOOTHING_CONSTANTS.MAX_ALPHA) return false;
       return true;
     },
   });

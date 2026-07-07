@@ -38,7 +38,7 @@ const Params: React.FC<ParamsProps> = ({ alpha, setAlpha }) => {
           min="0"
           max="1"
           className="block w-full max-w-md px-4 py-3 bg-white border-2 border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
-          placeholder="请输入平滑系数（0 < α ≤ 1）"
+          placeholder="请输入平滑系数（0 < α < 1）"
         />
       </div>
 

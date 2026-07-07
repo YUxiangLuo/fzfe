@@ -13,8 +13,8 @@ const Validation: React.FC<ValidationProps> = ({ alpha, isValid }) => {
     if (alpha === '' || alpha <= 0) {
       return '请输入一个有效的平滑系数（α > 0）';
     }
-    if (alpha > 1) {
-      return '平滑系数不能大于 1';
+    if (alpha >= 1) {
+      return '平滑系数必须小于 1';
     }
     return '平滑系数值不合法';
   }, [isValid, alpha]);
