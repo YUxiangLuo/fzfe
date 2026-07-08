@@ -338,7 +338,7 @@ const baseModels: Model[] = [
     ],
     bestPractices: ['样本量较少时优先减少输入特征数量，避免噪声过多导致不稳定', '对于包含类别特征的数据，LSTM可能比统计模型更有优势', '理解Lookback窗口由系统按样本量自动设置，若训练失败可调整数据窗口或减少预测跨度', '预测步数不宜过长，避免超出训练数据能支持的horizon'],
     performance: {
-      speed: { level: 'low', description: '深层网络计算量大，训练耗时' },
+      speed: { level: 'low', description: '神经网络计算量大，训练耗时' },
       accuracy: { level: 'high', description: '在复杂数据集上通常优于统计模型' },
       dataRequirement: { level: 'medium', description: '建议至少几百个数据点' },
       complexity: { level: 'high', description: '内部结构复杂，但对外参数已简化' }

@@ -165,7 +165,7 @@ const ensembleModels: EnsembleModel[] = [
         { symbol: 'η', meaning: '学习率，控制每个新模型的贡献权重' },
         { symbol: 'argmin', meaning: '从候选模型库中选择误差最小的' }
       ],
-      example: '第一轮MA预测100（残差10）；第二轮对比LSTM和ARIMA拟合残差的效果，发现LSTM更好（预测8），于是贪心选择LSTM；最终预测 = 100 + 0.5×8。'
+      example: '第一轮MA预测100（残差10）；第二轮对比LSTM和ARIMA拟合残差的效果，发现LSTM更好（预测8），于是贪心选择LSTM；按系统默认学习率0.3，最终预测 = 100 + 0.3×8 = 102.4。'
     },
     workflow: {
       steps: [
