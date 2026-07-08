@@ -64,7 +64,7 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base">
-          本系统实现的是一次指数平滑，适合无明显趋势和季节性的水平型销量序列。多步预测会沿用最新平滑水平向未来外推；若数据存在明确趋势或季节性，应使用 Holt 或 Holt-Winters 扩展模型。
+          本系统实现的是一次指数平滑，适合无明显趋势和季节性的水平型销量序列。上面的“选择初始值”是教科书步骤：本系统的初始平滑值由 statsmodels 基于整段训练数据自动估计，用户只需选择平滑系数 α，无需手动指定初始值。多步预测会沿用最新平滑水平向未来外推；若数据存在明确趋势或季节性，应使用 Holt 或 Holt-Winters 扩展模型。
         </p>
       </div>
     </div>
