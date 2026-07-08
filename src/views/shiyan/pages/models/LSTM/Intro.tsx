@@ -48,6 +48,13 @@ const Intro: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
+        <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
+        <p className="text-gray-700 leading-relaxed text-base">
+          LSTM 的教科书重点是门控单元的记忆机制。本系统采用单层 LSTM 加全连接输出层，配合 Dropout 与 L2 正则抑制小样本过拟合；回看窗口、隐藏单元数和训练轮数由系统按样本量自动设置，训练页只开放归一化方式和输入特征。评估阶段默认直接多步输出整个预测区间，生产重训数据不足以支撑该跨度时才回退为一步递归预测。
+        </p>
+      </div>
     </div>
   );
 };
