@@ -547,11 +547,30 @@ test.describe("@shiyan model training step", () => {
 
     await studentApp.expectHash("/model/exponential-smoothing/validation");
     await expect(page.getByText("未通过合法性检验")).toBeVisible();
-    await expect(page.getByText("平滑系数不能大于 1")).toBeVisible();
+    await expect(page.getByText("平滑系数必须小于 1")).toBeVisible();
     await expect(page.getByRole("button", { name: "下一步" })).toBeDisabled();
 
     await studentApp.clickEnabledButton("上一步");
     await studentApp.expectHash("/model/exponential-smoothing/params");
+  });
+
+  test("exponential-smoothing validation blocks alpha equal to one", async ({
+    page,
+    studentApi,
+    studentApp,
+  }) => {
+    await prepareModelStageExperiment(studentApi);
+
+    await studentApp.open("/model/exponential-smoothing/params");
+    await studentApp.expectHash("/model/exponential-smoothing/params");
+
+    await page.locator("#alpha-input").fill("1");
+    await studentApp.clickEnabledButton("下一步");
+
+    await studentApp.expectHash("/model/exponential-smoothing/validation");
+    await expect(page.getByText("未通过合法性检验")).toBeVisible();
+    await expect(page.getByText("平滑系数必须小于 1")).toBeVisible();
+    await expect(page.getByRole("button", { name: "下一步" })).toBeDisabled();
   });
 
   test("exponential-smoothing validation blocks non-positive alpha values", async ({
