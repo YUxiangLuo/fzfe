@@ -52,9 +52,9 @@ const MetaModelSummary: React.FC<{ metaModel: NonNullable<NonNullable<ResultsPro
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
           <p className="font-semibold">本次 Stacking 已回退为逆 MAE 加权</p>
           <p className="mt-1">
-            元模型的训练样本（Level-1 留出段）不足以稳定拟合线性元学习器，系统自动改用各基础模型验证误差倒数作为组合权重。
+            当 Level-1 留出段样本不足，或各基础模型的预测高度相关（特征矩阵奇异/病态）时，线性元学习器无法稳定拟合，系统自动改用各基础模型验证误差倒数作为组合权重。
             此时 Stacking 的效果等价于按误差加权平均，与教科书中"元学习器学习组合"的 Stacking 有所不同。
-            增加训练区间长度或减少基础模型数量可以避免回退。
+            增加训练区间长度、减少基础模型数量或选择差异更大的基础模型，可以降低回退的可能。
           </p>
           {metaModel.fallback_reason && (
             <p className="mt-1 text-xs text-amber-700">回退原因：{metaModel.fallback_reason}</p>

@@ -55,7 +55,7 @@ const StationarityTable: React.FC<StationarityTableProps> = ({ adfResults, isLoa
       <div>
         <h3 className="text-2xl font-bold text-gray-800 mb-3">平稳性检验表</h3>
         <p className="text-gray-600 text-base leading-relaxed">
-          以下是不同差分阶数下的 ADF 检验结果。p 值越小，越倾向于接受"序列平稳"的结论。
+          以下是不同差分阶数下的 ADF 检验结果。p 值越小，越有把握拒绝"存在单位根"的原假设，即越倾向于判定序列平稳。
         </p>
       </div>
 
@@ -124,8 +124,8 @@ const StationarityTable: React.FC<StationarityTableProps> = ({ adfResults, isLoa
       <div className="p-5 bg-blue-50 rounded-lg border border-blue-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">判断标准：</h4>
         <div className="space-y-2 text-gray-700 text-sm">
-          <p>• <strong>p 值 ≤ 0.05</strong>：拒绝原假设，序列平稳</p>
-          <p>• <strong>p 值 &gt; 0.05</strong>：不能拒绝原假设，序列非平稳</p>
+          <p>• <strong>p 值 &lt; 0.05</strong>：拒绝原假设，序列平稳</p>
+          <p>• <strong>p 值 ≥ 0.05</strong>：不能拒绝原假设，序列非平稳</p>
           <p>• <strong>ADF统计量 &lt; 临界值</strong>：倾向于平稳结论</p>
         </div>
       </div>
