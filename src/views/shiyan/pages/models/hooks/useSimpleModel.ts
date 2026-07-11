@@ -5,6 +5,7 @@ import type { ExperimentState } from '../../../store/experiment/types';
 import { alignPredictionRows } from '../resultAlignment';
 import { useGuidedModelTraining } from './useGuidedModelTraining';
 import type { GuidedModelType } from '../../../services/guidedTraining';
+import type { ModelApiResultBase, ModelResultData } from '../modelResultTypes';
 
 type SimpleModelType = 'exponential_smoothing' | 'moving_average';
 
@@ -17,35 +18,16 @@ interface SimpleModelConfig<T> {
     completed: keyof ExperimentState;
     metricsRmse: keyof ExperimentState;
     metricsMae: keyof ExperimentState;
+    metricsMape: keyof ExperimentState;
     metricsR2: keyof ExperimentState;
   };
   paramKey: string;
   validateParam: (param: T) => boolean;
 }
 
-interface SimpleModelResults {
-  predictions: Array<{
-    date: string;
-    actual: number;
-    predicted: number;
-  }>;
-  metrics: {
-    rmse: number;
-    mae: number;
-    r2: number;
-  };
-}
+interface SimpleModelResults extends ModelResultData {}
 
-interface SimpleModelApiResults {
-  eval_y_true?: unknown;
-  eval_predictions?: unknown;
-  evaluate_months?: unknown;
-  metrics: {
-    rmse: number;
-    mae: number;
-    r2: number;
-  };
-}
+interface SimpleModelApiResults extends ModelApiResultBase {}
 
 interface SimpleModelGuidedResult {
   status: string;
@@ -107,16 +89,21 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
       predictions: alignPredictionRows({
         actualValues: apiResults.eval_y_true,
         predictedValues: apiResults.eval_predictions,
+        standardDeviations: apiResults.eval_std_devs,
         backendMonths: apiResults.evaluate_months,
         fallbackMonths,
       }),
       metrics: apiResults.metrics,
+      methodName: apiResults.method_name,
+      forecastStrategy: apiResults.forecast_strategy,
+      implementationNotes: apiResults.implementation_notes,
     };
 
     await updateState({
       [config.stateKeys.param]: param === '' ? null : param,
       [config.stateKeys.metricsRmse]: apiResults.metrics.rmse,
       [config.stateKeys.metricsMae]: apiResults.metrics.mae,
+      [config.stateKeys.metricsMape]: apiResults.metrics.mape,
       [config.stateKeys.metricsR2]: apiResults.metrics.r2,
     }, { forceSync: true, throwOnSyncError: true });
     setResults(modelResults);

@@ -7,11 +7,12 @@ import type { MonthlySalesRecord } from '../../data/historicalDatasets';
 import { useConfirm } from '../../shared/contexts/ConfirmContext';
 import Button from '../../shared/components/common/Button';
 import { fillMissingMonths, hasBlankInRange, isBlankValue } from '../../utils/dataProcessing';
-
-// 常量配置
-const MIN_TRAINING_POINTS = 2; // 训练集至少需要2个数据点
-const MIN_EVALUATION_POINTS = 1; // 评估集至少需要1个数据点
-const MIN_TOTAL_POINTS = MIN_TRAINING_POINTS + MIN_EVALUATION_POINTS; // 总共至少需要3个数据点
+import {
+  getInclusiveRangeSize,
+  MIN_EVALUATION_POINTS,
+  MIN_TOTAL_POINTS,
+  MIN_TRAINING_POINTS,
+} from './dataWindowConstraints';
 
 const PATHS = {
   ROLE_INTRO: '/model/role-intro',
@@ -130,7 +131,10 @@ const DataWindowSelection: React.FC = () => {
         message: '训练区间的结束月份必须大于开始月份（至少跨越2个月）',
       });
     } else {
-      const trainingSize = localTrainingRange.endIndex - localTrainingRange.startIndex + 1;
+      const trainingSize = getInclusiveRangeSize(
+        localTrainingRange.startIndex,
+        localTrainingRange.endIndex,
+      );
       if (trainingSize < MIN_TRAINING_POINTS) {
         errors.push({
           type: 'size',
@@ -156,7 +160,10 @@ const DataWindowSelection: React.FC = () => {
         message: '评估区间的结束月份必须晚于或等于开始月份',
       });
     } else {
-      const evaluationSize = localEvaluateRange.endIndex - localEvaluateRange.startIndex + 1;
+      const evaluationSize = getInclusiveRangeSize(
+        localEvaluateRange.startIndex,
+        localEvaluateRange.endIndex,
+      );
       if (evaluationSize < MIN_EVALUATION_POINTS) {
         errors.push({
           type: 'size',

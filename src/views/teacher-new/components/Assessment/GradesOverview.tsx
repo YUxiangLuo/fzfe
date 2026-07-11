@@ -328,7 +328,7 @@ const GradesOverview: React.FC = () => {
                                     <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                                     <XAxis dataKey="rank" tickLine={false} />
                                     <YAxis domain={[0, 100]} tickLine={false} />
-                                    <RechartsTooltip formatter={(value: number) => value.toFixed(2)} labelFormatter={(label) => `排名 ${label}`} />
+                                    <RechartsTooltip formatter={(value) => Number(value ?? 0).toFixed(2)} labelFormatter={(label) => `排名 ${label}`} />
                                     <Legend />
                                     <Line
                                         type="monotone"
@@ -377,7 +377,7 @@ const GradesOverview: React.FC = () => {
                                         fill="#52c41a"
                                         fillOpacity={0.3}
                                     />
-                                    <RechartsTooltip formatter={(value: number) => value.toFixed(2)} />
+                                    <RechartsTooltip formatter={(value) => Number(value ?? 0).toFixed(2)} />
                                     <Legend />
                                 </RadarChart>
                             </ResponsiveContainer>
@@ -527,7 +527,7 @@ const GradesOverview: React.FC = () => {
                                             <RechartsTooltip
                                                 contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                                                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                                formatter={(value: number) => [`${value.toFixed(2)} 分`, '平均分']}
+                                                formatter={(value) => [`${Number(value ?? 0).toFixed(2)} 分`, '平均分']}
                                             />
                                             <Bar dataKey="avg" name="平均分" radius={[0, 4, 4, 0]} barSize={20}>
                                                 {barData.map((_, index) => (
@@ -556,7 +556,7 @@ const GradesOverview: React.FC = () => {
                                             <RechartsTooltip
                                                 contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                                                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                                formatter={(value: number, name: string) => [`${value} 人`, name]}
+                                                formatter={(value, name) => [`${Number(value ?? 0)} 人`, String(name ?? '')]}
                                             />
                                             <Legend />
                                             <Bar dataKey="已评分" stackId="a" fill="#52c41a" barSize={30} />
@@ -581,7 +581,7 @@ const GradesOverview: React.FC = () => {
                                         <PieChart>
                                             <RechartsTooltip
                                                 contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                                formatter={(value: number) => [`${value} 人`]}
+                                                formatter={(value) => [`${Number(value ?? 0)} 人`, '人数']}
                                             />
                                             <Pie
                                                 data={studentCountPieData}

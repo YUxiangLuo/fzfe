@@ -42,13 +42,13 @@ const ResultEvaluation: React.FC = () => {
     completed: boolean;
     metrics: ModelMetrics;
   }> = [
-    { id: 'ma', name: '移动平均法', completed: state.moving_average_completed, metrics: { rmse: state.moving_average_metrics_rmse, mae: state.moving_average_metrics_mae, r2: state.moving_average_metrics_r2 } },
-    { id: 'exp', name: '指数平滑法', completed: state.exponential_smoothing_completed, metrics: { rmse: state.exponential_smoothing_metrics_rmse, mae: state.exponential_smoothing_metrics_mae, r2: state.exponential_smoothing_metrics_r2 } },
-    { id: 'arima', name: 'ARIMA 法', completed: state.arima_completed, metrics: { rmse: state.arima_metrics_rmse, mae: state.arima_metrics_mae, r2: state.arima_metrics_r2 } },
-    { id: 'lstm', name: 'LSTM 法', completed: state.lstm_completed, metrics: { rmse: state.lstm_metrics_rmse, mae: state.lstm_metrics_mae, r2: state.lstm_metrics_r2 } },
-    { id: 'ensemble_weighted', name: '加权平均融合模型', completed: state.ensemble_weighted_completed, metrics: { rmse: state.ensemble_weighted_metrics_rmse, mae: state.ensemble_weighted_metrics_mae, r2: state.ensemble_weighted_metrics_r2 } },
-    { id: 'ensemble_boosting', name: 'Boosting 融合模型', completed: state.ensemble_boosting_completed, metrics: { rmse: state.ensemble_boosting_metrics_rmse, mae: state.ensemble_boosting_metrics_mae, r2: state.ensemble_boosting_metrics_r2 } },
-    { id: 'ensemble_stacking', name: 'Stacking 融合模型', completed: state.ensemble_stacking_completed, metrics: { rmse: state.ensemble_stacking_metrics_rmse, mae: state.ensemble_stacking_metrics_mae, r2: state.ensemble_stacking_metrics_r2 } },
+    { id: 'ma', name: '移动平均法', completed: state.moving_average_completed, metrics: { rmse: state.moving_average_metrics_rmse, mae: state.moving_average_metrics_mae, mape: state.moving_average_metrics_mape, r2: state.moving_average_metrics_r2 } },
+    { id: 'exp', name: '指数平滑法', completed: state.exponential_smoothing_completed, metrics: { rmse: state.exponential_smoothing_metrics_rmse, mae: state.exponential_smoothing_metrics_mae, mape: state.exponential_smoothing_metrics_mape, r2: state.exponential_smoothing_metrics_r2 } },
+    { id: 'arima', name: 'ARIMA 法', completed: state.arima_completed, metrics: { rmse: state.arima_metrics_rmse, mae: state.arima_metrics_mae, mape: state.arima_metrics_mape, r2: state.arima_metrics_r2 } },
+    { id: 'lstm', name: 'LSTM 法', completed: state.lstm_completed, metrics: { rmse: state.lstm_metrics_rmse, mae: state.lstm_metrics_mae, mape: state.lstm_metrics_mape, r2: state.lstm_metrics_r2 } },
+    { id: 'ensemble_weighted', name: '加权平均融合模型', completed: state.ensemble_weighted_completed, metrics: { rmse: state.ensemble_weighted_metrics_rmse, mae: state.ensemble_weighted_metrics_mae, mape: state.ensemble_weighted_metrics_mape, r2: state.ensemble_weighted_metrics_r2 } },
+    { id: 'ensemble_boosting', name: 'Boosting 融合模型', completed: state.ensemble_boosting_completed, metrics: { rmse: state.ensemble_boosting_metrics_rmse, mae: state.ensemble_boosting_metrics_mae, mape: state.ensemble_boosting_metrics_mape, r2: state.ensemble_boosting_metrics_r2 } },
+    { id: 'ensemble_stacking', name: 'Stacking 融合模型', completed: state.ensemble_stacking_completed, metrics: { rmse: state.ensemble_stacking_metrics_rmse, mae: state.ensemble_stacking_metrics_mae, mape: state.ensemble_stacking_metrics_mape, r2: state.ensemble_stacking_metrics_r2 } },
   ];
 
   return (
@@ -78,7 +78,7 @@ const ResultEvaluation: React.FC = () => {
 
               <p className="pl-8">
                 <span className="font-semibold">4.综合评估，选出最优模型：</span>
-                优先选择在 RMSE、MAE 和 R²上均表现优秀的模型，确保模型在准确性和稳健性方面都有良好表现。
+                同时参考 MAPE 的相对误差水平，优先选择在 RMSE、MAE、MAPE 和 R² 上整体表现稳定的模型。
               </p>
             </div>
           </div>
@@ -115,6 +115,14 @@ const ResultEvaluation: React.FC = () => {
                     {allModels.map((model) => (
                       <td key={`mae-${model.id}`} className="py-3 px-4 text-center text-gray-700">
                         {model.completed ? (model.metrics.mae?.toFixed(2) ?? '—') : '—'}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="border-b border-gray-200">
+                    <td className="py-3 px-4 font-semibold text-gray-900">MAPE</td>
+                    {allModels.map((model) => (
+                      <td key={`mape-${model.id}`} className="py-3 px-4 text-center text-gray-700">
+                        {model.completed && model.metrics.mape != null ? `${model.metrics.mape.toFixed(2)}%` : '—'}
                       </td>
                     ))}
                   </tr>

@@ -23,6 +23,7 @@ let experimentValue = {
     moving_average_completed: true,
     moving_average_metrics_rmse: 12,
     moving_average_metrics_mae: 8,
+    moving_average_metrics_mape: 6.5,
     moving_average_metrics_r2: 0.8,
     exponential_smoothing_completed: false,
     exponential_smoothing_metrics_rmse: null,

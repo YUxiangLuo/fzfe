@@ -7,6 +7,8 @@ import { useGuidedModelTraining } from './useGuidedModelTraining';
 import type { GuidedModelType } from '../../../services/guidedTraining';
 import type { ExperimentState } from '../../../store/experiment/types';
 import { normalizeBaseModelSelection } from '../../../utils/modelCatalog';
+import type { ModelApiResultBase, ModelResultData } from '../modelResultTypes';
+import { getEnsembleFeasibility } from '../modelFeasibility';
 
 type EnsembleType = 'weighted' | 'boosting' | 'stacking';
 
@@ -18,21 +20,12 @@ interface EnsembleModelConfig {
     completed: keyof ExperimentState;
     metricsRmse: keyof ExperimentState;
     metricsMae: keyof ExperimentState;
+    metricsMape: keyof ExperimentState;
     metricsR2: keyof ExperimentState;
   };
 }
 
-interface EnsembleResults {
-  predictions: Array<{
-    date: string;
-    actual: number;
-    predicted: number;
-  }>;
-  metrics: {
-    rmse: number;
-    mae: number;
-    r2: number;
-  };
+interface EnsembleResults extends ModelResultData {
   weights?: number[];
   model_names?: string[];
   meta_model?: {
@@ -51,14 +44,14 @@ interface EnsembleGuidedResult {
   status: string;
   message?: string;
   results: {
-    eval_y_true?: unknown;
-    eval_predictions?: unknown;
-    evaluate_months?: unknown;
-    metrics: {
-      rmse: number;
-      mae: number;
-      r2: number;
-    };
+    eval_y_true?: ModelApiResultBase['eval_y_true'];
+    eval_predictions?: ModelApiResultBase['eval_predictions'];
+    eval_std_devs?: ModelApiResultBase['eval_std_devs'];
+    evaluate_months?: ModelApiResultBase['evaluate_months'];
+    metrics: ModelApiResultBase['metrics'];
+    method_name?: ModelApiResultBase['method_name'];
+    forecast_strategy?: ModelApiResultBase['forecast_strategy'];
+    implementation_notes?: ModelApiResultBase['implementation_notes'];
     weights?: number[];
     model_names?: string[];
     meta_model?: EnsembleResults['meta_model'];
@@ -120,9 +113,21 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     return productSalesData.monthlySales.slice(start, end + 1).map(item => item.month);
   }, [productSalesData, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
 
-  const isValidSelection = useMemo(() => {
-    return selectedModels.length >= ENSEMBLE_CONSTANTS.MIN_BASE_MODELS;
-  }, [selectedModels]);
+  const ensembleFeasibility = useMemo(() => getEnsembleFeasibility({
+    trainStart: state.data_window_train_start_index,
+    trainEnd: state.data_window_train_end_index,
+    evaluateStart: state.data_window_evaluate_start_index,
+    evaluateEnd: state.data_window_evaluate_end_index,
+  }), [
+    state.data_window_evaluate_end_index,
+    state.data_window_evaluate_start_index,
+    state.data_window_train_end_index,
+    state.data_window_train_start_index,
+  ]);
+
+  const isValidSelection = useMemo(() => (
+    selectedModels.length >= ENSEMBLE_CONSTANTS.MIN_BASE_MODELS && ensembleFeasibility.feasible
+  ), [ensembleFeasibility.feasible, selectedModels]);
 
   const buildRequestBody = useCallback(() => {
     if (!state.experiment_id) {
@@ -182,10 +187,14 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       predictions: alignPredictionRows({
         actualValues: apiResults.eval_y_true,
         predictedValues: apiResults.eval_predictions,
+        standardDeviations: apiResults.eval_std_devs,
         backendMonths: apiResults.evaluate_months,
         fallbackMonths: evaluateMonths,
       }),
       metrics: apiResults.metrics,
+      methodName: apiResults.method_name,
+      forecastStrategy: apiResults.forecast_strategy,
+      implementationNotes: apiResults.implementation_notes,
     };
 
     if (config.type === 'weighted') {
@@ -199,6 +208,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       [config.stateKey.baseModels]: normalizedSelectedModels,
       [config.stateKey.metricsRmse]: apiResults.metrics.rmse,
       [config.stateKey.metricsMae]: apiResults.metrics.mae,
+      [config.stateKey.metricsMape]: apiResults.metrics.mape,
       [config.stateKey.metricsR2]: apiResults.metrics.r2,
     }, { forceSync: true, throwOnSyncError: true });
     setResults(ensembleResults);
@@ -267,6 +277,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     error,
     setError,
     isValidSelection,
+    feasibilityError: ensembleFeasibility.reason ?? null,
     handleCalculate,
     initializeGuidedSession,
     runNextGuidedStep,

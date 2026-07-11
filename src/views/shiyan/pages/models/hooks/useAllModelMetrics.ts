@@ -5,6 +5,7 @@ export interface ModelMetricsRow {
   model: string;
   rmse: number | null;
   mae: number | null;
+  mape: number | null;
   r2: number | null;
 }
 
@@ -18,6 +19,7 @@ export const useAllModelMetrics = (): ModelMetricsRow[] => {
         model: '移动平均法',
         rmse: state.moving_average_metrics_rmse,
         mae: state.moving_average_metrics_mae,
+        mape: state.moving_average_metrics_mape,
         r2: state.moving_average_metrics_r2,
       });
     }
@@ -26,6 +28,7 @@ export const useAllModelMetrics = (): ModelMetricsRow[] => {
         model: '指数平滑法',
         rmse: state.exponential_smoothing_metrics_rmse,
         mae: state.exponential_smoothing_metrics_mae,
+        mape: state.exponential_smoothing_metrics_mape,
         r2: state.exponential_smoothing_metrics_r2,
       });
     }
@@ -34,6 +37,7 @@ export const useAllModelMetrics = (): ModelMetricsRow[] => {
         model: 'ARIMA模型',
         rmse: state.arima_metrics_rmse,
         mae: state.arima_metrics_mae,
+        mape: state.arima_metrics_mape,
         r2: state.arima_metrics_r2,
       });
     }
@@ -42,6 +46,7 @@ export const useAllModelMetrics = (): ModelMetricsRow[] => {
         model: 'LSTM模型',
         rmse: state.lstm_metrics_rmse,
         mae: state.lstm_metrics_mae,
+        mape: state.lstm_metrics_mape,
         r2: state.lstm_metrics_r2,
       });
     }
@@ -50,6 +55,7 @@ export const useAllModelMetrics = (): ModelMetricsRow[] => {
         model: '加权平均融合模型',
         rmse: state.ensemble_weighted_metrics_rmse,
         mae: state.ensemble_weighted_metrics_mae,
+        mape: state.ensemble_weighted_metrics_mape,
         r2: state.ensemble_weighted_metrics_r2,
       });
     }
@@ -58,6 +64,7 @@ export const useAllModelMetrics = (): ModelMetricsRow[] => {
         model: 'Boosting融合模型',
         rmse: state.ensemble_boosting_metrics_rmse,
         mae: state.ensemble_boosting_metrics_mae,
+        mape: state.ensemble_boosting_metrics_mape,
         r2: state.ensemble_boosting_metrics_r2,
       });
     }
@@ -66,16 +73,11 @@ export const useAllModelMetrics = (): ModelMetricsRow[] => {
         model: 'Stacking融合模型',
         rmse: state.ensemble_stacking_metrics_rmse,
         mae: state.ensemble_stacking_metrics_mae,
+        mape: state.ensemble_stacking_metrics_mape,
         r2: state.ensemble_stacking_metrics_r2,
       });
     }
 
-    // R² 需要评估集方差；单点评估时后端按约定返回 0.0，展示会误导为"模型很差"。
-    const evaluateStart = state.data_window_evaluate_start_index;
-    const evaluateEnd = state.data_window_evaluate_end_index;
-    if (evaluateStart !== null && evaluateEnd !== null && evaluateEnd - evaluateStart + 1 < 2) {
-      return data.map(row => ({ ...row, r2: null }));
-    }
     return data;
   }, [state]);
 };

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import PredictionResultsTable from '../components/PredictionResultsTable';
 import PredictionChart from '../components/PredictionChart';
+import type { ModelPredictionRow } from '../modelResultTypes';
 
 export interface PredictionComparisonProps {
   data: {
-    predictions: { date: string; actual: number; predicted: number | null }[];
+    predictions: ModelPredictionRow[];
   } | null;
 }
 
@@ -39,7 +40,6 @@ const PredictionComparison: React.FC<PredictionComparisonProps> = ({ data }) => 
         <PredictionResultsTable
           title="加权平均融合 - 预测结果"
           predictions={data.predictions}
-          showAccuracy={true}
         />
       ) : (
         <PredictionChart data={data.predictions} />

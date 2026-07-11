@@ -41,6 +41,7 @@ const WeightedEnsembleStepper: React.FC = () => {
     error,
     setError,
     isValidSelection,
+    feasibilityError,
     initializeGuidedSession,
     runNextGuidedStep,
     markAsCompleted,
@@ -57,6 +58,7 @@ const WeightedEnsembleStepper: React.FC = () => {
       completed: 'ensemble_weighted_completed',
       metricsRmse: 'ensemble_weighted_metrics_rmse',
       metricsMae: 'ensemble_weighted_metrics_mae',
+      metricsMape: 'ensemble_weighted_metrics_mape',
       metricsR2: 'ensemble_weighted_metrics_r2',
     },
   });
@@ -158,11 +160,18 @@ const WeightedEnsembleStepper: React.FC = () => {
   const CurrentComponent = currentStep.component as React.FC<any>;
 
   const componentProps: { [key: string]: SelectModelsProps | ResultsProps | PredictionComparisonProps | ModelMetricsComparisonProps | {} } = {
-    'select-models': { selectedModels, setSelectedModels, error },
+    'select-models': { selectedModels, setSelectedModels, error: error ?? feasibilityError },
     results: {
-      data: results ? { weights: results.weights, model_names: results.model_names } : null,
+      data: results ? {
+        weights: results.weights ?? [],
+        model_names: results.model_names ?? [],
+        metrics: results.metrics,
+        methodName: results.methodName,
+        forecastStrategy: results.forecastStrategy,
+        implementationNotes: results.implementationNotes,
+      } : null,
       isLoading,
-      error,
+      error: error ?? feasibilityError,
       onRetry: handleRetry,
       guidedSession,
       onInitialize: initializeGuidedSession,
@@ -201,7 +210,7 @@ const WeightedEnsembleStepper: React.FC = () => {
       onNext={handleNext}
       onPrevious={handlePrevious}
       isPreviousDisabled={isLoading || retryCount >= MODEL_RETRY_LIMITS.maxFailures}
-      isNextDisabled={isLoading || !!error || (currentStep.id==="select-models"&&!(selectedModels.length>1)) || (currentStep.id === 'results' && !results)}
+      isNextDisabled={isLoading || !!error || (currentStep.id === 'select-models' && !isValidSelection) || (currentStep.id === 'results' && !results)}
       nextButtonText={
         currentStep?.id === 'model-metrics-comparison' ? '完成' : '下一步'
       }

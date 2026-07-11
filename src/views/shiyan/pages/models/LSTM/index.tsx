@@ -13,6 +13,7 @@ import { MODEL_RETRY_LIMITS } from '../constants';
 import { useGuidedModelTraining } from '../hooks/useGuidedModelTraining';
 import RetryExceededFallback from '../components/RetryExceededFallback';
 import { alignPredictionRows } from '../resultAlignment';
+import { getLstmFeasibility } from '../modelFeasibility';
 
 const MODEL_NAME = 'LSTM模型';
 const BASE_PATH = '/model/lstm';
@@ -57,6 +58,18 @@ const LSTMStepper: React.FC = () => {
     return productSalesData.monthlySales.slice(start, end + 1).map(item => item.month);
   }, [productSalesData, state.data_window_evaluate_start_index, state.data_window_evaluate_end_index]);
 
+  const lstmFeasibility = useMemo(() => getLstmFeasibility({
+    trainStart: state.data_window_train_start_index,
+    trainEnd: state.data_window_train_end_index,
+    evaluateStart: state.data_window_evaluate_start_index,
+    evaluateEnd: state.data_window_evaluate_end_index,
+  }), [
+    state.data_window_evaluate_end_index,
+    state.data_window_evaluate_start_index,
+    state.data_window_train_end_index,
+    state.data_window_train_start_index,
+  ]);
+
   const buildTrainingRequestBody = useCallback(() => {
     if (!state.experiment_id) {
       return null;
@@ -99,10 +112,14 @@ const LSTMStepper: React.FC = () => {
       predictions: alignPredictionRows({
         actualValues: apiResults.eval_y_true,
         predictedValues: apiResults.eval_predictions,
+        standardDeviations: apiResults.eval_std_devs,
         backendMonths: apiResults.evaluate_months,
         fallbackMonths: evaluateMonths,
       }),
       metrics: apiResults.metrics,
+      methodName: apiResults.method_name,
+      forecastStrategy: apiResults.forecast_strategy,
+      implementationNotes: apiResults.implementation_notes,
     };
 
     await updateState({
@@ -110,6 +127,7 @@ const LSTMStepper: React.FC = () => {
       lstm_target_field: target,
       lstm_metrics_rmse: apiResults.metrics.rmse,
       lstm_metrics_mae: apiResults.metrics.mae,
+      lstm_metrics_mape: apiResults.metrics.mape,
       lstm_metrics_r2: apiResults.metrics.r2,
     }, { forceSync: true, throwOnSyncError: true });
     setResults(nextResults);
@@ -191,8 +209,10 @@ const LSTMStepper: React.FC = () => {
   }, [currentStep?.id, target, productFieldOptions]);
 
   const areParamsValid = useMemo(() => {
-    return !!normalization && !!target && features.length > 0;
-  }, [normalization, target, features]);
+    return !!normalization && !!target && features.length > 0 && lstmFeasibility.feasible;
+  }, [features, lstmFeasibility.feasible, normalization, target]);
+
+  const displayError = error ?? lstmFeasibility.reason ?? null;
 
   const normSelected = useMemo(() => {
     return !!normalization;
@@ -295,13 +315,13 @@ const LSTMStepper: React.FC = () => {
   const CurrentComponent = currentStep.component as React.FC<any>;
 
   const componentProps: { [key: string]: PreprocessingProps | BuildProps | ResultsProps | {} } = {
-    preprocessing: { normalization, setNormalization, error, onShowNormalizationInfo: handleShowNormalizationInfo },
+    preprocessing: { normalization, setNormalization, error: displayError, onShowNormalizationInfo: handleShowNormalizationInfo },
     build: {
       features,
       setFeatures,
       target,
       setTarget,
-      error,
+      error: displayError,
       isLoading,
       fieldOptions: productFieldOptions ?? [],
       csvData: productSalesData?.csvData,
@@ -311,7 +331,7 @@ const LSTMStepper: React.FC = () => {
       data: results,
       guidedSession: guidedTrainingSession,
       isLoading,
-      error,
+      error: displayError,
       onRetry: handleRetry,
       onInitialize: initializeGuidedTrainingSession,
       onRunNextStep: runNextGuidedTrainingStep,
@@ -342,7 +362,7 @@ const LSTMStepper: React.FC = () => {
       onNext={handleNext}
       onPrevious={handlePrevious}
       isPreviousDisabled={retryCount >= MODEL_RETRY_LIMITS.maxFailures || isLoading}
-      isNextDisabled={isLoading || !!error || isNormalizationInfoPage || isLSTMMethodInfoPage || (currentStep?.id === 'preprocessing'&&!normSelected) || (currentStep?.id === 'build'&&!areParamsValid) || (currentStep?.id === 'results' && !results)}
+      isNextDisabled={isLoading || !!displayError || isNormalizationInfoPage || isLSTMMethodInfoPage || (currentStep?.id === 'preprocessing'&&!normSelected) || (currentStep?.id === 'build'&&!areParamsValid) || (currentStep?.id === 'results' && !results)}
       nextButtonText={isComparisonPage ? '完成' : '下一步'}
     >
       {renderContent()}

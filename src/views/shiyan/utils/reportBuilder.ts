@@ -26,6 +26,7 @@ export interface ReportModelSummary {
   params: string;
   rmse: number | null;
   mae: number | null;
+  mape: number | null;
   r2: number | null;
 }
 
@@ -134,6 +135,10 @@ const formatSalesStatistic = (value: number | null | undefined): string => {
 const formatMetricValue = (value: number | null | undefined, precision: number = 4): string => {
   return value != null ? value.toFixed(precision) : "N/A";
 };
+
+const formatPercentageMetric = (value: number | null | undefined): string => (
+  value != null ? `${value.toFixed(2)}%` : 'N/A'
+);
 
 const formatDate = (dateString: string | null): string => {
   return dateString
@@ -338,6 +343,7 @@ export const buildReportViewModel = (
       params: `窗口: ${state.moving_average_window ?? "N/A"}`,
       rmse: state.moving_average_metrics_rmse,
       mae: state.moving_average_metrics_mae,
+      mape: state.moving_average_metrics_mape,
       r2: state.moving_average_metrics_r2,
     });
   }
@@ -348,6 +354,7 @@ export const buildReportViewModel = (
       params: `Alpha: ${state.exponential_smoothing_alpha ?? "N/A"}`,
       rmse: state.exponential_smoothing_metrics_rmse,
       mae: state.exponential_smoothing_metrics_mae,
+      mape: state.exponential_smoothing_metrics_mape,
       r2: state.exponential_smoothing_metrics_r2,
     });
   }
@@ -358,6 +365,7 @@ export const buildReportViewModel = (
       params: `(p,d,q): (${state.arima_p ?? "?"},${state.arima_d ?? "?"},${state.arima_q ?? "?"})`,
       rmse: state.arima_metrics_rmse,
       mae: state.arima_metrics_mae,
+      mape: state.arima_metrics_mape,
       r2: state.arima_metrics_r2,
     });
   }
@@ -368,6 +376,7 @@ export const buildReportViewModel = (
       params: `归一化: ${state.lstm_normalization || "N/A"}`,
       rmse: state.lstm_metrics_rmse,
       mae: state.lstm_metrics_mae,
+      mape: state.lstm_metrics_mape,
       r2: state.lstm_metrics_r2,
     });
   }
@@ -378,6 +387,7 @@ export const buildReportViewModel = (
       params: getEnsembleParams(state.ensemble_weighted_base_models),
       rmse: state.ensemble_weighted_metrics_rmse,
       mae: state.ensemble_weighted_metrics_mae,
+      mape: state.ensemble_weighted_metrics_mape,
       r2: state.ensemble_weighted_metrics_r2,
     });
   }
@@ -388,6 +398,7 @@ export const buildReportViewModel = (
       params: getEnsembleParams(state.ensemble_boosting_base_models),
       rmse: state.ensemble_boosting_metrics_rmse,
       mae: state.ensemble_boosting_metrics_mae,
+      mape: state.ensemble_boosting_metrics_mape,
       r2: state.ensemble_boosting_metrics_r2,
     });
   }
@@ -398,6 +409,7 @@ export const buildReportViewModel = (
       params: getEnsembleParams(state.ensemble_stacking_base_models),
       rmse: state.ensemble_stacking_metrics_rmse,
       mae: state.ensemble_stacking_metrics_mae,
+      mape: state.ensemble_stacking_metrics_mape,
       r2: state.ensemble_stacking_metrics_r2,
     });
   }
@@ -406,36 +418,43 @@ export const buildReportViewModel = (
     ma: {
       rmse: state.moving_average_metrics_rmse,
       mae: state.moving_average_metrics_mae,
+      mape: state.moving_average_metrics_mape,
       r2: state.moving_average_metrics_r2,
     },
     exp: {
       rmse: state.exponential_smoothing_metrics_rmse,
       mae: state.exponential_smoothing_metrics_mae,
+      mape: state.exponential_smoothing_metrics_mape,
       r2: state.exponential_smoothing_metrics_r2,
     },
     arima: {
       rmse: state.arima_metrics_rmse,
       mae: state.arima_metrics_mae,
+      mape: state.arima_metrics_mape,
       r2: state.arima_metrics_r2,
     },
     lstm: {
       rmse: state.lstm_metrics_rmse,
       mae: state.lstm_metrics_mae,
+      mape: state.lstm_metrics_mape,
       r2: state.lstm_metrics_r2,
     },
     ensemble_weighted: {
       rmse: state.ensemble_weighted_metrics_rmse,
       mae: state.ensemble_weighted_metrics_mae,
+      mape: state.ensemble_weighted_metrics_mape,
       r2: state.ensemble_weighted_metrics_r2,
     },
     ensemble_boosting: {
       rmse: state.ensemble_boosting_metrics_rmse,
       mae: state.ensemble_boosting_metrics_mae,
+      mape: state.ensemble_boosting_metrics_mape,
       r2: state.ensemble_boosting_metrics_r2,
     },
     ensemble_stacking: {
       rmse: state.ensemble_stacking_metrics_rmse,
       mae: state.ensemble_stacking_metrics_mae,
+      mape: state.ensemble_stacking_metrics_mape,
       r2: state.ensemble_stacking_metrics_r2,
     },
   } satisfies Record<SelectedBestModel, ModelMetrics>;
@@ -547,9 +566,9 @@ ${stripHtmlTags(analyses.data)}
 
 ## 二、模型性能对比
 
-| 模型 | 参数 | RMSE | MAE | R² |
-|------|------|------|-----|-----|
-${viewModel.allModels.map((model) => `| ${model.name} | ${model.params} | ${formatMetricValue(model.rmse)} | ${formatMetricValue(model.mae)} | ${formatMetricValue(model.r2)} |`).join("\n")}
+| 模型 | 参数 | RMSE | MAE | MAPE | R² |
+|------|------|------|-----|------|-----|
+${viewModel.allModels.map((model) => `| ${model.name} | ${model.params} | ${formatMetricValue(model.rmse)} | ${formatMetricValue(model.mae)} | ${formatPercentageMetric(model.mape)} | ${formatMetricValue(model.r2)} |`).join("\n")}
 
 ### 分析
 ${stripHtmlTags(analyses.comparison)}
@@ -564,6 +583,7 @@ ${stripHtmlTags(analyses.comparison)}
 |------|-----|
 | RMSE | ${formatMetricValue(viewModel.bestModelMetrics?.rmse)} |
 | MAE | ${formatMetricValue(viewModel.bestModelMetrics?.mae)} |
+| MAPE | ${formatPercentageMetric(viewModel.bestModelMetrics?.mape)} |
 | R² | ${formatMetricValue(viewModel.bestModelMetrics?.r2)} |
 
 ### 分析

@@ -30,12 +30,14 @@ export const buildInitialPersistedState = (): PersistedExperimentState => ({
   moving_average_window: null,
   moving_average_metrics_rmse: null,
   moving_average_metrics_mae: null,
+  moving_average_metrics_mape: null,
   moving_average_metrics_r2: null,
 
   exponential_smoothing_completed: false,
   exponential_smoothing_alpha: null,
   exponential_smoothing_metrics_rmse: null,
   exponential_smoothing_metrics_mae: null,
+  exponential_smoothing_metrics_mape: null,
   exponential_smoothing_metrics_r2: null,
 
   arima_completed: false,
@@ -44,6 +46,7 @@ export const buildInitialPersistedState = (): PersistedExperimentState => ({
   arima_q: null,
   arima_metrics_rmse: null,
   arima_metrics_mae: null,
+  arima_metrics_mape: null,
   arima_metrics_r2: null,
   arima_adf_stationarity: [],
 
@@ -52,24 +55,28 @@ export const buildInitialPersistedState = (): PersistedExperimentState => ({
   lstm_features: [],
   lstm_metrics_rmse: null,
   lstm_metrics_mae: null,
+  lstm_metrics_mape: null,
   lstm_metrics_r2: null,
 
   ensemble_weighted_completed: false,
   ensemble_weighted_base_models: [],
   ensemble_weighted_metrics_rmse: null,
   ensemble_weighted_metrics_mae: null,
+  ensemble_weighted_metrics_mape: null,
   ensemble_weighted_metrics_r2: null,
 
   ensemble_boosting_completed: false,
   ensemble_boosting_base_models: [],
   ensemble_boosting_metrics_rmse: null,
   ensemble_boosting_metrics_mae: null,
+  ensemble_boosting_metrics_mape: null,
   ensemble_boosting_metrics_r2: null,
 
   ensemble_stacking_completed: false,
   ensemble_stacking_base_models: [],
   ensemble_stacking_metrics_rmse: null,
   ensemble_stacking_metrics_mae: null,
+  ensemble_stacking_metrics_mape: null,
   ensemble_stacking_metrics_r2: null,
 
   selected_best_model: null,
@@ -123,12 +130,14 @@ export const resetModelingFields = (
   target.moving_average_window = null;
   target.moving_average_metrics_rmse = null;
   target.moving_average_metrics_mae = null;
+  target.moving_average_metrics_mape = null;
   target.moving_average_metrics_r2 = null;
 
   target.exponential_smoothing_completed = false;
   target.exponential_smoothing_alpha = null;
   target.exponential_smoothing_metrics_rmse = null;
   target.exponential_smoothing_metrics_mae = null;
+  target.exponential_smoothing_metrics_mape = null;
   target.exponential_smoothing_metrics_r2 = null;
 
   target.arima_completed = false;
@@ -137,6 +146,7 @@ export const resetModelingFields = (
   target.arima_q = null;
   target.arima_metrics_rmse = null;
   target.arima_metrics_mae = null;
+  target.arima_metrics_mape = null;
   target.arima_metrics_r2 = null;
   target.arima_adf_stationarity = [];
 
@@ -146,24 +156,28 @@ export const resetModelingFields = (
   target.lstm_target_field = null;
   target.lstm_metrics_rmse = null;
   target.lstm_metrics_mae = null;
+  target.lstm_metrics_mape = null;
   target.lstm_metrics_r2 = null;
 
   target.ensemble_weighted_completed = false;
   target.ensemble_weighted_base_models = [];
   target.ensemble_weighted_metrics_rmse = null;
   target.ensemble_weighted_metrics_mae = null;
+  target.ensemble_weighted_metrics_mape = null;
   target.ensemble_weighted_metrics_r2 = null;
 
   target.ensemble_boosting_completed = false;
   target.ensemble_boosting_base_models = [];
   target.ensemble_boosting_metrics_rmse = null;
   target.ensemble_boosting_metrics_mae = null;
+  target.ensemble_boosting_metrics_mape = null;
   target.ensemble_boosting_metrics_r2 = null;
 
   target.ensemble_stacking_completed = false;
   target.ensemble_stacking_base_models = [];
   target.ensemble_stacking_metrics_rmse = null;
   target.ensemble_stacking_metrics_mae = null;
+  target.ensemble_stacking_metrics_mape = null;
   target.ensemble_stacking_metrics_r2 = null;
 
   target.selected_best_model = null;

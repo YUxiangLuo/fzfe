@@ -13,7 +13,7 @@ const NormalizationInfo: React.FC = () => {
           在机器学习和深度学习中，不同特征的数值范围可能差异很大。数据标准化可以消除量纲影响，使模型训练更加稳定高效。
         </p>
         <p className="text-gray-800 leading-relaxed text-base">
-          对于神经网络模型，标准化还能加速梯度下降的收敛速度，防止梯度爆炸或梯度消失问题。
+          对于神经网络模型，适当缩放通常能改善数值条件并帮助梯度优化更稳定，但不能保证消除梯度爆炸或梯度消失。
         </p>
       </div>
 
@@ -56,13 +56,13 @@ const NormalizationInfo: React.FC = () => {
             <strong>特点：</strong>将数据缩放为均值为 0、标准差为 1。它只改变数据的量纲和中心位置，并不会改变数据的分布形状。
           </p>
           <p className="leading-relaxed">
-            <strong>适用场景：</strong>当数据的最大值和最小值未知，或数据中存在离群值时使用。
+            <strong>适用场景：</strong>当不同数值特征量纲差异明显，或不希望依赖固定最大值和最小值时使用。
           </p>
           <p className="leading-relaxed">
             <strong>优点：</strong>相比最小-最大归一化，个别极端值不会把其余数据压缩到很窄的区间，量程更稳定。
           </p>
           <p className="leading-relaxed">
-            <strong>缺点：</strong>标准化后的数据没有固定的取值范围，可能不适合某些特定算法。
+            <strong>缺点：</strong>本系统使用 StandardScaler，均值和标准差都会受离群值影响；缩放后的数据也没有固定取值范围。
           </p>
         </div>
       </div>
@@ -74,7 +74,7 @@ const NormalizationInfo: React.FC = () => {
             <strong>使用最小-最大归一化：</strong>当数据分布相对均匀，没有明显异常值，且需要将数据限制在特定范围时。
           </p>
           <p>
-            <strong>使用 Z-score 标准化：</strong>当数据中存在离群值，或不确定数据的取值范围时，这种方法更加稳健。
+            <strong>使用 Z-score 标准化：</strong>当各特征量纲差异明显，或不希望依赖固定上下界时。它可避免单个极值把其余数据压缩到很窄的区间，但并非对离群值稳健的 RobustScaler。
           </p>
         </div>
       </div>

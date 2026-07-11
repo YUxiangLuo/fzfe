@@ -3,11 +3,14 @@ import GuidedTrainingPanel from '../components/GuidedTrainingPanel';
 import WeightsPieChart from '../components/WeightsPieChart';
 import type { GuidedTrainingSession } from '../../../services/guidedTraining';
 import type { ModelJobProgressEvent } from '../hooks/useModelJob';
+import ModelResultSummary from '../components/ModelResultSummary';
+import type { ModelImplementationMetadata, ModelMetrics } from '../modelResultTypes';
 
 export interface ResultsProps {
-  data: {
+  data: ModelImplementationMetadata & {
     weights: number[];
     model_names: string[];
+    metrics: ModelMetrics;
   } | null;
   isLoading: boolean;
   error: string | null;
@@ -66,6 +69,12 @@ const Results: React.FC<ResultsProps> = ({
   return (
     <div className="space-y-6">
       {guidedPanel}
+      <ModelResultSummary
+        metrics={data.metrics}
+        methodName={data.methodName}
+        forecastStrategy={data.forecastStrategy}
+        implementationNotes={data.implementationNotes}
+      />
       <div className="flex justify-between items-center">
         <h3 className="text-2xl font-bold text-gray-800">加权平均融合 - 计算结果</h3>
         <div>

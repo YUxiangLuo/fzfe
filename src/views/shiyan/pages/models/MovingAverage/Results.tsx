@@ -4,12 +4,11 @@ import PredictionChart from '../components/PredictionChart';
 import GuidedTrainingPanel from '../components/GuidedTrainingPanel';
 import type { ModelJobProgressEvent } from '../hooks/useModelJob';
 import type { GuidedTrainingSession } from '../../../services/guidedTraining';
+import ModelResultSummary from '../components/ModelResultSummary';
+import type { ModelResultData } from '../modelResultTypes';
 
 export interface ResultsProps {
-  data: {
-    predictions: { date: string; actual: number; predicted: number | null }[];
-    metrics: { rmse: number; mae: number; r2: number };
-  } | null;
+  data: ModelResultData | null;
   guidedSession?: GuidedTrainingSession | null;
   isLoading: boolean;
   error: string | null;
@@ -31,22 +30,29 @@ const Results: React.FC<ResultsProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
 
-  if (!data) {
-    return (
-      <GuidedTrainingPanel
-        title="移动平均法 - 分阶段训练"
-        session={guidedSession ?? null}
-        isLoading={isLoading}
-        error={error}
-        onInitialize={onInitialize ?? (() => {})}
-        onRunNextStep={onRunNextStep ?? (() => {})}
-        onRetry={onRetry}
-      />
-    );
-  }
+  const guidedPanel = (
+    <GuidedTrainingPanel
+      title="移动平均法 - 分阶段训练"
+      session={guidedSession ?? null}
+      isLoading={isLoading}
+      error={error}
+      onInitialize={onInitialize ?? (() => {})}
+      onRunNextStep={onRunNextStep ?? (() => {})}
+      onRetry={onRetry}
+    />
+  );
+
+  if (!data) return guidedPanel;
 
   return (
     <div className="space-y-6">
+      {guidedPanel}
+      <ModelResultSummary
+        metrics={data.metrics}
+        methodName={data.methodName}
+        forecastStrategy={data.forecastStrategy}
+        implementationNotes={data.implementationNotes}
+      />
       <div className="flex justify-end">
         <button
           onClick={() => setViewMode('table')}

@@ -39,6 +39,7 @@ const BoostingEnsembleStepper: React.FC = () => {
     error,
     setError,
     isValidSelection,
+    feasibilityError,
     initializeGuidedSession,
     runNextGuidedStep,
     markAsCompleted,
@@ -55,6 +56,7 @@ const BoostingEnsembleStepper: React.FC = () => {
       completed: 'ensemble_boosting_completed',
       metricsRmse: 'ensemble_boosting_metrics_rmse',
       metricsMae: 'ensemble_boosting_metrics_mae',
+      metricsMape: 'ensemble_boosting_metrics_mape',
       metricsR2: 'ensemble_boosting_metrics_r2',
     },
   });
@@ -145,11 +147,11 @@ const BoostingEnsembleStepper: React.FC = () => {
   const CurrentComponent = currentStep.component as React.FC<any>;
 
   const componentProps: { [key: string]: SelectModelsProps | ResultsProps | ModelMetricsComparisonProps | {} } = {
-    'select-models': { selectedModels, setSelectedModels, error },
+    'select-models': { selectedModels, setSelectedModels, error: error ?? feasibilityError },
     results: {
       data: results,
       isLoading,
-      error,
+      error: error ?? feasibilityError,
       onRetry: handleRetry,
       guidedSession,
       onInitialize: initializeGuidedSession,
@@ -185,7 +187,7 @@ const BoostingEnsembleStepper: React.FC = () => {
       onNext={handleNext}
       onPrevious={handlePrevious}
       isPreviousDisabled={isLoading || retryCount >= MODEL_RETRY_LIMITS.maxFailures}
-      isNextDisabled={isLoading || !!error || (currentStep.id==="select-models"&&!(selectedModels.length>1)) || (currentStep.id === 'results' && !results)}
+      isNextDisabled={isLoading || !!error || (currentStep.id === 'select-models' && !isValidSelection) || (currentStep.id === 'results' && !results)}
       nextButtonText={
         currentStep?.id === 'model-metrics-comparison' ? '完成' : '下一步'
       }

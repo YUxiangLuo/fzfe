@@ -44,11 +44,13 @@ describe("reportBuilder", () => {
       moving_average_window: 3,
       moving_average_metrics_rmse: 1.1,
       moving_average_metrics_mae: 0.9,
+      moving_average_metrics_mape: 6.2,
       moving_average_metrics_r2: 0.8,
       ensemble_weighted_completed: true,
       ensemble_weighted_base_models: ["ma", "lstm"],
       ensemble_weighted_metrics_rmse: 0.7,
       ensemble_weighted_metrics_mae: 0.5,
+      ensemble_weighted_metrics_mape: 4.5,
       ensemble_weighted_metrics_r2: 0.92,
       selected_best_model: "ensemble_weighted" as const,
       production_mps_table: [
@@ -143,6 +145,7 @@ describe("reportBuilder", () => {
         ensemble_weighted_base_models: ["ma", "lstm"],
         ensemble_weighted_metrics_rmse: 0.7,
         ensemble_weighted_metrics_mae: 0.5,
+        ensemble_weighted_metrics_mape: 4.5,
         ensemble_weighted_metrics_r2: 0.92,
       },
       productSalesData,
@@ -185,6 +188,7 @@ describe("reportBuilder", () => {
     expect(markdown).toContain("# Alice的实验报告");
     expect(markdown).toContain("| 行业 | electronics |");
     expect(markdown).toContain("**选定模型**: 加权平均融合");
+    expect(markdown).toContain("4.50%");
     expect(markdown).toContain("95%");
     expect(markdown).toContain("| 产能模式 | 产能正常 |");
     expect(markdown).toContain("decision analysis");

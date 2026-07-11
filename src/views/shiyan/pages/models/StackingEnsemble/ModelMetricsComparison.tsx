@@ -4,7 +4,7 @@ import { useAllModelMetrics } from '../hooks/useAllModelMetrics';
 
 export interface ModelMetricsComparisonProps {
   data: {
-    metrics: { rmse: number; mae: number; r2: number };
+    metrics: { rmse: number; mae: number; mape: number; r2: number };
   } | null;
   baseModelIds: string[];
 }

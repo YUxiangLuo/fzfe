@@ -30,8 +30,9 @@ const completedGuidedSession = () => ({
     results: {
       eval_y_true: [100, 120],
       eval_predictions: [98, 121],
+      eval_std_devs: [1.5, 1.5],
       evaluate_months: ['2024-04', '2024-05'],
-      metrics: { rmse: 2.1, mae: 1.7, r2: 0.95 },
+      metrics: { rmse: 2.1, mae: 1.7, mape: 1.4, r2: 0.95 },
       weights: [0.6, 0.4],
       model_names: ['ma', 'lstm'],
     },
@@ -46,8 +47,9 @@ const successfulGuidedResult = {
   results: {
     eval_y_true: [100, 120],
     eval_predictions: [98, 121],
+    eval_std_devs: [1.5, 1.5],
     evaluate_months: ['2024-04', '2024-05'],
-    metrics: { rmse: 2.1, mae: 1.7, r2: 0.95 },
+    metrics: { rmse: 2.1, mae: 1.7, mape: 1.4, r2: 0.95 },
     weights: [0.6, 0.4],
     model_names: ['ma', 'lstm'],
   },
@@ -60,9 +62,9 @@ let experimentValue = {
     selected_company: 'factory',
     selected_product: 'widget',
     data_window_train_start_index: 0,
-    data_window_train_end_index: 2,
-    data_window_evaluate_start_index: 3,
-    data_window_evaluate_end_index: 4,
+    data_window_train_end_index: 7,
+    data_window_evaluate_start_index: 8,
+    data_window_evaluate_end_index: 9,
     arima_d: 1,
     exponential_smoothing_alpha: 0.3,
     moving_average_window: 3,
@@ -86,6 +88,11 @@ let experimentValue = {
       { month: '2024-03', sales: 95 },
       { month: '2024-04', sales: 100 },
       { month: '2024-05', sales: 120 },
+      { month: '2024-06', sales: 125 },
+      { month: '2024-07', sales: 130 },
+      { month: '2024-08', sales: 135 },
+      { month: '2024-09', sales: 140 },
+      { month: '2024-10', sales: 145 },
     ],
   },
   updateState: mock(async (updates: Record<string, unknown>) => {
@@ -123,6 +130,7 @@ const Harness = async () => {
         completed: 'ensemble_weighted_completed',
         metricsRmse: 'ensemble_weighted_metrics_rmse',
         metricsMae: 'ensemble_weighted_metrics_mae',
+        metricsMape: 'ensemble_weighted_metrics_mape',
         metricsR2: 'ensemble_weighted_metrics_r2',
       },
     });
@@ -164,9 +172,9 @@ describe('useEnsembleModel', () => {
         selected_company: 'factory',
         selected_product: 'widget',
         data_window_train_start_index: 0,
-        data_window_train_end_index: 2,
-        data_window_evaluate_start_index: 3,
-        data_window_evaluate_end_index: 4,
+        data_window_train_end_index: 7,
+        data_window_evaluate_start_index: 8,
+        data_window_evaluate_end_index: 9,
         arima_d: 1,
         exponential_smoothing_alpha: 0.3,
         moving_average_window: 3,
@@ -190,6 +198,11 @@ describe('useEnsembleModel', () => {
           { month: '2024-03', sales: 95 },
           { month: '2024-04', sales: 100 },
           { month: '2024-05', sales: 120 },
+          { month: '2024-06', sales: 125 },
+          { month: '2024-07', sales: 130 },
+          { month: '2024-08', sales: 135 },
+          { month: '2024-09', sales: 140 },
+          { month: '2024-10', sales: 145 },
         ],
       },
       updateState: mock(async (updates: Record<string, unknown>) => {
@@ -240,6 +253,7 @@ describe('useEnsembleModel', () => {
     expect(completedGuidedSession().result).toEqual(successfulGuidedResult);
     expect(view.getByTestId('loading').textContent).toBe('false');
     expect(view.getByTestId('results-ready').textContent).toBe('true');
+    expect((experimentValue.state as Record<string, unknown>).ensemble_weighted_metrics_mape).toBe(1.4);
   });
 
   it('does not keep ensemble results when the state sync fails after training succeeds', async () => {

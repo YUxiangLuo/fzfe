@@ -56,6 +56,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
       completed: 'exponential_smoothing_completed',
       metricsRmse: 'exponential_smoothing_metrics_rmse',
       metricsMae: 'exponential_smoothing_metrics_mae',
+      metricsMape: 'exponential_smoothing_metrics_mape',
       metricsR2: 'exponential_smoothing_metrics_r2',
     },
     paramKey: 'exponential_smoothing_alpha',

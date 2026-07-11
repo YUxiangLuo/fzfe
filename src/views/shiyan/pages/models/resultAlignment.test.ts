@@ -18,6 +18,21 @@ describe('alignPredictionRows', () => {
     ]);
   });
 
+  it('keeps standard deviation aligned with each prediction horizon', () => {
+    const rows = alignPredictionRows({
+      actualValues: [100, 120],
+      predictedValues: [98, 123],
+      standardDeviations: [2.1, 3.4],
+      backendMonths: ['2024-01', '2024-02'],
+      fallbackMonths: [],
+    });
+
+    expect(rows).toEqual([
+      { date: '2024-01', actual: 100, predicted: 98, stdDev: 2.1 },
+      { date: '2024-02', actual: 120, predicted: 123, stdDev: 3.4 },
+    ]);
+  });
+
   it('preserves index alignment when a single invalid value appears', () => {
     const rows = alignPredictionRows({
       actualValues: [100, null, 130],

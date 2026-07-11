@@ -21,16 +21,19 @@ const ensembleResetFields = [
   "ensemble_weighted_base_models",
   "ensemble_weighted_metrics_rmse",
   "ensemble_weighted_metrics_mae",
+  "ensemble_weighted_metrics_mape",
   "ensemble_weighted_metrics_r2",
   "ensemble_boosting_completed",
   "ensemble_boosting_base_models",
   "ensemble_boosting_metrics_rmse",
   "ensemble_boosting_metrics_mae",
+  "ensemble_boosting_metrics_mape",
   "ensemble_boosting_metrics_r2",
   "ensemble_stacking_completed",
   "ensemble_stacking_base_models",
   "ensemble_stacking_metrics_rmse",
   "ensemble_stacking_metrics_mae",
+  "ensemble_stacking_metrics_mape",
   "ensemble_stacking_metrics_r2",
 ] as const satisfies readonly ResettableField[];
 
@@ -39,6 +42,7 @@ const movingAverageResetFields = [
   "moving_average_window",
   "moving_average_metrics_rmse",
   "moving_average_metrics_mae",
+  "moving_average_metrics_mape",
   "moving_average_metrics_r2",
 ] as const satisfies readonly ResettableField[];
 
@@ -47,6 +51,7 @@ const exponentialSmoothingResetFields = [
   "exponential_smoothing_alpha",
   "exponential_smoothing_metrics_rmse",
   "exponential_smoothing_metrics_mae",
+  "exponential_smoothing_metrics_mape",
   "exponential_smoothing_metrics_r2",
 ] as const satisfies readonly ResettableField[];
 
@@ -57,6 +62,7 @@ const arimaResetFields = [
   "arima_q",
   "arima_metrics_rmse",
   "arima_metrics_mae",
+  "arima_metrics_mape",
   "arima_metrics_r2",
   "arima_adf_stationarity",
 ] as const satisfies readonly ResettableField[];
@@ -68,6 +74,7 @@ const lstmResetFields = [
   "lstm_target_field",
   "lstm_metrics_rmse",
   "lstm_metrics_mae",
+  "lstm_metrics_mape",
   "lstm_metrics_r2",
 ] as const satisfies readonly ResettableField[];
 
@@ -76,6 +83,7 @@ const weightedEnsembleResetFields = [
   "ensemble_weighted_base_models",
   "ensemble_weighted_metrics_rmse",
   "ensemble_weighted_metrics_mae",
+  "ensemble_weighted_metrics_mape",
   "ensemble_weighted_metrics_r2",
 ] as const satisfies readonly ResettableField[];
 
@@ -84,6 +92,7 @@ const boostingEnsembleResetFields = [
   "ensemble_boosting_base_models",
   "ensemble_boosting_metrics_rmse",
   "ensemble_boosting_metrics_mae",
+  "ensemble_boosting_metrics_mape",
   "ensemble_boosting_metrics_r2",
 ] as const satisfies readonly ResettableField[];
 
@@ -92,6 +101,7 @@ const stackingEnsembleResetFields = [
   "ensemble_stacking_base_models",
   "ensemble_stacking_metrics_rmse",
   "ensemble_stacking_metrics_mae",
+  "ensemble_stacking_metrics_mape",
   "ensemble_stacking_metrics_r2",
 ] as const satisfies readonly ResettableField[];
 

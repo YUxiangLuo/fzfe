@@ -4,12 +4,11 @@ import GuidedTrainingPanel from '../components/GuidedTrainingPanel';
 import PredictionChart from '../components/PredictionChart';
 import type { GuidedTrainingSession } from '../../../services/guidedTraining';
 import type { ModelJobProgressEvent } from '../hooks/useModelJob';
+import ModelResultSummary from '../components/ModelResultSummary';
+import type { ModelResultData } from '../modelResultTypes';
 
 export interface ResultsProps {
-  data: {
-    predictions: { date: string; actual: number; predicted: number | null }[];
-    metrics: { rmse: number; mae: number; r2: number };
-  } | null;
+  data: ModelResultData | null;
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
@@ -55,6 +54,12 @@ const Results: React.FC<ResultsProps> = ({
   return (
     <div className="space-y-6">
       {guidedPanel}
+      <ModelResultSummary
+        metrics={data.metrics}
+        methodName={data.methodName}
+        forecastStrategy={data.forecastStrategy}
+        implementationNotes={data.implementationNotes}
+      />
       <div className="flex justify-end">
         <button
           onClick={() => setViewMode('table')}

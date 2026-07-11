@@ -53,13 +53,15 @@ const outputKeyLabels: Record<string, string> = {
   fitted_points: '拟合点数',
   forecast_horizon: '预测跨度',
   forecast_steps: '预测步数',
+  forecast_offset: '评估起点偏移',
   history_end_index: '历史结束点',
   history_start_index: '历史起始点',
   input_shape: '输入形状',
   improvement: '改善幅度',
   level0_size: 'Level-0 样本',
   level1_size: 'Level-1 样本',
-  level: '平滑水平',
+  initial_level: '初始平滑水平',
+  final_level: '最终平滑水平',
   learning_rate: '学习率',
   look_back: '回看窗口',
   lower: '下界',
@@ -113,7 +115,7 @@ interface GuidedTrainingPanelProps {
   title: string;
 }
 
-const formatValue = (value: unknown): string => {
+const formatPrimitiveValue = (value: unknown): string => {
   if (value === null || value === undefined) {
     return '';
   }
@@ -126,16 +128,7 @@ const formatValue = (value: unknown): string => {
   if (typeof value === 'boolean') {
     return value ? '是' : '否';
   }
-  if (Array.isArray(value)) {
-    return value.slice(0, 4).map(formatValue).filter(Boolean).join('、');
-  }
-  if (typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    return Object.entries(record)
-      .slice(0, 4)
-      .map(([key, item]) => `${formatKey(key)}: ${formatValue(item)}`)
-      .join('；');
-  }
+  if (Array.isArray(value) || typeof value === 'object') return '';
   return String(value);
 };
 
@@ -145,9 +138,47 @@ const outputRows = (output: unknown) => {
   }
 
   return Object.entries(output as Record<string, unknown>)
-    .map(([key, value]) => ({ key, label: formatKey(key), value: formatValue(value) }))
-    .filter((row) => row.value.length > 0)
-    .slice(0, 6);
+    .map(([key, value]) => ({ key, label: formatKey(key), value }))
+    .filter((row) => row.value !== null && row.value !== undefined);
+};
+
+const OutputValue: React.FC<{ value: unknown }> = ({ value }) => {
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="text-gray-500">空数组</span>;
+    return (
+      <details open={value.length <= 4} className="mt-1">
+        <summary className="cursor-pointer text-xs font-medium text-blue-700">共 {value.length} 项，点击展开/收起</summary>
+        <ol className="mt-2 space-y-1 border-l border-blue-100 pl-3">
+          {value.map((item, index) => (
+            <li key={index} className="break-words text-gray-800">
+              <span className="mr-2 text-xs text-gray-400">{index + 1}.</span>
+              <OutputValue value={item} />
+            </li>
+          ))}
+        </ol>
+      </details>
+    );
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return <span className="text-gray-500">空对象</span>;
+    return (
+      <details open={entries.length <= 4} className="mt-1">
+        <summary className="cursor-pointer text-xs font-medium text-blue-700">共 {entries.length} 个字段，点击展开/收起</summary>
+        <dl className="mt-2 space-y-2 border-l border-blue-100 pl-3">
+          {entries.map(([key, item]) => (
+            <div key={key}>
+              <dt className="text-xs font-semibold text-gray-500">{formatKey(key)}</dt>
+              <dd className="break-words text-gray-800"><OutputValue value={item} /></dd>
+            </div>
+          ))}
+        </dl>
+      </details>
+    );
+  }
+
+  return <span className="break-words text-gray-800">{formatPrimitiveValue(value)}</span>;
 };
 
 const StepMarker: React.FC<{ step: GuidedTrainingStep; isLoading: boolean }> = ({ step, isLoading }) => {
@@ -263,11 +294,11 @@ const GuidedTrainingPanel: React.FC<GuidedTrainingPanelProps> = ({
                     </div>
                     <p className="mt-1 text-sm leading-6 text-gray-600">{step.description}</p>
                     {rows.length > 0 && (
-                      <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                      <dl className="mt-3 grid items-start gap-2 text-sm sm:grid-cols-2">
                         {rows.map((row) => (
                           <div key={row.key} className="rounded-md bg-gray-50 px-3 py-2">
                             <dt className="text-xs font-semibold text-gray-500">{row.label}</dt>
-                            <dd className="mt-1 truncate text-gray-800" title={row.value}>{row.value}</dd>
+                            <dd className="mt-1"><OutputValue value={row.value} /></dd>
                           </div>
                         ))}
                       </dl>

@@ -4,6 +4,7 @@ interface ModelMetric {
   model: string;
   rmse: number | null;
   mae: number | null;
+  mape: number | null;
   r2: number | null;
 }
 
@@ -47,6 +48,9 @@ const ModelMetricsTable: React.FC<ModelMetricsTableProps> = ({
                   MAE
                 </th>
                 <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
+                  MAPE
+                </th>
+                <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
                   R²
                 </th>
               </tr>
@@ -82,6 +86,9 @@ const ModelMetricsTable: React.FC<ModelMetricsTableProps> = ({
                   >
                     {model.mae !== null ? model.mae.toFixed(4) : 'N/A'}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-semibold text-cyan-700">
+                    {model.mape !== null ? `${model.mape.toFixed(2)}%` : 'N/A'}
+                  </td>
                   <td
                     className={`px-6 py-4 whitespace-nowrap text-sm text-center font-semibold ${
                       model.model === highlightRow ? 'text-indigo-700 font-bold' : 'text-indigo-600'
@@ -95,6 +102,10 @@ const ModelMetricsTable: React.FC<ModelMetricsTableProps> = ({
           </table>
         </div>
       )}
+
+      <p className="text-sm text-gray-600">
+        MAPE 表示平均绝对百分比误差，单位为百分比，通常越小越好；当真实值接近 0 时需结合 RMSE 和 MAE 解读。
+      </p>
 
       {footerNote && (
         <div className="p-5 bg-blue-50 rounded-lg border border-blue-200">

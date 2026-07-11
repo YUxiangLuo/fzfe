@@ -12,6 +12,7 @@ export type SelectedBestModel =
 export interface ModelMetrics {
   rmse: number | null;
   mae: number | null;
+  mape: number | null;
   r2: number | null;
 }
 
@@ -78,12 +79,14 @@ export interface PersistedExperimentState {
   moving_average_window: number | null;
   moving_average_metrics_rmse: number | null;
   moving_average_metrics_mae: number | null;
+  moving_average_metrics_mape: number | null;
   moving_average_metrics_r2: number | null;
 
   exponential_smoothing_completed: boolean;
   exponential_smoothing_alpha: number | null;
   exponential_smoothing_metrics_rmse: number | null;
   exponential_smoothing_metrics_mae: number | null;
+  exponential_smoothing_metrics_mape: number | null;
   exponential_smoothing_metrics_r2: number | null;
 
   arima_completed: boolean;
@@ -92,6 +95,7 @@ export interface PersistedExperimentState {
   arima_q: number | null;
   arima_metrics_rmse: number | null;
   arima_metrics_mae: number | null;
+  arima_metrics_mape: number | null;
   arima_metrics_r2: number | null;
   arima_adf_stationarity: AdfStationarityRow[];
 
@@ -100,24 +104,28 @@ export interface PersistedExperimentState {
   lstm_features: string[];
   lstm_metrics_rmse: number | null;
   lstm_metrics_mae: number | null;
+  lstm_metrics_mape: number | null;
   lstm_metrics_r2: number | null;
 
   ensemble_weighted_completed: boolean;
   ensemble_weighted_base_models: string[];
   ensemble_weighted_metrics_rmse: number | null;
   ensemble_weighted_metrics_mae: number | null;
+  ensemble_weighted_metrics_mape: number | null;
   ensemble_weighted_metrics_r2: number | null;
 
   ensemble_boosting_completed: boolean;
   ensemble_boosting_base_models: string[];
   ensemble_boosting_metrics_rmse: number | null;
   ensemble_boosting_metrics_mae: number | null;
+  ensemble_boosting_metrics_mape: number | null;
   ensemble_boosting_metrics_r2: number | null;
 
   ensemble_stacking_completed: boolean;
   ensemble_stacking_base_models: string[];
   ensemble_stacking_metrics_rmse: number | null;
   ensemble_stacking_metrics_mae: number | null;
+  ensemble_stacking_metrics_mape: number | null;
   ensemble_stacking_metrics_r2: number | null;
 
   selected_best_model: SelectedBestModel | null;

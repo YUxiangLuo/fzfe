@@ -22,8 +22,12 @@ const successfulGuidedResult = {
   results: {
     eval_y_true: [172, 181],
     eval_predictions: [157.33, 160.78],
+    eval_std_devs: [5.2, 5.2],
     evaluate_months: ['2024-09', '2024-10'],
-    metrics: { rmse: 20.55, mae: 19.67, r2: -9.49 },
+    metrics: { rmse: 20.55, mae: 19.67, mape: 11.2, r2: -9.49 },
+    method_name: '递推移动平均',
+    forecast_strategy: 'recursive_roll_forward',
+    implementation_notes: ['不使用评估真实值递推。'],
   },
 };
 
@@ -132,6 +136,7 @@ const Harness = async (currentStepId = 'results') => {
         completed: 'moving_average_completed',
         metricsRmse: 'moving_average_metrics_rmse',
         metricsMae: 'moving_average_metrics_mae',
+        metricsMape: 'moving_average_metrics_mape',
         metricsR2: 'moving_average_metrics_r2',
       },
       paramKey: 'moving_average_window',
@@ -333,5 +338,6 @@ describe('useSimpleModel', () => {
 
     await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
     expect(runGuidedTrainingStep).not.toHaveBeenCalled();
+    expect((experimentValue.state as Record<string, unknown>).moving_average_metrics_mape).toBe(11.2);
   });
 });

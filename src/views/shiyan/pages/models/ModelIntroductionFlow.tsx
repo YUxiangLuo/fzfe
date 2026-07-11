@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import { toastEventBus } from '../../utils/toastEventBus';
 import { normalizeBaseModelSelection } from '../../utils/modelCatalog';
+import { getBaseModelFeasibility } from './modelFeasibility';
 import {
   LineChart,
   ChartSpline,
@@ -83,7 +84,7 @@ const baseModels: Model[] = [
     category: '传统统计方法',
     summary: '移动平均法是最基础的时间序列预测方法之一，通过计算固定窗口内数据的平均值来平滑波动并预测未来趋势。',
     principle: {
-      description: '移动平均法的核心思想是"平滑"。它假设时间序列由趋势、季节性和随机波动组成，通过对一定时间窗口内的数据求平均，可以有效地过滤掉短期的随机波动，从而更清晰地看到数据的整体趋势。',
+      description: '移动平均法的核心思想是"平滑"。它假设时间序列包含趋势、季节性和随机波动，通过对一定时间窗口内的数据求算术平均，可以减弱短期随机波动，从而更清晰地观察整体水平。普通均值不会自动识别或剔除异常值。',
       keyIdea: '用历史数据的平均值代表当前的"真实水平"，并以此作为未来的预测值。'
     },
     implementationNotes: [
@@ -119,7 +120,7 @@ const baseModels: Model[] = [
     pros: [
       { title: '极其简单', description: '易于理解和实现，不需要复杂数学知识' },
       { title: '计算快速', description: '只需简单运算，适合实时预测' },
-      { title: '平滑效果好', description: '有效过滤随机噪声和异常值' },
+      { title: '平滑随机波动', description: '可减弱短期随机噪声，但普通算术均值本身对异常值敏感' },
       { title: '数据要求低', description: '不需要大量数据或特定分布' }
     ],
     cons: [
@@ -217,7 +218,7 @@ const baseModels: Model[] = [
       '教科书 ARIMA 通常通过平稳性检验、ACF/PACF 图和信息准则共同确定 p、d、q。',
       '本系统由用户指定差分阶数 d，并用 AIC/BIC 自动搜索 p 和 q，以降低课堂操作复杂度并控制小样本过拟合。',
       '预测未来销量时使用拟合后的 ARIMA 模型直接生成多步 forecast，并返回由置信区间换算的标准差。',
-      'ARIMA 的预测区间随步长展宽；其他模型返回的 std_dev 是评估段残差的常数标准差，两者统计口径不同，横向对比预测区间时需注意。'
+      'ARIMA 的预测区间随步长展宽；其他模型返回的 std_dev 是至少两个评估残差计算出的样本标准差（ddof=1），并对各预测期保持常数。两者统计口径不同。'
     ],
     mathematics: {
       description: 'ARIMA(p,d,q)模型方程：',
@@ -268,7 +269,7 @@ const baseModels: Model[] = [
     bestPractices: ['如果不确定d，先试d=1（大多数经济数据都有趋势）', '数据量少时（<20），信任系统自动降低的max_p/max_q限制', '观察置信区间，如果区间极宽，说明模型不确定性很高', '对比d=0和d=1的结果，选择RMSE更小的那个'],
     performance: {
       speed: { level: 'medium', description: '搜索过程需要多次拟合，比简单模型慢' },
-      accuracy: { level: 'medium', description: '线性数据表现优秀，鲁棒性好' },
+      accuracy: { level: 'medium', description: '在线性、自相关结构稳定的数据上通常表现较好，但对异常值敏感' },
       dataRequirement: { level: 'medium', description: '建议至少20-30个有效数据点' },
       complexity: { level: 'medium', description: '原理复杂但使用简单（自动化了）' }
     }
@@ -313,10 +314,10 @@ const baseModels: Model[] = [
     parameters: [
       { name: 'Lookback窗口（系统自动设置）', description: '模型向后看多少个时间步', impact: '决定模型可利用的历史长度。窗口过短信息不足，过长会增加训练难度；当前训练页不开放手动配置。', typical: '系统按训练样本量自动取值，通常在3-6之间' },
       { name: '训练轮数 Epochs（系统默认设置）', description: '整个数据集被训练的次数', impact: '过多易过拟合，过少易欠拟合。本系统配合学习率衰减和早停策略使用。', typical: '当前默认20轮；融合内部训练会采用保守默认' },
-      { name: '归一化方式', description: '数值特征的缩放方法', impact: 'MinMax适合有界数据，Z-Score适合有离群值的数据；这是训练页开放给用户选择的参数。', typical: '训练页需手动选择；常用 MinMax (0-1)' }
+      { name: '归一化方式', description: '数值特征的缩放方法', impact: 'MinMax适合范围稳定且异常值较少的数据；Z-Score可避免极值把大多数样本压缩到狭窄区间，但 StandardScaler 同样会受离群值影响。', typical: '训练页需手动选择；常用 MinMax (0-1)' }
     ],
     suitability: {
-      suitable: ['数据量充足（>100个点）', '存在复杂非线性关系', '包含类别型特征（如天气、节假日）', '需要捕捉长期依赖模式'],
+      suitable: ['满足当前回看窗口与预测跨度约束的教学数据', '存在复杂非线性关系', '包含可经One-Hot编码的类别型特征（如天气、节假日）', '需要探索长期依赖模式'],
       notSuitable: ['数据极少（<20个点）', '完全随机的白噪声数据', '对训练速度要求极高', '需要极其直观的公式解释']
     },
     useCases: [
@@ -325,7 +326,7 @@ const baseModels: Model[] = [
       { industry: '交通', scenario: '流量预测', description: '利用过去24小时流量预测未来1小时。门控记忆机制有效记住了早晚高峰的周期性特征。' }
     ],
     pros: [
-      { title: '混合特征支持', description: '原生支持数值和类别特征的混合输入' },
+      { title: '混合特征支持', description: '数值特征缩放、类别特征One-Hot编码后共同输入网络' },
       { title: '非线性表达力', description: '单层LSTM配合全连接层即可学习复杂的时序关系' },
       { title: '自动衰减', description: '内置学习率衰减策略，训练更稳定' },
       { title: '直接多步预测', description: '面向评估区间直接输出未来多期销量' }
@@ -339,8 +340,8 @@ const baseModels: Model[] = [
     bestPractices: ['样本量较少时优先减少输入特征数量，避免噪声过多导致不稳定', '对于包含类别特征的数据，LSTM可能比统计模型更有优势', '理解Lookback窗口由系统按样本量自动设置，若训练失败可调整数据窗口或减少预测跨度', '预测步数不宜过长，避免超出训练数据能支持的horizon'],
     performance: {
       speed: { level: 'low', description: '神经网络计算量大，训练耗时' },
-      accuracy: { level: 'high', description: '在复杂数据集上通常优于统计模型' },
-      dataRequirement: { level: 'medium', description: '建议至少几百个数据点' },
+      accuracy: { level: 'high', description: '在数据量、特征质量和非线性结构都合适时具有较高精度潜力，不保证优于统计模型' },
+      dataRequirement: { level: 'medium', description: '当前实现支持小样本教学运行；可靠的业务泛化通常需要更多有效样本' },
       complexity: { level: 'high', description: '内部结构复杂，但对外参数已简化' }
     }
   }
@@ -358,6 +359,15 @@ const ModelIntroductionFlow: React.FC = () => {
     normalizeBaseModelSelection(state.selected_base_models),
   );
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const modelWindow = {
+    trainStart: state.data_window_train_start_index,
+    trainEnd: state.data_window_train_end_index,
+    evaluateStart: state.data_window_evaluate_start_index,
+    evaluateEnd: state.data_window_evaluate_end_index,
+  };
+  const baseSelectionIsValid = selectedModels.length >= 2 && selectedModels.every(
+    modelId => getBaseModelFeasibility(modelId, modelWindow).feasible,
+  );
 
   // On mount, check if we should jump to the last step
   useEffect(() => {
@@ -377,6 +387,17 @@ const ModelIntroductionFlow: React.FC = () => {
     setSelectedModels(normalizeBaseModelSelection(state.selected_base_models));
   }, [state.selected_base_models]);
 
+  useEffect(() => {
+    setSelectedModels(previous => previous.filter(
+      modelId => getBaseModelFeasibility(modelId, modelWindow).feasible,
+    ));
+  }, [
+    state.data_window_evaluate_end_index,
+    state.data_window_evaluate_start_index,
+    state.data_window_train_end_index,
+    state.data_window_train_start_index,
+  ]);
+
   const activeModel = baseModels[currentModelIndex];
   if (!activeModel) return null;
 
@@ -391,7 +412,7 @@ const ModelIntroductionFlow: React.FC = () => {
         setCurrentModelIndex(prev => prev + 1);
       }
     } else if (view === 'selection') {
-      if (selectedModels.length >= 2) {
+      if (baseSelectionIsValid) {
         try {
           await updateState({ selected_base_models: normalizeBaseModelSelection(selectedModels) }, { forceSync: true, throwOnSyncError: true });
           navigate('/model/model-select');
@@ -688,22 +709,27 @@ const ModelIntroductionFlow: React.FC = () => {
         <div className="flex flex-col items-start gap-4">
           {baseModels.map(model => {
             const isSelected = selectedModels.includes(model.id);
+            const feasibility = getBaseModelFeasibility(model.id, modelWindow);
             const ModelIcon = model.icon;
             return (
               <label
                 key={model.id}
-                className={`py-4 pl-4 pr-6 rounded-lg border-2 cursor-pointer transition-all flex items-center justify-between ${isSelected ? 'bg-blue-50 border-blue-500 shadow-md' : 'bg-white border-gray-200 hover:border-blue-400'}`}
+                className={`py-4 pl-4 pr-6 rounded-lg border-2 transition-all flex flex-col items-start ${!feasibility.feasible ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-70' : isSelected ? 'cursor-pointer bg-blue-50 border-blue-500 shadow-md' : 'cursor-pointer bg-white border-gray-200 hover:border-blue-400'}`}
               >
                 <div className="flex items-center gap-4">
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => handleModelToggle(model.id)}
+                    disabled={!feasibility.feasible}
                     className="form-checkbox h-5 w-5 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <ModelIcon className={`w-6 h-6 ${isSelected ? 'text-blue-600' : 'text-gray-500'}`} />
                   <span className={`font-semibold ${isSelected ? 'text-blue-800' : 'text-gray-800'}`}>{model.name}</span>
                 </div>
+                {!feasibility.feasible && (
+                  <span className="mt-2 pl-9 text-xs leading-5 text-amber-700">{feasibility.reason}</span>
+                )}
               </label>
             );
           })}
@@ -725,7 +751,7 @@ const ModelIntroductionFlow: React.FC = () => {
         </button>
         <button
           onClick={handleNext}
-          disabled={selectedModels.length < 2}
+          disabled={!baseSelectionIsValid}
           className="flex items-center gap-2 px-6 py-3 rounded-lg transition-all font-medium bg-gradient-to-r from-blue-600 to-indigo-600 text-white disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed"
         >
           下一步

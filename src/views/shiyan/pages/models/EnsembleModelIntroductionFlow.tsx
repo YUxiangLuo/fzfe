@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useExperiment } from '../../contexts/ExperimentContext.zustand';
 import { toastEventBus } from '../../utils/toastEventBus';
 import { normalizeEnsembleModelSelection } from '../../utils/modelCatalog';
+import { getEnsembleFeasibility } from './modelFeasibility';
 import {
   Scale,
   Sparkles,
@@ -110,14 +111,14 @@ const ensembleModels: EnsembleModel[] = [
         { title: '加权平均融合', description: '对于新的预测任务，用计算好的权重对各模型预测进行加权求和。', tip: '权重固定后可快速预测' }
       ]
     },
-    parameters: [{ name: '验证集划分', description: '用于计算权重的验证数据比例', impact: '太小权重不可靠，太大训练数据不足', typical: '系统自动划分约20%（小样本时至少保留3个点）' }],
+    parameters: [{ name: '验证集划分', description: '用于计算权重的验证数据比例', impact: '太小权重不可靠，太大训练数据不足', typical: '系统自动划分约20%；支持的最小训练区间下会保留2个点，训练数据达到14点后通常至少保留3个点' }],
     suitability: {
       suitable: ['有多个基础模型可用', '基础模型性能有差异', '追求稳健性和鲁棒性', '需要可解释的融合方法', '计算资源有限'],
       notSuitable: ['只有一个基础模型', '所有模型高度相关（预测几乎相同）', '需要捕捉模型间复杂交互', '验证集数据不足', '基础模型都表现很差']
     },
     useCases: [
       { industry: '零售', scenario: '销量预测融合', description: '超市综合MA、ES、ARIMA三个模型预测周销量。ARIMA验证误差最小，权重最高；ES次之；MA最低。融合后RMSE降低。' },
-      { industry: '气象', scenario: '多模式天气预报', description: '气象台融合多个数值预报模型。根据各模型历史误差倒数加权，生成本地化预报，准确率优于任何单一模型。' }
+      { industry: '气象', scenario: '多模式天气预报', description: '气象台融合多个数值预报模型。根据各模型历史误差倒数加权生成本地化预报；当模型误差具有互补性时，融合结果可能优于单一模型。' }
     ],
     pros: [
       { title: '融合计算轻量', description: '权重确定后预测计算快速；训练阶段仍会进行时间顺序验证评估，并可能复用或重训基础模型' },
@@ -134,7 +135,7 @@ const ensembleModels: EnsembleModel[] = [
     bestPractices: ['选择差异化的基础模型，避免高度相关', '验证集应代表未来数据分布', '定期用新数据重新计算权重', '检查权重分布，若某个模型权重过高(>0.8)需警惕', '对比简单平均，确保加权确实带来提升', '可考虑加入正则化，限制极端权重'],
     performance: {
       speed: { level: 'high', description: '融合预测极快；训练阶段需要一次内部验证评估' },
-      accuracy: { level: 'medium', description: '通常优于单一模型，但不如复杂融合' },
+      accuracy: { level: 'medium', description: '基础模型互补且验证误差可靠时可能优于单一模型，不作必然提升保证' },
       dataRequirement: { level: 'medium', description: '需要足够验证集评估误差' },
       complexity: { level: 'low', description: '实现和理解都很简单' }
     }
@@ -186,7 +187,7 @@ const ensembleModels: EnsembleModel[] = [
       notSuitable: ['数据信噪比极低（全是噪声）', '时间序列极短，无法支持多次残差拟合', '需要极快的实时响应', '模型库单一，无法发挥异构优势']
     },
     useCases: [
-      { industry: '金融', scenario: '股价波动预测', description: '使用ARIMA捕捉长期趋势，再用LSTM捕捉ARIMA遗漏的高频非线性波动残差，组合预测精度显著提升。' },
+      { industry: '金融', scenario: '股价波动预测', description: '使用ARIMA捕捉线性结构，再用LSTM尝试拟合ARIMA遗漏的非线性残差；是否提升需要以独立评估区间结果为准。' },
       { industry: '零售', scenario: '复杂销量预测', description: '先用ES或ARIMA捕捉基础水平和线性结构，再用LSTM等候选模型拟合促销带来的非线性残差。' },
       { industry: '能源', scenario: '电力负荷预测', description: '基础模型预测日常负荷曲线，Boosting引入气象敏感模型专门修正极端天气下的负荷偏差。' }
     ],
@@ -252,8 +253,8 @@ const ensembleModels: EnsembleModel[] = [
       { name: '划分比例', description: 'Level-0/Level-1的分割点', impact: 'Level-1太少会导致元模型过拟合', typical: '系统自动设定（通常80/20）' }
     ],
     suitability: {
-      suitable: ['追求最高预测精度', '有多个表现不错但风格不同的基础模型', '数据量充足（支持划分Hold-out集）', '有充足计算资源'],
-      notSuitable: ['数据量很小（<15个数据点）', '只有一两个基础模型', '基础模型预测结果高度相关', '需要快速训练']
+      suitable: ['希望利用互补模型提升预测精度', '有至少两个表现不错且原理不同的基础模型', '数据量充足（支持划分Hold-out集）', '有充足计算资源'],
+      notSuitable: ['数据量很小（<15个数据点）', '只有一个基础模型', '基础模型预测结果高度相关', '需要快速训练']
     },
     useCases: [
       { industry: 'Kaggle竞赛', scenario: '房价预测', description: '竞赛方案常用Stacking突破单模型上限。本系统简化为2层，并针对时间序列使用顺序留出训练机制，避免销量预测中的时间泄漏。' },
@@ -275,7 +276,7 @@ const ensembleModels: EnsembleModel[] = [
     bestPractices: ['务必选择原理差异大的模型（如MA vs LSTM）', '数据量少时优先选用加权平均而非Stacking', '观察元模型的系数，如果某模型系数为0，说明它对集成无贡献', '保持基础模型参数的一致性'],
     performance: {
       speed: { level: 'low', description: '最慢，需要训练两轮基础模型' },
-      accuracy: { level: 'high', description: '理论上限最高' },
+      accuracy: { level: 'high', description: '模型互补、Level-1样本充足且元模型稳定时具有较高精度潜力' },
       dataRequirement: { level: 'high', description: '需要足够数据进行切分' },
       complexity: { level: 'high', description: '逻辑最复杂的融合方法' }
     }
@@ -294,6 +295,14 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
     normalizeEnsembleModelSelection(state.selected_ensemble_models),
   );
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const modelWindow = {
+    trainStart: state.data_window_train_start_index,
+    trainEnd: state.data_window_train_end_index,
+    evaluateStart: state.data_window_evaluate_start_index,
+    evaluateEnd: state.data_window_evaluate_end_index,
+  };
+  const ensembleFeasibility = getEnsembleFeasibility(modelWindow);
+  const ensembleSelectionIsValid = selectedModels.length >= 1 && ensembleFeasibility.feasible;
 
   // On mount, check if we should jump to the last step
   useEffect(() => {
@@ -313,6 +322,16 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
     setSelectedModels(normalizeEnsembleModelSelection(state.selected_ensemble_models));
   }, [state.selected_ensemble_models]);
 
+  useEffect(() => {
+    if (!ensembleFeasibility.feasible) setSelectedModels([]);
+  }, [
+    ensembleFeasibility.feasible,
+    state.data_window_evaluate_end_index,
+    state.data_window_evaluate_start_index,
+    state.data_window_train_end_index,
+    state.data_window_train_start_index,
+  ]);
+
   const activeModel = ensembleModels[currentModelIndex];
   if (!activeModel) return null;
 
@@ -327,7 +346,7 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
         setCurrentModelIndex(prev => prev + 1);
       }
     } else if (view === 'selection') {
-      if (selectedModels.length >= 1) {
+      if (ensembleSelectionIsValid) {
         try {
           await updateState({ selected_ensemble_models: normalizeEnsembleModelSelection(selectedModels) }, { forceSync: true, throwOnSyncError: true });
           navigate('/model/ensemble-select');
@@ -628,13 +647,14 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
             return (
               <label
                 key={model.id}
-                className={`py-4 pl-4 pr-6 rounded-lg border-2 cursor-pointer transition-all flex items-center justify-between ${isSelected ? 'bg-purple-50 border-purple-500 shadow-md' : 'bg-white border-gray-200 hover:border-purple-400'}`}
+                className={`py-4 pl-4 pr-6 rounded-lg border-2 transition-all flex items-center justify-between ${!ensembleFeasibility.feasible ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-70' : isSelected ? 'cursor-pointer bg-purple-50 border-purple-500 shadow-md' : 'cursor-pointer bg-white border-gray-200 hover:border-purple-400'}`}
               >
                 <div className="flex items-center gap-4">
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => handleModelToggle(model.id)}
+                    disabled={!ensembleFeasibility.feasible}
                     className="form-checkbox h-5 w-5 rounded-md border-gray-300 text-purple-600 focus:ring-purple-500"
                   />
                   <ModelIcon className={`w-6 h-6 ${isSelected ? 'text-purple-600' : 'text-gray-500'}`} />
@@ -644,6 +664,12 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
             );
           })}
         </div>
+        {!ensembleFeasibility.feasible && (
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+            <Info className="mt-0.5 h-5 w-5 flex-shrink-0" />
+            <span>{ensembleFeasibility.reason}</span>
+          </div>
+        )}
         {selectedModels.length < 1 && (
           <div className="mt-4 flex items-center gap-2 text-sm text-amber-700 bg-amber-50 p-3 rounded-lg border border-amber-200">
             <Info className="w-5 h-5 flex-shrink-0" />
@@ -661,7 +687,7 @@ const EnsembleModelIntroductionFlow: React.FC = () => {
         </button>
         <button
           onClick={handleNext}
-          disabled={selectedModels.length < 1}
+          disabled={!ensembleSelectionIsValid}
           className="flex items-center gap-2 px-6 py-3 rounded-lg transition-all font-medium bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed"
         >
           下一步

@@ -33,7 +33,7 @@ const Preprocessing: React.FC<PreprocessingProps> = ({ normalization, setNormali
               <span className="ml-4 flex-1 cursor-pointer">
                 <p className="text-base font-semibold text-gray-800 mb-2">最小-最大归一化</p>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  在数据需要被压缩到特定区间及不涉及距离度量、梯度、协方差计算时被广泛使用。
+                  将数值特征缩放到 [0, 1]，适合取值范围相对稳定、异常值较少的特征，也便于本 LSTM 的梯度优化。
                 </p>
               </span>
             </label>
@@ -50,7 +50,7 @@ const Preprocessing: React.FC<PreprocessingProps> = ({ normalization, setNormali
               <span className="ml-4 flex-1 cursor-pointer">
                 <p className="text-base font-semibold text-gray-800 mb-2">Z-score 标准化</p>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  适用于属性 A 的最大值和最小值未知的情况，或有超出取值范围的离群数据的情况。
+                  将特征中心移到 0 并按标准差缩放，不依赖固定上下界；仍需注意 StandardScaler 对离群值敏感。
                 </p>
               </span>
             </label>

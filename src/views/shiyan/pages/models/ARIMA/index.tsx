@@ -211,10 +211,14 @@ const ARIMAStepper: React.FC = () => {
       predictions: alignPredictionRows({
         actualValues: apiResults.eval_y_true,
         predictedValues: apiResults.eval_predictions,
+        standardDeviations: apiResults.eval_std_devs,
         backendMonths: apiResults.evaluate_months,
         fallbackMonths,
       }),
       metrics: apiResults.metrics,
+      methodName: apiResults.method_name,
+      forecastStrategy: apiResults.forecast_strategy,
+      implementationNotes: apiResults.implementation_notes,
       order: apiResults.best_order,
     };
 
@@ -223,6 +227,7 @@ const ARIMAStepper: React.FC = () => {
       arima_q: apiResults.best_order.q,
       arima_metrics_rmse: apiResults.metrics.rmse,
       arima_metrics_mae: apiResults.metrics.mae,
+      arima_metrics_mape: apiResults.metrics.mape,
       arima_metrics_r2: apiResults.metrics.r2,
     }, { forceSync: true, throwOnSyncError: true });
     setResults(nextResults);

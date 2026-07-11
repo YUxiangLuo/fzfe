@@ -68,6 +68,7 @@ const MovingAverageStepper: React.FC = () => {
       completed: 'moving_average_completed',
       metricsRmse: 'moving_average_metrics_rmse',
       metricsMae: 'moving_average_metrics_mae',
+      metricsMape: 'moving_average_metrics_mape',
       metricsR2: 'moving_average_metrics_r2',
     },
     paramKey: 'moving_average_window',
