@@ -1,4 +1,4 @@
-export type LstmFieldKind = 'numeric' | 'categorical' | 'mixed-numeric' | 'empty' | 'unknown';
+export type LstmFieldKind = 'numeric' | 'categorical' | 'empty' | 'unknown';
 
 export interface LstmFieldProfile {
   field: string;
@@ -105,14 +105,17 @@ const hasAny = (value: string, hints: readonly string[]) => hints.some(hint => v
 const hasAnyToken = (tokens: string[], hints: readonly string[]) => hints.some(hint => tokens.includes(hint));
 
 export const isNumericCell = (value: string): boolean => {
-  const normalized = value.trim().replace(/,/g, '');
-  return normalized.length > 0 && Number.isFinite(Number(normalized));
+  const normalized = value.trim();
+  // Match the decimal/scientific forms accepted by pandas.to_numeric for CSV
+  // cells. In particular, thousands separators are not silently discarded.
+  const decimalPattern = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+  return decimalPattern.test(normalized) && Number.isFinite(Number(normalized));
 };
 
 export function analyzeLstmField(field: string, values: string[]): LstmFieldProfile {
-  const trimmedValues = values.map(value => String(value ?? '').trim()).filter(value => value.length > 0);
-  const uniqueCount = new Set(trimmedValues).size;
-  const numericCount = trimmedValues.filter(isNumericCell).length;
+  const allValues = values.map(value => String(value ?? '').trim());
+  const trimmedValues = allValues.filter(value => value.length > 0);
+  const numericCount = allValues.filter(isNumericCell).length;
   const nonEmptyCount = trimmedValues.length;
   const warnings: string[] = [];
 
@@ -123,7 +126,7 @@ export function analyzeLstmField(field: string, values: string[]): LstmFieldProf
       typeLabel: '空字段',
       nonEmptyCount,
       numericCount,
-      uniqueCount,
+      uniqueCount: 0,
       warnings: ['该字段当前没有可用取值，请确认数据是否完整。'],
     };
   }
@@ -133,14 +136,18 @@ export function analyzeLstmField(field: string, values: string[]): LstmFieldProf
   const looksNumericByName = hasAny(normalizedName, NUMERIC_NAME_HINTS) || hasAnyToken(nameTokens, NUMERIC_TOKEN_HINTS);
   const looksCategoricalByName = hasAny(normalizedName, CATEGORICAL_NAME_HINTS) || hasAnyToken(nameTokens, CATEGORICAL_TOKEN_HINTS);
   const looksCalendarByName = hasAny(normalizedName, CALENDAR_CATEGORICAL_NAME_HINTS) || hasAnyToken(nameTokens, CALENDAR_CATEGORICAL_TOKEN_HINTS);
-  const numericRatio = numericCount / nonEmptyCount;
+  const allCellsNumeric = numericCount === allValues.length;
+  const numericValues = allCellsNumeric ? allValues.map(Number) : [];
+  const uniqueCount = allCellsNumeric
+    ? new Set(numericValues).size
+    : new Set(allValues).size;
+  const numericRatio = numericCount / allValues.length;
 
   let kind: LstmFieldKind;
-  if (numericCount === nonEmptyCount) {
+  if (allCellsNumeric) {
     // Mirror _infer_single_feature_type in fzbe/py/src/data_utils.py (same rule
     // order) so the badge matches how the backend actually encodes the field.
-    const integerLike = trimmedValues.every(value => {
-      const parsed = Number(value.replace(/,/g, ''));
+    const integerLike = numericValues.every(parsed => {
       return Math.abs(parsed - Math.round(parsed)) <= 1e-9;
     });
     const lowCardinalityThreshold = Math.max(4, Math.min(12, Math.floor(Math.sqrt(nonEmptyCount)) + 1));
@@ -160,11 +167,11 @@ export function analyzeLstmField(field: string, values: string[]): LstmFieldProf
     } else {
       kind = 'numeric';
     }
-  } else if (numericCount > 0 && (looksNumericByName || numericRatio >= 0.5)) {
-    kind = 'mixed-numeric';
-    warnings.push(`该字段包含 ${nonEmptyCount - numericCount} 个非数字值，系统会按类别字段处理，可能不是预期。`);
   } else {
     kind = 'categorical';
+    if (numericCount > 0 && (looksNumericByName || numericRatio >= 0.5)) {
+      warnings.push(`该字段包含 ${allValues.length - numericCount} 个空白或非数字值，系统会按类别字段处理，可能不是预期。`);
+    }
   }
 
   if (kind !== 'numeric' && uniqueCount >= 20 && uniqueCount / nonEmptyCount >= 0.5) {
@@ -173,7 +180,6 @@ export function analyzeLstmField(field: string, values: string[]): LstmFieldProf
 
   const typeLabel = (() => {
     if (kind === 'numeric') return '数值';
-    if (kind === 'mixed-numeric') return '疑似数值';
     if (warnings.some(warning => warning.includes('类别值较多'))) return '高基数类别';
     return '类别';
   })();

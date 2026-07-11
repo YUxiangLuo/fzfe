@@ -50,8 +50,7 @@ describe('LSTM Build', () => {
       />,
     );
 
-    expect(view.getByText('疑似数值')).toBeTruthy();
-    expect(view.getByText('高基数类别')).toBeTruthy();
+    expect(view.getAllByText('高基数类别')).toHaveLength(2);
     expect(view.getByText(/系统会按类别字段处理/)).toBeTruthy();
     expect(view.getAllByText(/类别值较多/).length).toBeGreaterThanOrEqual(1);
   });
