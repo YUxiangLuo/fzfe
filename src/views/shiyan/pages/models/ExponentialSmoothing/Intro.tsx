@@ -55,7 +55,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <RefreshCw className="w-5 h-5 text-pink-600" />
-              <p className="text-gray-800 font-medium">根据得到的预测值和新的观测值，继续迭代计算下一个时间点的预测值，直至需要预测的时间段结束</p>
+              <p className="text-gray-800 font-medium">在训练区间内，根据得到的平滑值和新的观测值继续迭代，直至训练数据结束；对未来时段，保持最新平滑水平向后外推</p>
             </div>
           </div>
         </div>

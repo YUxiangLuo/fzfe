@@ -46,10 +46,13 @@ const Params: React.FC<ParamsProps> = ({ alpha, setAlpha }) => {
         <h4 className="text-base font-semibold text-gray-800 mb-3">平滑系数α的一般取值原则：</h4>
         <div className="space-y-2 text-gray-700 text-base leading-relaxed">
           <p>(1) 在初始值准确性小或者历史数据很少的情况下，α取值要大一些，进行短期预测。</p>
-          <p>(2) 时间序列长期呈现比较平稳的发展趋势，α取值要小一些，预测长期演变趋势。</p>
+          <p>(2) 时间序列长期呈现比较平稳的发展趋势，α取值要小一些，反映稳定的平均水平。</p>
           <p>(3) 时间序列波动的频率和振幅较大，α取值宜大，强调近期实际变化状态。</p>
           <p>(4) 时间序列波动的频率和振幅较小，α取值宜小，强调历史数据发展趋势。</p>
         </div>
+        <p className="mt-3 text-sm text-gray-600">
+          注：以上为教科书通用原则。本系统的一次指数平滑对未来多期为水平外推，α 影响的是对历史水平的估计，而不能让模型预测出趋势变化。
+        </p>
       </div>
     </div>
   );

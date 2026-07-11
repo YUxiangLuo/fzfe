@@ -110,7 +110,7 @@ const ensembleModels: EnsembleModel[] = [
         { title: '加权平均融合', description: '对于新的预测任务，用计算好的权重对各模型预测进行加权求和。', tip: '权重固定后可快速预测' }
       ]
     },
-    parameters: [{ name: '验证集划分', description: '用于计算权重的验证数据比例', impact: '太小权重不可靠，太大训练数据不足', typical: '10-20%的数据用于验证' }],
+    parameters: [{ name: '验证集划分', description: '用于计算权重的验证数据比例', impact: '太小权重不可靠，太大训练数据不足', typical: '系统自动划分约20%（小样本时至少保留3个点）' }],
     suitability: {
       suitable: ['有多个基础模型可用', '基础模型性能有差异', '追求稳健性和鲁棒性', '需要可解释的融合方法', '计算资源有限'],
       notSuitable: ['只有一个基础模型', '所有模型高度相关（预测几乎相同）', '需要捕捉模型间复杂交互', '验证集数据不足', '基础模型都表现很差']
@@ -162,7 +162,7 @@ const ensembleModels: EnsembleModel[] = [
       variables: [
         { symbol: 'F_m(x)', meaning: '第m轮后的最终预测值' },
         { symbol: 'h_m(x)', meaning: '本轮贪心选出的最佳模型' },
-        { symbol: 'η', meaning: '学习率，控制每个新模型的贡献权重' },
+        { symbol: 'η', meaning: '学习率，控制后续每轮新模型的贡献（本系统首轮系数固定为 1）' },
         { symbol: 'argmin', meaning: '从候选模型库中选择误差最小的' }
       ],
       example: '第一轮MA预测100（残差10）；第二轮对比LSTM和ARIMA拟合残差的效果，发现LSTM更好（预测8），于是贪心选择LSTM；按系统默认学习率0.3，最终预测 = 100 + 0.3×8 = 102.4。'
@@ -173,7 +173,7 @@ const ensembleModels: EnsembleModel[] = [
         { title: '计算残差', description: '计算当前组合模型的预测误差（真实值 - 预测值）。', tip: '残差代表了目前模型还无法解释的部分' },
         { title: '贪心选择', description: '遍历所有候选模型（MA, ARIMA, LSTM等），分别训练它们去拟合当前残差，并记录效果。', tip: '这是"贪心"策略的核心：每轮都试错' },
         { title: '择优集成', description: '选出本轮拟合残差效果最好的那个模型，乘以学习率加入到总预测公式中。', tip: '只保留最好的，确保每一步提升最大' },
-        { title: '循环迭代', description: '重复上述步骤，直到达到最大轮数或误差不再降低。', tip: '系统会自动构建一个最优的异构模型链' }
+        { title: '循环迭代', description: '重复上述步骤，直到达到最大轮数或误差不再降低。', tip: '系统会逐轮贪心构建异构模型链（每轮局部择优，不保证全局最优）' }
       ]
     },
     parameters: [
@@ -243,7 +243,7 @@ const ensembleModels: EnsembleModel[] = [
         { title: '数据划分', description: '将训练数据划分为Level-0（约80%）和Level-1（约20%）两部分。', tip: '防止元模型直接记住训练数据（数据泄露）' },
         { title: 'Level-1预测', description: '用Level-0数据训练所有基础模型，并让它们对Level-1数据进行预测。', tip: '这些预测值构成了元模型的训练特征' },
         { title: '训练元模型', description: '以Level-1的真实值为目标，训练非负无截距线性模型，并把系数归一化为组合权重。', tip: '学习如何分配权重以最小化误差' },
-        { title: '全局重训练', description: '使用全部训练数据重新训练所有基础模型，用于最终的实际预测。', tip: '最大化基础模型的利用率' }
+        { title: '全局重训练', description: '使用全部训练数据重新训练基础模型用于最终预测；已有兼容的基础模型训练产物时会直接复用。', tip: '最大化基础模型的利用率' }
       ]
     },
     parameters: [
@@ -257,8 +257,8 @@ const ensembleModels: EnsembleModel[] = [
     },
     useCases: [
       { industry: 'Kaggle竞赛', scenario: '房价预测', description: '竞赛方案常用Stacking突破单模型上限。本系统简化为2层，并针对时间序列使用顺序留出训练机制，避免销量预测中的时间泄漏。' },
-      { industry: '工业', scenario: '传感器融合', description: '融合振动传感器（高频）和温度传感器（低频）的预测模型。Stacking能自动学习不同工况下应该侧重哪个传感器的数据。' },
-      { industry: '量化交易', scenario: '多因子策略', description: '将基于动量的模型和基于价值的模型通过Stacking结合，根据近期市场风格自动调整权重。' }
+      { industry: '工业', scenario: '传感器融合', description: '融合振动传感器（高频）和温度传感器（低频）的预测模型。Stacking根据留出段的表现学习一组固定的组合权重，让整体更可靠的传感器模型占更大比重。' },
+      { industry: '量化交易', scenario: '多因子策略', description: '将基于动量的模型和基于价值的模型通过Stacking结合，基于留出段表现确定两类模型的组合权重（权重训练后固定，不随行情动态变化）。' }
     ],
     pros: [
       { title: '精度潜力', description: '在基础模型互补且验证集充足时，通常有较高精度潜力' },

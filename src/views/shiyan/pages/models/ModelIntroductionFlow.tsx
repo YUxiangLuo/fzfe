@@ -92,9 +92,9 @@ const baseModels: Model[] = [
     ],
     mathematics: {
       description: '移动平均法的计算公式非常简单直观：',
-      formula: 'MA(t) = (X(t-n+1) + X(t-n+2) + ... + X(t)) / n',
+      formula: 'F(t+1) = (X(t-n+1) + X(t-n+2) + ... + X(t)) / n',
       variables: [
-        { symbol: 'MA(t)', meaning: 't时刻的移动平均值' },
+        { symbol: 'F(t+1)', meaning: '对下一期 t+1 的预测值（最近 n 期实际值的平均）' },
         { symbol: 'X(t)', meaning: 't时刻的实际观测值' },
         { symbol: 'n', meaning: '移动平均的窗口大小' }
       ],
@@ -221,7 +221,7 @@ const baseModels: Model[] = [
     ],
     mathematics: {
       description: 'ARIMA(p,d,q)模型方程：',
-      formula: '(1 - ΣφᵢBⁱ)(1-B)ᵈ yₜ = c + (1 + ΣθᵢBⁱ)εₜ\n目标：min(AIC = 2k - 2ln(L))',
+      formula: '(1 - ΣφᵢBⁱ)(1-B)ᵈ yₜ = c + (1 + ΣθᵢBⁱ)εₜ\n目标：在候选 (p,q) 中最小化信息准则\nAIC = 2k - 2ln(L)；BIC 类似但对复杂度惩罚更强',
       variables: [
         { symbol: 'p', meaning: '自回归阶数（自动搜索）' },
         { symbol: 'd', meaning: '差分阶数（用户指定）' },
@@ -234,9 +234,9 @@ const baseModels: Model[] = [
     workflow: {
       steps: [
         { title: '平稳性处理', description: '用户根据数据的趋势情况设定差分阶数d（通常0或1）。', tip: '有趋势的数据通常设d=1' },
-        { title: '空间搜索', description: '系统会根据训练数据量自动设置最大p和最大q范围（最高到5），并在该范围内搜索(p,q)组合。', tip: '训练页无需手动填写max_p/max_q' },
+        { title: '空间搜索', description: '系统会根据训练数据量自动设置最大p和最大q范围（最高到5），并在该范围内用逐步（stepwise）启发式搜索(p,q)组合，不保证穷举全部组合。', tip: '训练页无需手动填写max_p/max_q' },
         { title: '准则评估', description: '计算每个候选模型的AIC和BIC值。对于小样本，系统会惩罚复杂模型。', tip: '自动平衡拟合优度和复杂度' },
-        { title: '最优拟合', description: '选中最佳参数组合进行最终训练，并计算残差和置信区间。', tip: '输出包括95%置信区间' }
+        { title: '择优拟合', description: '选中搜索到的最佳参数组合进行最终训练，并计算残差和置信区间。', tip: '预测波动（std_dev）由95%置信区间换算得到' }
       ]
     },
     parameters: [
@@ -254,7 +254,7 @@ const baseModels: Model[] = [
       { industry: '销售', scenario: '季度业绩', description: '利用AIC准则自动剔除冗余参数，防止仅有的12个季度数据导致模型过拟合。' }
     ],
     pros: [
-      { title: '自动定阶', description: '无需人工查看ACF/PACF图，自动找到最优参数' },
+      { title: '自动定阶', description: '无需人工查看ACF/PACF图，自动搜索合适的参数组合' },
       { title: '防过拟合', description: '内置BIC准则优先策略，特别适合小样本场景' },
       { title: '区间预测', description: '不仅给出预测值，还能给出置信区间范围' },
       { title: '理论成熟', description: '经典的统计学方法，结果具有强可解释性' }
@@ -313,7 +313,7 @@ const baseModels: Model[] = [
     parameters: [
       { name: 'Lookback窗口（系统自动设置）', description: '模型向后看多少个时间步', impact: '决定模型可利用的历史长度。窗口过短信息不足，过长会增加训练难度；当前训练页不开放手动配置。', typical: '系统按训练样本量自动取值，通常在3-6之间' },
       { name: '训练轮数 Epochs（系统默认设置）', description: '整个数据集被训练的次数', impact: '过多易过拟合，过少易欠拟合。本系统配合学习率衰减和早停策略使用。', typical: '当前默认20轮；融合内部训练会采用保守默认' },
-      { name: '归一化方式', description: '数值特征的缩放方法', impact: 'MinMax适合有界数据，Z-Score适合近似正态且有离群值的数据；这是训练页开放给用户选择的参数。', typical: '默认MinMax (0-1)' }
+      { name: '归一化方式', description: '数值特征的缩放方法', impact: 'MinMax适合有界数据，Z-Score适合有离群值的数据；这是训练页开放给用户选择的参数。', typical: '训练页需手动选择；常用 MinMax (0-1)' }
     ],
     suitability: {
       suitable: ['数据量充足（>100个点）', '存在复杂非线性关系', '包含类别型特征（如天气、节假日）', '需要捕捉长期依赖模式'],
@@ -322,7 +322,7 @@ const baseModels: Model[] = [
     useCases: [
       { industry: '零售', scenario: '多维销量预测', description: '结合历史销量（数值）和促销类型（类别），预测未来一周销量。One-Hot编码让模型理解了"大促"与"日常"的区别。' },
       { industry: '能源', scenario: '负荷预测', description: '输入温度、湿度和历史负荷，LSTM捕捉气象因素对电力负荷的非线性影响延迟。' },
-      { industry: '交通', scenario: '流量预测', description: '利用过去24小时流量预测未来1小时。深层架构有效记住了早晚高峰的周期性特征。' }
+      { industry: '交通', scenario: '流量预测', description: '利用过去24小时流量预测未来1小时。门控记忆机制有效记住了早晚高峰的周期性特征。' }
     ],
     pros: [
       { title: '混合特征支持', description: '原生支持数值和类别特征的混合输入' },

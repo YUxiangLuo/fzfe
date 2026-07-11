@@ -73,6 +73,24 @@ const CATEGORICAL_TOKEN_HINTS = [
   'weather',
 ];
 
+// Mirrors _CALENDAR_CATEGORICAL_*_HINTS in fzbe/py/src/data_utils.py: the backend
+// one-hot encodes integer calendar fields (month/quarter/weekday) during training.
+const CALENDAR_CATEGORICAL_NAME_HINTS = [
+  '星期',
+  '月份',
+  '季度',
+  '周次',
+];
+
+const CALENDAR_CATEGORICAL_TOKEN_HINTS = [
+  'dayofweek',
+  'dow',
+  'month',
+  'quarter',
+  'weekday',
+  'weekofyear',
+];
+
 const normalizeFeatureName = (name: string) =>
   Array.from(name.toLowerCase()).filter(ch => /[a-z0-9\u4e00-\u9fff]/u.test(ch)).join('');
 
@@ -114,11 +132,34 @@ export function analyzeLstmField(field: string, values: string[]): LstmFieldProf
   const nameTokens = tokenizeFeatureName(field);
   const looksNumericByName = hasAny(normalizedName, NUMERIC_NAME_HINTS) || hasAnyToken(nameTokens, NUMERIC_TOKEN_HINTS);
   const looksCategoricalByName = hasAny(normalizedName, CATEGORICAL_NAME_HINTS) || hasAnyToken(nameTokens, CATEGORICAL_TOKEN_HINTS);
+  const looksCalendarByName = hasAny(normalizedName, CALENDAR_CATEGORICAL_NAME_HINTS) || hasAnyToken(nameTokens, CALENDAR_CATEGORICAL_TOKEN_HINTS);
   const numericRatio = numericCount / nonEmptyCount;
 
   let kind: LstmFieldKind;
   if (numericCount === nonEmptyCount) {
-    kind = looksCategoricalByName ? 'categorical' : 'numeric';
+    // Mirror _infer_single_feature_type in fzbe/py/src/data_utils.py (same rule
+    // order) so the badge matches how the backend actually encodes the field.
+    const integerLike = trimmedValues.every(value => {
+      const parsed = Number(value.replace(/,/g, ''));
+      return Math.abs(parsed - Math.round(parsed)) <= 1e-9;
+    });
+    const lowCardinalityThreshold = Math.max(4, Math.min(12, Math.floor(Math.sqrt(nonEmptyCount)) + 1));
+
+    if (looksNumericByName) {
+      kind = 'numeric';
+    } else if (looksCalendarByName) {
+      kind = integerLike && uniqueCount <= 31 ? 'categorical' : 'numeric';
+      if (kind === 'categorical') {
+        warnings.push('日历型字段（如月份、季度）会按类别进行 One-Hot 编码，而不是当作连续数值。');
+      }
+    } else if (looksCategoricalByName) {
+      kind = 'categorical';
+    } else if (integerLike && uniqueCount <= lowCardinalityThreshold && uniqueCount / nonEmptyCount <= 0.3) {
+      kind = 'categorical';
+      warnings.push(`该字段虽为数字，但只有 ${uniqueCount} 个不同取值，系统会按类别进行 One-Hot 编码。`);
+    } else {
+      kind = 'numeric';
+    }
   } else if (numericCount > 0 && (looksNumericByName || numericRatio >= 0.5)) {
     kind = 'mixed-numeric';
     warnings.push(`该字段包含 ${nonEmptyCount - numericCount} 个非数字值，系统会按类别字段处理，可能不是预期。`);

@@ -69,6 +69,13 @@ export const useAllModelMetrics = (): ModelMetricsRow[] => {
         r2: state.ensemble_stacking_metrics_r2,
       });
     }
+
+    // R² 需要评估集方差；单点评估时后端按约定返回 0.0，展示会误导为"模型很差"。
+    const evaluateStart = state.data_window_evaluate_start_index;
+    const evaluateEnd = state.data_window_evaluate_end_index;
+    if (evaluateStart !== null && evaluateEnd !== null && evaluateEnd - evaluateStart + 1 < 2) {
+      return data.map(row => ({ ...row, r2: null }));
+    }
     return data;
   }, [state]);
 };

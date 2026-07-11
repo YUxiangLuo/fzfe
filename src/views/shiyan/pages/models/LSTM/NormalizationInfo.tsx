@@ -53,13 +53,13 @@ const NormalizationInfo: React.FC = () => {
         </div>
         <div className="space-y-3 text-gray-800 text-base">
           <p className="leading-relaxed">
-            <strong>特点：</strong>将数据转换为均值为 0、标准差为 1 的标准正态分布。
+            <strong>特点：</strong>将数据缩放为均值为 0、标准差为 1。它只改变数据的量纲和中心位置，并不会改变数据的分布形状。
           </p>
           <p className="leading-relaxed">
-            <strong>适用场景：</strong>当数据的最大值和最小值未知，或数据中存在离群值时更加稳健。
+            <strong>适用场景：</strong>当数据的最大值和最小值未知，或数据中存在离群值时使用。
           </p>
           <p className="leading-relaxed">
-            <strong>优点：</strong>对异常值不敏感，适合处理具有离群点的数据。
+            <strong>优点：</strong>相比最小-最大归一化，个别极端值不会把其余数据压缩到很窄的区间，量程更稳定。
           </p>
           <p className="leading-relaxed">
             <strong>缺点：</strong>标准化后的数据没有固定的取值范围，可能不适合某些特定算法。

@@ -10,7 +10,7 @@ const DifferencingInfo: React.FC = () => {
       <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-purple-200 shadow-sm">
         <h4 className="text-lg font-semibold text-gray-800 mb-3">什么是差分？</h4>
         <p className="text-gray-800 leading-relaxed text-base mb-4">
-          差分是将非平稳时间序列转化为平稳序列的重要方法。通过计算相邻时刻数据的差值，可以消除时间序列中的趋势和季节性成分。
+          差分是将非平稳时间序列转化为平稳序列的重要方法。通过计算相邻时刻数据的差值，可以消除时间序列中的趋势成分；季节性成分需要按季节周期做季节差分或使用季节性模型处理（本系统的 ARIMA 未启用季节项）。
         </p>
         <p className="text-gray-800 leading-relaxed text-base">
           一阶差分计算公式为：<strong>ΔY<sub>t</sub> = Y<sub>t</sub> - Y<sub>t-1</sub></strong>
