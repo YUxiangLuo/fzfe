@@ -975,7 +975,7 @@ async function runTrainingSlotSaturationTest() {
 async function runExecutionLockConflictTest() {
   await prepareParallelScenario("training-burst");
   const session = await getLatestExperiment(TRAINING_STUDENT_USERNAME);
-  const lockName = `fangzhen-model:exp:${session.experimentId}:ma`;
+  const lockName = `fangzhen-model:exp:${session.experimentId}`;
   const locks = await acquireNamedAdvisoryLocks([lockName]);
 
   try {

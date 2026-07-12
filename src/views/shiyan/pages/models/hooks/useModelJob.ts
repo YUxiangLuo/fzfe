@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAbortableRequest } from './useAbortableRequest';
 import { MODEL_RETRY_LIMITS } from '../constants';
+import {
+  MODEL_CAPACITY_AUTO_RETRIES,
+  runWithModelCapacityRetry,
+} from './modelCapacityRetry';
 
 type TrainingLockSetter = (isLocked: boolean, lockPath?: string | null) => void;
 
@@ -260,7 +264,22 @@ export function useModelJob() {
     let completedSuccessfully = false;
 
     try {
-      const result = await executeRequest((signal) => request(signal, handleProgress));
+      const result = await executeRequest((signal) => runWithModelCapacityRetry(
+        () => request(signal, handleProgress),
+        {
+          signal,
+          shouldContinue: () => isMountedRef.current && jobIdRef.current === jobId,
+          onRetry: (delayMs, retryNumber) => {
+            recordProgress(jobId, {
+              type: 'progress',
+              phase: 'capacity_wait',
+              percent: 1,
+              source: 'backend',
+              message: `模型服务繁忙，约 ${Math.max(1, Math.ceil(delayMs / 1000))} 秒后自动重试（${retryNumber}/${MODEL_CAPACITY_AUTO_RETRIES}）`,
+            });
+          },
+        },
+      ));
       if (result === null) {
         return null;
       }

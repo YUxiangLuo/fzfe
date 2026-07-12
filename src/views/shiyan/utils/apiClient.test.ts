@@ -194,6 +194,30 @@ describe("apiClient error handling", () => {
       `HTTP 400 Bad Request - ${validationMessage}`,
     );
   });
+
+  it("preserves Retry-After as milliseconds on API errors", async () => {
+    const apiClient = await loadApiClient();
+
+    globalThis.fetch = mock(async () => new Response(JSON.stringify({
+      error: "模型服务繁忙，请稍后再试",
+    }), {
+      status: 429,
+      statusText: "Too Many Requests",
+      headers: {
+        "Content-Type": "application/json",
+        "Retry-After": "3",
+      },
+    })) as unknown as typeof fetch;
+
+    const error = await apiClient.post("/models/ma/training", {}).catch((caught: unknown) => caught) as Error & {
+      status?: number;
+      retryAfterMs?: number;
+    };
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error.status).toBe(429);
+    expect(error.retryAfterMs).toBe(3000);
+  });
 });
 
 describe("apiClient session isolation", () => {

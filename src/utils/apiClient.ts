@@ -204,6 +204,18 @@ const getNestedErrorMessage = (value: unknown): string | null => {
   return parseZodIssueMessages(message) ?? message;
 };
 
+const parseRetryAfterMs = (value: string | null): number | null => {
+  if (!value) return null;
+  const normalized = value.trim();
+  if (/^\d+$/.test(normalized)) {
+    return Number(normalized) * 1000;
+  }
+
+  const retryAt = Date.parse(normalized);
+  if (!Number.isFinite(retryAt)) return null;
+  return Math.max(0, retryAt - Date.now());
+};
+
 const handleResponse = async <T = any>(response: Response, endpoint: string): Promise<T> => {
   if (response.status === 401 && endpoint !== '/users/me/password') {
     clearSessionAndRedirect();
@@ -243,9 +255,14 @@ const handleResponse = async <T = any>(response: Response, endpoint: string): Pr
     const requestError = new Error(detail ? `${statusLabel} - ${detail}` : statusLabel) as Error & {
       status?: number;
       payload?: unknown;
+      retryAfterMs?: number;
     };
     requestError.status = response.status;
     requestError.payload = parsedBody;
+    const retryAfterMs = parseRetryAfterMs(response.headers.get('Retry-After'));
+    if (retryAfterMs !== null) {
+      requestError.retryAfterMs = retryAfterMs;
+    }
     throw requestError;
   }
 

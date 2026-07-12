@@ -6,6 +6,7 @@ import {
   type GuidedModelType,
   type GuidedTrainingSession,
 } from '../../../services/guidedTraining';
+import { runWithModelCapacityRetry } from './modelCapacityRetry';
 import { MODEL_RETRY_LIMITS } from '../constants';
 
 type TrainingLockSetter = (isLocked: boolean, lockPath?: string | null) => void;
@@ -286,7 +287,10 @@ export function useGuidedModelTraining<TFinalResult>({
         return;
       }
 
-      const stepSession = await runGuidedTrainingStep(modelType, currentSession.session_id, nextStepId);
+      const stepSession = await runWithModelCapacityRetry(
+        () => runGuidedTrainingStep(modelType, currentSession.session_id, nextStepId),
+        { shouldContinue: () => isMountedRef.current },
+      );
       // The backend may have committed the final step even when its original
       // HTTP response was lost. A retry then returns the completed checkpoint
       // without response-only activation metadata, so recover it explicitly.

@@ -179,6 +179,29 @@ describe('useGuidedModelTraining', () => {
     await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('completed'));
   });
 
+  it('automatically retries capacity responses that include Retry-After metadata', async () => {
+    const busyError = Object.assign(
+      new Error('HTTP 429 Too Many Requests - 模型服务繁忙，请稍后再试'),
+      {
+        status: 429,
+        payload: { error: '模型服务繁忙，请稍后再试' },
+        retryAfterMs: 1,
+      },
+    );
+    runGuidedTrainingStep
+      .mockRejectedValueOnce(busyError)
+      .mockResolvedValueOnce(completedGuidedSession());
+    const Component = await Harness();
+
+    view = render(<Component />);
+    fireEvent.click(view.getByRole('button', { name: 'run' }));
+
+    await waitFor(() => expect(runGuidedTrainingStep).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('completed'));
+    expect(view.getByTestId('error').textContent).toBe('');
+    expect(view.getByTestId('retry-count').textContent).toBe('0');
+  });
+
   it('does not count same-model conflicts toward the retry limit', async () => {
     const conflictError = Object.assign(
       new Error('HTTP 409 Conflict - 同一模型正在训练或预测，请稍后再试'),
