@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import PredictionChart from '../components/PredictionChart';
+import {
+  formatPredictionAccuracy,
+  getPredictionAccuracyClassName,
+} from '../components/PredictionResultsTable';
 import GuidedTrainingPanel from '../components/GuidedTrainingPanel';
 import type { ModelJobProgressEvent } from '../hooks/useModelJob';
 import type { GuidedTrainingSession } from '../../../services/guidedTraining';
@@ -34,22 +38,6 @@ const AutoParams: React.FC<AutoParamsProps> = ({
   onShowInformationCriteriaInfo,
 }) => {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
-
-  const calculateAccuracy = (actual: number, predicted: number | null): string => {
-    if (predicted === null || actual === 0) return 'N/A';
-    const accuracy = (1 - Math.abs(actual - predicted) / Math.abs(actual)) * 100;
-    return `${accuracy.toFixed(2)}%`;
-  };
-
-  const getAccuracyColor = (actual: number, predicted: number | null): string => {
-    if (predicted === null || actual === 0) return 'bg-gray-100 text-gray-600';
-    const accuracy = (1 - Math.abs(actual - predicted) / Math.abs(actual)) * 100;
-
-    if (accuracy >= 85) return 'bg-green-50 text-green-700 font-semibold';
-    if (accuracy >= 70) return 'bg-blue-50 text-blue-700 font-semibold';
-    if (accuracy >= 60) return 'bg-yellow-50 text-yellow-700 font-semibold';
-    return 'bg-red-50 text-red-700 font-semibold';
-  };
 
   if (!data) {
     return (
@@ -179,8 +167,8 @@ const AutoParams: React.FC<AutoParamsProps> = ({
                     <td className="px-6 py-4 whitespace-nowrap text-base text-blue-600 font-semibold">
                       {row.predicted?.toFixed(2) ?? 'N/A'}
                     </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-base ${getAccuracyColor(row.actual, row.predicted)}`}>
-                      {calculateAccuracy(row.actual, row.predicted)}
+                    <td className={`px-6 py-4 whitespace-nowrap text-base ${getPredictionAccuracyClassName(row.actual, row.predicted)}`}>
+                      {formatPredictionAccuracy(row.actual, row.predicted)}
                     </td>
                   </tr>
                 ))}
@@ -211,6 +199,9 @@ const AutoParams: React.FC<AutoParamsProps> = ({
                   <div className="text-center">
                     <div className="text-sm text-gray-600 leading-relaxed">
                       其中：<span className="font-semibold text-indigo-600">误差绝对值</span> = |<span className="text-blue-600">实际需求量</span> - <span className="text-purple-600">预测需求量</span>|
+                    </div>
+                    <div className="mt-2 text-xs text-gray-500">
+                      实际需求量为 0 时百分比准确率无定义，表中显示“不适用”。
                     </div>
                   </div>
                 </div>

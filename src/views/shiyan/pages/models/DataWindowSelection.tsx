@@ -9,9 +9,9 @@ import Button from '../../shared/components/common/Button';
 import { fillMissingMonths, hasBlankInRange, isBlankValue } from '../../utils/dataProcessing';
 
 // 常量配置
-const MIN_TRAINING_POINTS = 2; // 训练集至少需要2个数据点
-const MIN_EVALUATION_POINTS = 1; // 评估集至少需要1个数据点
-const MIN_TOTAL_POINTS = MIN_TRAINING_POINTS + MIN_EVALUATION_POINTS; // 总共至少需要3个数据点
+export const MIN_TRAINING_POINTS = 8;
+export const MIN_EVALUATION_POINTS = 2;
+const MIN_TOTAL_POINTS = MIN_TRAINING_POINTS + MIN_EVALUATION_POINTS;
 
 const PATHS = {
   ROLE_INTRO: '/model/role-intro',
@@ -127,7 +127,7 @@ const DataWindowSelection: React.FC = () => {
     if (!isValidRange(localTrainingRange, true)) {
       errors.push({
         type: 'training',
-        message: '训练区间的结束月份必须大于开始月份（至少跨越2个月）',
+        message: `训练区间至少需要 ${MIN_TRAINING_POINTS} 个数据点`,
       });
     } else {
       const trainingSize = localTrainingRange.endIndex - localTrainingRange.startIndex + 1;

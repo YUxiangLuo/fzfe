@@ -12,27 +12,33 @@ interface PredictionResultsTableProps {
   showAccuracy?: boolean;
 }
 
+export const formatPredictionAccuracy = (
+  actual: number,
+  predicted: number | null,
+): string => {
+  if (predicted === null || actual === 0) return '不适用';
+  const accuracy = (1 - Math.abs(actual - predicted) / Math.abs(actual)) * 100;
+  return `${accuracy.toFixed(2)}%`;
+};
+
+export const getPredictionAccuracyClassName = (
+  actual: number,
+  predicted: number | null,
+): string => {
+  if (predicted === null || actual === 0) return 'bg-gray-100 text-gray-600';
+  const accuracy = (1 - Math.abs(actual - predicted) / Math.abs(actual)) * 100;
+
+  if (accuracy >= 85) return 'bg-green-50 text-green-700 font-semibold';
+  if (accuracy >= 70) return 'bg-blue-50 text-blue-700 font-semibold';
+  if (accuracy >= 60) return 'bg-yellow-50 text-yellow-700 font-semibold';
+  return 'bg-red-50 text-red-700 font-semibold';
+};
+
 const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
   title,
   predictions,
   showAccuracy = true,
 }) => {
-  const calculateAccuracy = (actual: number, predicted: number | null): string => {
-    if (predicted === null || actual === 0) return 'N/A';
-    const accuracy = (1 - Math.abs(actual - predicted) / Math.abs(actual)) * 100;
-    return `${accuracy.toFixed(2)}%`;
-  };
-
-  const getAccuracyColor = (actual: number, predicted: number | null): string => {
-    if (predicted === null || actual === 0) return 'bg-gray-100 text-gray-600';
-    const accuracy = (1 - Math.abs(actual - predicted) / Math.abs(actual)) * 100;
-
-    if (accuracy >= 85) return 'bg-green-50 text-green-700 font-semibold';
-    if (accuracy >= 70) return 'bg-blue-50 text-blue-700 font-semibold';
-    if (accuracy >= 60) return 'bg-yellow-50 text-yellow-700 font-semibold';
-    return 'bg-red-50 text-red-700 font-semibold';
-  };
-
   return (
     <div className="space-y-6">
       <div>
@@ -72,8 +78,8 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
                   {row.predicted !== null ? row.predicted.toFixed(2) : 'N/A'}
                 </td>
                 {showAccuracy && (
-                  <td className={`px-6 py-4 whitespace-nowrap text-base ${getAccuracyColor(row.actual, row.predicted)}`}>
-                    {calculateAccuracy(row.actual, row.predicted)}
+                  <td className={`px-6 py-4 whitespace-nowrap text-base ${getPredictionAccuracyClassName(row.actual, row.predicted)}`}>
+                    {formatPredictionAccuracy(row.actual, row.predicted)}
                   </td>
                 )}
               </tr>
@@ -107,6 +113,9 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
                 <div className="text-center">
                   <div className="text-sm text-gray-600 leading-relaxed">
                     其中：<span className="font-semibold text-indigo-600">误差绝对值</span> = |<span className="text-blue-600">实际需求量</span> - <span className="text-purple-600">预测需求量</span>|
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">
+                    实际需求量为 0 时百分比准确率无定义，表中显示“不适用”。
                   </div>
                 </div>
               </div>
