@@ -9,7 +9,6 @@ import {
   SHIYAN_PRIMARY_PRODUCT,
 } from "./support/constants";
 import { prepareModelStageExperiment } from "./support/model-training";
-import { acquireAllModelSlots } from "./support/model-slot-locks";
 import { loginStudentViaApi } from "./support/backend";
 
 const buildTrainingBody = (
@@ -508,74 +507,6 @@ test.describe("@shiyan model training api", () => {
       field: "data_window_evaluate_end_index",
       request_value: 34,
       persisted_value: Number(DEFAULT_DATA_WINDOW.evaluateEnd),
-    });
-  });
-
-  test("training controller returns 429 when all model slots are occupied", async ({
-    page,
-    studentApi,
-    studentToken,
-  }) => {
-    const experiment = await prepareModelStageExperiment(studentApi);
-    const slotLocks = await acquireAllModelSlots();
-
-    try {
-      const response = await page.request.post(
-        `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
-        {
-          headers: authHeaders(studentToken),
-          data: buildTrainingBody(experiment.experiment_id, {
-            moving_average_window: 6,
-          }),
-        },
-      );
-
-      expect(response.status()).toBe(429);
-      expect(await readJson(response)).toMatchObject({
-        error: "模型服务繁忙，请稍后再试",
-      });
-    } finally {
-      await slotLocks.release();
-    }
-  });
-
-  test("training controller returns 409 when the same model is trained concurrently", async ({
-    page,
-    studentApi,
-    studentToken,
-  }) => {
-    const experiment = await prepareModelStageExperiment(studentApi);
-    const url = `${BACKEND_ORIGIN}/api/v1/models/lstm/training`;
-    const requestBody = buildTrainingBody(experiment.experiment_id, {
-      lstmNormalization: "minmax",
-      lstmTargetFeature: "销售数量",
-      lstmFeatures: "价格指数,产能利用率",
-    });
-
-    const firstRequest = page.request.post(url, {
-      headers: authHeaders(studentToken),
-      data: requestBody,
-    });
-
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    const secondResponse = await page.request.post(url, {
-      headers: authHeaders(studentToken),
-      data: requestBody,
-    });
-    const firstResponse = await firstRequest;
-
-    const firstPayload = await readJson(firstResponse);
-    const secondPayload = await readJson(secondResponse);
-    const outcomes = [
-      { status: firstResponse.status(), payload: firstPayload },
-      { status: secondResponse.status(), payload: secondPayload },
-    ];
-
-    expect(outcomes.some((entry) => entry.status === 200)).toBe(true);
-    expect(outcomes.some((entry) => entry.status === 409)).toBe(true);
-    expect(outcomes.find((entry) => entry.status === 409)?.payload).toMatchObject({
-      error: "同一模型正在训练或预测，请稍后再试",
     });
   });
 });

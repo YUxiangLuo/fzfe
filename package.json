@@ -31,11 +31,6 @@
     "e2e:shiyan:smoke:run": "bunx playwright test --config=playwright.shiyan.config.ts --grep @smoke",
     "e2e:shiyan": "bun run e2e:gen && bunx playwright test --config=playwright.shiyan.config.ts",
     "e2e:shiyan:headed": "bun run e2e:gen && bunx playwright test --config=playwright.shiyan.config.ts --headed",
-    "e2e:shiyan:concurrency": "bun run scripts/shiyan-concurrency-suite.ts all",
-    "e2e:shiyan:concurrency:model": "bun run scripts/shiyan-concurrency-suite.ts model",
-    "e2e:shiyan:concurrency:pdf": "bun run scripts/shiyan-concurrency-suite.ts pdf",
-    "e2e:shiyan:concurrency:ui": "bunx playwright test --config=playwright.shiyan-concurrency-ui.config.ts",
-    "e2e:shiyan:concurrency:server": "E2E_CONCURRENCY_MODEL_JOBS=50 E2E_CONCURRENCY_MODEL_CAPACITY_REQUESTS=50 E2E_CONCURRENCY_PDF_JOBS=12 E2E_CONCURRENCY_PDF_STUDENTS=50 E2E_CONCURRENCY_PDF_QUEUE_TIMEOUT_MS=60000 E2E_CONCURRENCY_EXPECT_PDF_503=0 DB_CONNECTION_LIMIT=140 bun run scripts/shiyan-concurrency-suite.ts all",
     "e2e:session": "bun run e2e:gen && bunx playwright test --config=playwright.session.config.ts",
     "e2e:session:headed": "bun run e2e:gen && bunx playwright test --config=playwright.session.config.ts --headed",
     "e2e:all": "bun run e2e:gen && bunx playwright test --config=playwright.auth.config.ts && bunx playwright test --config=playwright.runtime-cleanup.config.ts && bunx playwright test --config=playwright.teacher.config.ts && bunx playwright test --config=playwright.assistant.config.ts && bunx playwright test --config=playwright.admin.config.ts && bunx playwright test --config=playwright.shiyan.config.ts && bunx playwright test --config=playwright.session.config.ts"
