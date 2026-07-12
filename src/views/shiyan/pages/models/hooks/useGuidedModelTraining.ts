@@ -12,7 +12,8 @@ type TrainingLockSetter = (isLocked: boolean, lockPath?: string | null) => void;
 interface UseGuidedModelTrainingOptions<TFinalResult> {
   modelType: GuidedModelType;
   buildRequestBody: () => Record<string, any> | null;
-  onFinalResult: (result: TFinalResult) => Promise<void> | void;
+  onFinalResult: (result: TFinalResult, session: GuidedTrainingSession) => Promise<void> | void;
+  persistDraft?: () => Promise<void> | void;
   lockPath?: string | null;
   setTrainingLock?: TrainingLockSetter;
   getErrorMessage?: (error: unknown) => string;
@@ -125,6 +126,7 @@ export function useGuidedModelTraining<TFinalResult>({
   modelType,
   buildRequestBody,
   onFinalResult,
+  persistDraft,
   lockPath,
   setTrainingLock,
   getErrorMessage,
@@ -135,6 +137,11 @@ export function useGuidedModelTraining<TFinalResult>({
   const [retryCount, setRetryCount] = useState(0);
   const isMountedRef = useRef(true);
   const inFlightRef = useRef(false);
+  const persistDraftRef = useRef(persistDraft);
+
+  useEffect(() => {
+    persistDraftRef.current = persistDraft;
+  }, [persistDraft]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -172,6 +179,7 @@ export function useGuidedModelTraining<TFinalResult>({
       return session;
     }
 
+    await persistDraftRef.current?.();
     const requestBody = buildRequestBody();
     if (!requestBody) {
       return null;
@@ -187,7 +195,7 @@ export function useGuidedModelTraining<TFinalResult>({
 
   const applyFinalResult = useCallback(async (targetSession: GuidedTrainingSession | null) => {
     if (targetSession?.result) {
-      await onFinalResult(targetSession.result as TFinalResult);
+      await onFinalResult(targetSession.result as TFinalResult, targetSession);
     }
   }, [onFinalResult]);
 

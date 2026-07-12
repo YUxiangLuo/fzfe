@@ -61,7 +61,7 @@ describe("experimentAdapter", () => {
       ensemble_weighted_base_models: ["ma", "exp"],
     };
 
-    const payload = toExperimentUpdatePayload(state);
+    const payload = toExperimentUpdatePayload(state, 7);
 
     expect(payload.selected_base_models).toEqual(["moving_average", "lstm"]);
     expect(payload.selected_ensemble_models).toEqual(["weighted_ensemble"]);
@@ -74,5 +74,6 @@ describe("experimentAdapter", () => {
     expect("status" in payload).toBeFalse();
     expect("quiz_about_model_completed" in payload).toBeFalse();
     expect("quiz_about_plan_completed" in payload).toBeFalse();
+    expect(payload.expected_version).toBe(7);
   });
 });

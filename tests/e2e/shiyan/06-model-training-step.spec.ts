@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import {
   prepareEnsembleReadyExperiment,
   prepareModelStageExperiment,
+  seedAuthoritativeTrainingFixture,
 } from "./support/model-training";
 import { completeGuidedTraining } from "./support/ui-flow";
 
@@ -34,6 +35,7 @@ type GuidedTrainingResult = {
   message?: string;
   results: Record<string, unknown>;
   inferred_feature_types?: unknown;
+  experiment_state_patch?: Record<string, unknown>;
 };
 
 type GuidedTrainingFailure = {
@@ -135,6 +137,17 @@ const mockGuidedTraining = async (
       return;
     }
 
+    const authoritativeResult = options.result.status === "success"
+      ? {
+          ...options.result,
+          experiment_state_patch: seedAuthoritativeTrainingFixture(
+            modelType,
+            latestRequestBody,
+            options.result,
+          ),
+        }
+      : options.result;
+
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -142,7 +155,7 @@ const mockGuidedTraining = async (
         data: createMockGuidedSession(
           modelType,
           "completed",
-          options.result,
+          authoritativeResult,
           null,
           options.actionLabel,
         ),

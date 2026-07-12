@@ -31,13 +31,17 @@ export const getExperimentState = async (): Promise<ExperimentState> => {
   }
 };
 
-export const updateExperimentState = async (state: ExperimentState): Promise<ExperimentState> => {
-  if (!state.experiment_id) {
+export const updateExperimentState = async (
+  experimentId: number,
+  updates: Partial<ExperimentState>,
+  expectedVersion: number,
+): Promise<ExperimentState> => {
+  if (!experimentId) {
     throw new Error("Experiment ID is required to update experiment status.");
   }
-  const updated = await apiClient.put<ExperimentApiState>(
-    `/experiment-runs/${state.experiment_id}`,
-    toExperimentUpdatePayload(state),
+  const updated = await apiClient.patch<ExperimentApiState>(
+    `/experiment-runs/${experimentId}`,
+    toExperimentUpdatePayload(updates, expectedVersion),
   );
   return fromExperimentApi(updated);
 };

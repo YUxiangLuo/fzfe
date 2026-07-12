@@ -48,7 +48,7 @@ const ARIMAStepper: React.FC = () => {
   const location = useLocation();
   const { state, updateState, productSalesData, setTrainingLock } = useExperiment();
 
-  const [adfResults, setAdfResults] = useState<AdfStationarityRow[]>([]);
+  const [adfResults, setAdfResults] = useState<AdfStationarityRow[]>(state.arima_adf_stationarity ?? []);
   const [selectedD, setSelectedD] = useState<number | ''>(state.arima_d ?? '');
   const [results, setResults] = useState<any>(null);
   const [autoParamsView, setAutoParamsView] = useState<'params' | 'results'>('params');
@@ -218,18 +218,23 @@ const ARIMAStepper: React.FC = () => {
       order: apiResults.best_order,
     };
 
-    await updateState({
+    const recoveredModelState = {
+      arima_completed: true,
       arima_p: apiResults.best_order.p,
+      arima_d: selectedD === '' ? null : selectedD,
       arima_q: apiResults.best_order.q,
       arima_metrics_rmse: apiResults.metrics.rmse,
       arima_metrics_mae: apiResults.metrics.mae,
       arima_metrics_r2: apiResults.metrics.r2,
-    }, { forceSync: true, throwOnSyncError: true });
+      ...(response.experiment_state_patch ?? {}),
+    };
+    await updateState(recoveredModelState as any, { skipSync: true });
     setResults(nextResults);
   }, [
     productSalesData,
     state.data_window_evaluate_end_index,
     state.data_window_evaluate_start_index,
+    selectedD,
     updateState
   ]);
 
@@ -339,7 +344,7 @@ const ARIMAStepper: React.FC = () => {
         try {
           await updateState(
             { arima_completed: true },
-            { forceSync: true, throwOnSyncError: true },
+            { skipSync: true },
           );
         } catch {
           return;

@@ -105,15 +105,19 @@ const LSTMStepper: React.FC = () => {
       metrics: apiResults.metrics,
     };
 
-    await updateState({
+    const recoveredModelState = {
+      lstm_completed: true,
+      lstm_normalization: normalization,
       lstm_features: features,
       lstm_target_field: target,
       lstm_metrics_rmse: apiResults.metrics.rmse,
       lstm_metrics_mae: apiResults.metrics.mae,
       lstm_metrics_r2: apiResults.metrics.r2,
-    }, { forceSync: true, throwOnSyncError: true });
+      ...(response.experiment_state_patch ?? {}),
+    };
+    await updateState(recoveredModelState as any, { skipSync: true });
     setResults(nextResults);
-  }, [evaluateMonths, features, target, updateState]);
+  }, [evaluateMonths, features, normalization, target, updateState]);
 
   const {
     session: guidedTrainingSession,
@@ -129,6 +133,23 @@ const LSTMStepper: React.FC = () => {
     modelType: 'lstm',
     buildRequestBody: buildTrainingRequestBody,
     onFinalResult: handleTrainingFinalResult,
+    persistDraft: async () => {
+      const persistedFeatures = state.lstm_features ?? [];
+      const sameFeatures = JSON.stringify(persistedFeatures) === JSON.stringify(features);
+      if (
+        sameFeatures
+        && state.lstm_target_field === target
+        && state.lstm_normalization === normalization
+      ) return;
+      await updateState(
+        {
+          lstm_normalization: normalization,
+          lstm_features: features,
+          lstm_target_field: target,
+        },
+        { forceSync: true, throwOnSyncError: true },
+      );
+    },
     lockPath: location.pathname,
     setTrainingLock,
     getErrorMessage: (jobError) =>
@@ -233,7 +254,7 @@ const LSTMStepper: React.FC = () => {
       try {
         await updateState(
           { lstm_completed: true },
-          { forceSync: true, throwOnSyncError: true },
+          { skipSync: true },
         );
       } catch {
         return;

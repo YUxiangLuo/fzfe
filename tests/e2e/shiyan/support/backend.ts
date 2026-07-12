@@ -4,7 +4,7 @@ import {
   STUDENT_USERNAME,
 } from "./constants";
 
-type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface ExperimentRecord {
   experiment_id: number;
@@ -206,12 +206,20 @@ export const createStudentApiClient = (token: string): StudentApiClient => ({
       body,
     }),
 
-  updateExperiment: (experimentId, updates) =>
-    requestJson<ExperimentRecord>(`/api/v1/experiment-runs/${experimentId}`, {
-      method: "PUT",
+  updateExperiment: async (experimentId, updates) => {
+    const active = await requestJson<ExperimentRecord>(
+      "/api/v1/students/me/experiment-runs/active",
+      { token },
+    );
+    return await requestJson<ExperimentRecord>(`/api/v1/experiment-runs/${experimentId}`, {
+      method: "PATCH",
       token,
-      body: updates,
-    }),
+      body: {
+        ...updates,
+        expected_version: Number(active.state_version ?? 0),
+      },
+    });
+  },
 
   deleteExperiment: (experimentId) =>
     requestJson<{ message: string }>(

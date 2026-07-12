@@ -368,31 +368,31 @@ export const useExperimentStore = create<ExperimentStore>()(
       },
 
       resetMovingAverageModel: async () => {
-        await get().updateState(buildResetMovingAveragePatch());
+        await get().updateState(buildResetMovingAveragePatch(), { forceSync: true, throwOnSyncError: true });
       },
 
       resetExponentialSmoothingModel: async () => {
-        await get().updateState(buildResetExponentialSmoothingPatch());
+        await get().updateState(buildResetExponentialSmoothingPatch(), { forceSync: true, throwOnSyncError: true });
       },
 
       resetARIMAModel: async () => {
-        await get().updateState(buildResetArimaPatch());
+        await get().updateState(buildResetArimaPatch(), { forceSync: true, throwOnSyncError: true });
       },
 
       resetLSTMModel: async () => {
-        await get().updateState(buildResetLstmPatch());
+        await get().updateState(buildResetLstmPatch(), { forceSync: true, throwOnSyncError: true });
       },
 
       resetWeightedEnsembleModel: async () => {
-        await get().updateState(buildResetWeightedEnsemblePatch());
+        await get().updateState(buildResetWeightedEnsemblePatch(), { forceSync: true, throwOnSyncError: true });
       },
 
       resetBoostingEnsembleModel: async () => {
-        await get().updateState(buildResetBoostingEnsemblePatch());
+        await get().updateState(buildResetBoostingEnsemblePatch(), { forceSync: true, throwOnSyncError: true });
       },
 
       resetStackingEnsembleModel: async () => {
-        await get().updateState(buildResetStackingEnsemblePatch());
+        await get().updateState(buildResetStackingEnsemblePatch(), { forceSync: true, throwOnSyncError: true });
       },
 
       createNewExperiment: async () => {

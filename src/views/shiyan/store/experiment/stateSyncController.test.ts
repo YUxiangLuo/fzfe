@@ -9,13 +9,20 @@ import type { ExperimentState } from "./types";
 const createRepositoryStub = (): ExperimentRepository => ({
   create: mock(async () => buildInitialState()),
   getActive: mock(async () => buildInitialState()),
-  save: mock(async (state: ExperimentState) => state),
+  save: mock(async (experimentId, updates, expectedVersion) => ({
+    ...buildInitialState(),
+    experiment_id: experimentId,
+    ...updates,
+    status: "In Progress" as const,
+    start_time: "2026-01-01T00:00:00.000Z",
+    state_version: expectedVersion + 1,
+  })),
   recordStepEvent: mock(async () => {}),
 });
 
 describe("stateSyncController", () => {
   it("updates local state immediately and syncs when forced", async () => {
-    let currentState = buildInitialState();
+    let currentState: ExperimentState = { ...buildInitialState(), experiment_id: 42 };
     const repository = createRepositoryStub();
     const onLocalStateChange = mock(() => {});
     const onSyncSuccess = mock(() => {});
@@ -82,7 +89,7 @@ describe("stateSyncController", () => {
     let releaseSave!: (state: ExperimentState) => void;
     const repository = createRepositoryStub();
     repository.save = mock(
-      (state: ExperimentState) =>
+      (_experimentId: number, _updates: Partial<ExperimentState>, _expectedVersion: number) =>
         new Promise<ExperimentState>((resolve) => {
           releaseSave = resolve;
         }),
@@ -106,6 +113,7 @@ describe("stateSyncController", () => {
 
     expect(repository.recordStepEvent).not.toHaveBeenCalled();
 
+    await Promise.resolve();
     releaseSave({
       ...currentState,
       highest_completed_step: 1,
@@ -152,8 +160,8 @@ describe("stateSyncController", () => {
   });
 
   it("reverts local state when sync fails and throwOnSyncError is enabled", async () => {
-    const initialState = buildInitialState();
-    let currentState = initialState;
+    const initialState: ExperimentState = { ...buildInitialState(), experiment_id: 42 };
+    let currentState: ExperimentState = initialState;
     const repository = createRepositoryStub();
     repository.save = mock(async () => {
       throw new Error("sync failed");
@@ -215,7 +223,11 @@ describe("stateSyncController", () => {
   });
 
   it("skips repository save when sync conditions are not met", async () => {
-    let currentState = buildInitialState();
+    let currentState: ExperimentState = {
+      ...buildInitialState(),
+      experiment_id: 42,
+      status: "In Progress" as const,
+    };
     const repository = createRepositoryStub();
 
     const controller = createExperimentStateSyncController({
@@ -267,19 +279,114 @@ describe("stateSyncController", () => {
     expect(currentState.current_step).toBe(2);
   });
 
+  it("rebases only the local delta onto the latest server state after a version conflict", async () => {
+    let currentState: ExperimentState = {
+      ...buildInitialState(),
+      experiment_id: 42,
+      state_version: 2,
+      selected_company: "old-company",
+    };
+    const repository = createRepositoryStub();
+    const conflict = Object.assign(new Error("version conflict"), { status: 409 });
+    repository.save = mock()
+      .mockRejectedValueOnce(conflict)
+      .mockImplementationOnce(async (experimentId, updates, expectedVersion) => ({
+        ...buildInitialState(),
+        experiment_id: experimentId,
+        selected_industry: "remote-industry",
+        selected_company: "remote-company",
+        ...updates,
+        status: "In Progress",
+        state_version: expectedVersion + 1,
+      }));
+    repository.getActive = mock(async () => ({
+      ...buildInitialState(),
+      experiment_id: 42,
+      selected_industry: "remote-industry",
+      selected_company: "remote-company",
+      status: "In Progress" as const,
+      state_version: 5,
+    }));
+
+    const controller = createExperimentStateSyncController({
+      repository,
+      getState: () => currentState,
+      setState: (state) => {
+        currentState = state;
+      },
+      onLocalStateChange: mock(() => {}),
+      onSyncSuccess: mock(() => {}),
+      onSyncError: mock(() => {}),
+      onIgnoreStaleResponse: mock(() => {}),
+      onRemoteProductSelectionChanged: mock(() => {}),
+      onCompletedStepRecordError: mock(() => {}),
+    });
+
+    await controller.updateState(
+      { selected_company: "local-company" },
+      { forceSync: true, throwOnSyncError: true },
+    );
+
+    expect(repository.save).toHaveBeenNthCalledWith(1, 42, {
+      selected_company: "local-company",
+    }, 2);
+    expect(repository.getActive).toHaveBeenCalledTimes(1);
+    expect(repository.save).toHaveBeenNthCalledWith(2, 42, {
+      selected_company: "local-company",
+    }, 5);
+    expect(currentState.selected_industry).toBe("remote-industry");
+    expect(currentState.selected_company).toBe("local-company");
+    expect(currentState.state_version).toBe(6);
+  });
+
+  it("does not send an empty forced patch when the requested value is unchanged", async () => {
+    let currentState: ExperimentState = {
+      ...buildInitialState(),
+      experiment_id: 42,
+      selected_company: "same-company",
+    };
+    const repository = createRepositoryStub();
+    const controller = createExperimentStateSyncController({
+      repository,
+      getState: () => currentState,
+      setState: (state) => {
+        currentState = state;
+      },
+      onLocalStateChange: mock(() => {}),
+      onSyncSuccess: mock(() => {}),
+      onSyncError: mock(() => {}),
+      onIgnoreStaleResponse: mock(() => {}),
+      onRemoteProductSelectionChanged: mock(() => {}),
+      onCompletedStepRecordError: mock(() => {}),
+    });
+
+    await controller.updateState(
+      { selected_company: "same-company" },
+      { forceSync: true, throwOnSyncError: true },
+    );
+
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
   it("ignores stale save responses before emitting sync success", async () => {
-    let currentState = buildInitialState();
+    let currentState: ExperimentState = { ...buildInitialState(), experiment_id: 42 };
     let releaseFirstSave!: (state: ExperimentState) => void;
     const repository = createRepositoryStub();
     repository.save = mock(
-      (state: ExperimentState) =>
+      (experimentId: number, updates: Partial<ExperimentState>, expectedVersion: number) =>
         new Promise<ExperimentState>((resolve) => {
           if (!releaseFirstSave) {
             releaseFirstSave = resolve;
             return;
           }
 
-          resolve(state);
+          resolve({
+            ...buildInitialState(),
+            experiment_id: experimentId,
+            ...updates,
+            status: "In Progress",
+            state_version: expectedVersion + 1,
+          });
         }),
     );
     const onSyncSuccess = mock(() => {});
@@ -302,13 +409,16 @@ describe("stateSyncController", () => {
     const firstUpdate = controller.updateState({ selected_industry: "first" }, { forceSync: true });
     const secondUpdate = controller.updateState({ selected_industry: "second" }, { forceSync: true });
 
-    await secondUpdate;
+    await Promise.resolve();
     releaseFirstSave({
       ...buildInitialState(),
+      experiment_id: 42,
       selected_industry: "first",
       status: "In Progress",
+      state_version: 1,
     });
     await firstUpdate;
+    await secondUpdate;
 
     expect(onIgnoreStaleResponse).toHaveBeenCalledTimes(1);
     expect(onSyncSuccess).toHaveBeenCalledTimes(1);
@@ -324,14 +434,21 @@ describe("stateSyncController", () => {
     let releaseFirstSave!: (state: ExperimentState) => void;
     const repository = createRepositoryStub();
     repository.save = mock(
-      (state: ExperimentState) =>
+      (experimentId: number, updates: Partial<ExperimentState>, expectedVersion: number) =>
         new Promise<ExperimentState>((resolve) => {
           if (!releaseFirstSave) {
             releaseFirstSave = resolve;
             return;
           }
 
-          resolve(state);
+          resolve({
+            ...buildInitialState(),
+            experiment_id: experimentId,
+            highest_completed_step: 1,
+            ...updates,
+            status: "In Progress",
+            state_version: expectedVersion + 1,
+          });
         }),
     );
 
@@ -352,16 +469,18 @@ describe("stateSyncController", () => {
     const firstUpdate = controller.updateState({ highest_completed_step: 1 }, { forceSync: true });
     const secondUpdate = controller.updateState({ selected_industry: "electronics" }, { forceSync: true });
 
+    await Promise.resolve();
+    releaseFirstSave({
+      ...currentState,
+      experiment_id: 42,
+      highest_completed_step: 1,
+      state_version: 1,
+    });
+    await firstUpdate;
     await secondUpdate;
 
     expect(repository.recordStepEvent).toHaveBeenCalledTimes(1);
     expect(repository.recordStepEvent).toHaveBeenCalledWith(42, 1, "COMPLETED");
-
-    releaseFirstSave({
-      ...currentState,
-      highest_completed_step: 1,
-    });
-    await firstUpdate;
 
     expect(repository.recordStepEvent).toHaveBeenCalledTimes(1);
   });
@@ -404,14 +523,18 @@ describe("stateSyncController", () => {
   it("notifies when remote sync changes product selection", async () => {
     let currentState: ExperimentState = {
       ...buildInitialState(),
+      experiment_id: 42,
       selected_industry: "electronics",
       selected_company: "acme",
       selected_product: "widget-a",
     };
     const repository = createRepositoryStub();
-    repository.save = mock(async (state: ExperimentState) => ({
-      ...state,
+    repository.save = mock(async (experimentId, updates, expectedVersion) => ({
+      ...buildInitialState(),
+      experiment_id: experimentId,
+      ...updates,
       selected_product: "widget-b",
+      state_version: expectedVersion + 1,
     }));
     const onRemoteProductSelectionChanged = mock(() => {});
 
