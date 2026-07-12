@@ -26,8 +26,10 @@ export interface GuidedTrainingSession {
     status: string;
     results: Record<string, any>;
     inferred_feature_types?: unknown;
+    experiment_state_patch?: Record<string, unknown>;
   } | null;
   error_message: string | null;
+  experiment_state_version?: number | null;
 }
 
 const guidedBasePath = (modelType: GuidedModelType) =>

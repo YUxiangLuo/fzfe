@@ -334,4 +334,46 @@ describe('useSimpleModel', () => {
     await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
     expect(runGuidedTrainingStep).not.toHaveBeenCalled();
   });
+
+  it('restores model metrics and current downstream invalidations from a reused session', async () => {
+    Object.assign(experimentValue.state, {
+      ensemble_weighted_completed: true,
+      selected_best_model: 'ensemble_weighted',
+      production_plan_completed: true,
+    });
+    createGuidedTrainingSession.mockResolvedValueOnce({
+      ...completedGuidedSession(),
+      result: {
+        ...successfulGuidedResult,
+        experiment_state_patch: {
+          state_version: 9,
+          ensemble_weighted_completed: false,
+          selected_best_model: null,
+          production_plan_completed: false,
+        },
+      },
+    });
+    const Component = await Harness('params');
+
+    view = render(
+      <MemoryRouter initialEntries={['/model/moving-average/results']}>
+        <Component />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(view.getByRole('button', { name: 'init' }));
+
+    await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
+    expect(experimentValue.state).toMatchObject({
+      moving_average_completed: true,
+      moving_average_window: 3,
+      moving_average_metrics_rmse: 20.55,
+      moving_average_metrics_mae: 19.67,
+      moving_average_metrics_r2: -9.49,
+      ensemble_weighted_completed: false,
+      selected_best_model: null,
+      production_plan_completed: false,
+      state_version: 9,
+    });
+  });
 });

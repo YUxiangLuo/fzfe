@@ -27,6 +27,35 @@ const buildNextState = (
   return nextState;
 };
 
+const valuesEqual = (left: unknown, right: unknown) => {
+  if (Object.is(left, right)) return true;
+  if (Array.isArray(left) || Array.isArray(right) || (left && typeof left === "object") || (right && typeof right === "object")) {
+    try {
+      return JSON.stringify(left) === JSON.stringify(right);
+    } catch {
+      return false;
+    }
+  }
+  return false;
+};
+
+const buildChangedPatch = (
+  previousState: ExperimentState,
+  nextState: ExperimentState,
+  requestedUpdates: Partial<ExperimentState>,
+): Partial<ExperimentState> => {
+  const patch: Partial<ExperimentState> = {};
+  for (const key of Object.keys(requestedUpdates) as Array<keyof ExperimentState>) {
+    if (!valuesEqual(previousState[key], nextState[key])) {
+      (patch as Record<string, unknown>)[key] = nextState[key];
+    }
+  }
+  return patch;
+};
+
+const isVersionConflict = (error: unknown) =>
+  error instanceof Error && (error as Error & { status?: number }).status === 409;
+
 const shouldSyncState = (
   previousState: ExperimentState,
   nextState: ExperimentState,
@@ -85,6 +114,8 @@ export const createExperimentStateSyncController = ({
   let trackedExperimentId: number | null = null;
   let lastConfirmedCompletedStep: number | null = null;
   let lastOptimisticCompletedStep: number | null = null;
+  let confirmedServerState: ExperimentState | null = null;
+  let syncQueue: Promise<void> = Promise.resolve();
 
   const resetCompletionTracking = (state: ExperimentState) => {
     trackedExperimentId = state.experiment_id ?? null;
@@ -119,8 +150,10 @@ export const createExperimentStateSyncController = ({
 
       const currentUpdateVersion = ++stateUpdateVersion;
       const nextState = buildNextState(previousState, updates);
+      const changedPatch = buildChangedPatch(previousState, nextState, updates);
       if ((nextState.experiment_id ?? null) !== (previousState.experiment_id ?? null)) {
         resetCompletionTracking(nextState);
+        confirmedServerState = nextState;
       }
       const confirmedCompletedStep =
         lastConfirmedCompletedStep ?? nextState.highest_completed_step;
@@ -129,54 +162,93 @@ export const createExperimentStateSyncController = ({
       onLocalStateChange(previousState, nextState);
       setState(nextState);
 
-      if (!shouldSyncState(previousState, nextState, updates, options)) {
+      if (
+        Object.keys(changedPatch).length === 0
+        || !shouldSyncState(previousState, nextState, updates, options)
+      ) {
+        if (options.skipSync && nextState.state_version >= previousState.state_version) {
+          confirmedServerState = nextState;
+        }
         return;
       }
 
-      try {
-        const serverState = await repository.save(nextState);
+      const synchronize = async () => {
+        try {
+          if (!previousState.experiment_id) {
+            throw new Error("Experiment ID is required to update experiment status.");
+          }
+          const syncBaseState = confirmedServerState?.experiment_id === previousState.experiment_id
+            ? confirmedServerState
+            : previousState;
+          let serverState: ExperimentState;
+          try {
+            serverState = await repository.save(
+              previousState.experiment_id,
+              changedPatch,
+              syncBaseState.state_version,
+            );
+          } catch (error) {
+            if (!isVersionConflict(error)) throw error;
+            const latestState = await repository.getActive();
+            if (!latestState.experiment_id || latestState.experiment_id !== previousState.experiment_id) {
+              throw error;
+            }
+            const rebasedState = buildNextState(latestState, changedPatch);
+            const rebasedPatch = buildChangedPatch(latestState, rebasedState, changedPatch);
+            serverState = await repository.save(
+              latestState.experiment_id,
+              rebasedPatch,
+              latestState.state_version,
+            );
+          }
+          confirmedServerState = serverState;
 
-        if (currentUpdateVersion !== stateUpdateVersion) {
-          onIgnoreStaleResponse(currentUpdateVersion, stateUpdateVersion);
-          return;
-        }
+          if (currentUpdateVersion !== stateUpdateVersion) {
+            onIgnoreStaleResponse(currentUpdateVersion, stateUpdateVersion);
+            return;
+          }
 
-        setState(serverState);
-        lastOptimisticCompletedStep = serverState.highest_completed_step;
+          setState(serverState);
+          lastOptimisticCompletedStep = serverState.highest_completed_step;
 
-        if (
-          serverState.highest_completed_step > confirmedCompletedStep &&
-          serverState.experiment_id
-        ) {
-          for (
-            let step = confirmedCompletedStep + 1;
-            step <= serverState.highest_completed_step;
-            step++
+          if (
+            serverState.highest_completed_step > confirmedCompletedStep
+            && serverState.experiment_id
           ) {
-            repository.recordStepEvent(serverState.experiment_id, step, "COMPLETED").catch((error) => {
-              onCompletedStepRecordError(step, error);
-            });
+            for (
+              let step = confirmedCompletedStep + 1;
+              step <= serverState.highest_completed_step;
+              step++
+            ) {
+              repository.recordStepEvent(serverState.experiment_id, step, "COMPLETED").catch((error) => {
+                onCompletedStepRecordError(step, error);
+              });
+            }
+          }
+          lastConfirmedCompletedStep = Math.max(
+            confirmedCompletedStep,
+            serverState.highest_completed_step,
+          );
+
+          if (didProductSelectionChange(previousState, serverState)) {
+            onRemoteProductSelectionChanged();
+          }
+
+          onSyncSuccess();
+        } catch (error) {
+          onSyncError(error);
+
+          if (throwOnSyncError) {
+            setState(previousState);
+            lastOptimisticCompletedStep = previousState.highest_completed_step;
+            throw error;
           }
         }
-        lastConfirmedCompletedStep = Math.max(
-          confirmedCompletedStep,
-          serverState.highest_completed_step,
-        );
+      };
 
-        if (didProductSelectionChange(previousState, serverState)) {
-          onRemoteProductSelectionChanged();
-        }
-
-        onSyncSuccess();
-      } catch (error) {
-        onSyncError(error);
-
-        if (throwOnSyncError) {
-          setState(previousState);
-          lastOptimisticCompletedStep = previousState.highest_completed_step;
-          throw error;
-        }
-      }
+      const scheduledSync = syncQueue.then(synchronize, synchronize);
+      syncQueue = scheduledSync.catch(() => {});
+      await scheduledSync;
     },
   };
 };

@@ -15,6 +15,7 @@ export const buildInitialPersistedState = (): PersistedExperimentState => ({
   status: "Not Started",
   highest_completed_step: 0,
   current_step: 1,
+  state_version: 0,
   selected_industry: null,
   selected_company: null,
   selected_product: null,

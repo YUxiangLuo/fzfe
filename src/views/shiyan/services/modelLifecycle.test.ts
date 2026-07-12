@@ -49,16 +49,13 @@ describe("modelLifecycle", () => {
     });
   });
 
-  it("prepares base models before predicting", async () => {
+  it("lets the predict endpoint prepare base models when needed", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
 
     const result = await predictWithBestModel("ma", 7, 6);
 
-    expect(apiPost).toHaveBeenCalledTimes(2);
-    expect(apiPost).toHaveBeenNthCalledWith(1, "/models/ma/prepare-production", {
-      experiment_id: 7,
-    });
-    expect(apiPost).toHaveBeenNthCalledWith(2, "/models/ma/predict", {
+    expect(apiPost).toHaveBeenCalledTimes(1);
+    expect(apiPost).toHaveBeenCalledWith("/models/ma/predict", {
       experiment_id: 7,
       forecast_steps: 6,
     });
@@ -70,16 +67,13 @@ describe("modelLifecycle", () => {
     });
   });
 
-  it("prepares ensemble best models before predicting", async () => {
+  it("uses the single predict endpoint for ensemble best models", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
 
     await predictWithBestModel("ensemble_weighted", 9, 4);
 
-    expect(apiPost).toHaveBeenCalledTimes(2);
-    expect(apiPost).toHaveBeenNthCalledWith(1, "/models/weighted_avg/prepare-production", {
-      experiment_id: 9,
-    });
-    expect(apiPost).toHaveBeenNthCalledWith(2, "/models/weighted_avg/predict", {
+    expect(apiPost).toHaveBeenCalledTimes(1);
+    expect(apiPost).toHaveBeenCalledWith("/models/weighted_avg/predict", {
       experiment_id: 9,
       forecast_steps: 4,
     });
@@ -87,9 +81,7 @@ describe("modelLifecycle", () => {
 
   it("preserves prediction method metadata from the backend", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
-    apiPost
-      .mockResolvedValueOnce({ status: "success", results: { saved_model: "model.pkl" } })
-      .mockResolvedValueOnce({
+    apiPost.mockResolvedValueOnce({
         status: "success",
         results: {
           predictions: [{ prediction: 101.2, std_dev: 3.4 }],
@@ -118,7 +110,7 @@ describe("modelLifecycle", () => {
     expect(apiPost).not.toHaveBeenCalled();
   });
 
-  it("surfaces prepare-production busy errors without automatic retries", async () => {
+  it("surfaces predict busy errors without automatic retries", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
 
     apiPost.mockRejectedValueOnce(createApiError(429, "模型服务繁忙，请稍后再试"));
@@ -129,21 +121,20 @@ describe("modelLifecycle", () => {
       name: "ProductionPredictionError",
       message: "模型服务当前繁忙，请稍后再次点击“重试”。",
       status: 429,
-      stage: "prepare",
+      stage: "predict",
       kind: "busy",
     });
     expect(apiPost).toHaveBeenCalledTimes(1);
-    expect(apiPost).toHaveBeenNthCalledWith(1, "/models/ma/prepare-production", {
+    expect(apiPost).toHaveBeenCalledWith("/models/ma/predict", {
       experiment_id: 11,
+      forecast_steps: 3,
     });
   });
 
   it("surfaces predict conflict errors without automatic retries", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
 
-    apiPost
-      .mockResolvedValueOnce({ ok: true } as any)
-      .mockRejectedValueOnce(createApiError(409, "同一模型正在训练或预测，请稍后再试"));
+    apiPost.mockRejectedValueOnce(createApiError(409, "同一模型正在训练或预测，请稍后再试"));
 
     await expect(
       predictWithBestModel("exp", 13, 5),
@@ -154,17 +145,14 @@ describe("modelLifecycle", () => {
       stage: "predict",
       kind: "conflict",
     });
-    expect(apiPost).toHaveBeenCalledTimes(2);
-    expect(apiPost).toHaveBeenNthCalledWith(1, "/models/es/prepare-production", {
-      experiment_id: 13,
-    });
-    expect(apiPost).toHaveBeenNthCalledWith(2, "/models/es/predict", {
+    expect(apiPost).toHaveBeenCalledTimes(1);
+    expect(apiPost).toHaveBeenCalledWith("/models/es/predict", {
       experiment_id: 13,
       forecast_steps: 5,
     });
   });
 
-  it("maps prepare-production 400 errors to actionable messages", async () => {
+  it("maps production prediction 400 errors to actionable messages", async () => {
     const { predictWithBestModel, ProductionPredictionError } = await loadModelLifecycle();
 
     apiPost.mockRejectedValueOnce(createApiError(400, "模型尚未满足生产准备条件"));
@@ -173,9 +161,9 @@ describe("modelLifecycle", () => {
       predictWithBestModel("lstm", 15, 6),
     ).rejects.toMatchObject({
       name: "ProductionPredictionError",
-      message: expect.stringContaining("当前最佳模型尚未满足生产预测条件"),
+      message: expect.stringContaining("生产预测请求无效"),
       status: 400,
-      stage: "prepare",
+      stage: "predict",
       kind: "invalid",
     });
     expect(apiPost).toHaveBeenCalledTimes(1);
@@ -185,9 +173,7 @@ describe("modelLifecycle", () => {
   it("maps predict 504 errors without transient retries", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
 
-    apiPost
-      .mockResolvedValueOnce({ ok: true } as any)
-      .mockRejectedValueOnce(createApiError(504, "预测超时"));
+    apiPost.mockRejectedValueOnce(createApiError(504, "预测超时"));
 
     await expect(
       predictWithBestModel("arima", 21, 6),
@@ -198,6 +184,6 @@ describe("modelLifecycle", () => {
       stage: "predict",
       kind: "timeout",
     });
-    expect(apiPost).toHaveBeenCalledTimes(2);
+    expect(apiPost).toHaveBeenCalledTimes(1);
   });
 });

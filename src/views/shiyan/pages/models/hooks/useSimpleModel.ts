@@ -51,6 +51,7 @@ interface SimpleModelGuidedResult {
   status: string;
   message?: string;
   results: SimpleModelApiResults;
+  experiment_state_patch?: Record<string, unknown>;
 }
 
 export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<T>) {
@@ -113,12 +114,15 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
       metrics: apiResults.metrics,
     };
 
-    await updateState({
+    const recoveredModelState = {
       [config.stateKeys.param]: param === '' ? null : param,
       [config.stateKeys.metricsRmse]: apiResults.metrics.rmse,
       [config.stateKeys.metricsMae]: apiResults.metrics.mae,
       [config.stateKeys.metricsR2]: apiResults.metrics.r2,
-    }, { forceSync: true, throwOnSyncError: true });
+      [config.stateKeys.completed]: true,
+      ...(result.experiment_state_patch ?? {}),
+    } as Partial<ExperimentState>;
+    await updateState(recoveredModelState, { skipSync: true });
     setResults(modelResults);
   }, [
     config.stateKeys,
@@ -143,6 +147,14 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
     modelType: guidedModelType,
     buildRequestBody,
     onFinalResult: handleFinalResult,
+    persistDraft: async () => {
+      const nextValue = param === '' ? null : param;
+      if (state[config.stateKeys.param] === nextValue) return;
+      await updateState(
+        { [config.stateKeys.param]: nextValue },
+        { forceSync: true, throwOnSyncError: true },
+      );
+    },
     lockPath: location.pathname,
     setTrainingLock,
     getErrorMessage: (jobError) =>
@@ -167,7 +179,7 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
   const markAsCompleted = useCallback(async () => {
     await updateState(
       { [config.stateKeys.completed]: true },
-      { forceSync: true, throwOnSyncError: true },
+      { skipSync: true },
     );
   }, [config.stateKeys.completed, updateState]);
 

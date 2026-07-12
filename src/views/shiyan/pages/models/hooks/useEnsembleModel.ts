@@ -50,6 +50,7 @@ interface EnsembleResults {
 interface EnsembleGuidedResult {
   status: string;
   message?: string;
+  experiment_state_patch?: Record<string, unknown>;
   results: {
     eval_y_true?: unknown;
     eval_predictions?: unknown;
@@ -195,12 +196,15 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       ensembleResults.meta_model = apiResults.meta_model;
     }
 
-    await updateState({
+    const recoveredModelState = {
       [config.stateKey.baseModels]: normalizedSelectedModels,
       [config.stateKey.metricsRmse]: apiResults.metrics.rmse,
       [config.stateKey.metricsMae]: apiResults.metrics.mae,
       [config.stateKey.metricsR2]: apiResults.metrics.r2,
-    }, { forceSync: true, throwOnSyncError: true });
+      [config.stateKey.completed]: true,
+      ...(result.experiment_state_patch ?? {}),
+    } as Partial<ExperimentState>;
+    await updateState(recoveredModelState, { skipSync: true });
     setResults(ensembleResults);
   }, [
     config.stateKey,
@@ -224,6 +228,13 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     modelType: guidedModelTypeFor(config.type),
     buildRequestBody,
     onFinalResult: handleFinalResult,
+    persistDraft: async () => {
+      if (persistedSelectionSignature === selectedSelectionSignature) return;
+      await updateState(
+        { [config.stateKey.baseModels]: normalizeBaseModelSelection(selectedModels) },
+        { forceSync: true, throwOnSyncError: true },
+      );
+    },
     lockPath: location.pathname,
     setTrainingLock,
     getErrorMessage: (jobError) =>
@@ -253,7 +264,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
   const markAsCompleted = useCallback(async () => {
     await updateState(
       { [config.stateKey.completed]: true },
-      { forceSync: true, throwOnSyncError: true },
+      { skipSync: true },
     );
   }, [config.stateKey.completed, updateState]);
 

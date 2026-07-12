@@ -2,7 +2,7 @@ import { apiClient } from '@/utils/apiClient';
 import type { SelectedBestModel } from '../store/experiment/types';
 import { BEST_MODEL_TO_BACKEND_MODEL_TYPE } from '../utils/modelCatalog';
 
-type ProductionRequestStage = 'prepare' | 'predict';
+type ProductionRequestStage = 'predict';
 type ProductionRequestErrorKind = 'invalid' | 'missing' | 'conflict' | 'busy' | 'timeout' | 'unknown';
 type ApiRequestError = Error & {
   status?: number;
@@ -117,46 +117,29 @@ const appendErrorDetail = (baseMessage: string, detail: string | null): string =
   return `${baseMessage} 具体原因：${detail}`;
 };
 
-const buildProductionErrorMessage = (
-  stage: ProductionRequestStage,
-  error: ApiRequestError,
-): string => {
+const buildProductionErrorMessage = (error: ApiRequestError): string => {
   const detail = extractErrorDetail(error);
 
   switch (error.status) {
     case 400:
-      return stage === 'prepare'
-        ? appendErrorDetail(
-            '当前最佳模型尚未满足生产预测条件。请返回结果评估页确认最优模型已训练完成，或重新完成模型训练后再试。',
-            detail,
-          )
-        : appendErrorDetail(
-            '生产预测请求无效，当前实验状态可能已过期。请刷新页面后重试；如仍失败，请重新进入生产计划。',
-            detail,
-          );
+      return appendErrorDetail(
+        '生产预测请求无效，当前实验状态可能已过期。请刷新页面后重试；如仍失败，请重新进入生产计划。',
+        detail,
+      );
     case 404:
-      return stage === 'prepare'
-        ? appendErrorDetail(
-            '找不到当前实验对应的回测模型结果。请返回模型构建阶段重新训练并选择最优模型后再试。',
-            detail,
-          )
-        : appendErrorDetail(
-            '找不到可用于生产预测的模型。请先重新尝试生产预测；如仍失败，请返回结果评估页重新确认最优模型。',
-            detail,
-          );
+      return appendErrorDetail(
+        '找不到可用于生产预测的模型。请先重新尝试生产预测；如仍失败，请返回结果评估页重新确认最优模型。',
+        detail,
+      );
     case 409:
       return '当前模型已有训练或预测任务在执行，请稍后再次点击“重试”。';
     case 429:
       return '模型服务当前繁忙，请稍后再次点击“重试”。';
     case 504:
-      return stage === 'prepare'
-        ? appendErrorDetail('准备生产预测模型超时，请稍后重试。', detail)
-        : appendErrorDetail('生成需求预测超时，请稍后重试。', detail);
+      return appendErrorDetail('生成需求预测超时，请稍后重试。', detail);
     default:
       return detail
-        ?? (stage === 'prepare'
-          ? '准备生产预测模型失败，请稍后重试。'
-          : '生成需求预测失败，请稍后重试。');
+        ?? '生成需求预测失败，请稍后重试。';
   }
 };
 
@@ -169,7 +152,7 @@ const normalizeProductionRequestError = (
     : (new Error('未知错误') as ApiRequestError);
 
   return new ProductionPredictionError(
-    buildProductionErrorMessage(stage, requestError),
+    buildProductionErrorMessage(requestError),
     {
       status: requestError.status,
       stage,
@@ -190,25 +173,11 @@ const runProductionRequest = async <T>(
   }
 };
 
-export const prepareBestModelForProduction = async (
-  selectedBestModel: SelectedBestModel,
-  experimentId: number,
-): Promise<void> => {
-  const modelType = getBackendModelType(selectedBestModel);
-  await runProductionRequest('prepare', async () => {
-    await apiClient.post(`/models/${modelType}/prepare-production`, {
-      experiment_id: experimentId,
-    });
-  });
-};
-
 export const predictWithBestModel = async (
   selectedBestModel: SelectedBestModel,
   experimentId: number,
   forecastSteps: number,
 ): Promise<ModelPredictionResponse> => {
-  await prepareBestModelForProduction(selectedBestModel, experimentId);
-
   const modelType = getBackendModelType(selectedBestModel);
   return await runProductionRequest('predict', async () =>
     await apiClient.post<ModelPredictionResponse>(`/models/${modelType}/predict`, {

@@ -8,7 +8,10 @@ import {
   SHIYAN_INDUSTRY,
   SHIYAN_PRIMARY_PRODUCT,
 } from "./support/constants";
-import { prepareModelStageExperiment } from "./support/model-training";
+import {
+  prepareModelStageExperiment,
+  seedManagedExperimentFixture,
+} from "./support/model-training";
 import { acquireAllModelSlots } from "./support/model-slot-locks";
 import { loginStudentViaApi } from "./support/backend";
 
@@ -204,7 +207,6 @@ test.describe("@shiyan model training api", () => {
   }) => {
     await studentApi.cleanupInProgressExperiments();
     const experiment = await studentApi.createExperiment({
-      status: "Completed",
       current_step: 7,
       highest_completed_step: 7,
       selected_industry: SHIYAN_INDUSTRY,
@@ -215,6 +217,7 @@ test.describe("@shiyan model training api", () => {
       data_window_evaluate_start_index: Number(DEFAULT_DATA_WINDOW.evaluateStart),
       data_window_evaluate_end_index: Number(DEFAULT_DATA_WINDOW.evaluateEnd),
     });
+    seedManagedExperimentFixture(experiment.experiment_id, { status: "Completed" });
 
     const response = await page.request.post(
       `${BACKEND_ORIGIN}/api/v1/models/ma/training`,

@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { test, expect } from "../shiyan/fixtures";
+import { seedManagedExperimentFixture } from "../shiyan/support/model-training";
 import {
   ACCOUNTS,
   CLASSES,
@@ -338,8 +339,8 @@ test.describe("@quiz 题库与测验", () => {
     studentApp,
   }) => {
     await studentApi.cleanupInProgressExperiments();
-    const experiment = await studentApi.createExperiment({
-      status: "In Progress",
+    const createdExperiment = await studentApi.createExperiment();
+    const experiment = await studentApi.updateExperiment(createdExperiment.experiment_id, {
       current_step: 7,
       highest_completed_step: 7,
     });
@@ -446,8 +447,8 @@ test.describe("@quiz 题库与测验", () => {
     studentApp,
   }) => {
     await studentApi.cleanupInProgressExperiments();
-    const experiment = await studentApi.createExperiment({
-      status: "In Progress",
+    const createdExperiment = await studentApi.createExperiment();
+    const experiment = await studentApi.updateExperiment(createdExperiment.experiment_id, {
       current_step: 7,
       highest_completed_step: 7,
     });
@@ -482,8 +483,8 @@ test.describe("@quiz 题库与测验", () => {
     studentApi,
   }) => {
     await studentApi.cleanupInProgressExperiments();
-    const experiment = await studentApi.createExperiment({
-      status: "In Progress",
+    const createdExperiment = await studentApi.createExperiment();
+    const experiment = await studentApi.updateExperiment(createdExperiment.experiment_id, {
       current_step: 7,
       highest_completed_step: 7,
     });
@@ -549,10 +550,12 @@ test.describe("@quiz 题库与测验", () => {
     studentApp,
   }) => {
     await studentApi.cleanupInProgressExperiments();
-    const experiment = await studentApi.createExperiment({
-      status: "In Progress",
+    const createdExperiment = await studentApi.createExperiment();
+    const experiment = await studentApi.updateExperiment(createdExperiment.experiment_id, {
       current_step: 7,
       highest_completed_step: 7,
+    });
+    seedManagedExperimentFixture(experiment.experiment_id, {
       quiz_about_model_completed: true,
     });
 

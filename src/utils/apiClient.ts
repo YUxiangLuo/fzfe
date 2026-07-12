@@ -330,6 +330,13 @@ export const apiClient = {
       body: JSON.stringify(body),
     }),
 
+  patch: <T = any>(endpoint: string, body: unknown, options?: ApiRequestOptions) =>
+    request<T>(endpoint, {
+      ...options,
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
   delete: <T = any>(endpoint: string, options?: ApiRequestOptions) =>
     request<T>(endpoint, { ...options, method: "DELETE" }),
 };

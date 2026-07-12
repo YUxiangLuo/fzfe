@@ -15,32 +15,7 @@ test.describe("@shiyan production prediction manual retries", () => {
   }) => {
     await prepareProductionStageExperiment(studentApi);
 
-    let prepareAttempts = 0;
     let predictAttempts = 0;
-
-    await page.route("**/api/v1/models/ma/prepare-production", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      prepareAttempts += 1;
-
-      if (prepareAttempts === 1) {
-        await route.fulfill({
-          status: 429,
-          contentType: "application/json",
-          body: JSON.stringify({ error: "模型服务繁忙，请稍后再试" }),
-        });
-        return;
-      }
-
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: { ok: true } }),
-      });
-    });
 
     await page.route("**/api/v1/models/ma/predict", async (route) => {
       if (route.request().method() !== "POST") {
@@ -49,6 +24,14 @@ test.describe("@shiyan production prediction manual retries", () => {
       }
 
       predictAttempts += 1;
+      if (predictAttempts === 1) {
+        await route.fulfill({
+          status: 429,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "模型服务繁忙，请稍后再试" }),
+        });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -70,41 +53,24 @@ test.describe("@shiyan production prediction manual retries", () => {
       page.getByText("模型服务当前繁忙，请稍后再次点击“重试”。"),
     ).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("第一期数据生成成功")).toHaveCount(0);
-    expect(prepareAttempts).toBe(1);
-    expect(predictAttempts).toBe(0);
+    expect(predictAttempts).toBe(1);
 
     await studentApp.clickEnabledButton(/预测第一期需求/);
 
     await expect(page.getByText("第一期数据生成成功")).toBeVisible({
       timeout: 30_000,
     });
-    expect(prepareAttempts).toBe(2);
-    expect(predictAttempts).toBe(1);
+    expect(predictAttempts).toBe(2);
   });
 
-  test("production step reruns prepare and predict after a manual retry", async ({
+  test("production step reruns predict after a manual retry", async ({
     page,
     studentApi,
     studentApp,
   }) => {
     await prepareProductionStageExperiment(studentApi);
 
-    let prepareAttempts = 0;
     let predictAttempts = 0;
-
-    await page.route("**/api/v1/models/ma/prepare-production", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      prepareAttempts += 1;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: { ok: true } }),
-      });
-    });
 
     await page.route("**/api/v1/models/ma/predict", async (route) => {
       if (route.request().method() !== "POST") {
@@ -144,7 +110,6 @@ test.describe("@shiyan production prediction manual retries", () => {
       page.getByText("当前模型已有训练或预测任务在执行，请稍后再次点击“重试”。"),
     ).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("第一期数据生成成功")).toHaveCount(0);
-    expect(prepareAttempts).toBe(1);
     expect(predictAttempts).toBe(1);
 
     await studentApp.clickEnabledButton(/预测第一期需求/);
@@ -152,7 +117,6 @@ test.describe("@shiyan production prediction manual retries", () => {
     await expect(page.getByText("第一期数据生成成功")).toBeVisible({
       timeout: 30_000,
     });
-    expect(prepareAttempts).toBe(2);
     expect(predictAttempts).toBe(2);
   });
 
@@ -163,23 +127,8 @@ test.describe("@shiyan production prediction manual retries", () => {
   }) => {
     await prepareProductionStageExperiment(studentApi);
 
-    let prepareAttempts = 0;
     let predictAttempts = 0;
     let saveAttempts = 0;
-
-    await page.route("**/api/v1/models/ma/prepare-production", async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-
-      prepareAttempts += 1;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ data: { ok: true } }),
-      });
-    });
 
     await page.route("**/api/v1/models/ma/predict", async (route) => {
       if (route.request().method() !== "POST") {
@@ -252,7 +201,6 @@ test.describe("@shiyan production prediction manual retries", () => {
     await expect(page.getByText("手动重试生成")).toBeVisible({
       timeout: 30_000,
     });
-    expect(prepareAttempts).toBe(1);
     expect(predictAttempts).toBe(1);
     expect(saveAttempts).toBe(1);
 

@@ -63,6 +63,7 @@ export interface PersistedExperimentState {
   status: ExperimentStatus;
   highest_completed_step: number;
   current_step: number;
+  state_version: number;
   selected_industry: string | null;
   selected_company: string | null;
   selected_product: string | null;

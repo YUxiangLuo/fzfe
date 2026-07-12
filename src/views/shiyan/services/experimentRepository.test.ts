@@ -30,9 +30,14 @@ describe("experimentRepository", () => {
       recordStepEvent: mock(async () => ({ message: "ok", event_id: 1 })),
     });
 
-    const savedState = await repository.save(localState);
+    const updates = {
+      selected_base_models: localState.selected_base_models,
+      selected_ensemble_models: localState.selected_ensemble_models,
+      selected_industry: localState.selected_industry,
+    };
+    const savedState = await repository.save(12, updates, 0);
 
-    expect(updateExperimentState).toHaveBeenCalledWith(localState);
+    expect(updateExperimentState).toHaveBeenCalledWith(12, updates, 0);
     expect(savedState.selected_base_models).toEqual(["moving_average", "lstm"]);
     expect(savedState.selected_ensemble_models).toEqual(["weighted_ensemble"]);
     expect(savedState.status).toBe("In Progress");
@@ -48,7 +53,7 @@ describe("experimentRepository", () => {
     const repository = createExperimentRepository({
       createExperimentState,
       getExperimentState,
-      updateExperimentState: mock(async (state) => state),
+      updateExperimentState: mock(async () => activeState),
       recordStepEvent,
     });
 
