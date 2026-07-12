@@ -4,7 +4,10 @@ import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { MODEL_ID_MAP, ENSEMBLE_CONSTANTS } from '../constants';
 import { alignPredictionRows } from '../resultAlignment';
 import { useGuidedModelTraining } from './useGuidedModelTraining';
-import type { GuidedModelType } from '../../../services/guidedTraining';
+import {
+  completeGuidedModel,
+  type GuidedModelType,
+} from '../../../services/guidedTraining';
 import type { ExperimentState } from '../../../store/experiment/types';
 import { normalizeBaseModelSelection } from '../../../utils/modelCatalog';
 import type { ModelApiResultBase, ModelResultData } from '../modelResultTypes';
@@ -189,7 +192,13 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
 
   const handleFinalResult = useCallback(async (
     result: EnsembleGuidedResult,
-    { invalidateDownstream }: { invalidateDownstream: boolean },
+    {
+      invalidateDownstream,
+      experimentStateVersion,
+    }: {
+      invalidateDownstream: boolean;
+      experimentStateVersion: number | null;
+    },
   ) => {
     if (result.status !== 'success') {
       throw new Error(result.message || '模型训练失败。');
@@ -223,12 +232,15 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       || persistedSelectionSignature !== normalizedSelectedModels.join('|');
     await updateState({
       ...(shouldInvalidatePersistedState ? buildEnsembleResetPatch(config.type) : {}),
+      ...(experimentStateVersion === null
+        ? {}
+        : { state_version: experimentStateVersion }),
       [config.stateKey.baseModels]: normalizedSelectedModels,
       [config.stateKey.metricsRmse]: apiResults.metrics.rmse,
       [config.stateKey.metricsMae]: apiResults.metrics.mae,
       [config.stateKey.metricsMape]: apiResults.metrics.mape,
       [config.stateKey.metricsR2]: apiResults.metrics.r2,
-    }, { forceSync: true, throwOnSyncError: true });
+    }, { skipSync: true });
     setResults(ensembleResults);
   }, [
     config.stateKey,
@@ -281,11 +293,32 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
   }, [runNextGuidedStep, setError, state.experiment_id]);
 
   const markAsCompleted = useCallback(async () => {
-    await updateState(
-      { [config.stateKey.completed]: true },
-      { forceSync: true, throwOnSyncError: true },
+    if (!state.experiment_id || !guidedSession?.artifact_revision) {
+      const message = '模型制品版本缺失，请刷新页面并重新载入训练结果。';
+      setError(message);
+      throw new Error(message);
+    }
+
+    const completion = await completeGuidedModel(
+      guidedModelTypeFor(config.type),
+      state.experiment_id,
+      guidedSession.artifact_revision,
     );
-  }, [config.stateKey.completed, updateState]);
+    await updateState(
+      {
+        [config.stateKey.completed]: true,
+        state_version: completion.experiment_state_version,
+      },
+      { skipSync: true },
+    );
+  }, [
+    config.stateKey.completed,
+    config.type,
+    guidedSession?.artifact_revision,
+    setError,
+    state.experiment_id,
+    updateState,
+  ]);
 
   return {
     selectedModels,

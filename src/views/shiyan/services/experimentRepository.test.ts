@@ -32,7 +32,7 @@ describe("experimentRepository", () => {
 
     const savedState = await repository.save(localState);
 
-    expect(updateExperimentState).toHaveBeenCalledWith(localState);
+    expect(updateExperimentState).toHaveBeenCalledWith(localState, undefined);
     expect(savedState.selected_base_models).toEqual(["moving_average", "lstm"]);
     expect(savedState.selected_ensemble_models).toEqual(["weighted_ensemble"]);
     expect(savedState.status).toBe("In Progress");

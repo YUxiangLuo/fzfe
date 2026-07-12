@@ -15,7 +15,10 @@ interface UseGuidedModelTrainingOptions<TFinalResult> {
   buildRequestBody: () => Record<string, any> | null;
   onFinalResult: (
     result: TFinalResult,
-    context: { invalidateDownstream: boolean },
+    context: {
+      invalidateDownstream: boolean;
+      experimentStateVersion: number | null;
+    },
   ) => Promise<void> | void;
   lockPath?: string | null;
   setTrainingLock?: TrainingLockSetter;
@@ -95,15 +98,44 @@ const getTransientGuidedTrainingMessage = (guidedError: unknown): string | null 
     return '模型服务当前繁忙，请稍后再次点击“重试”。';
   }
 
-  if (status === 409 || detail?.includes('同一模型正在训练或预测')) {
+  const isBusyConflict = status === 409 && Boolean(detail && (
+    detail.includes('已有模型任务在执行')
+    || detail.includes('已有执行中的步骤')
+    || detail.includes('正在被其他进程使用')
+    || detail.includes('同一模型正在训练或预测')
+  ));
+  if (isBusyConflict || detail?.includes('同一模型正在训练或预测')) {
     return '当前模型已有训练或预测任务在执行，请稍后再次点击“重试”。';
   }
 
   return null;
 };
 
+const isInvalidatedGuidedSessionError = (guidedError: unknown): boolean => {
+  if (extractGuidedErrorStatus(guidedError) !== 409) {
+    return false;
+  }
+  const detail = extractGuidedErrorDetail(guidedError) ?? '';
+  return detail.includes('训练输入或基础模型版本已更新')
+    || detail.includes('训练期间实验输入已更新');
+};
+
 const isRetryCountExemptError = (guidedError: unknown): boolean => {
   return getTransientGuidedTrainingMessage(guidedError) !== null;
+};
+
+const ensureCompletedSessionActivated = async (
+  modelType: GuidedModelType,
+  candidate: GuidedTrainingSession,
+) => {
+  if (
+    candidate.status === 'completed'
+    && candidate.result
+    && !candidate.artifact_revision
+  ) {
+    return activateGuidedTrainingSession(modelType, candidate.session_id);
+  }
+  return candidate;
 };
 
 const resolveErrorMessage = (
@@ -168,6 +200,9 @@ export function useGuidedModelTraining<TFinalResult>({
     }
 
     setError(resolveErrorMessage(guidedError, getErrorMessage, fallbackMessage));
+    if (isInvalidatedGuidedSessionError(guidedError)) {
+      setSession(null);
+    }
     if (countTowardsRetryLimit) {
       setRetryCount((previous) => previous + 1);
     }
@@ -175,7 +210,11 @@ export function useGuidedModelTraining<TFinalResult>({
 
   const ensureSession = useCallback(async () => {
     if (session) {
-      return session;
+      const resumedSession = await ensureCompletedSessionActivated(modelType, session);
+      if (resumedSession !== session && isMountedRef.current) {
+        setSession(resumedSession);
+      }
+      return resumedSession;
     }
 
     const requestBody = buildRequestBody();
@@ -184,9 +223,7 @@ export function useGuidedModelTraining<TFinalResult>({
     }
 
     const createdSession = await createGuidedTrainingSession(modelType, requestBody);
-    const nextSession = createdSession.status === 'completed' && createdSession.result
-      ? await activateGuidedTrainingSession(modelType, createdSession.session_id)
-      : createdSession;
+    const nextSession = await ensureCompletedSessionActivated(modelType, createdSession);
     if (isMountedRef.current) {
       setSession(nextSession);
       setError(nextSession.status === 'failed' ? nextSession.error_message : null);
@@ -201,6 +238,7 @@ export function useGuidedModelTraining<TFinalResult>({
     if (targetSession?.result) {
       await onFinalResult(targetSession.result as TFinalResult, {
         invalidateDownstream: invalidateDownstream || targetSession.backtest_artifact_changed === true,
+        experimentStateVersion: targetSession.experiment_state_version,
       });
       finalResultNeedsInvalidationRef.current = false;
     }
@@ -248,7 +286,11 @@ export function useGuidedModelTraining<TFinalResult>({
         return;
       }
 
-      const updatedSession = await runGuidedTrainingStep(modelType, currentSession.session_id, nextStepId);
+      const stepSession = await runGuidedTrainingStep(modelType, currentSession.session_id, nextStepId);
+      // The backend may have committed the final step even when its original
+      // HTTP response was lost. A retry then returns the completed checkpoint
+      // without response-only activation metadata, so recover it explicitly.
+      const updatedSession = await ensureCompletedSessionActivated(modelType, stepSession);
       if (!isMountedRef.current) {
         return;
       }

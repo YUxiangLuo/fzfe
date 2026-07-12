@@ -4,7 +4,10 @@ import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import type { ExperimentState } from '../../../store/experiment/types';
 import { alignPredictionRows } from '../resultAlignment';
 import { useGuidedModelTraining } from './useGuidedModelTraining';
-import type { GuidedModelType } from '../../../services/guidedTraining';
+import {
+  completeGuidedModel,
+  type GuidedModelType,
+} from '../../../services/guidedTraining';
 import type { ModelApiResultBase, ModelResultData } from '../modelResultTypes';
 import {
   buildResetExponentialSmoothingPatch,
@@ -81,7 +84,13 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
 
   const handleFinalResult = useCallback(async (
     result: SimpleModelGuidedResult,
-    { invalidateDownstream }: { invalidateDownstream: boolean },
+    {
+      invalidateDownstream,
+      experimentStateVersion,
+    }: {
+      invalidateDownstream: boolean;
+      experimentStateVersion: number | null;
+    },
   ) => {
     if (result.status !== "success") {
       throw new Error(result.message || "模型计算返回失败状态");
@@ -118,12 +127,15 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
       : {};
     await updateState({
       ...resetPatch,
+      ...(experimentStateVersion === null
+        ? {}
+        : { state_version: experimentStateVersion }),
       [config.stateKeys.param]: normalizedParam,
       [config.stateKeys.metricsRmse]: apiResults.metrics.rmse,
       [config.stateKeys.metricsMae]: apiResults.metrics.mae,
       [config.stateKeys.metricsMape]: apiResults.metrics.mape,
       [config.stateKeys.metricsR2]: apiResults.metrics.r2,
-    }, { forceSync: true, throwOnSyncError: true });
+    }, { skipSync: true });
     setResults(modelResults);
   }, [
     config.stateKeys,
@@ -172,11 +184,32 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
   }, [runNextGuidedStep, setError, state.experiment_id]);
 
   const markAsCompleted = useCallback(async () => {
-    await updateState(
-      { [config.stateKeys.completed]: true },
-      { forceSync: true, throwOnSyncError: true },
+    if (!state.experiment_id || !guidedSession?.artifact_revision) {
+      const message = '模型制品版本缺失，请刷新页面并重新载入训练结果。';
+      setError(message);
+      throw new Error(message);
+    }
+
+    const completion = await completeGuidedModel(
+      guidedModelType,
+      state.experiment_id,
+      guidedSession.artifact_revision,
     );
-  }, [config.stateKeys.completed, updateState]);
+    await updateState(
+      {
+        [config.stateKeys.completed]: true,
+        state_version: completion.experiment_state_version,
+      },
+      { skipSync: true },
+    );
+  }, [
+    config.stateKeys.completed,
+    guidedModelType,
+    guidedSession?.artifact_revision,
+    setError,
+    state.experiment_id,
+    updateState,
+  ]);
 
   return {
     param,

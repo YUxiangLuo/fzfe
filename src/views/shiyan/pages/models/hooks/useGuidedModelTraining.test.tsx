@@ -25,6 +25,8 @@ const readyGuidedSession = (): GuidedTrainingSession => ({
   step_outputs: {},
   result: null,
   error_message: null,
+  artifact_revision: null,
+  experiment_state_version: null,
 });
 
 const completedGuidedSession = (): GuidedTrainingSession => ({
@@ -43,6 +45,8 @@ const completedGuidedSession = (): GuidedTrainingSession => ({
     },
   },
   error_message: null,
+  artifact_revision: '11111111-1111-4111-8111-111111111111',
+  experiment_state_version: 4,
 });
 
 const createGuidedTrainingSession = mock(async () => readyGuidedSession());
@@ -200,6 +204,31 @@ describe('useGuidedModelTraining', () => {
     await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('completed'));
   });
 
+  it('drops an invalidated session so retry creates a fresh recoverable workflow', async () => {
+    const invalidatedError = Object.assign(
+      new Error('HTTP 409 Conflict - 实验训练输入或基础模型版本已更新，请重新开始分阶段训练'),
+      {
+        status: 409,
+        payload: { error: '实验训练输入或基础模型版本已更新，请重新开始分阶段训练' },
+      },
+    );
+    runGuidedTrainingStep.mockRejectedValueOnce(invalidatedError);
+    const Component = await Harness();
+
+    view = render(<Component />);
+    fireEvent.click(view.getByRole('button', { name: 'run' }));
+
+    await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe(''));
+    expect(view.getByTestId('error').textContent).toContain('训练输入或基础模型版本已更新');
+    expect(view.getByTestId('retry-count').textContent).toBe('1');
+
+    fireEvent.click(view.getByRole('button', { name: 'retry' }));
+
+    await waitFor(() => expect(createGuidedTrainingSession).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('ready'));
+    expect(runGuidedTrainingStep).toHaveBeenCalledTimes(1);
+  });
+
   it('counts session creation failures and retries initialization', async () => {
     createGuidedTrainingSession
       .mockRejectedValueOnce(new Error('create failed'))
@@ -221,7 +250,11 @@ describe('useGuidedModelTraining', () => {
   });
 
   it('explicitly activates a completed session before exposing its result', async () => {
-    createGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSession());
+    createGuidedTrainingSession.mockResolvedValueOnce({
+      ...completedGuidedSession(),
+      artifact_revision: null,
+      experiment_state_version: null,
+    });
     activateGuidedTrainingSession.mockResolvedValueOnce({
       ...completedGuidedSession(),
       backtest_artifact_changed: true,
@@ -234,6 +267,21 @@ describe('useGuidedModelTraining', () => {
     await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('completed'));
     expect(activateGuidedTrainingSession).toHaveBeenCalledWith('ma', 'guided-1');
     expect(runGuidedTrainingStep).not.toHaveBeenCalled();
+  });
+
+  it('recovers activation metadata when the final-step response was lost and retried', async () => {
+    runGuidedTrainingStep.mockResolvedValueOnce({
+      ...completedGuidedSession(),
+      artifact_revision: null,
+      experiment_state_version: null,
+    });
+    const Component = await Harness();
+
+    view = render(<Component />);
+    fireEvent.click(view.getByRole('button', { name: 'run' }));
+
+    await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('completed'));
+    expect(activateGuidedTrainingSession).toHaveBeenCalledWith('ma', 'guided-1');
   });
 
   it('does not activate a session that still has guided steps to run', async () => {

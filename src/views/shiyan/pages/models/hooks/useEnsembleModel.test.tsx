@@ -25,6 +25,8 @@ const completedGuidedSession = () => ({
   steps: [],
   step_outputs: {},
   error_message: null,
+  artifact_revision: '11111111-1111-4111-8111-111111111111',
+  experiment_state_version: 4,
   result: {
     status: 'success',
     results: {
@@ -39,9 +41,20 @@ const completedGuidedSession = () => ({
   },
 });
 
-const createGuidedTrainingSession = mock(async () => completedGuidedSession());
+const completedGuidedSessionLookup = () => ({
+  ...completedGuidedSession(),
+  artifact_revision: null,
+  experiment_state_version: null,
+});
+
+const createGuidedTrainingSession = mock(async () => completedGuidedSessionLookup());
 const activateGuidedTrainingSession = mock(async () => completedGuidedSession());
 const runGuidedTrainingStep = mock(async () => completedGuidedSession());
+const completeGuidedModel = mock(async () => ({
+  status: 'success',
+  artifact_revision: '11111111-1111-4111-8111-111111111111',
+  experiment_state_version: 5,
+}));
 
 const successfulGuidedResult = {
   status: 'success',
@@ -116,6 +129,7 @@ mock.module(guidedTrainingModulePath, () => ({
   createGuidedTrainingSession,
   activateGuidedTrainingSession,
   runGuidedTrainingStep,
+  completeGuidedModel,
   fetchGuidedTrainingSession: mock(async () => null),
 }));
 
@@ -164,7 +178,7 @@ describe('useEnsembleModel', () => {
 
   beforeEach(() => {
     createGuidedTrainingSession.mockClear();
-    createGuidedTrainingSession.mockResolvedValue(completedGuidedSession());
+    createGuidedTrainingSession.mockResolvedValue(completedGuidedSessionLookup());
     activateGuidedTrainingSession.mockClear();
     activateGuidedTrainingSession.mockResolvedValue(completedGuidedSession());
     runGuidedTrainingStep.mockClear();

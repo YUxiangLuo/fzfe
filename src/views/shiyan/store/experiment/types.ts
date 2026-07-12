@@ -61,6 +61,7 @@ export interface ExperimentSessionState {
 export interface PersistedExperimentState {
   experiment_id: number | null;
   student_id: number | null;
+  state_version: number;
   status: ExperimentStatus;
   highest_completed_step: number;
   current_step: number;

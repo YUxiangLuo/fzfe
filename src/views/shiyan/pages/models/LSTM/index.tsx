@@ -15,6 +15,7 @@ import RetryExceededFallback from '../components/RetryExceededFallback';
 import { alignPredictionRows } from '../resultAlignment';
 import { getLstmFeasibility } from '../modelFeasibility';
 import { buildResetLstmPatch } from '../../../store/experiment/resetPatches';
+import { completeGuidedModel } from '../../../services/guidedTraining';
 
 const MODEL_NAME = 'LSTM模型';
 const BASE_PATH = '/model/lstm';
@@ -105,7 +106,13 @@ const LSTMStepper: React.FC = () => {
 
   const handleTrainingFinalResult = useCallback(async (
     response: any,
-    { invalidateDownstream }: { invalidateDownstream: boolean },
+    {
+      invalidateDownstream,
+      experimentStateVersion,
+    }: {
+      invalidateDownstream: boolean;
+      experimentStateVersion: number | null;
+    },
   ) => {
     if (response.status !== "success") {
       throw new Error(response.message || "计算失败，请重试...");
@@ -133,6 +140,9 @@ const LSTMStepper: React.FC = () => {
       && JSON.stringify(state.lstm_features) === JSON.stringify(features);
     await updateState({
       ...(configurationMatchesPersisted ? {} : buildResetLstmPatch()),
+      ...(experimentStateVersion === null
+        ? {}
+        : { state_version: experimentStateVersion }),
       lstm_normalization: normalization,
       lstm_features: features,
       lstm_target_field: target,
@@ -140,7 +150,7 @@ const LSTMStepper: React.FC = () => {
       lstm_metrics_mae: apiResults.metrics.mae,
       lstm_metrics_mape: apiResults.metrics.mape,
       lstm_metrics_r2: apiResults.metrics.r2,
-    }, { forceSync: true, throwOnSyncError: true });
+    }, { skipSync: true });
     setResults(nextResults);
   }, [
     evaluateMonths,
@@ -277,11 +287,27 @@ const LSTMStepper: React.FC = () => {
         return;
       }
       try {
-        await updateState(
-          { lstm_completed: true },
-          { forceSync: true, throwOnSyncError: true },
+        if (!state.experiment_id || !guidedTrainingSession?.artifact_revision) {
+          throw new Error('模型制品版本缺失，请刷新页面并重新载入训练结果。');
+        }
+        const completion = await completeGuidedModel(
+          'lstm',
+          state.experiment_id,
+          guidedTrainingSession.artifact_revision,
         );
-      } catch {
+        await updateState(
+          {
+            lstm_completed: true,
+            state_version: completion.experiment_state_version,
+          },
+          { skipSync: true },
+        );
+      } catch (completionError) {
+        setError(
+          completionError instanceof Error
+            ? completionError.message
+            : '标记 LSTM 模型完成失败，请重试。',
+        );
         return;
       }
       navigate(COMPARISON_PATH);

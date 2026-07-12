@@ -42,6 +42,8 @@ const readyGuidedSession = (): GuidedTrainingSession => ({
   step_outputs: {},
   result: null,
   error_message: null,
+  artifact_revision: null,
+  experiment_state_version: null,
 });
 
 const completedGuidedSession = (): GuidedTrainingSession => ({
@@ -55,11 +57,24 @@ const completedGuidedSession = (): GuidedTrainingSession => ({
   step_outputs: {},
   result: successfulGuidedResult,
   error_message: null,
+  artifact_revision: '11111111-1111-4111-8111-111111111111',
+  experiment_state_version: 4,
+});
+
+const completedGuidedSessionLookup = (): GuidedTrainingSession => ({
+  ...completedGuidedSession(),
+  artifact_revision: null,
+  experiment_state_version: null,
 });
 
 const createGuidedTrainingSession = mock(async () => readyGuidedSession());
 const activateGuidedTrainingSession = mock(async () => completedGuidedSession());
 const runGuidedTrainingStep = mock(async () => completedGuidedSession());
+const completeGuidedModel = mock(async () => ({
+  status: 'success',
+  artifact_revision: '11111111-1111-4111-8111-111111111111',
+  experiment_state_version: 5,
+}));
 
 let experimentValue = {
   state: {
@@ -122,6 +137,7 @@ mock.module(guidedTrainingModulePath, () => ({
   createGuidedTrainingSession,
   activateGuidedTrainingSession,
   runGuidedTrainingStep,
+  completeGuidedModel,
   fetchGuidedTrainingSession: mock(async () => null),
 }));
 
@@ -205,6 +221,12 @@ describe('useSimpleModel', () => {
     activateGuidedTrainingSession.mockResolvedValue(completedGuidedSession());
     runGuidedTrainingStep.mockClear();
     runGuidedTrainingStep.mockResolvedValue(completedGuidedSession());
+    completeGuidedModel.mockReset();
+    completeGuidedModel.mockResolvedValue({
+      status: 'success',
+      artifact_revision: '11111111-1111-4111-8111-111111111111',
+      experiment_state_version: 5,
+    });
     experimentValue = {
       state: {
         experiment_id: 12,
@@ -312,9 +334,9 @@ describe('useSimpleModel', () => {
   });
 
   it('propagates completion sync failures to the caller', async () => {
-    experimentValue.updateState = mock(async () => {
-      throw new Error('sync failed');
-    });
+    createGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSessionLookup());
+    activateGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSession());
+    completeGuidedModel.mockRejectedValueOnce(new Error('sync failed'));
     const Component = await Harness('params');
 
     view = render(
@@ -323,13 +345,15 @@ describe('useSimpleModel', () => {
       </MemoryRouter>,
     );
 
+    fireEvent.click(view.getByRole('button', { name: 'init' }));
+    await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
     fireEvent.click(view.getByRole('button', { name: 'complete' }));
 
     await waitFor(() => expect(view!.getByTestId('completion-error').textContent).toBe('sync failed'));
   });
 
   it('restores results from an already completed guided session', async () => {
-    createGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSession());
+    createGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSessionLookup());
     const Component = await Harness('params');
 
     view = render(
@@ -359,7 +383,7 @@ describe('useSimpleModel', () => {
         production_forecast_results: [{ prediction: 180, std_dev: 4 }],
       } as any,
     };
-    createGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSession());
+    createGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSessionLookup());
     const Component = await Harness('params');
 
     view = render(
@@ -385,7 +409,7 @@ describe('useSimpleModel', () => {
         production_forecast_results: [{ prediction: 180, std_dev: 4 }],
       } as any,
     };
-    createGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSession());
+    createGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSessionLookup());
     activateGuidedTrainingSession.mockResolvedValueOnce({
       ...completedGuidedSession(),
       backtest_artifact_changed: true,

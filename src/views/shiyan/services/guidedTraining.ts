@@ -29,6 +29,8 @@ export interface GuidedTrainingSession {
   } | null;
   error_message: string | null;
   backtest_artifact_changed?: boolean;
+  artifact_revision: string | null;
+  experiment_state_version: number | null;
 }
 
 const guidedBasePath = (modelType: GuidedModelType) =>
@@ -68,6 +70,24 @@ export const runGuidedTrainingStep = async (
     {},
     {
       timeoutMs: null,
+    },
+  );
+};
+
+export const completeGuidedModel = async (
+  modelType: GuidedModelType,
+  experimentId: number,
+  artifactRevision: string,
+) => {
+  return apiClient.post<{
+    status: string;
+    artifact_revision: string;
+    experiment_state_version: number;
+  }>(
+    `/models/${modelType}/complete`,
+    {
+      experiment_id: experimentId,
+      artifact_revision: artifactRevision,
     },
   );
 };

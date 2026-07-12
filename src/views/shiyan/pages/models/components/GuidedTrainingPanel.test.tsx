@@ -14,6 +14,8 @@ const session: GuidedTrainingSession = {
   current_step_id: null,
   next_step_id: null,
   error_message: null,
+  artifact_revision: '11111111-1111-4111-8111-111111111111',
+  experiment_state_version: 4,
   step_outputs: {},
   result: null,
   steps: [{

@@ -21,6 +21,7 @@ import RetryExceededFallback from '../components/RetryExceededFallback';
 import { alignPredictionRows } from '../resultAlignment';
 import { buildResetArimaPatch } from '../../../store/experiment/resetPatches';
 import { resolveAdfResultsForPersistence } from './adfPersistence';
+import { completeGuidedModel } from '../../../services/guidedTraining';
 
 const MODEL_NAME = 'ARIMA 模型';
 const BASE_PATH = '/model/arima';
@@ -203,7 +204,13 @@ const ARIMAStepper: React.FC = () => {
 
   const handleTrainingFinalResult = useCallback(async (
     response: any,
-    { invalidateDownstream }: { invalidateDownstream: boolean },
+    {
+      invalidateDownstream,
+      experimentStateVersion,
+    }: {
+      invalidateDownstream: boolean;
+      experimentStateVersion: number | null;
+    },
   ) => {
     if (response.status !== "success") {
       throw new Error(response.message || "计算失败，请重试...");
@@ -238,6 +245,9 @@ const ARIMAStepper: React.FC = () => {
     );
     await updateState({
       ...(shouldInvalidatePersistedState ? buildResetArimaPatch() : {}),
+      ...(experimentStateVersion === null
+        ? {}
+        : { state_version: experimentStateVersion }),
       arima_d: selectedD === '' ? null : selectedD,
       arima_adf_stationarity: adfResultsToPersist,
       arima_p: apiResults.best_order.p,
@@ -246,7 +256,7 @@ const ARIMAStepper: React.FC = () => {
       arima_metrics_mae: apiResults.metrics.mae,
       arima_metrics_mape: apiResults.metrics.mape,
       arima_metrics_r2: apiResults.metrics.r2,
-    }, { forceSync: true, throwOnSyncError: true });
+    }, { skipSync: true });
     setResults(nextResults);
   }, [
     productSalesData,
@@ -373,11 +383,27 @@ const ARIMAStepper: React.FC = () => {
         return;
       } else {
         try {
-          await updateState(
-            { arima_completed: true },
-            { forceSync: true, throwOnSyncError: true },
+          if (!state.experiment_id || !guidedTrainingSession?.artifact_revision) {
+            throw new Error('模型制品版本缺失，请刷新页面并重新载入训练结果。');
+          }
+          const completion = await completeGuidedModel(
+            'arima',
+            state.experiment_id,
+            guidedTrainingSession.artifact_revision,
           );
-        } catch {
+          await updateState(
+            {
+              arima_completed: true,
+              state_version: completion.experiment_state_version,
+            },
+            { skipSync: true },
+          );
+        } catch (completionError) {
+          setTrainingError(
+            completionError instanceof Error
+              ? completionError.message
+              : '标记 ARIMA 模型完成失败，请重试。',
+          );
           return;
         }
         navigate(MODEL_COMPARISON_PATH);

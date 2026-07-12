@@ -17,6 +17,13 @@ const buildNextState = (
 ): ExperimentState => {
   const nextState: ExperimentState = { ...previousState, ...updates };
 
+  if (nextState.experiment_id === previousState.experiment_id) {
+    nextState.state_version = Math.max(
+      previousState.state_version,
+      nextState.state_version,
+    );
+  }
+
   if (nextState.status === "Not Started" && Object.keys(updates).length > 0) {
     nextState.status = "In Progress";
     nextState.start_time = nextState.start_time ?? new Date().toISOString();
@@ -26,6 +33,43 @@ const buildNextState = (
 
   return nextState;
 };
+
+const arePersistedValuesEqual = (left: unknown, right: unknown) => {
+  if (Object.is(left, right)) return true;
+  if (left === null || right === null || typeof left !== "object" || typeof right !== "object") {
+    return false;
+  }
+  return JSON.stringify(left) === JSON.stringify(right);
+};
+
+const NON_CLIENT_UPDATE_FIELDS = new Set<keyof ExperimentState>([
+  "experiment_id",
+  "student_id",
+  "state_version",
+  "status",
+  "start_time",
+  "last_activity_at",
+  "completion_time",
+  "quiz_about_model_completed",
+  "quiz_about_plan_completed",
+]);
+
+const buildChangedUpdates = (
+  previousState: ExperimentState,
+  nextState: ExperimentState,
+  requestedUpdates: Partial<ExperimentState>,
+): Partial<ExperimentState> => Object.fromEntries(
+  Object.keys(requestedUpdates)
+    .filter((key) => {
+      const field = key as keyof ExperimentState;
+      return !NON_CLIENT_UPDATE_FIELDS.has(field)
+        && !arePersistedValuesEqual(previousState[field], nextState[field]);
+    })
+    .map((key) => {
+      const field = key as keyof ExperimentState;
+      return [field, nextState[field]];
+    }),
+) as Partial<ExperimentState>;
 
 const shouldSyncState = (
   previousState: ExperimentState,
@@ -60,6 +104,17 @@ const didProductSelectionChange = (
   );
 };
 
+const getConflictState = (error: unknown): ExperimentState | null => {
+  if (
+    error instanceof Error
+    && error.name === "ExperimentStateConflictError"
+    && "currentState" in error
+  ) {
+    return (error as Error & { currentState: ExperimentState }).currentState;
+  }
+  return null;
+};
+
 export const createExperimentStateSyncController = ({
   repository,
   getState,
@@ -85,6 +140,7 @@ export const createExperimentStateSyncController = ({
   let trackedExperimentId: number | null = null;
   let lastConfirmedCompletedStep: number | null = null;
   let lastOptimisticCompletedStep: number | null = null;
+  let syncQueue: Promise<void> = Promise.resolve();
 
   const resetCompletionTracking = (state: ExperimentState) => {
     trackedExperimentId = state.experiment_id ?? null;
@@ -119,6 +175,7 @@ export const createExperimentStateSyncController = ({
 
       const currentUpdateVersion = ++stateUpdateVersion;
       const nextState = buildNextState(previousState, updates);
+      const changedUpdates = buildChangedUpdates(previousState, nextState, updates);
       if ((nextState.experiment_id ?? null) !== (previousState.experiment_id ?? null)) {
         resetCompletionTracking(nextState);
       }
@@ -133,50 +190,93 @@ export const createExperimentStateSyncController = ({
         return;
       }
 
-      try {
-        const serverState = await repository.save(nextState);
+      if (Object.keys(changedUpdates).length === 0) {
+        return;
+      }
 
-        if (currentUpdateVersion !== stateUpdateVersion) {
-          onIgnoreStaleResponse(currentUpdateVersion, stateUpdateVersion);
-          return;
-        }
+      const synchronize = async () => {
+        try {
+          const requestState = {
+            ...nextState,
+            state_version: getState().state_version,
+          };
+          const serverState = await repository.save(requestState, changedUpdates);
 
-        setState(serverState);
-        lastOptimisticCompletedStep = serverState.highest_completed_step;
-
-        if (
-          serverState.highest_completed_step > confirmedCompletedStep &&
-          serverState.experiment_id
-        ) {
-          for (
-            let step = confirmedCompletedStep + 1;
-            step <= serverState.highest_completed_step;
-            step++
-          ) {
-            repository.recordStepEvent(serverState.experiment_id, step, "COMPLETED").catch((error) => {
-              onCompletedStepRecordError(step, error);
+          if (currentUpdateVersion !== stateUpdateVersion) {
+            onIgnoreStaleResponse(currentUpdateVersion, stateUpdateVersion);
+            const latestState = getState();
+            setState({
+              ...latestState,
+              state_version: Math.max(
+                latestState.state_version,
+                serverState.state_version,
+              ),
             });
+            return;
+          }
+
+          setState(serverState);
+          lastOptimisticCompletedStep = serverState.highest_completed_step;
+
+          if (
+            serverState.highest_completed_step > confirmedCompletedStep &&
+            serverState.experiment_id
+          ) {
+            for (
+              let step = confirmedCompletedStep + 1;
+              step <= serverState.highest_completed_step;
+              step++
+            ) {
+              repository.recordStepEvent(serverState.experiment_id, step, "COMPLETED").catch((error) => {
+                onCompletedStepRecordError(step, error);
+              });
+            }
+          }
+          lastConfirmedCompletedStep = Math.max(
+            confirmedCompletedStep,
+            serverState.highest_completed_step,
+          );
+
+          if (didProductSelectionChange(previousState, serverState)) {
+            onRemoteProductSelectionChanged();
+          }
+
+          onSyncSuccess();
+        } catch (error) {
+          const conflictState = getConflictState(error);
+          if (conflictState) {
+            if (currentUpdateVersion !== stateUpdateVersion) {
+              const latestState = getState();
+              setState({
+                ...latestState,
+                state_version: Math.max(
+                  latestState.state_version,
+                  conflictState.state_version,
+                ),
+              });
+            } else {
+              setState(conflictState);
+              resetCompletionTracking(conflictState);
+              if (didProductSelectionChange(previousState, conflictState)) {
+                onRemoteProductSelectionChanged();
+              }
+            }
+          }
+          onSyncError(error);
+
+          if (throwOnSyncError) {
+            if (!conflictState) {
+              setState(previousState);
+              lastOptimisticCompletedStep = previousState.highest_completed_step;
+            }
+            throw error;
           }
         }
-        lastConfirmedCompletedStep = Math.max(
-          confirmedCompletedStep,
-          serverState.highest_completed_step,
-        );
+      };
 
-        if (didProductSelectionChange(previousState, serverState)) {
-          onRemoteProductSelectionChanged();
-        }
-
-        onSyncSuccess();
-      } catch (error) {
-        onSyncError(error);
-
-        if (throwOnSyncError) {
-          setState(previousState);
-          lastOptimisticCompletedStep = previousState.highest_completed_step;
-          throw error;
-        }
-      }
+      const queuedSync = syncQueue.then(synchronize, synchronize);
+      syncQueue = queuedSync.catch(() => {});
+      await queuedSync;
     },
   };
 };

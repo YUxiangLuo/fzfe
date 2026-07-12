@@ -31,15 +31,42 @@ export const getExperimentState = async (): Promise<ExperimentState> => {
   }
 };
 
-export const updateExperimentState = async (state: ExperimentState): Promise<ExperimentState> => {
+export class ExperimentStateConflictError extends Error {
+  constructor(
+    message: string,
+    public readonly currentState: ExperimentState,
+  ) {
+    super(message);
+    this.name = "ExperimentStateConflictError";
+  }
+}
+
+export const updateExperimentState = async (
+  state: ExperimentState,
+  updates: Partial<ExperimentState> = state,
+): Promise<ExperimentState> => {
   if (!state.experiment_id) {
     throw new Error("Experiment ID is required to update experiment status.");
   }
-  const updated = await apiClient.put<ExperimentApiState>(
-    `/experiment-runs/${state.experiment_id}`,
-    toExperimentUpdatePayload(state),
-  );
-  return fromExperimentApi(updated);
+  try {
+    const updated = await apiClient.put<ExperimentApiState>(
+      `/experiment-runs/${state.experiment_id}`,
+      toExperimentUpdatePayload(state, updates),
+    );
+    return fromExperimentApi(updated);
+  } catch (error) {
+    const requestError = error as Error & {
+      status?: number;
+      payload?: { current_state?: ExperimentApiState };
+    };
+    if (requestError.status === 409 && requestError.payload?.current_state) {
+      throw new ExperimentStateConflictError(
+        "实验状态已在其他页面更新，请基于最新状态重试。",
+        fromExperimentApi(requestError.payload.current_state),
+      );
+    }
+    throw error;
+  }
 };
 
 export const recordStepEvent = async (

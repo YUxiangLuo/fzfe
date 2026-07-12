@@ -12,6 +12,7 @@ export const buildInitialSessionState = (): ExperimentSessionState => ({
 export const buildInitialPersistedState = (): PersistedExperimentState => ({
   experiment_id: null,
   student_id: null,
+  state_version: 0,
   status: "Not Started",
   highest_completed_step: 0,
   current_step: 1,

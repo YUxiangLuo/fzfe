@@ -21,6 +21,7 @@ type ExperimentApiState = Partial<PersistedExperimentState> & {
 const SERVER_MANAGED_UPDATE_FIELDS = [
   "experiment_id",
   "student_id",
+  "state_version",
   "status",
   "start_time",
   "last_activity_at",
@@ -32,7 +33,7 @@ const SERVER_MANAGED_UPDATE_FIELDS = [
 type ExperimentUpdatePayload = Omit<
   Partial<PersistedExperimentState>,
   (typeof SERVER_MANAGED_UPDATE_FIELDS)[number]
->;
+> & { state_version: number };
 
 const normalizeStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
@@ -113,26 +114,41 @@ export const fromExperimentApi = (state: ExperimentApiState | null | undefined):
 
 export const toExperimentUpdatePayload = (
   state: ExperimentState,
+  updates: Partial<ExperimentState> = state,
 ): ExperimentUpdatePayload => {
-  const payload = { ...state };
+  const payload = { ...updates } as Partial<PersistedExperimentState> & {
+    state_version?: number;
+  };
 
-  payload.selected_base_models = normalizeBaseModelSelection(state.selected_base_models);
-  payload.selected_ensemble_models = normalizeEnsembleModelSelection(state.selected_ensemble_models);
-  payload.ensemble_weighted_base_models = normalizeBaseModelSelection(
-    state.ensemble_weighted_base_models,
-  );
-  payload.ensemble_boosting_base_models = normalizeBaseModelSelection(
-    state.ensemble_boosting_base_models,
-  );
-  payload.ensemble_stacking_base_models = normalizeBaseModelSelection(
-    state.ensemble_stacking_base_models,
-  );
+  if (updates.selected_base_models !== undefined) {
+    payload.selected_base_models = normalizeBaseModelSelection(updates.selected_base_models);
+  }
+  if (updates.selected_ensemble_models !== undefined) {
+    payload.selected_ensemble_models = normalizeEnsembleModelSelection(updates.selected_ensemble_models);
+  }
+  if (updates.ensemble_weighted_base_models !== undefined) {
+    payload.ensemble_weighted_base_models = normalizeBaseModelSelection(
+      updates.ensemble_weighted_base_models,
+    );
+  }
+  if (updates.ensemble_boosting_base_models !== undefined) {
+    payload.ensemble_boosting_base_models = normalizeBaseModelSelection(
+      updates.ensemble_boosting_base_models,
+    );
+  }
+  if (updates.ensemble_stacking_base_models !== undefined) {
+    payload.ensemble_stacking_base_models = normalizeBaseModelSelection(
+      updates.ensemble_stacking_base_models,
+    );
+  }
 
   for (const field of SERVER_MANAGED_UPDATE_FIELDS) {
     delete payload[field];
   }
 
-  return payload;
+  payload.state_version = state.state_version;
+
+  return payload as ExperimentUpdatePayload;
 };
 
 export type { ExperimentApiState, ExperimentUpdatePayload };

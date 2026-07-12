@@ -20,7 +20,10 @@ type ExperimentRepositoryDependencies = {
 export interface ExperimentRepository {
   create: () => Promise<ExperimentState>;
   getActive: () => Promise<ExperimentState>;
-  save: (state: ExperimentState) => Promise<ExperimentState>;
+  save: (
+    state: ExperimentState,
+    updates?: Partial<ExperimentState>,
+  ) => Promise<ExperimentState>;
   recordStepEvent: (
     experimentId: number,
     stepOrder: number,
@@ -44,8 +47,8 @@ export const createExperimentRepository = (
     return await dependencies.getExperimentState();
   },
 
-  save: async (state) => {
-    return await dependencies.updateExperimentState(state);
+  save: async (state, updates) => {
+    return await dependencies.updateExperimentState(state, updates);
   },
 
   recordStepEvent: async (experimentId, stepOrder, eventType) => {
