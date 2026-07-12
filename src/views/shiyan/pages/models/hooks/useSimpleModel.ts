@@ -6,6 +6,10 @@ import { alignPredictionRows } from '../resultAlignment';
 import { useGuidedModelTraining } from './useGuidedModelTraining';
 import type { GuidedModelType } from '../../../services/guidedTraining';
 import type { ModelApiResultBase, ModelResultData } from '../modelResultTypes';
+import {
+  buildResetExponentialSmoothingPatch,
+  buildResetMovingAveragePatch,
+} from '../../../store/experiment/resetPatches';
 
 type SimpleModelType = 'exponential_smoothing' | 'moving_average';
 
@@ -75,7 +79,10 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
     state.selected_product,
   ]);
 
-  const handleFinalResult = useCallback(async (result: SimpleModelGuidedResult) => {
+  const handleFinalResult = useCallback(async (
+    result: SimpleModelGuidedResult,
+    { invalidateDownstream }: { invalidateDownstream: boolean },
+  ) => {
     if (result.status !== "success") {
       throw new Error(result.message || "模型计算返回失败状态");
     }
@@ -99,8 +106,19 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
       implementationNotes: apiResults.implementation_notes,
     };
 
+    const persistedParam = state[config.stateKeys.param];
+    const normalizedParam = param === '' ? null : param;
+    const shouldInvalidatePersistedState = invalidateDownstream
+      || state[config.stateKeys.completed] !== true
+      || persistedParam !== normalizedParam;
+    const resetPatch = shouldInvalidatePersistedState
+      ? (config.type === 'moving_average'
+          ? buildResetMovingAveragePatch()
+          : buildResetExponentialSmoothingPatch())
+      : {};
     await updateState({
-      [config.stateKeys.param]: param === '' ? null : param,
+      ...resetPatch,
+      [config.stateKeys.param]: normalizedParam,
       [config.stateKeys.metricsRmse]: apiResults.metrics.rmse,
       [config.stateKeys.metricsMae]: apiResults.metrics.mae,
       [config.stateKeys.metricsMape]: apiResults.metrics.mape,
@@ -109,10 +127,12 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
     setResults(modelResults);
   }, [
     config.stateKeys,
+    config.type,
     param,
     productSalesData,
     state.data_window_evaluate_end_index,
     state.data_window_evaluate_start_index,
+    state,
     updateState,
   ]);
 

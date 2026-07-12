@@ -1,6 +1,7 @@
 export const MIN_ENSEMBLE_TRAINING_POINTS = 8;
 export const MIN_LSTM_LOOK_BACK = 3;
 export const MAX_LSTM_LOOK_BACK = 6;
+export const PRODUCTION_FORECAST_HORIZON = 6;
 
 export interface ModelWindowConfig {
   trainStart: number | null;
@@ -42,6 +43,15 @@ export const getLstmFeasibility = (window: ModelWindowConfig): ModelFeasibility 
     return {
       feasible: false,
       reason: `当前 LSTM 自动回看窗口为 ${lookBack}，预测跨度为 ${sizes.forecastHorizon}，训练区间至少需要 ${minimumTrainingSize} 个点（当前 ${sizes.trainingSize} 个）。`,
+    };
+  }
+
+  const productionTrainingSize = window.evaluateEnd! - window.trainStart! + 1;
+  const minimumProductionTrainingSize = lookBack + PRODUCTION_FORECAST_HORIZON;
+  if (productionTrainingSize < minimumProductionTrainingSize) {
+    return {
+      feasible: false,
+      reason: `生产预测固定为 ${PRODUCTION_FORECAST_HORIZON} 期；纳入评估区间后至少需要 ${minimumProductionTrainingSize} 个训练点（当前 ${productionTrainingSize} 个），以保持直接多步 LSTM 策略不变。`,
     };
   }
   return { feasible: true };

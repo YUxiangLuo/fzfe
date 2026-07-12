@@ -58,6 +58,7 @@ const completedGuidedSession = (): GuidedTrainingSession => ({
 });
 
 const createGuidedTrainingSession = mock(async () => readyGuidedSession());
+const activateGuidedTrainingSession = mock(async () => completedGuidedSession());
 const runGuidedTrainingStep = mock(async () => completedGuidedSession());
 
 let experimentValue = {
@@ -119,6 +120,7 @@ mock.module(apiClientModulePath, () => ({
 
 mock.module(guidedTrainingModulePath, () => ({
   createGuidedTrainingSession,
+  activateGuidedTrainingSession,
   runGuidedTrainingStep,
   fetchGuidedTrainingSession: mock(async () => null),
 }));
@@ -199,6 +201,8 @@ describe('useSimpleModel', () => {
   beforeEach(() => {
     createGuidedTrainingSession.mockClear();
     createGuidedTrainingSession.mockResolvedValue(readyGuidedSession());
+    activateGuidedTrainingSession.mockClear();
+    activateGuidedTrainingSession.mockResolvedValue(completedGuidedSession());
     runGuidedTrainingStep.mockClear();
     runGuidedTrainingStep.mockResolvedValue(completedGuidedSession());
     experimentValue = {
@@ -337,7 +341,67 @@ describe('useSimpleModel', () => {
     fireEvent.click(view.getByRole('button', { name: 'init' }));
 
     await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
+    expect(activateGuidedTrainingSession).toHaveBeenCalledWith('ma', 'guided-1');
     expect(runGuidedTrainingStep).not.toHaveBeenCalled();
     expect((experimentValue.state as Record<string, unknown>).moving_average_metrics_mape).toBe(11.2);
+    expect((experimentValue.state as Record<string, unknown>).selected_best_model).toBeNull();
+    expect((experimentValue.state as Record<string, unknown>).production_plan_completed).toBeFalse();
+  });
+
+  it('preserves downstream decisions when merely reopening the already-current completed session', async () => {
+    experimentValue = {
+      ...experimentValue,
+      state: {
+        ...experimentValue.state,
+        moving_average_completed: true,
+        selected_best_model: 'ma',
+        production_plan_completed: true,
+        production_forecast_results: [{ prediction: 180, std_dev: 4 }],
+      } as any,
+    };
+    createGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSession());
+    const Component = await Harness('params');
+
+    view = render(
+      <MemoryRouter initialEntries={['/model/moving-average/results']}>
+        <Component />
+      </MemoryRouter>,
+    );
+    fireEvent.click(view.getByRole('button', { name: 'init' }));
+
+    await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
+    expect((experimentValue.state as Record<string, unknown>).selected_best_model).toBe('ma');
+    expect((experimentValue.state as Record<string, unknown>).production_plan_completed).toBeTrue();
+  });
+
+  it('invalidates downstream decisions when reopening restores a different backtest artifact', async () => {
+    experimentValue = {
+      ...experimentValue,
+      state: {
+        ...experimentValue.state,
+        moving_average_completed: true,
+        selected_best_model: 'ma',
+        production_plan_completed: true,
+        production_forecast_results: [{ prediction: 180, std_dev: 4 }],
+      } as any,
+    };
+    createGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSession());
+    activateGuidedTrainingSession.mockResolvedValueOnce({
+      ...completedGuidedSession(),
+      backtest_artifact_changed: true,
+    });
+    const Component = await Harness('params');
+
+    view = render(
+      <MemoryRouter initialEntries={['/model/moving-average/results']}>
+        <Component />
+      </MemoryRouter>,
+    );
+    fireEvent.click(view.getByRole('button', { name: 'init' }));
+
+    await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
+    expect((experimentValue.state as Record<string, unknown>).selected_best_model).toBeNull();
+    expect((experimentValue.state as Record<string, unknown>).production_plan_completed).toBeFalse();
+    expect((experimentValue.state as Record<string, unknown>).production_forecast_results).toBeNull();
   });
 });

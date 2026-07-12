@@ -20,6 +20,10 @@ describe("experiment reset patches", () => {
       initialState.ensemble_boosting_base_models,
     );
     expect(patch.ensemble_stacking_metrics_r2).toBe(initialState.ensemble_stacking_metrics_r2);
+    expect(patch.selected_best_model).toBeNull();
+    expect(patch.production_plan_completed).toBeFalse();
+    expect(patch.production_forecast_results).toBeNull();
+    expect(patch.production_mps_table).toEqual([]);
   });
 
   it("resets arima-specific fields and downstream ensembles together", () => {
@@ -34,12 +38,14 @@ describe("experiment reset patches", () => {
     expect(patch.ensemble_stacking_completed).toBeFalse();
   });
 
-  it("keeps weighted ensemble patch focused on weighted fields only", () => {
+  it("keeps weighted ensemble patch focused on weighted model fields and downstream decisions", () => {
     const patch = buildResetWeightedEnsemblePatch();
 
     expect(patch.ensemble_weighted_completed).toBeFalse();
     expect(patch.ensemble_weighted_base_models).toEqual([]);
     expect(patch.ensemble_boosting_completed).toBeUndefined();
     expect(patch.ensemble_stacking_completed).toBeUndefined();
+    expect(patch.selected_best_model).toBeNull();
+    expect(patch.production_plan_completed).toBeFalse();
   });
 });

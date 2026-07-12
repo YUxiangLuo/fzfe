@@ -19,6 +19,8 @@ import { useModelJob } from '../hooks/useModelJob';
 import { useGuidedModelTraining } from '../hooks/useGuidedModelTraining';
 import RetryExceededFallback from '../components/RetryExceededFallback';
 import { alignPredictionRows } from '../resultAlignment';
+import { buildResetArimaPatch } from '../../../store/experiment/resetPatches';
+import { resolveAdfResultsForPersistence } from './adfPersistence';
 
 const MODEL_NAME = 'ARIMA 模型';
 const BASE_PATH = '/model/arima';
@@ -48,7 +50,9 @@ const ARIMAStepper: React.FC = () => {
   const location = useLocation();
   const { state, updateState, productSalesData, setTrainingLock } = useExperiment();
 
-  const [adfResults, setAdfResults] = useState<AdfStationarityRow[]>([]);
+  const [adfResults, setAdfResults] = useState<AdfStationarityRow[]>(() =>
+    resolveAdfResultsForPersistence([], state.arima_adf_stationarity)
+  );
   const [selectedD, setSelectedD] = useState<number | ''>(state.arima_d ?? '');
   const [results, setResults] = useState<any>(null);
   const [autoParamsView, setAutoParamsView] = useState<'params' | 'results'>('params');
@@ -197,7 +201,10 @@ const ARIMAStepper: React.FC = () => {
     selectedD,
   ]);
 
-  const handleTrainingFinalResult = useCallback(async (response: any) => {
+  const handleTrainingFinalResult = useCallback(async (
+    response: any,
+    { invalidateDownstream }: { invalidateDownstream: boolean },
+  ) => {
     if (response.status !== "success") {
       throw new Error(response.message || "计算失败，请重试...");
     }
@@ -222,7 +229,17 @@ const ARIMAStepper: React.FC = () => {
       order: apiResults.best_order,
     };
 
+    const shouldInvalidatePersistedState = invalidateDownstream
+      || !state.arima_completed
+      || state.arima_d !== selectedD;
+    const adfResultsToPersist = resolveAdfResultsForPersistence(
+      adfResults,
+      state.arima_adf_stationarity,
+    );
     await updateState({
+      ...(shouldInvalidatePersistedState ? buildResetArimaPatch() : {}),
+      arima_d: selectedD === '' ? null : selectedD,
+      arima_adf_stationarity: adfResultsToPersist,
       arima_p: apiResults.best_order.p,
       arima_q: apiResults.best_order.q,
       arima_metrics_rmse: apiResults.metrics.rmse,
@@ -233,6 +250,11 @@ const ARIMAStepper: React.FC = () => {
     setResults(nextResults);
   }, [
     productSalesData,
+    adfResults,
+    selectedD,
+    state.arima_completed,
+    state.arima_d,
+    state.arima_adf_stationarity,
     state.data_window_evaluate_end_index,
     state.data_window_evaluate_start_index,
     updateState
@@ -318,7 +340,16 @@ const ARIMAStepper: React.FC = () => {
       }
       try {
         await updateState(
-          { arima_d: selectedD === '' ? null : selectedD },
+          {
+            ...(!state.arima_completed || state.arima_d !== selectedD
+              ? buildResetArimaPatch()
+              : {}),
+            arima_d: selectedD === '' ? null : selectedD,
+            arima_adf_stationarity: resolveAdfResultsForPersistence(
+              adfResults,
+              state.arima_adf_stationarity,
+            ),
+          },
           { forceSync: true, throwOnSyncError: true },
         );
       } catch {

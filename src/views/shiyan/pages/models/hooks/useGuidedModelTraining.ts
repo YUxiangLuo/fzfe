@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  activateGuidedTrainingSession,
   createGuidedTrainingSession,
   runGuidedTrainingStep,
   type GuidedModelType,
@@ -12,7 +13,10 @@ type TrainingLockSetter = (isLocked: boolean, lockPath?: string | null) => void;
 interface UseGuidedModelTrainingOptions<TFinalResult> {
   modelType: GuidedModelType;
   buildRequestBody: () => Record<string, any> | null;
-  onFinalResult: (result: TFinalResult) => Promise<void> | void;
+  onFinalResult: (
+    result: TFinalResult,
+    context: { invalidateDownstream: boolean },
+  ) => Promise<void> | void;
   lockPath?: string | null;
   setTrainingLock?: TrainingLockSetter;
   getErrorMessage?: (error: unknown) => string;
@@ -135,6 +139,7 @@ export function useGuidedModelTraining<TFinalResult>({
   const [retryCount, setRetryCount] = useState(0);
   const isMountedRef = useRef(true);
   const inFlightRef = useRef(false);
+  const finalResultNeedsInvalidationRef = useRef(false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -150,6 +155,7 @@ export function useGuidedModelTraining<TFinalResult>({
     setSession(null);
     setError(null);
     setRetryCount(0);
+    finalResultNeedsInvalidationRef.current = false;
   }, []);
 
   const recordFailure = useCallback((
@@ -177,7 +183,10 @@ export function useGuidedModelTraining<TFinalResult>({
       return null;
     }
 
-    const nextSession = await createGuidedTrainingSession(modelType, requestBody);
+    const createdSession = await createGuidedTrainingSession(modelType, requestBody);
+    const nextSession = createdSession.status === 'completed' && createdSession.result
+      ? await activateGuidedTrainingSession(modelType, createdSession.session_id)
+      : createdSession;
     if (isMountedRef.current) {
       setSession(nextSession);
       setError(nextSession.status === 'failed' ? nextSession.error_message : null);
@@ -185,9 +194,15 @@ export function useGuidedModelTraining<TFinalResult>({
     return nextSession;
   }, [buildRequestBody, modelType, session]);
 
-  const applyFinalResult = useCallback(async (targetSession: GuidedTrainingSession | null) => {
+  const applyFinalResult = useCallback(async (
+    targetSession: GuidedTrainingSession | null,
+    invalidateDownstream = finalResultNeedsInvalidationRef.current,
+  ) => {
     if (targetSession?.result) {
-      await onFinalResult(targetSession.result as TFinalResult);
+      await onFinalResult(targetSession.result as TFinalResult, {
+        invalidateDownstream: invalidateDownstream || targetSession.backtest_artifact_changed === true,
+      });
+      finalResultNeedsInvalidationRef.current = false;
     }
   }, [onFinalResult]);
 
@@ -244,7 +259,10 @@ export function useGuidedModelTraining<TFinalResult>({
         return;
       }
 
-      await applyFinalResult(updatedSession);
+      if (updatedSession.result) {
+        finalResultNeedsInvalidationRef.current = true;
+      }
+      await applyFinalResult(updatedSession, finalResultNeedsInvalidationRef.current);
     } catch (stepError) {
       recordFailure(stepError, '分阶段训练执行失败');
     } finally {

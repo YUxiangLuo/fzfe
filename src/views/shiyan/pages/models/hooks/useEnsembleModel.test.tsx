@@ -40,6 +40,7 @@ const completedGuidedSession = () => ({
 });
 
 const createGuidedTrainingSession = mock(async () => completedGuidedSession());
+const activateGuidedTrainingSession = mock(async () => completedGuidedSession());
 const runGuidedTrainingStep = mock(async () => completedGuidedSession());
 
 const successfulGuidedResult = {
@@ -113,6 +114,7 @@ mock.module(experimentContextModulePath, () => ({
 
 mock.module(guidedTrainingModulePath, () => ({
   createGuidedTrainingSession,
+  activateGuidedTrainingSession,
   runGuidedTrainingStep,
   fetchGuidedTrainingSession: mock(async () => null),
 }));
@@ -163,6 +165,8 @@ describe('useEnsembleModel', () => {
   beforeEach(() => {
     createGuidedTrainingSession.mockClear();
     createGuidedTrainingSession.mockResolvedValue(completedGuidedSession());
+    activateGuidedTrainingSession.mockClear();
+    activateGuidedTrainingSession.mockResolvedValue(completedGuidedSession());
     runGuidedTrainingStep.mockClear();
     runGuidedTrainingStep.mockResolvedValue(completedGuidedSession());
     experimentValue = {
@@ -245,6 +249,7 @@ describe('useEnsembleModel', () => {
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 20));
 
     expect(createGuidedTrainingSession).toHaveBeenCalledTimes(1);
+    expect(activateGuidedTrainingSession).toHaveBeenCalledWith('weighted_avg', 'guided-ensemble-1');
     expect(runGuidedTrainingStep).not.toHaveBeenCalled();
     const firstRequestBody = (createGuidedTrainingSession.mock.calls[0] as unknown[] | undefined)?.[1];
     expect(firstRequestBody).toMatchObject({
@@ -272,5 +277,30 @@ describe('useEnsembleModel', () => {
     await waitFor(() => expect(view!.getByTestId('error').textContent).toBe('sync failed'));
 
     expect(view.getByTestId('results-ready').textContent).toBe('false');
+  });
+
+  it('clears the selected best model and production plan when an ensemble result replaces stale state', async () => {
+    experimentValue = {
+      ...experimentValue,
+      state: {
+        ...experimentValue.state,
+        ensemble_weighted_completed: false,
+        selected_best_model: 'ensemble_weighted',
+        production_plan_completed: true,
+        production_forecast_results: [{ prediction: 140, std_dev: 2 }],
+      } as any,
+    };
+    const Component = await Harness();
+
+    view = render(
+      <MemoryRouter initialEntries={['/model/weighted-ensemble/results']}>
+        <Component />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
+    expect((experimentValue.state as Record<string, unknown>).selected_best_model).toBeNull();
+    expect((experimentValue.state as Record<string, unknown>).production_plan_completed).toBeFalse();
+    expect((experimentValue.state as Record<string, unknown>).production_forecast_results).toBeNull();
   });
 });

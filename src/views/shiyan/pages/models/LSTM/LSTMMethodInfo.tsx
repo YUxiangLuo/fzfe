@@ -33,7 +33,7 @@ const LSTMMethodInfo: React.FC = () => {
 
       <div className="p-6 bg-gradient-to-br from-sky-50 to-blue-50 rounded-lg border border-sky-200 shadow-sm">
         <p className="text-gray-800 leading-relaxed text-base">
-          <strong>本系统实现说明：</strong>训练评估阶段默认采用直接多步预测，一次输出整个评估区间的销量预测；当生产重训数据不足以支持直接多步输出时，系统会回退为一步预测并递归生成未来多期。
+          <strong>本系统实现说明：</strong>训练评估和生产预测都采用直接多步预测。生产阶段固定一次输出未来 6 期；若当前数据不足以维持这一策略，系统会在训练前提示调整数据窗口，不会静默切换为递归预测。
         </p>
       </div>
 

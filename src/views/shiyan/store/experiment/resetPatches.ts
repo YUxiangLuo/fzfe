@@ -37,6 +37,22 @@ const ensembleResetFields = [
   "ensemble_stacking_metrics_r2",
 ] as const satisfies readonly ResettableField[];
 
+const downstreamDecisionResetFields = [
+  "selected_best_model",
+  "production_plan_completed",
+  "production_forecast_periods",
+  "production_initial_inventory",
+  "production_target_service_level",
+  "production_safety_stock_z_score",
+  "production_forecast_results",
+  "production_mps_table",
+  "production_capacity_mode",
+  "production_capacity_scenario",
+  "production_capacity",
+  "production_custom_capacity",
+  "quiz_about_plan_completed",
+] as const satisfies readonly ResettableField[];
+
 const movingAverageResetFields = [
   "moving_average_completed",
   "moving_average_window",
@@ -119,29 +135,29 @@ const buildResetPatch = (
 };
 
 export const buildResetMovingAveragePatch = (): Partial<ExperimentState> => {
-  return buildResetPatch(movingAverageResetFields, ensembleResetFields);
+  return buildResetPatch(movingAverageResetFields, ensembleResetFields, downstreamDecisionResetFields);
 };
 
 export const buildResetExponentialSmoothingPatch = (): Partial<ExperimentState> => {
-  return buildResetPatch(exponentialSmoothingResetFields, ensembleResetFields);
+  return buildResetPatch(exponentialSmoothingResetFields, ensembleResetFields, downstreamDecisionResetFields);
 };
 
 export const buildResetArimaPatch = (): Partial<ExperimentState> => {
-  return buildResetPatch(arimaResetFields, ensembleResetFields);
+  return buildResetPatch(arimaResetFields, ensembleResetFields, downstreamDecisionResetFields);
 };
 
 export const buildResetLstmPatch = (): Partial<ExperimentState> => {
-  return buildResetPatch(lstmResetFields, ensembleResetFields);
+  return buildResetPatch(lstmResetFields, ensembleResetFields, downstreamDecisionResetFields);
 };
 
 export const buildResetWeightedEnsemblePatch = (): Partial<ExperimentState> => {
-  return buildResetPatch(weightedEnsembleResetFields);
+  return buildResetPatch(weightedEnsembleResetFields, downstreamDecisionResetFields);
 };
 
 export const buildResetBoostingEnsemblePatch = (): Partial<ExperimentState> => {
-  return buildResetPatch(boostingEnsembleResetFields);
+  return buildResetPatch(boostingEnsembleResetFields, downstreamDecisionResetFields);
 };
 
 export const buildResetStackingEnsemblePatch = (): Partial<ExperimentState> => {
-  return buildResetPatch(stackingEnsembleResetFields);
+  return buildResetPatch(stackingEnsembleResetFields, downstreamDecisionResetFields);
 };

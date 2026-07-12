@@ -14,6 +14,7 @@ import { useGuidedModelTraining } from '../hooks/useGuidedModelTraining';
 import RetryExceededFallback from '../components/RetryExceededFallback';
 import { alignPredictionRows } from '../resultAlignment';
 import { getLstmFeasibility } from '../modelFeasibility';
+import { buildResetLstmPatch } from '../../../store/experiment/resetPatches';
 
 const MODEL_NAME = 'LSTM模型';
 const BASE_PATH = '/model/lstm';
@@ -102,7 +103,10 @@ const LSTMStepper: React.FC = () => {
     target,
   ]);
 
-  const handleTrainingFinalResult = useCallback(async (response: any) => {
+  const handleTrainingFinalResult = useCallback(async (
+    response: any,
+    { invalidateDownstream }: { invalidateDownstream: boolean },
+  ) => {
     if (response.status !== "success") {
       throw new Error(response.message || "计算失败，请重试...");
     }
@@ -122,7 +126,14 @@ const LSTMStepper: React.FC = () => {
       implementationNotes: apiResults.implementation_notes,
     };
 
+    const configurationMatchesPersisted = !invalidateDownstream
+      && state.lstm_completed
+      && state.lstm_normalization === normalization
+      && state.lstm_target_field === target
+      && JSON.stringify(state.lstm_features) === JSON.stringify(features);
     await updateState({
+      ...(configurationMatchesPersisted ? {} : buildResetLstmPatch()),
+      lstm_normalization: normalization,
       lstm_features: features,
       lstm_target_field: target,
       lstm_metrics_rmse: apiResults.metrics.rmse,
@@ -131,7 +142,17 @@ const LSTMStepper: React.FC = () => {
       lstm_metrics_r2: apiResults.metrics.r2,
     }, { forceSync: true, throwOnSyncError: true });
     setResults(nextResults);
-  }, [evaluateMonths, features, target, updateState]);
+  }, [
+    evaluateMonths,
+    features,
+    normalization,
+    state.lstm_completed,
+    state.lstm_features,
+    state.lstm_normalization,
+    state.lstm_target_field,
+    target,
+    updateState,
+  ]);
 
   const {
     session: guidedTrainingSession,
@@ -228,7 +249,12 @@ const LSTMStepper: React.FC = () => {
     if (currentStep?.id === 'preprocessing') {
       try {
         await updateState(
-          { lstm_normalization: normalization },
+          {
+            ...(!state.lstm_completed || state.lstm_normalization !== normalization
+              ? buildResetLstmPatch()
+              : {}),
+            lstm_normalization: normalization,
+          },
           { forceSync: true, throwOnSyncError: true },
         );
       } catch {

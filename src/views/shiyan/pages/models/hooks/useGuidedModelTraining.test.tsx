@@ -46,10 +46,12 @@ const completedGuidedSession = (): GuidedTrainingSession => ({
 });
 
 const createGuidedTrainingSession = mock(async () => readyGuidedSession());
+const activateGuidedTrainingSession = mock(async () => completedGuidedSession());
 const runGuidedTrainingStep = mock(async () => completedGuidedSession());
 
 mock.module(guidedTrainingModulePath, () => ({
   createGuidedTrainingSession,
+  activateGuidedTrainingSession,
   runGuidedTrainingStep,
   fetchGuidedTrainingSession: mock(async () => null),
 }));
@@ -116,6 +118,8 @@ describe('useGuidedModelTraining', () => {
   beforeEach(() => {
     createGuidedTrainingSession.mockClear();
     createGuidedTrainingSession.mockResolvedValue(readyGuidedSession());
+    activateGuidedTrainingSession.mockClear();
+    activateGuidedTrainingSession.mockResolvedValue(completedGuidedSession());
     runGuidedTrainingStep.mockClear();
     runGuidedTrainingStep.mockResolvedValue(completedGuidedSession());
   });
@@ -214,5 +218,31 @@ describe('useGuidedModelTraining', () => {
     await waitFor(() => expect(createGuidedTrainingSession).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('ready'));
     expect(view.getByTestId('error').textContent).toBe('');
+  });
+
+  it('explicitly activates a completed session before exposing its result', async () => {
+    createGuidedTrainingSession.mockResolvedValueOnce(completedGuidedSession());
+    activateGuidedTrainingSession.mockResolvedValueOnce({
+      ...completedGuidedSession(),
+      backtest_artifact_changed: true,
+    });
+    const Component = await Harness();
+
+    view = render(<Component />);
+    fireEvent.click(view.getByRole('button', { name: 'init' }));
+
+    await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('completed'));
+    expect(activateGuidedTrainingSession).toHaveBeenCalledWith('ma', 'guided-1');
+    expect(runGuidedTrainingStep).not.toHaveBeenCalled();
+  });
+
+  it('does not activate a session that still has guided steps to run', async () => {
+    const Component = await Harness();
+
+    view = render(<Component />);
+    fireEvent.click(view.getByRole('button', { name: 'init' }));
+
+    await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('ready'));
+    expect(activateGuidedTrainingSession).not.toHaveBeenCalled();
   });
 });

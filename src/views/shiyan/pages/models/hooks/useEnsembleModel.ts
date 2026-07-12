@@ -9,6 +9,11 @@ import type { ExperimentState } from '../../../store/experiment/types';
 import { normalizeBaseModelSelection } from '../../../utils/modelCatalog';
 import type { ModelApiResultBase, ModelResultData } from '../modelResultTypes';
 import { getEnsembleFeasibility } from '../modelFeasibility';
+import {
+  buildResetBoostingEnsemblePatch,
+  buildResetStackingEnsemblePatch,
+  buildResetWeightedEnsemblePatch,
+} from '../../../store/experiment/resetPatches';
 
 type EnsembleType = 'weighted' | 'boosting' | 'stacking';
 
@@ -63,6 +68,12 @@ const guidedModelTypeFor = (type: EnsembleType): GuidedModelType => {
     return 'weighted_avg';
   }
   return type;
+};
+
+const buildEnsembleResetPatch = (type: EnsembleType): Partial<ExperimentState> => {
+  if (type === 'weighted') return buildResetWeightedEnsemblePatch();
+  if (type === 'boosting') return buildResetBoostingEnsemblePatch();
+  return buildResetStackingEnsemblePatch();
 };
 
 export function useEnsembleModel(config: EnsembleModelConfig) {
@@ -176,7 +187,10 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     state.selected_product,
   ]);
 
-  const handleFinalResult = useCallback(async (result: EnsembleGuidedResult) => {
+  const handleFinalResult = useCallback(async (
+    result: EnsembleGuidedResult,
+    { invalidateDownstream }: { invalidateDownstream: boolean },
+  ) => {
     if (result.status !== 'success') {
       throw new Error(result.message || '模型训练失败。');
     }
@@ -204,7 +218,11 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       ensembleResults.meta_model = apiResults.meta_model;
     }
 
+    const shouldInvalidatePersistedState = invalidateDownstream
+      || state[config.stateKey.completed] !== true
+      || persistedSelectionSignature !== normalizedSelectedModels.join('|');
     await updateState({
+      ...(shouldInvalidatePersistedState ? buildEnsembleResetPatch(config.type) : {}),
       [config.stateKey.baseModels]: normalizedSelectedModels,
       [config.stateKey.metricsRmse]: apiResults.metrics.rmse,
       [config.stateKey.metricsMae]: apiResults.metrics.mae,
@@ -216,7 +234,9 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     config.stateKey,
     config.type,
     evaluateMonths,
+    persistedSelectionSignature,
     selectedModels,
+    state,
     updateState,
   ]);
 

@@ -28,6 +28,7 @@ export interface GuidedTrainingSession {
     inferred_feature_types?: unknown;
   } | null;
   error_message: string | null;
+  backtest_artifact_changed?: boolean;
 }
 
 const guidedBasePath = (modelType: GuidedModelType) =>
@@ -45,6 +46,16 @@ export const fetchGuidedTrainingSession = async (
   sessionId: string,
 ) => {
   return apiClient.get<GuidedTrainingSession>(`${guidedBasePath(modelType)}/${sessionId}`);
+};
+
+export const activateGuidedTrainingSession = async (
+  modelType: GuidedModelType,
+  sessionId: string,
+) => {
+  return apiClient.post<GuidedTrainingSession>(
+    `${guidedBasePath(modelType)}/${sessionId}/activate`,
+    {},
+  );
 };
 
 export const runGuidedTrainingStep = async (
