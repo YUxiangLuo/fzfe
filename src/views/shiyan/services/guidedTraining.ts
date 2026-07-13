@@ -1,4 +1,4 @@
-import { apiClient } from '@/utils/apiClient';
+import { apiClient, MODEL_API_TIMEOUTS } from '@/utils/apiClient';
 
 export type GuidedModelType = 'ma' | 'es' | 'arima' | 'lstm' | 'weighted_avg' | 'stacking' | 'boosting';
 export type GuidedTrainingStatus = 'ready' | 'running' | 'failed' | 'completed' | 'superseded';
@@ -41,7 +41,9 @@ export const createGuidedTrainingSession = async (
   body: Record<string, any>,
 ) => {
   return apiClient.post<GuidedTrainingSession>(guidedBasePath(modelType), body, {
-    timeoutMs: null,
+    // Resuming a completed session can validate/copy model artifacts, so this
+    // endpoint is not guaranteed to be metadata-only.
+    timeoutMs: MODEL_API_TIMEOUTS.EXECUTION,
   });
 };
 
@@ -49,14 +51,18 @@ export const discardGuidedTrainingSession = async (
   modelType: GuidedModelType,
   sessionId: string,
 ) => {
-  await apiClient.delete(`${guidedBasePath(modelType)}/${sessionId}`);
+  await apiClient.delete(`${guidedBasePath(modelType)}/${sessionId}`, {
+    timeoutMs: MODEL_API_TIMEOUTS.METADATA,
+  });
 };
 
 export const fetchGuidedTrainingSession = async (
   modelType: GuidedModelType,
   sessionId: string,
 ) => {
-  return apiClient.get<GuidedTrainingSession>(`${guidedBasePath(modelType)}/${sessionId}`);
+  return apiClient.get<GuidedTrainingSession>(`${guidedBasePath(modelType)}/${sessionId}`, {
+    timeoutMs: MODEL_API_TIMEOUTS.METADATA,
+  });
 };
 
 export const runGuidedTrainingStep = async (
@@ -68,7 +74,7 @@ export const runGuidedTrainingStep = async (
     `${guidedBasePath(modelType)}/${sessionId}/steps/${stepId}/run`,
     {},
     {
-      timeoutMs: null,
+      timeoutMs: MODEL_API_TIMEOUTS.EXECUTION,
     },
   );
 };

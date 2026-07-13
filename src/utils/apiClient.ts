@@ -13,6 +13,25 @@ export interface ApiRequestOptions extends RequestInit {
   timeoutMs?: number | null;
 }
 
+export const MODEL_API_TIMEOUTS = {
+  METADATA: 30_000,
+  // Backend Python may use the full 600s hard cap. Reserve 60s for request
+  // setup/artifact post-processing and 30s across nginx/browser transport.
+  EXECUTION: 690_000,
+  // Prediction is configurable up to the same backend hard cap, so its client
+  // ceiling must not assume the 60s default configuration.
+  PREDICTION: 690_000,
+} as const;
+
+export class ApiTimeoutError extends Error {
+  readonly code = 'CLIENT_TIMEOUT';
+
+  constructor(public readonly timeoutMs: number) {
+    super(`请求超时（${timeoutMs / 1000}秒），请检查网络连接后重试`);
+    this.name = 'ApiTimeoutError';
+  }
+}
+
 const BASE_URL = API_BASE_URL;
 
 /**
@@ -23,9 +42,18 @@ const BASE_URL = API_BASE_URL;
 const getTimeoutForEndpoint = (endpoint: string): number | undefined => {
   const lowerEndpoint = endpoint.toLowerCase();
 
-  // 模型生产准备 - 无超时（会重新拟合生产预测所需模型）
-  if (lowerEndpoint.includes('/models/') && lowerEndpoint.includes('/prepare-production')) {
-    return undefined;
+  // 模型元数据请求、长执行请求和预测分别使用明确的有限预算。
+  if (lowerEndpoint.includes('/models/')) {
+    if (
+      lowerEndpoint.includes('/prepare-production')
+      || /\/guided-training\/sessions\/[^/]+\/steps\/[^/]+\/run$/.test(lowerEndpoint)
+    ) {
+      return MODEL_API_TIMEOUTS.EXECUTION;
+    }
+    if (lowerEndpoint.includes('/predict')) {
+      return MODEL_API_TIMEOUTS.PREDICTION;
+    }
+    return MODEL_API_TIMEOUTS.METADATA;
   }
 
   // ADF检验会拉起 Python 进程，真实数据集下可能超过默认 CRUD 超时
@@ -120,20 +148,22 @@ const buildUrl = (endpoint: string): string => {
 interface RequestAbortContext {
   signal: AbortSignal;
   cleanup: () => void;
-  didTimeout: () => boolean;
+  getTimeoutError: () => ApiTimeoutError | null;
 }
 
 const createRequestAbortContext = (timeout: number, externalSignal?: AbortSignal): RequestAbortContext => {
   const controller = new AbortController();
-  let timedOut = false;
+  let timeoutError: ApiTimeoutError | null = null;
 
   const abortFromExternalSignal = () => {
+    if (controller.signal.aborted) return;
     controller.abort(externalSignal?.reason);
   };
 
   const timeoutId = setTimeout(() => {
-    timedOut = true;
-    controller.abort();
+    if (controller.signal.aborted) return;
+    timeoutError = new ApiTimeoutError(timeout);
+    controller.abort(timeoutError);
   }, timeout);
 
   if (externalSignal) {
@@ -150,7 +180,7 @@ const createRequestAbortContext = (timeout: number, externalSignal?: AbortSignal
       clearTimeout(timeoutId);
       externalSignal?.removeEventListener("abort", abortFromExternalSignal);
     },
-    didTimeout: () => timedOut,
+    getTimeoutError: () => timeoutError,
   };
 };
 
@@ -284,10 +314,11 @@ const request = async <T = any>(
         ...config,
         signal: abortContext.signal,
       });
-      return handleResponse<T>(response, endpoint);
+      return await handleResponse<T>(response, endpoint);
     } catch (err: unknown) {
-      if (abortContext.didTimeout() && err instanceof Error && err.name === 'AbortError') {
-        throw new Error(`请求超时（${timeout / 1000}秒），请检查网络连接后重试`);
+      const timeoutError = abortContext.getTimeoutError();
+      if (timeoutError) {
+        throw timeoutError;
       }
 
       throw err;
@@ -296,7 +327,7 @@ const request = async <T = any>(
     }
   }
 
-  // 无超时的默认行为（用于模型训练等长时间操作）
+  // 调用方显式传入 null 时才禁用超时。
   const response = await fetch(buildUrl(endpoint), config);
   return handleResponse<T>(response, endpoint);
 };

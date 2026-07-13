@@ -31,10 +31,10 @@ server {
 	    try_files $uri =404;
 	}
 
-	# Keep model training progress streams interactive. Backend model endpoints
-	# can be long-running and /training/stream returns NDJSON events, so do not
-	# let nginx buffer these responses before forwarding them to the browser.
+	# Python execution has a 600s hard cap. Reserve another 60s for request setup,
+	# bounded artifact validation/copy, and response persistence, then 15s for nginx.
 	location ^~ /api/v1/models/ {
+	    proxy_read_timeout 675s;
 	    proxy_buffering off;
 	    proxy_cache off;
 	    gzip off;

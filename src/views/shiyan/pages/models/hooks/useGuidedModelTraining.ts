@@ -87,6 +87,8 @@ const extractGuidedErrorStatus = (guidedError: unknown): number | null => {
 
 const extractGuidedErrorCode = (guidedError: unknown): string | null => {
   if (!guidedError || typeof guidedError !== 'object') return null;
+  const directCode = (guidedError as { code?: unknown }).code;
+  if (typeof directCode === 'string') return directCode;
   const payload = (guidedError as { payload?: unknown }).payload;
   if (!payload || typeof payload !== 'object') return null;
   const code = (payload as Record<string, unknown>).code;
@@ -124,6 +126,15 @@ const resolveErrorMessage = (
   const transientMessage = getTransientGuidedTrainingMessage(error);
   if (transientMessage) {
     return transientMessage;
+  }
+
+  const timeoutCode = extractGuidedErrorCode(error);
+  const timeoutStatus = extractGuidedErrorStatus(error);
+  if (timeoutCode === 'CLIENT_TIMEOUT') {
+    return '模型请求等待超时，请重试当前操作。';
+  }
+  if (timeoutCode === 'MODEL_TIMEOUT' || timeoutStatus === 504) {
+    return extractGuidedErrorDetail(error) ?? '训练步骤超时，请重试当前步骤。';
   }
 
   if (getErrorMessage) {

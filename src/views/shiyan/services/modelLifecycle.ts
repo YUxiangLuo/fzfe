@@ -1,4 +1,4 @@
-import { apiClient } from '@/utils/apiClient';
+import { apiClient, MODEL_API_TIMEOUTS } from '@/utils/apiClient';
 import type { SelectedBestModel } from '../store/experiment/types';
 import { BEST_MODEL_TO_BACKEND_MODEL_TYPE } from '../utils/modelCatalog';
 
@@ -7,6 +7,7 @@ type ProductionRequestErrorKind = 'invalid' | 'missing' | 'conflict' | 'busy' | 
 type ApiRequestError = Error & {
   status?: number;
   payload?: unknown;
+  code?: string;
 };
 
 export interface ModelPredictionPoint {
@@ -102,8 +103,12 @@ const stripHttpPrefix = (message: string): string | null => {
 const extractErrorDetail = (error: ApiRequestError): string | null =>
   extractPayloadErrorMessage(error.payload) ?? stripHttpPrefix(error.message);
 
-const getProductionErrorKind = (status?: number): ProductionRequestErrorKind => {
-  switch (status) {
+const getProductionErrorKind = (error: ApiRequestError): ProductionRequestErrorKind => {
+  if (error.code === 'CLIENT_TIMEOUT') {
+    return 'timeout';
+  }
+
+  switch (error.status) {
     case 400:
       return 'invalid';
     case 404:
@@ -128,6 +133,10 @@ const appendErrorDetail = (baseMessage: string, detail: string | null): string =
 
 const buildProductionErrorMessage = (error: ApiRequestError): string => {
   const detail = extractErrorDetail(error);
+
+  if (error.code === 'CLIENT_TIMEOUT') {
+    return appendErrorDetail('生成需求预测超时，请稍后重试。', detail);
+  }
 
   switch (error.status) {
     case 400:
@@ -165,7 +174,7 @@ const normalizeProductionRequestError = (
     {
       status: requestError.status,
       stage,
-      kind: getProductionErrorKind(requestError.status),
+      kind: getProductionErrorKind(requestError),
       originalError: error,
     },
   );
@@ -193,7 +202,7 @@ export const predictWithBestModel = async (
       experiment_id: experimentId,
       forecast_steps: forecastSteps,
     }, {
-      timeoutMs: null,
+      timeoutMs: MODEL_API_TIMEOUTS.EXECUTION,
     })
   );
   if (
@@ -212,6 +221,8 @@ export const predictWithBestModel = async (
       experiment_id: experimentId,
       forecast_steps: forecastSteps,
       preparation_token: preparation.results.preparation_token,
+    }, {
+      timeoutMs: MODEL_API_TIMEOUTS.PREDICTION,
     })
   );
 };

@@ -31,6 +31,11 @@ const apiPost = mock(async (endpoint: string): Promise<any> =>
 );
 
 mock.module(apiClientModulePath, () => ({
+  MODEL_API_TIMEOUTS: {
+    METADATA: 30_000,
+    EXECUTION: 690_000,
+    PREDICTION: 690_000,
+  },
   apiClient: {
     post: apiPost,
   },
@@ -73,12 +78,14 @@ describe("modelLifecycle", () => {
       experiment_id: 7,
       forecast_steps: 6,
     }, {
-      timeoutMs: null,
+      timeoutMs: 690_000,
     });
     expect(apiPost).toHaveBeenNthCalledWith(2, "/models/ma/predict", {
       experiment_id: 7,
       forecast_steps: 6,
       preparation_token: preparationResponse.results.preparation_token,
+    }, {
+      timeoutMs: 690_000,
     });
     expect(result).toEqual({
       status: "success",
@@ -98,12 +105,14 @@ describe("modelLifecycle", () => {
       experiment_id: 9,
       forecast_steps: 4,
     }, {
-      timeoutMs: null,
+      timeoutMs: 690_000,
     });
     expect(apiPost).toHaveBeenNthCalledWith(2, "/models/weighted_avg/predict", {
       experiment_id: 9,
       forecast_steps: 4,
       preparation_token: preparationResponse.results.preparation_token,
+    }, {
+      timeoutMs: 690_000,
     });
   });
 
@@ -159,6 +168,8 @@ describe("modelLifecycle", () => {
       experiment_id: 11,
       forecast_steps: 3,
       preparation_token: preparationResponse.results.preparation_token,
+    }, {
+      timeoutMs: 690_000,
     });
   });
 
@@ -182,6 +193,8 @@ describe("modelLifecycle", () => {
       experiment_id: 13,
       forecast_steps: 5,
       preparation_token: preparationResponse.results.preparation_token,
+    }, {
+      timeoutMs: 690_000,
     });
   });
 
@@ -220,5 +233,23 @@ describe("modelLifecycle", () => {
       kind: "timeout",
     });
     expect(apiPost).toHaveBeenCalledTimes(2);
+  });
+
+  it("maps a frontend execution deadline to a timeout error", async () => {
+    const { predictWithBestModel } = await loadModelLifecycle();
+    apiPost.mockRejectedValueOnce(Object.assign(
+      new Error("请求超时（690秒），请检查网络连接后重试"),
+      { code: "CLIENT_TIMEOUT", timeoutMs: 690_000 },
+    ));
+
+    await expect(
+      predictWithBestModel("ensemble_stacking", 22, 6),
+    ).rejects.toMatchObject({
+      name: "ProductionPredictionError",
+      message: expect.stringContaining("生成需求预测超时"),
+      stage: "prepare",
+      kind: "timeout",
+    });
+    expect(apiPost).toHaveBeenCalledTimes(1);
   });
 });

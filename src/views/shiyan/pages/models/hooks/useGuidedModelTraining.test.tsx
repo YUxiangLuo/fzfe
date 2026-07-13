@@ -208,6 +208,31 @@ describe('useGuidedModelTraining', () => {
     await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('completed'));
   });
 
+  it('shows the structured timeout message and counts it toward manual retries', async () => {
+    const timeoutError = Object.assign(
+      new Error('HTTP 504 Gateway Timeout - 训练步骤超时，请重试当前步骤'),
+      {
+        status: 504,
+        payload: {
+          error: '训练步骤超时，请重试当前步骤',
+          code: 'MODEL_TIMEOUT',
+          retryable: true,
+        },
+      },
+    );
+    runGuidedTrainingStep.mockRejectedValueOnce(timeoutError);
+    const Component = await Harness();
+
+    view = render(<Component />);
+    fireEvent.click(view.getByRole('button', { name: 'run' }));
+
+    await waitFor(() =>
+      expect(view!.getByTestId('error').textContent).toBe('训练步骤超时，请重试当前步骤'),
+    );
+    expect(view.getByTestId('retry-count').textContent).toBe('1');
+    expect(runGuidedTrainingStep).toHaveBeenCalledTimes(1);
+  });
+
   it('counts session creation failures and retries initialization', async () => {
     createGuidedTrainingSession
       .mockRejectedValueOnce(new Error('create failed'))

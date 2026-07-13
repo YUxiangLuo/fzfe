@@ -38,11 +38,14 @@ afterEach(() => {
 });
 
 describe("apiClient timeout handling", () => {
-  it("does not attach timeout control to prepare-production requests", async () => {
+  it("includes backend processing and transport overhead for model execution requests", async () => {
     const apiClient = await loadApiClient();
-    const setTimeoutMock = mock(() => 1 as unknown as ReturnType<typeof setTimeout>);
+    const setTimeoutMock = mock((_handler: TimerHandler, timeout?: number) => {
+      expect(timeout).toBe(690_000);
+      return 1 as unknown as ReturnType<typeof setTimeout>;
+    });
     const fetchMock = mock(async (_input: RequestInfo | URL, init?: RequestInit) => {
-      expect(init?.signal).toBeUndefined();
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
 
       return new Response(JSON.stringify({ data: { ok: true } }), {
         status: 200,
@@ -62,8 +65,47 @@ describe("apiClient timeout handling", () => {
       }),
     ).resolves.toEqual({ ok: true });
 
-    expect(setTimeoutMock).not.toHaveBeenCalled();
+    expect(setTimeoutMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the hard-cap transport budget for configurable model predictions", async () => {
+    const apiClient = await loadApiClient();
+    const setTimeoutMock = mock((_handler: TimerHandler, timeout?: number) => {
+      expect(timeout).toBe(690_000);
+      return 1 as unknown as ReturnType<typeof setTimeout>;
+    });
+    globalThis.setTimeout = setTimeoutMock as unknown as typeof setTimeout;
+    globalThis.fetch = mock(async () => new Response(JSON.stringify({ data: { predictions: [] } }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })) as unknown as typeof fetch;
+
+    await expect(
+      apiClient.post("/models/ma/predict", {
+        experiment_id: 7,
+        forecast_steps: 6,
+      }),
+    ).resolves.toEqual({ predictions: [] });
+    expect(setTimeoutMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses a 30-second timeout for guided-session metadata requests", async () => {
+    const apiClient = await loadApiClient();
+    const setTimeoutMock = mock((_handler: TimerHandler, timeout?: number) => {
+      expect(timeout).toBe(30_000);
+      return 1 as unknown as ReturnType<typeof setTimeout>;
+    });
+    globalThis.setTimeout = setTimeoutMock as unknown as typeof setTimeout;
+    globalThis.fetch = mock(async () => new Response(JSON.stringify({ data: { session_id: "s1" } }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })) as unknown as typeof fetch;
+
+    await expect(
+      apiClient.get("/models/ma/guided-training/sessions/s1"),
+    ).resolves.toEqual({ session_id: "s1" });
+    expect(setTimeoutMock).toHaveBeenCalledTimes(1);
   });
 
   it("preserves external aborts instead of rewriting them as request timeouts", async () => {
@@ -100,6 +142,81 @@ describe("apiClient timeout handling", () => {
     });
   });
 
+  it("keeps an external abort classified as cancellation even if the timeout callback runs later", async () => {
+    const apiClient = await loadApiClient();
+    let runTimeout = () => {};
+
+    globalThis.setTimeout = ((handler: TimerHandler) => {
+      runTimeout = () => {
+        if (typeof handler === "function") handler();
+      };
+      return 1 as unknown as ReturnType<typeof setTimeout>;
+    }) as unknown as typeof setTimeout;
+    globalThis.clearTimeout = mock(() => {}) as typeof clearTimeout;
+    globalThis.fetch = mock((_input: RequestInfo | URL, init?: RequestInit) => {
+      const signal = init?.signal;
+      return new Promise<Response>((_resolve, reject) => {
+        signal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("Cancelled by caller", "AbortError")),
+          { once: true },
+        );
+      });
+    }) as unknown as typeof fetch;
+
+    const controller = new AbortController();
+    const requestPromise = apiClient.get("/status", { signal: controller.signal });
+    controller.abort(new DOMException("Navigation", "AbortError"));
+    runTimeout();
+
+    await expect(requestPromise).rejects.toMatchObject({
+      name: "AbortError",
+      message: "Cancelled by caller",
+    });
+  });
+
+  it("keeps the timeout active while the response body is being read", async () => {
+    const apiClient = await loadApiClient();
+    let runTimeout = () => {};
+    let timerCleared = false;
+
+    globalThis.setTimeout = ((handler: TimerHandler) => {
+      runTimeout = () => {
+        if (!timerCleared && typeof handler === "function") handler();
+      };
+      return 1 as unknown as ReturnType<typeof setTimeout>;
+    }) as unknown as typeof setTimeout;
+    globalThis.clearTimeout = mock(() => {
+      timerCleared = true;
+    }) as typeof clearTimeout;
+    globalThis.fetch = mock(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const signal = init?.signal;
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          signal?.addEventListener("abort", () => {
+            controller.error(signal.reason);
+          }, { once: true });
+        },
+      });
+      return new Response(body, {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+
+    const requestPromise = apiClient.get("/status");
+    await Promise.resolve();
+    expect(timerCleared).toBe(false);
+    runTimeout();
+
+    await expect(requestPromise).rejects.toMatchObject({
+      name: "ApiTimeoutError",
+      code: "CLIENT_TIMEOUT",
+      timeoutMs: 10_000,
+    });
+    expect(timerCleared).toBe(true);
+  });
+
   it("still rewrites real timeout aborts into the timeout error message", async () => {
     const apiClient = await loadApiClient();
 
@@ -134,7 +251,12 @@ describe("apiClient timeout handling", () => {
     }) as unknown as typeof fetch;
 
     try {
-      await expect(apiClient.get("/status")).rejects.toThrow("请求超时（10秒）");
+      await expect(apiClient.get("/status")).rejects.toMatchObject({
+        name: "ApiTimeoutError",
+        code: "CLIENT_TIMEOUT",
+        timeoutMs: 10_000,
+        message: "请求超时（10秒），请检查网络连接后重试",
+      });
     } finally {
       globalThis.setTimeout = originalSetTimeout;
       globalThis.clearTimeout = originalClearTimeout;
