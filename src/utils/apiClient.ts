@@ -15,11 +15,11 @@ export interface ApiRequestOptions extends RequestInit {
 
 export const MODEL_API_TIMEOUTS = {
   METADATA: 30_000,
-  // Backend Python may use the full 600s hard cap. Reserve 60s for request
-  // setup/artifact post-processing and 30s across nginx/browser transport.
+  // Backend operation <=660s, nginx=675s, browser=690s. Keep these synchronized
+  // with backend MODEL_HTTP_TIMEOUT_BUDGETS and the production nginx config.
   EXECUTION: 690_000,
-  // Prediction is configurable up to the same backend hard cap, so its client
-  // ceiling must not assume the 60s default configuration.
+  // Prediction has the same per-call backend deadline even though its Python
+  // process normally uses the shorter configured prediction timeout.
   PREDICTION: 690_000,
 } as const;
 

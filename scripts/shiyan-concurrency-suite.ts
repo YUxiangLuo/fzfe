@@ -1,9 +1,14 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import {
+  spawn,
+  type ChildProcessByStdio,
+  type ChildProcessWithoutNullStreams,
+} from "node:child_process";
 import { once } from "node:events";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
+import type { Readable } from "node:stream";
 import { resolveE2EBackendDir } from "../tests/e2e/helpers/backend-dir";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -11,7 +16,7 @@ const FE_DIR = path.resolve(__dirname, "..");
 const BE_DIR = resolveE2EBackendDir(FE_DIR);
 const STARTUP_TIMEOUT_MS = 120_000;
 
-type SuiteName = "all" | "model" | "pdf";
+type SuiteName = "all" | "capacity" | "model" | "pdf";
 type OutcomeKind = "success" | "busy429" | "busy503" | "conflict409" | "unexpected";
 
 const BACKEND_ORIGIN =
@@ -29,6 +34,10 @@ const MODEL_CAPACITY_REQUESTS = parsePositiveInteger(
   process.env.E2E_CONCURRENCY_MODEL_CAPACITY_REQUESTS ??
     String(Math.min(MODEL_CONCURRENCY, 2)),
   "E2E_CONCURRENCY_MODEL_CAPACITY_REQUESTS",
+);
+const MODEL_CAPACITY_HOLD_MS = parsePositiveInteger(
+  process.env.E2E_CONCURRENCY_MODEL_CAPACITY_HOLD_MS ?? "3000",
+  "E2E_CONCURRENCY_MODEL_CAPACITY_HOLD_MS",
 );
 const DB_CONNECTION_LIMIT = parsePositiveInteger(
   process.env.DB_CONNECTION_LIMIT ?? "48",
@@ -167,6 +176,7 @@ try {
 
 interface RuntimeInfo {
   app?: string;
+  e2eServer?: unknown;
   database?: string;
   concurrency?: {
     systemParallelism?: unknown;
@@ -182,7 +192,19 @@ interface RuntimeInfo {
     pdfQueueMs?: unknown;
     pdfGenerationMs?: unknown;
   };
+  modelOperations?: {
+    admission?: {
+      active?: unknown;
+      pending?: unknown;
+    };
+    activeLeases?: unknown;
+  };
+  modelLocks?: {
+    active?: unknown;
+  };
 }
+
+type BackendChildProcess = ChildProcessByStdio<null, Readable, Readable>;
 
 interface LoginResponse {
   token?: string;
@@ -307,11 +329,11 @@ function parseSuiteName(): SuiteName {
     return "all";
   }
 
-  if (rawValue === "all" || rawValue === "model" || rawValue === "pdf") {
+  if (rawValue === "all" || rawValue === "capacity" || rawValue === "model" || rawValue === "pdf") {
     return rawValue;
   }
 
-  throw new Error(`Unknown concurrency suite "${rawValue}". Expected all, model, or pdf.`);
+  throw new Error(`Unknown concurrency suite "${rawValue}". Expected all, capacity, model, or pdf.`);
 }
 
 async function runSubcommand(input: {
@@ -381,6 +403,7 @@ async function waitForBackend(logs?: () => string) {
 
 function expectedBackendEnv() {
   return {
+    E2E_SERVER: "1",
     MAX_CONCURRENT_MODEL_JOBS: String(MODEL_CONCURRENCY),
     MAX_CONCURRENT_PDF_JOBS: String(PDF_CONCURRENCY),
     PDF_QUEUE_TIMEOUT_MS: String(PDF_QUEUE_TIMEOUT_MS),
@@ -391,7 +414,13 @@ function expectedBackendEnv() {
   };
 }
 
-function validateRuntimeInfo(runtimeInfo: RuntimeInfo) {
+function validateRuntimeInfo(runtimeInfo: RuntimeInfo, suite: SuiteName) {
+  if (suite !== "pdf") {
+    ensure(
+      runtimeInfo.e2eServer === true,
+      "Model-capacity suites require a backend started with E2E_SERVER=1; refusing to reuse a normal backend",
+    );
+  }
   ensure(
     Number(runtimeInfo.concurrency?.maxConcurrentModelJobs) === MODEL_CONCURRENCY,
     `Expected backend maxConcurrentModelJobs=${MODEL_CONCURRENCY}, got ${String(runtimeInfo.concurrency?.maxConcurrentModelJobs)}`,
@@ -422,10 +451,10 @@ function validateRuntimeInfo(runtimeInfo: RuntimeInfo) {
   );
 }
 
-async function startBackend(): Promise<ChildProcessWithoutNullStreams | null> {
+async function startBackend(suite: SuiteName): Promise<BackendChildProcess | null> {
   if (!AUTO_START_BACKEND) {
     const runtimeInfo = await waitForBackend();
-    validateRuntimeInfo(runtimeInfo);
+    validateRuntimeInfo(runtimeInfo, suite);
     return null;
   }
 
@@ -433,7 +462,7 @@ async function startBackend(): Promise<ChildProcessWithoutNullStreams | null> {
   if (await isReachable(rootUrl)) {
     const runtimeInfo = await fetchRuntimeInfo();
     if (runtimeInfo?.app === "fangzhen-be") {
-      validateRuntimeInfo(runtimeInfo);
+      validateRuntimeInfo(runtimeInfo, suite);
       console.log(`[concurrency] reusing backend ${BACKEND_ORIGIN}`);
       return null;
     }
@@ -471,12 +500,12 @@ async function startBackend(): Promise<ChildProcessWithoutNullStreams | null> {
   });
 
   const runtimeInfo = await Promise.race([waitForBackend(() => recentLogs), exitPromise]);
-  validateRuntimeInfo(runtimeInfo);
+  validateRuntimeInfo(runtimeInfo, suite);
   console.log(`[concurrency] started backend ${BACKEND_ORIGIN}`);
   return child;
 }
 
-async function stopBackend(child: ChildProcessWithoutNullStreams | null) {
+async function stopBackend(child: BackendChildProcess | null) {
   if (!child || child.exitCode !== null) {
     return;
   }
@@ -537,7 +566,12 @@ async function requestJson(input: {
   }
 }
 
+const studentTokenCache = new Map<string, string>();
+
 async function loginStudent(username: string) {
+  const cachedToken = studentTokenCache.get(username);
+  if (cachedToken) return cachedToken;
+
   const response = await requestJson({
     pathname: "/api/v1/sessions",
     method: "POST",
@@ -555,6 +589,7 @@ async function loginStudent(username: string) {
   const payload = unwrapDataEnvelope<LoginResponse>(response.payload);
   const token = payload.token ?? payload.data?.token;
   ensure(token, `Login response for ${username} did not include a token`);
+  studentTokenCache.set(username, token);
   return token;
 }
 
@@ -822,6 +857,29 @@ async function submitMovingAverageTraining(input: {
   };
 }
 
+async function holdModelOperationLease(input: {
+  username: string;
+  token: string;
+  experimentId: number;
+}): Promise<RequestOutcome> {
+  const response = await requestJson({
+    pathname: "/api/v1/e2e/model-lease/hold",
+    method: "POST",
+    token: input.token,
+    body: { hold_ms: MODEL_CAPACITY_HOLD_MS },
+    timeoutMs: MODEL_CAPACITY_HOLD_MS + 30_000,
+  });
+
+  return {
+    username: input.username,
+    experimentId: input.experimentId,
+    httpStatus: response.status,
+    outcome: classifyHttpOutcome(response.status, response.ok),
+    elapsedMs: response.elapsedMs,
+    payload: response.payload,
+  };
+}
+
 async function ensureMovingAverageTrainingRun(input: {
   username: string;
   token: string;
@@ -1011,27 +1069,59 @@ function logOutcome(prefix: string, outcome: RequestOutcome) {
 
 async function runModelCapacityTest() {
   ensure(
-    MODEL_CAPACITY_REQUESTS <= MODEL_CONCURRENCY,
-    `E2E_CONCURRENCY_MODEL_CAPACITY_REQUESTS must be <= E2E_CONCURRENCY_MODEL_JOBS`,
+    MODEL_CAPACITY_REQUESTS <= 100,
+    "E2E_CONCURRENCY_MODEL_CAPACITY_REQUESTS cannot exceed the 100 seeded students",
   );
-
-  await prepareParallelScenario("training-burst");
+  ensure(
+    MODEL_CAPACITY_HOLD_MS <= 30_000,
+    "E2E_CONCURRENCY_MODEL_CAPACITY_HOLD_MS cannot exceed the E2E endpoint limit of 30000",
+  );
+  await prepareParallelScenario("start-only");
   const sessions = await Promise.all(
-    Array.from({ length: MODEL_CAPACITY_REQUESTS }, (_, index) =>
-      getLatestExperiment(String(20246001 + index)),
-    ),
+    Array.from({ length: MODEL_CAPACITY_REQUESTS }, async (_, index) => {
+      const username = String(20246001 + index);
+      return {
+        username,
+        token: await loginStudent(username),
+        // The E2E endpoint fences by authenticated student id; retaining this
+        // field keeps the common outcome format readable without requiring an
+        // experiment row in the start-only scenario.
+        experimentId: Number(username),
+      };
+    }),
   );
 
-  const outcomes = await Promise.all(sessions.map((session) => submitMovingAverageTraining(session)));
+  const outcomes = await Promise.all(sessions.map((session) => holdModelOperationLease(session)));
   outcomes.forEach((outcome) => logOutcome("model-capacity", outcome));
   const counts = summarizeOutcomes(outcomes);
+  const expectedSuccesses = Math.min(MODEL_CAPACITY_REQUESTS, MODEL_CONCURRENCY);
+  const expectedBusy = Math.max(0, MODEL_CAPACITY_REQUESTS - MODEL_CONCURRENCY);
 
   ensure(counts.unexpected === 0, `Model capacity test had unexpected responses: ${counts.unexpected}`);
-  ensure(counts.busy429 === 0, `Model capacity test should not return 429 inside configured capacity`);
-  ensure(counts.success === MODEL_CAPACITY_REQUESTS, `Expected ${MODEL_CAPACITY_REQUESTS} model successes, got ${counts.success}`);
+  ensure(counts.conflict409 === 0, `Model capacity test should use distinct execution locks`);
+  ensure(counts.success === expectedSuccesses, `Expected ${expectedSuccesses} admitted model requests, got ${counts.success}`);
+  ensure(counts.busy429 === expectedBusy, `Expected ${expectedBusy} fail-fast model 429 responses, got ${counts.busy429}`);
+
+  const finalRuntimeInfo = await fetchRuntimeInfo();
+  ensure(finalRuntimeInfo, "Model capacity test could not read final runtime stats");
+  ensure(
+    Number(finalRuntimeInfo.modelOperations?.admission?.active) === 0
+      && Number(finalRuntimeInfo.modelOperations?.admission?.pending) === 0
+      && Number(finalRuntimeInfo.modelOperations?.activeLeases) === 0,
+    `Model admission did not drain after capacity test: ${JSON.stringify(finalRuntimeInfo.modelOperations)}`,
+  );
+  ensure(
+    Number(finalRuntimeInfo.modelLocks?.active) === 0,
+    `Model advisory locks did not drain after capacity test: ${JSON.stringify(finalRuntimeInfo.modelLocks)}`,
+  );
 
   return {
-    name: "model-capacity",
+    name: "model-capacity-fail-fast",
+    expected: {
+      admitted: expectedSuccesses,
+      busy429: expectedBusy,
+      admissionPendingAfter: 0,
+    },
     counts,
     outcomes,
   };
@@ -1140,7 +1230,7 @@ async function runPredictionSlotSaturationTest() {
   }
 }
 
-async function runReusableBaseArtifactBypassTest() {
+async function runReusableBaseArtifactAdmissionTest() {
   await prepareParallelScenario("mixed-load");
   const session = await getLatestExperiment(PRODUCTION_STUDENT_USERNAME);
   await ensureMovingAverageTrainingRun(session);
@@ -1154,18 +1244,14 @@ async function runReusableBaseArtifactBypassTest() {
 
   try {
     const outcome = await prepareProductionModel(session);
-    logOutcome("base-reusable-artifact-slot-bypass", outcome);
-    const payload = unwrapDataEnvelope<unknown>(outcome.payload);
-    ensure(outcome.outcome === "success", `Expected reusable base production artifact to bypass model slots, got ${outcome.httpStatus}`);
+    logOutcome("base-reusable-artifact-still-behind-admission", outcome);
     ensure(
-      isRecord(payload) &&
-        isRecord(payload.results) &&
-        payload.results.reused_existing === true,
-      `Expected reusable base artifact response, got ${JSON.stringify(outcome.payload)}`,
+      outcome.outcome === "busy429",
+      `Expected reusable base production artifact to remain behind model admission, got ${outcome.httpStatus}`,
     );
 
     return {
-      name: "base-reusable-artifact-slot-bypass",
+      name: "base-reusable-artifact-still-behind-admission",
       counts: summarizeOutcomes([outcome]),
       outcomes: [outcome],
     };
@@ -1262,6 +1348,7 @@ async function main() {
     console.log(`
 Usage:
   bun run e2e:shiyan:concurrency
+  bun run e2e:shiyan:concurrency:capacity
   bun run e2e:shiyan:concurrency:model
   bun run e2e:shiyan:concurrency:pdf
 
@@ -1276,7 +1363,8 @@ machines and larger 64-core servers.
 
 For 64-core server pressure runs, set:
   E2E_CONCURRENCY_MODEL_JOBS=50
-  E2E_CONCURRENCY_MODEL_CAPACITY_REQUESTS=50
+  E2E_CONCURRENCY_MODEL_CAPACITY_REQUESTS=100
+  E2E_CONCURRENCY_MODEL_CAPACITY_HOLD_MS=3000
   E2E_CONCURRENCY_PDF_JOBS=12
   E2E_CONCURRENCY_PDF_STUDENTS=50
   E2E_CONCURRENCY_EXPECT_PDF_503=0
@@ -1288,26 +1376,29 @@ For 64-core server pressure runs, set:
   const suite = parseSuiteName();
   await mkdir(ARTIFACTS_DIR, { recursive: true });
 
-  const backend = await startBackend();
+  const backend = await startBackend(suite);
   try {
     const runtimeInfo = await waitForBackend();
-    validateRuntimeInfo(runtimeInfo);
+    validateRuntimeInfo(runtimeInfo, suite);
 
     console.log(`[concurrency] suite=${suite}`);
     console.log(`[concurrency] backend=${BACKEND_ORIGIN}`);
     console.log(`[concurrency] systemParallelism=${String(runtimeInfo.concurrency?.systemParallelism)}`);
     console.log(`[concurrency] maxConcurrentModelJobs=${MODEL_CONCURRENCY}`);
+    console.log(`[concurrency] modelCapacityRequests=${MODEL_CAPACITY_REQUESTS}`);
     console.log(`[concurrency] maxConcurrentPdfJobs=${PDF_CONCURRENCY}`);
     console.log(`[concurrency] pdfQueueTimeoutMs=${PDF_QUEUE_TIMEOUT_MS}`);
 
     const results = [];
-    if (suite === "all" || suite === "model") {
+    if (suite === "all" || suite === "model" || suite === "capacity") {
       results.push(await runModelCapacityTest());
+    }
+    if (suite === "all" || suite === "model") {
       results.push(await runTrainingSlotSaturationTest());
       results.push(await runExecutionLockConflictTest());
       results.push(await runProductionPrepareModelSlotSaturationTest());
       results.push(await runPredictionSlotSaturationTest());
-      results.push(await runReusableBaseArtifactBypassTest());
+      results.push(await runReusableBaseArtifactAdmissionTest());
       results.push(await runReusableEnsembleStillBehindSlotTest());
     }
     if (suite === "all" || suite === "pdf") {
@@ -1322,6 +1413,7 @@ For 64-core server pressure runs, set:
       config: {
         modelConcurrency: MODEL_CONCURRENCY,
         modelCapacityRequests: MODEL_CAPACITY_REQUESTS,
+        modelCapacityHoldMs: MODEL_CAPACITY_HOLD_MS,
         pdfConcurrency: PDF_CONCURRENCY,
         pdfStudentCount: PDF_STUDENT_COUNT,
         pdfQueueTimeoutMs: PDF_QUEUE_TIMEOUT_MS,
