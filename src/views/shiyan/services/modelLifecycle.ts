@@ -103,6 +103,14 @@ const stripHttpPrefix = (message: string): string | null => {
 const extractErrorDetail = (error: ApiRequestError): string | null =>
   extractPayloadErrorMessage(error.payload) ?? stripHttpPrefix(error.message);
 
+const extractPayloadCode = (payload: unknown): string | null => {
+  if (typeof payload !== 'object' || payload === null) {
+    return null;
+  }
+  const code = (payload as Record<string, unknown>).code;
+  return typeof code === 'string' ? code : null;
+};
+
 const getProductionErrorKind = (error: ApiRequestError): ProductionRequestErrorKind => {
   if (error.code === 'CLIENT_TIMEOUT') {
     return 'timeout';
@@ -149,8 +157,16 @@ const buildProductionErrorMessage = (error: ApiRequestError): string => {
         '找不到可用于生产预测的模型。请先重新尝试生产预测；如仍失败，请返回结果评估页重新确认最优模型。',
         detail,
       );
-    case 409:
+    case 409: {
+      const code = error.code ?? extractPayloadCode(error.payload);
+      if (code === 'PRODUCTION_PREPARATION_STALE') {
+        return '生产模型版本已更新，请再次点击“重试”重新生成需求预测。';
+      }
+      if (code === 'PRODUCTION_PREPARATION_REQUIRED') {
+        return '生产预测模型尚未准备好，请再次点击“重试”重新生成需求预测。';
+      }
       return '当前模型已有训练或预测任务在执行，请稍后再次点击“重试”。';
+    }
     case 429:
       return '模型服务当前繁忙，请稍后再次点击“重试”。';
     case 504:

@@ -46,6 +46,10 @@ const getTimeoutForEndpoint = (endpoint: string): number | undefined => {
   if (lowerEndpoint.includes('/models/')) {
     if (
       lowerEndpoint.includes('/prepare-production')
+      // Guided session creation loads/serializes the full dataset and shares the
+      // same 660s backend deadline as a training step; keep it off the 30s
+      // metadata budget even if a caller forgets to pass an explicit timeout.
+      || /\/guided-training\/sessions$/.test(lowerEndpoint)
       || /\/guided-training\/sessions\/[^/]+\/steps\/[^/]+\/run$/.test(lowerEndpoint)
     ) {
       return MODEL_API_TIMEOUTS.EXECUTION;

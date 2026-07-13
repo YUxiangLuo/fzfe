@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight, CheckCircle2, Factory, Gauge, Info, Loader2, Scale, ShieldAlert, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
@@ -78,6 +78,16 @@ const NewStep1: React.FC = () => {
     demand: number;
     safetyStock: number;
   } | null>(null);
+  // Synchronous re-entrancy guard: the disabled button only updates after a
+  // re-render, so a fast double-click could otherwise fire two predictions.
+  const isPredictingRef = useRef(false);
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // 🔒 固定参数
   const INITIAL_INVENTORY = MPS_CALCULATION.INITIAL_INVENTORY; // 初始库存 = 0
@@ -97,6 +107,10 @@ const NewStep1: React.FC = () => {
 
   // 🔹 预测第一期需求
   const handlePredictPeriod1 = async () => {
+    if (isPredictingRef.current) {
+      return;
+    }
+    isPredictingRef.current = true;
     hideToast();
     setIsPredicting(true);
 
@@ -110,6 +124,12 @@ const NewStep1: React.FC = () => {
         experimentState.experiment_id,
         FIXED_FORECAST_PERIODS,
       );
+
+      // The backend keeps running after a browser disconnect; if the student
+      // navigated away mid-request, skip UI/store updates for the dead view.
+      if (!isMountedRef.current) {
+        return;
+      }
 
       if (response.status !== 'success' || !response.results?.predictions) {
         throw new Error('预测API返回数据格式错误');
@@ -164,9 +184,14 @@ const NewStep1: React.FC = () => {
       setIsPeriod1Generated(true);
     } catch (err) {
       console.error('生成预测失败:', err);
-      showToast(err instanceof Error ? err.message : '生成预测失败，请重试', 'error');
+      if (isMountedRef.current) {
+        showToast(err instanceof Error ? err.message : '生成预测失败，请重试', 'error');
+      }
     } finally {
-      setIsPredicting(false);
+      isPredictingRef.current = false;
+      if (isMountedRef.current) {
+        setIsPredicting(false);
+      }
     }
   };
 

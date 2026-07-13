@@ -198,6 +198,25 @@ describe("modelLifecycle", () => {
     });
   });
 
+  it("explains a stale production preparation as a version change", async () => {
+    const { predictWithBestModel } = await loadModelLifecycle();
+
+    const staleError = new Error("HTTP 409 - stale") as Error & { status?: number; payload?: unknown };
+    staleError.status = 409;
+    staleError.payload = { error: "预测期间模型版本已变化", code: "PRODUCTION_PREPARATION_STALE" };
+
+    apiPost.mockResolvedValueOnce(preparationResponse);
+    apiPost.mockRejectedValueOnce(staleError);
+
+    const rejected = await predictWithBestModel("exp", 13, 5).catch((error: any) => error);
+    expect(rejected.status).toBe(409);
+    expect(rejected.kind).toBe("conflict");
+    // Distinct from the generic MODEL_BUSY 409 wording.
+    expect(rejected.message).toContain("生产模型版本已更新");
+    expect(rejected.message).toContain("重新生成需求预测");
+    expect(rejected.message).not.toContain("已有训练或预测任务在执行");
+  });
+
   it("maps production prediction 400 errors to actionable messages", async () => {
     const { predictWithBestModel, ProductionPredictionError } = await loadModelLifecycle();
 
