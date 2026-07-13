@@ -45,7 +45,7 @@ const DifferencingInfo: React.FC = () => {
         <h4 className="text-lg font-semibold text-gray-800 mb-3">如何选择差分阶数？</h4>
         <div className="space-y-3 text-gray-800 text-base">
           <p className="leading-relaxed">
-            <strong>1. 观察 ADF 检验结果：</strong>如果原序列的 ADF 检验显示平稳（p值 &lt; 0.05），则选择 d=0；否则进行一阶差分。
+            <strong>1. 观察 ADF 检验结果：</strong>如果原序列的 ADF 检验显示平稳（p 值 ≤ 0.05），则选择 d=0；否则进行一阶差分。
           </p>
           <p className="leading-relaxed">
             <strong>2. 逐步增加差分阶数：</strong>从 d=0 开始，如果不平稳则尝试 d=1，如果仍不平稳则尝试 d=2。

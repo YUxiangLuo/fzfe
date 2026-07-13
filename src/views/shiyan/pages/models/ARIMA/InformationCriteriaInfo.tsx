@@ -5,7 +5,7 @@ const InformationCriteriaInfo: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h3 className="text-2xl font-bold text-gray-800 mb-4">信息准则函数法 (AIC/BIC)</h3>
-        <p className="text-gray-600">信息准-则函数法是统计模型选择中常用的方法，主要包括赤池信息准则（AIC）和贝叶斯信息准则（BIC）。它们用于评估模型的拟合优度和复杂性，帮助选择最佳模型。</p>
+        <p className="text-gray-600">信息准则函数法是统计模型选择中常用的方法，主要包括赤池信息准则（AIC）和贝叶斯信息准则（BIC）。它们用于评估模型的拟合优度和复杂性，帮助选择最佳模型。</p>
       </div>
       <div className="space-y-4 text-gray-700">
         <section className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg border border-blue-200 shadow-sm">
