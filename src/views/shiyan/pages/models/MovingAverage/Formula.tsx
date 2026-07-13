@@ -40,6 +40,13 @@ const Formula: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <div className="mt-6 p-5 bg-sky-50 rounded-lg border border-sky-200">
+        <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明：</h4>
+        <p className="text-gray-700 leading-relaxed text-base">
+          上式是移动平均的单期定义，窗口内使用实际值计算。本系统预测多期未来销量时，会把每一期预测值滚入窗口继续递推，因此从第二期起窗口中会含有前面的预测值，全程不使用评估集或未来真实值参与计算。
+        </p>
+      </div>
     </div>
   );
 };
