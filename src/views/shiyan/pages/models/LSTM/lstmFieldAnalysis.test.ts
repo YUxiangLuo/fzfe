@@ -30,4 +30,60 @@ describe('lstmFieldAnalysis', () => {
     expect(profiles['外部,指标']?.kind).toBe('numeric');
     expect(profiles['外部,指标']?.numericCount).toBe(2);
   });
+
+  // --- Alignment with backend `_infer_single_feature_type` (fzbe/py/src/data_utils.py) ---
+
+  it('treats low-cardinality calendar integers as categorical', () => {
+    const profile = analyzeLstmField(
+      '月份',
+      ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+    );
+
+    expect(profile.kind).toBe('categorical');
+  });
+
+  it('keeps high-cardinality calendar integers numeric', () => {
+    const profile = analyzeLstmField(
+      '周次',
+      Array.from({ length: 40 }, (_, index) => String(index + 1)),
+    );
+
+    expect(profile.kind).toBe('numeric');
+  });
+
+  it('lets a numeric-name hint win over a categorical-name hint', () => {
+    // 价格 (numeric) + 类型 (categorical) — backend checks numeric hints first.
+    const profile = analyzeLstmField('价格类型', ['1', '2', '3', '2', '1']);
+
+    expect(profile.kind).toBe('numeric');
+  });
+
+  it('downgrades low-cardinality integers without hints to categorical', () => {
+    const profile = analyzeLstmField(
+      '档位',
+      Array.from({ length: 20 }, (_, index) => String((index % 3) + 1)),
+    );
+
+    expect(profile.kind).toBe('categorical');
+  });
+
+  it('keeps low-cardinality integers numeric when unique ratio is high', () => {
+    // Only 3 rows: unique ratio 1.0 > 0.3, so the low-cardinality rule must not fire.
+    const profile = analyzeLstmField('档位', ['1', '2', '3']);
+
+    expect(profile.kind).toBe('numeric');
+  });
+
+  it('classifies comma-formatted numeric columns as categorical like the backend', () => {
+    // pd.to_numeric cannot parse "1,000"; both sides fall back to categorical.
+    const profile = analyzeLstmField('销售数量', ['1,000', '2,000', '3,000']);
+
+    expect(profile.kind).toBe('categorical');
+  });
+
+  it('keeps continuous numeric fields numeric', () => {
+    const profile = analyzeLstmField('测量值', ['10.1', '20.2', '30.3', '40.4', '50.5']);
+
+    expect(profile.kind).toBe('numeric');
+  });
 });

@@ -10,6 +10,11 @@ export interface LstmFieldProfile {
   warnings: string[];
 }
 
+// The word lists and the decision ladder below intentionally mirror the backend
+// heuristic in `fzbe/py/src/data_utils.py` (`_infer_single_feature_type`). The
+// backend is authoritative — it re-infers feature types at training time — so this
+// preview must reach the same numeric/categorical verdict to avoid showing the
+// student a badge that disagrees with how the model actually treats the field.
 const NUMERIC_NAME_HINTS = [
   '价格',
   '促销',
@@ -73,6 +78,26 @@ const CATEGORICAL_TOKEN_HINTS = [
   'weather',
 ];
 
+// Calendar-like integer columns (month/quarter/week/weekday) are treated as
+// categorical only when they stay low-cardinality integers, matching the backend.
+const CALENDAR_NAME_HINTS = [
+  '星期',
+  '月份',
+  '季度',
+  '周次',
+];
+
+const CALENDAR_TOKEN_HINTS = [
+  'dayofweek',
+  'dow',
+  'month',
+  'quarter',
+  'weekday',
+  'weekofyear',
+];
+
+const CALENDAR_MAX_UNIQUE_FOR_CATEGORICAL = 31;
+
 const normalizeFeatureName = (name: string) =>
   Array.from(name.toLowerCase()).filter(ch => /[a-z0-9\u4e00-\u9fff]/u.test(ch)).join('');
 
@@ -86,15 +111,77 @@ const hasAny = (value: string, hints: readonly string[]) => hints.some(hint => v
 
 const hasAnyToken = (tokens: string[], hints: readonly string[]) => hints.some(hint => tokens.includes(hint));
 
-export const isNumericCell = (value: string): boolean => {
-  const normalized = value.trim().replace(/,/g, '');
-  return normalized.length > 0 && Number.isFinite(Number(normalized));
+/**
+ * Parse a single cell the way the backend's `pd.to_numeric(errors="coerce")` does:
+ * plain decimals/scientific notation only. Thousands separators, currency symbols
+ * and non-finite tokens are treated as non-numeric so a comma-formatted column is
+ * classified as categorical on both sides.
+ */
+const parseNumericCell = (value: string): number | null => {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+export const isNumericCell = (value: string): boolean => parseNumericCell(value) !== null;
+
+// Mirror of numpy's `isclose(values, round(values), atol=1e-9)` (default rtol=1e-5).
+const isIntegerLikeNumbers = (numbers: number[]): boolean => {
+  if (numbers.length === 0) {
+    return false;
+  }
+  return numbers.every(value => {
+    const rounded = Math.round(value);
+    return Math.abs(value - rounded) <= 1e-9 + 1e-5 * Math.abs(rounded);
+  });
+};
+
+interface NameHints {
+  looksNumericByName: boolean;
+  looksCalendarByName: boolean;
+  looksCategoricalByName: boolean;
+}
+
+/**
+ * Decide numeric vs categorical for an all-numeric column, replicating the
+ * backend ladder order exactly: numeric-name hints win first, then calendar
+ * columns, then categorical-name hints, then a low-cardinality integer fallback.
+ */
+const inferNumericColumnKind = (numbers: number[], hints: NameHints): 'numeric' | 'categorical' => {
+  if (hints.looksNumericByName) {
+    return 'numeric';
+  }
+
+  const integerLike = isIntegerLikeNumbers(numbers);
+  const uniqueCount = new Set(numbers).size;
+
+  if (hints.looksCalendarByName) {
+    return integerLike && uniqueCount <= CALENDAR_MAX_UNIQUE_FOR_CATEGORICAL ? 'categorical' : 'numeric';
+  }
+
+  if (hints.looksCategoricalByName) {
+    return 'categorical';
+  }
+
+  const lowCardinalityThreshold = Math.max(4, Math.min(12, Math.floor(Math.sqrt(numbers.length)) + 1));
+  const uniqueRatio = uniqueCount / numbers.length;
+  if (integerLike && uniqueCount <= lowCardinalityThreshold && uniqueRatio <= 0.3) {
+    return 'categorical';
+  }
+
+  return 'numeric';
 };
 
 export function analyzeLstmField(field: string, values: string[]): LstmFieldProfile {
   const trimmedValues = values.map(value => String(value ?? '').trim()).filter(value => value.length > 0);
   const uniqueCount = new Set(trimmedValues).size;
-  const numericCount = trimmedValues.filter(isNumericCell).length;
+  const numericValues = trimmedValues
+    .map(parseNumericCell)
+    .filter((value): value is number => value !== null);
+  const numericCount = numericValues.length;
   const nonEmptyCount = trimmedValues.length;
   const warnings: string[] = [];
 
@@ -112,14 +199,20 @@ export function analyzeLstmField(field: string, values: string[]): LstmFieldProf
 
   const normalizedName = normalizeFeatureName(field);
   const nameTokens = tokenizeFeatureName(field);
-  const looksNumericByName = hasAny(normalizedName, NUMERIC_NAME_HINTS) || hasAnyToken(nameTokens, NUMERIC_TOKEN_HINTS);
-  const looksCategoricalByName = hasAny(normalizedName, CATEGORICAL_NAME_HINTS) || hasAnyToken(nameTokens, CATEGORICAL_TOKEN_HINTS);
+  const hints: NameHints = {
+    looksNumericByName: hasAny(normalizedName, NUMERIC_NAME_HINTS) || hasAnyToken(nameTokens, NUMERIC_TOKEN_HINTS),
+    looksCalendarByName: hasAny(normalizedName, CALENDAR_NAME_HINTS) || hasAnyToken(nameTokens, CALENDAR_TOKEN_HINTS),
+    looksCategoricalByName: hasAny(normalizedName, CATEGORICAL_NAME_HINTS) || hasAnyToken(nameTokens, CATEGORICAL_TOKEN_HINTS),
+  };
   const numericRatio = numericCount / nonEmptyCount;
 
   let kind: LstmFieldKind;
   if (numericCount === nonEmptyCount) {
-    kind = looksCategoricalByName ? 'categorical' : 'numeric';
-  } else if (numericCount > 0 && (looksNumericByName || numericRatio >= 0.5)) {
+    // Every value is numeric-coercible: apply the backend's name/cardinality ladder.
+    kind = inferNumericColumnKind(numericValues, hints);
+  } else if (numericCount > 0 && (hints.looksNumericByName || numericRatio >= 0.5)) {
+    // The backend treats any non-coercible value as categorical. We keep a
+    // friendlier "疑似数值" label but the effective verdict is still categorical.
     kind = 'mixed-numeric';
     warnings.push(`该字段包含 ${nonEmptyCount - numericCount} 个非数字值，系统会按类别字段处理，可能不是预期。`);
   } else {
