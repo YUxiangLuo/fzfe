@@ -47,11 +47,13 @@ const completedGuidedSession = (): GuidedTrainingSession => ({
 
 const createGuidedTrainingSession = mock(async () => readyGuidedSession());
 const runGuidedTrainingStep = mock(async () => completedGuidedSession());
+const discardGuidedTrainingSession = mock(async () => undefined);
 
 mock.module(guidedTrainingModulePath, () => ({
   createGuidedTrainingSession,
   runGuidedTrainingStep,
   fetchGuidedTrainingSession: mock(async () => null),
+  discardGuidedTrainingSession,
 }));
 
 const Harness = async () => {
@@ -103,6 +105,14 @@ const Harness = async () => {
         >
           retry
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            void guidedTraining.discardAndRestart();
+          }}
+        >
+          restart
+        </button>
       </div>
     );
   };
@@ -118,6 +128,7 @@ describe('useGuidedModelTraining', () => {
     createGuidedTrainingSession.mockResolvedValue(readyGuidedSession());
     runGuidedTrainingStep.mockClear();
     runGuidedTrainingStep.mockResolvedValue(completedGuidedSession());
+    discardGuidedTrainingSession.mockClear();
   });
 
   afterEach(() => {
@@ -144,6 +155,7 @@ describe('useGuidedModelTraining', () => {
     await waitFor(() => expect(runGuidedTrainingStep).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('completed'));
     expect(view.getByTestId('error').textContent).toBe('');
+    expect(view.getByTestId('retry-count').textContent).toBe('0');
   });
 
   it('does not count backend busy responses toward the retry limit', async () => {
@@ -214,5 +226,24 @@ describe('useGuidedModelTraining', () => {
     await waitFor(() => expect(createGuidedTrainingSession).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('ready'));
     expect(view.getByTestId('error').textContent).toBe('');
+    expect(view.getByTestId('retry-count').textContent).toBe('0');
+  });
+
+  it('discards an exhausted guided session before allowing a clean restart', async () => {
+    runGuidedTrainingStep.mockRejectedValue(new Error('step failed'));
+    const Component = await Harness();
+
+    view = render(<Component />);
+    fireEvent.click(view.getByRole('button', { name: 'run' }));
+    await waitFor(() => expect(view!.getByTestId('retry-count').textContent).toBe('1'));
+
+    fireEvent.click(view.getByRole('button', { name: 'retry' }));
+    await waitFor(() => expect(view!.getByTestId('retry-count').textContent).toBe('2'));
+
+    fireEvent.click(view.getByRole('button', { name: 'restart' }));
+    await waitFor(() => expect(discardGuidedTrainingSession).toHaveBeenCalledWith('ma', 'guided-1'));
+    await waitFor(() => expect(view!.getByTestId('retry-count').textContent).toBe('0'));
+    expect(view.getByTestId('error').textContent).toBe('');
+    expect(view.getByTestId('session-status').textContent).toBe('');
   });
 });

@@ -45,13 +45,13 @@ const WeightedEnsembleStepper: React.FC = () => {
     runNextGuidedStep,
     markAsCompleted,
     handleRetry,
+    discardAndRestart,
     retryCount,
     guidedSession,
     currentProgress,
     progressEvents,
   } = useEnsembleModel({
     type: 'weighted',
-    apiEndpoint: '/models/weighted_avg/training',
     stateKey: {
       baseModels: 'ensemble_weighted_base_models',
       completed: 'ensemble_weighted_completed',
@@ -188,7 +188,7 @@ const WeightedEnsembleStepper: React.FC = () => {
 
   const renderContent = () => {
     if (currentStep.id === 'results' && error && retryCount >= MODEL_RETRY_LIMITS.maxFailures) {
-      return <RetryExceededFallback navigate={navigate} />;
+      return <RetryExceededFallback navigate={navigate} onRestart={discardAndRestart} />;
     }
     return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
   };

@@ -128,6 +128,7 @@ const LSTMStepper: React.FC = () => {
     initializeSession: initializeGuidedTrainingSession,
     runNextStep: runNextGuidedTrainingStep,
     handleRetry,
+    discardAndRestart: discardAndRestartTraining,
     resetGuidedTraining,
   } = useGuidedModelTraining<any>({
     modelType: 'lstm',
@@ -350,7 +351,7 @@ const LSTMStepper: React.FC = () => {
 
   const renderContent = () => {
     if (currentStep.id === 'results' && error && retryCount >= MODEL_RETRY_LIMITS.maxFailures) {
-      return <RetryExceededFallback navigate={navigate} />;
+      return <RetryExceededFallback navigate={navigate} onRestart={discardAndRestartTraining} />;
     }
     return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
   };

@@ -43,13 +43,13 @@ const ExponentialSmoothingStepper: React.FC = () => {
     runNextGuidedStep,
     markAsCompleted,
     handleRetry,
+    discardAndRestart,
     retryCount,
     guidedSession,
     currentProgress,
     progressEvents,
   } = useSimpleModel<number | ''>({
     type: 'exponential_smoothing',
-    apiEndpoint: '/models/es/training',
     guidedModelType: 'es',
     stateKeys: {
       param: 'exponential_smoothing_alpha',
@@ -196,7 +196,7 @@ const ExponentialSmoothingStepper: React.FC = () => {
 
   const renderContent = () => {
     if (currentStep.id === 'results' && error && retryCount >= MODEL_RETRY_LIMITS.maxFailures) {
-      return <RetryExceededFallback navigate={navigate} />;
+      return <RetryExceededFallback navigate={navigate} onRestart={discardAndRestart} />;
     }
     return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
   };

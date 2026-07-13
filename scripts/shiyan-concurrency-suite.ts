@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
@@ -209,6 +209,12 @@ interface RequestOutcome {
   payload: unknown;
 }
 
+interface GuidedTrainingSessionState {
+  session_id: string;
+  status: string;
+  next_step_id: string | null;
+}
+
 interface ModelSlotLockHandle {
   release: () => Promise<void>;
 }
@@ -250,6 +256,40 @@ function unwrapDataEnvelope<T>(payload: unknown): T {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function classifyHttpOutcome(status: number, ok: boolean): OutcomeKind {
+  if (ok) {
+    return "success";
+  }
+  if (status === 429) {
+    return "busy429";
+  }
+  if (status === 503) {
+    return "busy503";
+  }
+  if (status === 409) {
+    return "conflict409";
+  }
+  return "unexpected";
+}
+
+function parseGuidedTrainingSession(payload: unknown): GuidedTrainingSessionState | null {
+  const session = unwrapDataEnvelope<unknown>(payload);
+  if (
+    !isRecord(session)
+    || typeof session.session_id !== "string"
+    || typeof session.status !== "string"
+    || (session.next_step_id !== null && typeof session.next_step_id !== "string")
+  ) {
+    return null;
+  }
+
+  return {
+    session_id: session.session_id,
+    status: session.status,
+    next_step_id: session.next_step_id,
+  };
 }
 
 function appendLog(buffer: string, chunk: Buffer | string) {
@@ -716,27 +756,83 @@ async function submitMovingAverageTraining(input: {
   token: string;
   experimentId: number;
 }): Promise<RequestOutcome> {
-  const response = await requestJson({
-    pathname: "/api/v1/models/ma/training",
+  const startedAt = Date.now();
+  let response = await requestJson({
+    pathname: "/api/v1/models/ma/guided-training/sessions",
     method: "POST",
     token: input.token,
     body: modelTrainingBody(input.experimentId),
   });
 
+  for (let stepCount = 0; stepCount < 64; stepCount += 1) {
+    if (!response.ok) {
+      return {
+        username: input.username,
+        experimentId: input.experimentId,
+        httpStatus: response.status,
+        outcome: classifyHttpOutcome(response.status, response.ok),
+        elapsedMs: Date.now() - startedAt,
+        payload: response.payload,
+      };
+    }
+
+    const session = parseGuidedTrainingSession(response.payload);
+    if (session?.status === "completed") {
+      return {
+        username: input.username,
+        experimentId: input.experimentId,
+        httpStatus: response.status,
+        outcome: "success",
+        elapsedMs: Date.now() - startedAt,
+        payload: response.payload,
+      };
+    }
+
+    if (
+      !session
+      || session.status === "failed"
+      || session.status === "superseded"
+      || !session.next_step_id
+    ) {
+      return {
+        username: input.username,
+        experimentId: input.experimentId,
+        httpStatus: response.status,
+        outcome: "unexpected",
+        elapsedMs: Date.now() - startedAt,
+        payload: response.payload,
+      };
+    }
+
+    response = await requestJson({
+      pathname: `/api/v1/models/ma/guided-training/sessions/${encodeURIComponent(session.session_id)}/steps/${encodeURIComponent(session.next_step_id)}/run`,
+      method: "POST",
+      token: input.token,
+      body: {},
+    });
+  }
+
   return {
     username: input.username,
     experimentId: input.experimentId,
     httpStatus: response.status,
-    outcome: response.ok
-      ? "success"
-      : response.status === 429
-        ? "busy429"
-        : response.status === 409
-          ? "conflict409"
-          : "unexpected",
-    elapsedMs: response.elapsedMs,
+    outcome: "unexpected",
+    elapsedMs: Date.now() - startedAt,
     payload: response.payload,
   };
+}
+
+async function ensureMovingAverageTrainingRun(input: {
+  username: string;
+  token: string;
+  experimentId: number;
+}) {
+  const outcome = await submitMovingAverageTraining(input);
+  logOutcome("production-prerequisite-training", outcome);
+  ensure(
+    outcome.outcome === "success",
+    `Expected production fixture training to succeed, got ${outcome.httpStatus}: ${JSON.stringify(outcome.payload)}`,
+  );
 }
 
 async function prepareProductionModel(input: {
@@ -752,6 +848,7 @@ async function prepareProductionModel(input: {
     token: input.token,
     body: {
       experiment_id: input.experimentId,
+      forecast_steps: 6,
     },
   });
 
@@ -759,7 +856,7 @@ async function prepareProductionModel(input: {
     username: input.username,
     experimentId: input.experimentId,
     httpStatus: response.status,
-    outcome: response.ok ? "success" : response.status === 429 ? "busy429" : "unexpected",
+    outcome: classifyHttpOutcome(response.status, response.ok),
     elapsedMs: response.elapsedMs,
     payload: response.payload,
   };
@@ -769,6 +866,7 @@ async function predictWithProductionModel(input: {
   username: string;
   token: string;
   experimentId: number;
+  preparationToken: string;
 }): Promise<RequestOutcome> {
   const response = await requestJson({
     pathname: "/api/v1/models/ma/predict",
@@ -777,6 +875,7 @@ async function predictWithProductionModel(input: {
     body: {
       experiment_id: input.experimentId,
       forecast_steps: 6,
+      preparation_token: input.preparationToken,
     },
   });
 
@@ -784,24 +883,10 @@ async function predictWithProductionModel(input: {
     username: input.username,
     experimentId: input.experimentId,
     httpStatus: response.status,
-    outcome: response.ok ? "success" : response.status === 429 ? "busy429" : "unexpected",
+    outcome: classifyHttpOutcome(response.status, response.ok),
     elapsedMs: response.elapsedMs,
     payload: response.payload,
   };
-}
-
-async function createReusableBaseProductionArtifact(input: {
-  username: string;
-  experimentId: number;
-}) {
-  const trainedModelsDir = path.resolve(BE_DIR, "py", "trained_models");
-  await mkdir(trainedModelsDir, { recursive: true });
-  const artifactPath = path.join(
-    trainedModelsDir,
-    `exp${input.experimentId}-student${input.username}-ma-production.pkl`,
-  );
-  await writeFile(artifactPath, "e2e reusable artifact placeholder\n", "utf8");
-  return artifactPath;
 }
 
 function buildReportMarkdown(username: string, experimentId: number) {
@@ -996,6 +1081,7 @@ async function runExecutionLockConflictTest() {
 async function runProductionPrepareModelSlotSaturationTest() {
   await prepareParallelScenario("mixed-load");
   const session = await getLatestExperiment(PRODUCTION_STUDENT_USERNAME);
+  await ensureMovingAverageTrainingRun(session);
   const locks = await acquireModelSlots(MODEL_CONCURRENCY);
 
   try {
@@ -1019,10 +1105,28 @@ async function runProductionPrepareModelSlotSaturationTest() {
 async function runPredictionSlotSaturationTest() {
   await prepareParallelScenario("mixed-load");
   const session = await getLatestExperiment(PRODUCTION_STUDENT_USERNAME);
+  await ensureMovingAverageTrainingRun(session);
+  const preparation = await prepareProductionModel(session);
+  logOutcome("prediction-slot-saturation-prepare", preparation);
+  ensure(
+    preparation.outcome === "success",
+    `Expected prediction preparation to succeed before saturating slots, got ${preparation.httpStatus}`,
+  );
+  const preparationPayload = unwrapDataEnvelope<unknown>(preparation.payload);
+  ensure(
+    isRecord(preparationPayload)
+      && isRecord(preparationPayload.results)
+      && typeof preparationPayload.results.preparation_token === "string",
+    `Prediction preparation did not return a token: ${JSON.stringify(preparation.payload)}`,
+  );
+  const preparationToken = preparationPayload.results.preparation_token;
   const locks = await acquireModelSlots(MODEL_CONCURRENCY);
 
   try {
-    const outcome = await predictWithProductionModel(session);
+    const outcome = await predictWithProductionModel({
+      ...session,
+      preparationToken,
+    });
     logOutcome("prediction-slot-saturation", outcome);
     ensure(outcome.outcome === "busy429", `Expected prediction slot saturation to return 429, got ${outcome.httpStatus}`);
 
@@ -1039,7 +1143,13 @@ async function runPredictionSlotSaturationTest() {
 async function runReusableBaseArtifactBypassTest() {
   await prepareParallelScenario("mixed-load");
   const session = await getLatestExperiment(PRODUCTION_STUDENT_USERNAME);
-  const artifactPath = await createReusableBaseProductionArtifact(session);
+  await ensureMovingAverageTrainingRun(session);
+  const initialPreparation = await prepareProductionModel(session);
+  logOutcome("base-reusable-artifact-initial-prepare", initialPreparation);
+  ensure(
+    initialPreparation.outcome === "success",
+    `Expected initial base production preparation to succeed, got ${initialPreparation.httpStatus}`,
+  );
   const locks = await acquireModelSlots(MODEL_CONCURRENCY);
 
   try {
@@ -1061,7 +1171,6 @@ async function runReusableBaseArtifactBypassTest() {
     };
   } finally {
     await locks.release();
-    await rm(artifactPath, { force: true });
   }
 }
 

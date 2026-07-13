@@ -43,13 +43,13 @@ const BoostingEnsembleStepper: React.FC = () => {
     runNextGuidedStep,
     markAsCompleted,
     handleRetry,
+    discardAndRestart,
     retryCount,
     guidedSession,
     currentProgress,
     progressEvents,
   } = useEnsembleModel({
     type: 'boosting',
-    apiEndpoint: '/models/boosting/training',
     stateKey: {
       baseModels: 'ensemble_boosting_base_models',
       completed: 'ensemble_boosting_completed',
@@ -172,7 +172,7 @@ const BoostingEnsembleStepper: React.FC = () => {
 
   const renderContent = () => {
     if (currentStep.id === 'results' && error && retryCount >= MODEL_RETRY_LIMITS.maxFailures) {
-      return <RetryExceededFallback navigate={navigate} />;
+      return <RetryExceededFallback navigate={navigate} onRestart={discardAndRestart} />;
     }
     return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
   };

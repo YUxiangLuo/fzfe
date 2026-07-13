@@ -10,7 +10,6 @@ type SimpleModelType = 'exponential_smoothing' | 'moving_average';
 
 interface SimpleModelConfig<T> {
   type: SimpleModelType;
-  apiEndpoint: string;
   guidedModelType?: GuidedModelType;
   stateKeys: {
     param: keyof ExperimentState;
@@ -142,6 +141,7 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
     initializeSession: initializeGuidedSession,
     runNextStep: runNextGuidedStep,
     handleRetry,
+    discardAndRestart,
     resetGuidedTraining,
   } = useGuidedModelTraining<SimpleModelGuidedResult>({
     modelType: guidedModelType,
@@ -197,6 +197,7 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
     runNextGuidedStep,
     markAsCompleted,
     handleRetry,
+    discardAndRestart,
     retryCount,
     currentProgress: null,
     progressEvents: [],

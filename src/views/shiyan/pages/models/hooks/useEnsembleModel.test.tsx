@@ -40,6 +40,7 @@ const completedGuidedSession = () => ({
 
 const createGuidedTrainingSession = mock(async () => completedGuidedSession());
 const runGuidedTrainingStep = mock(async () => completedGuidedSession());
+const discardGuidedTrainingSession = mock(async () => undefined);
 
 const successfulGuidedResult = {
   status: 'success',
@@ -108,6 +109,7 @@ mock.module(guidedTrainingModulePath, () => ({
   createGuidedTrainingSession,
   runGuidedTrainingStep,
   fetchGuidedTrainingSession: mock(async () => null),
+  discardGuidedTrainingSession,
 }));
 
 const Harness = async () => {
@@ -117,7 +119,6 @@ const Harness = async () => {
   const Component: React.FC = () => {
     const ensemble = useEnsembleModel({
       type: 'weighted',
-      apiEndpoint: '/models/weighted_avg/training',
       stateKey: {
         baseModels: 'ensemble_weighted_base_models',
         completed: 'ensemble_weighted_completed',

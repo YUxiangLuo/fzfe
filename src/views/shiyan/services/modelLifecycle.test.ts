@@ -8,12 +8,27 @@ mock.restore();
 
 const apiClientModulePath = resolve(import.meta.dir, "../../../utils/apiClient.ts");
 
-const apiPost = mock(async (): Promise<any> => ({
+const predictionResponse = {
   status: "success",
   results: {
     predictions: [{ prediction: 101.2, std_dev: 3.4 }],
   },
-}));
+};
+
+const preparationResponse = {
+  status: "success",
+  results: {
+    preparation_token: "11111111-1111-4111-8111-111111111111",
+    prepared_forecast_steps: 12,
+    reused_existing: false,
+  },
+};
+
+const apiPost = mock(async (endpoint: string): Promise<any> =>
+  endpoint.includes("/prepare-production")
+    ? preparationResponse
+    : predictionResponse
+);
 
 mock.module(apiClientModulePath, () => ({
   apiClient: {
@@ -41,23 +56,29 @@ const createApiError = (status: number, message: string) => {
 describe("modelLifecycle", () => {
   beforeEach(() => {
     apiPost.mockReset();
-    apiPost.mockResolvedValue({
-      status: "success",
-      results: {
-        predictions: [{ prediction: 101.2, std_dev: 3.4 }],
-      },
-    });
+    apiPost.mockImplementation(async (endpoint: string) =>
+      endpoint.includes("/prepare-production")
+        ? preparationResponse
+        : predictionResponse
+    );
   });
 
-  it("lets the predict endpoint prepare base models when needed", async () => {
+  it("prepares the production artifact before predicting", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
 
     const result = await predictWithBestModel("ma", 7, 6);
 
-    expect(apiPost).toHaveBeenCalledTimes(1);
-    expect(apiPost).toHaveBeenCalledWith("/models/ma/predict", {
+    expect(apiPost).toHaveBeenCalledTimes(2);
+    expect(apiPost).toHaveBeenNthCalledWith(1, "/models/ma/prepare-production", {
       experiment_id: 7,
       forecast_steps: 6,
+    }, {
+      timeoutMs: null,
+    });
+    expect(apiPost).toHaveBeenNthCalledWith(2, "/models/ma/predict", {
+      experiment_id: 7,
+      forecast_steps: 6,
+      preparation_token: preparationResponse.results.preparation_token,
     });
     expect(result).toEqual({
       status: "success",
@@ -67,20 +88,28 @@ describe("modelLifecycle", () => {
     });
   });
 
-  it("uses the single predict endpoint for ensemble best models", async () => {
+  it("uses the explicit prepare/predict protocol for ensemble best models", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
 
     await predictWithBestModel("ensemble_weighted", 9, 4);
 
-    expect(apiPost).toHaveBeenCalledTimes(1);
-    expect(apiPost).toHaveBeenCalledWith("/models/weighted_avg/predict", {
+    expect(apiPost).toHaveBeenCalledTimes(2);
+    expect(apiPost).toHaveBeenNthCalledWith(1, "/models/weighted_avg/prepare-production", {
       experiment_id: 9,
       forecast_steps: 4,
+    }, {
+      timeoutMs: null,
+    });
+    expect(apiPost).toHaveBeenNthCalledWith(2, "/models/weighted_avg/predict", {
+      experiment_id: 9,
+      forecast_steps: 4,
+      preparation_token: preparationResponse.results.preparation_token,
     });
   });
 
   it("preserves prediction method metadata from the backend", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
+    apiPost.mockResolvedValueOnce(preparationResponse);
     apiPost.mockResolvedValueOnce({
         status: "success",
         results: {
@@ -113,6 +142,7 @@ describe("modelLifecycle", () => {
   it("surfaces predict busy errors without automatic retries", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
 
+    apiPost.mockResolvedValueOnce(preparationResponse);
     apiPost.mockRejectedValueOnce(createApiError(429, "模型服务繁忙，请稍后再试"));
 
     await expect(
@@ -124,16 +154,18 @@ describe("modelLifecycle", () => {
       stage: "predict",
       kind: "busy",
     });
-    expect(apiPost).toHaveBeenCalledTimes(1);
-    expect(apiPost).toHaveBeenCalledWith("/models/ma/predict", {
+    expect(apiPost).toHaveBeenCalledTimes(2);
+    expect(apiPost).toHaveBeenNthCalledWith(2, "/models/ma/predict", {
       experiment_id: 11,
       forecast_steps: 3,
+      preparation_token: preparationResponse.results.preparation_token,
     });
   });
 
   it("surfaces predict conflict errors without automatic retries", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
 
+    apiPost.mockResolvedValueOnce(preparationResponse);
     apiPost.mockRejectedValueOnce(createApiError(409, "同一模型正在训练或预测，请稍后再试"));
 
     await expect(
@@ -145,16 +177,18 @@ describe("modelLifecycle", () => {
       stage: "predict",
       kind: "conflict",
     });
-    expect(apiPost).toHaveBeenCalledTimes(1);
-    expect(apiPost).toHaveBeenCalledWith("/models/es/predict", {
+    expect(apiPost).toHaveBeenCalledTimes(2);
+    expect(apiPost).toHaveBeenNthCalledWith(2, "/models/es/predict", {
       experiment_id: 13,
       forecast_steps: 5,
+      preparation_token: preparationResponse.results.preparation_token,
     });
   });
 
   it("maps production prediction 400 errors to actionable messages", async () => {
     const { predictWithBestModel, ProductionPredictionError } = await loadModelLifecycle();
 
+    apiPost.mockResolvedValueOnce(preparationResponse);
     apiPost.mockRejectedValueOnce(createApiError(400, "模型尚未满足生产准备条件"));
 
     await expect(
@@ -166,13 +200,14 @@ describe("modelLifecycle", () => {
       stage: "predict",
       kind: "invalid",
     });
-    expect(apiPost).toHaveBeenCalledTimes(1);
+    expect(apiPost).toHaveBeenCalledTimes(2);
     expect(ProductionPredictionError).toBeDefined();
   });
 
   it("maps predict 504 errors without transient retries", async () => {
     const { predictWithBestModel } = await loadModelLifecycle();
 
+    apiPost.mockResolvedValueOnce(preparationResponse);
     apiPost.mockRejectedValueOnce(createApiError(504, "预测超时"));
 
     await expect(
@@ -184,6 +219,6 @@ describe("modelLifecycle", () => {
       stage: "predict",
       kind: "timeout",
     });
-    expect(apiPost).toHaveBeenCalledTimes(1);
+    expect(apiPost).toHaveBeenCalledTimes(2);
   });
 });

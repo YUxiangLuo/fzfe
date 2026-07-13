@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createGuidedTrainingSession,
+  discardGuidedTrainingSession,
   runGuidedTrainingStep,
   type GuidedModelType,
   type GuidedTrainingSession,
@@ -84,12 +85,24 @@ const extractGuidedErrorStatus = (guidedError: unknown): number | null => {
   return typeof status === 'number' ? status : null;
 };
 
+const extractGuidedErrorCode = (guidedError: unknown): string | null => {
+  if (!guidedError || typeof guidedError !== 'object') return null;
+  const payload = (guidedError as { payload?: unknown }).payload;
+  if (!payload || typeof payload !== 'object') return null;
+  const code = (payload as Record<string, unknown>).code;
+  return typeof code === 'string' ? code : null;
+};
+
 const getTransientGuidedTrainingMessage = (guidedError: unknown): string | null => {
   const status = extractGuidedErrorStatus(guidedError);
   const detail = extractGuidedErrorDetail(guidedError);
 
   if (status === 429 || detail?.includes('模型服务繁忙')) {
     return '模型服务当前繁忙，请稍后再次点击“重试”。';
+  }
+
+  if (status === 503) {
+    return detail ?? '模型服务连接短暂中断，请稍后再次点击“重试”。';
   }
 
   if (status === 409 || detail?.includes('同一模型正在训练或预测')) {
@@ -138,6 +151,26 @@ export function useGuidedModelTraining<TFinalResult>({
   const isMountedRef = useRef(true);
   const inFlightRef = useRef(false);
   const persistDraftRef = useRef(persistDraft);
+  const lockOwnerSequenceRef = useRef(0);
+  const activeLockRef = useRef<{
+    ownerId: number;
+    release: TrainingLockSetter;
+  } | null>(null);
+
+  const acquireTrainingLock = useCallback((ownerId: number) => {
+    if (!setTrainingLock || activeLockRef.current) return;
+    setTrainingLock(true, lockPath ?? null);
+    activeLockRef.current = { ownerId, release: setTrainingLock };
+  }, [lockPath, setTrainingLock]);
+
+  const releaseTrainingLock = useCallback((ownerId?: number) => {
+    const activeLock = activeLockRef.current;
+    if (!activeLock || (ownerId !== undefined && activeLock.ownerId !== ownerId)) {
+      return;
+    }
+    activeLockRef.current = null;
+    activeLock.release(false, null);
+  }, []);
 
   useEffect(() => {
     persistDraftRef.current = persistDraft;
@@ -147,11 +180,9 @@ export function useGuidedModelTraining<TFinalResult>({
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      if (setTrainingLock) {
-        setTrainingLock(false, null);
-      }
+      releaseTrainingLock();
     };
-  }, [setTrainingLock]);
+  }, [releaseTrainingLock]);
 
   const resetGuidedTraining = useCallback(() => {
     setSession(null);
@@ -209,6 +240,9 @@ export function useGuidedModelTraining<TFinalResult>({
       setIsLoading(true);
       const initializedSession = await ensureSession();
       await applyFinalResult(initializedSession);
+      if (initializedSession && initializedSession.status !== 'failed' && isMountedRef.current) {
+        setRetryCount(0);
+      }
     } catch (sessionError) {
       recordFailure(sessionError, '创建分阶段训练会话失败');
     } finally {
@@ -223,12 +257,13 @@ export function useGuidedModelTraining<TFinalResult>({
     if (inFlightRef.current) {
       return;
     }
+    const lockOwnerId = ++lockOwnerSequenceRef.current;
 
     try {
       inFlightRef.current = true;
       setIsLoading(true);
       setError(null);
-      setTrainingLock?.(true, lockPath ?? null);
+      acquireTrainingLock(lockOwnerId);
 
       const currentSession = await ensureSession();
       const nextStepId = currentSession?.next_step_id;
@@ -252,17 +287,48 @@ export function useGuidedModelTraining<TFinalResult>({
         return;
       }
 
+      setRetryCount(0);
+
       await applyFinalResult(updatedSession);
     } catch (stepError) {
+      if (extractGuidedErrorCode(stepError) === 'GUIDED_SESSION_SUPERSEDED') {
+        if (isMountedRef.current) {
+          setSession(null);
+          setRetryCount(0);
+        }
+        recordFailure(stepError, '训练会话已失效，请重新开始当前模型训练', false);
+        return;
+      }
       recordFailure(stepError, '分阶段训练执行失败');
     } finally {
       inFlightRef.current = false;
-      setTrainingLock?.(false, null);
+      releaseTrainingLock(lockOwnerId);
       if (isMountedRef.current) {
         setIsLoading(false);
       }
     }
-  }, [applyFinalResult, ensureSession, lockPath, modelType, recordFailure, setTrainingLock]);
+  }, [acquireTrainingLock, applyFinalResult, ensureSession, modelType, recordFailure, releaseTrainingLock]);
+
+  const discardAndRestart = useCallback(async () => {
+    if (inFlightRef.current) return;
+    try {
+      inFlightRef.current = true;
+      setIsLoading(true);
+      if (session && session.status !== 'completed' && session.status !== 'running') {
+        await discardGuidedTrainingSession(modelType, session.session_id);
+      }
+      if (isMountedRef.current) {
+        setSession(null);
+        setError(null);
+        setRetryCount(0);
+      }
+    } catch (discardError) {
+      recordFailure(discardError, '重新创建训练会话失败', false);
+    } finally {
+      inFlightRef.current = false;
+      if (isMountedRef.current) setIsLoading(false);
+    }
+  }, [modelType, recordFailure, session]);
 
   const handleRetry = useCallback(async () => {
     if (retryCount >= MODEL_RETRY_LIMITS.maxFailures || inFlightRef.current) {
@@ -289,6 +355,9 @@ export function useGuidedModelTraining<TFinalResult>({
       inFlightRef.current = true;
       setIsLoading(true);
       await applyFinalResult(session);
+      if (isMountedRef.current) {
+        setRetryCount(0);
+      }
     } catch (retryError) {
       recordFailure(retryError, '分阶段训练执行失败');
     } finally {
@@ -308,6 +377,7 @@ export function useGuidedModelTraining<TFinalResult>({
     initializeSession,
     runNextStep,
     handleRetry,
+    discardAndRestart,
     resetGuidedTraining,
   };
 }

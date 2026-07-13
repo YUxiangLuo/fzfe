@@ -247,6 +247,7 @@ const ARIMAStepper: React.FC = () => {
     initializeSession: initializeGuidedTrainingSession,
     runNextStep: runNextGuidedTrainingStep,
     handleRetry: handleTrainingRetry,
+    discardAndRestart: discardAndRestartTraining,
     resetGuidedTraining,
   } = useGuidedModelTraining<any>({
     modelType: 'arima',
@@ -491,7 +492,7 @@ const ARIMAStepper: React.FC = () => {
       return <RetryExceededFallback navigate={navigate} />;
     }
     if (currentStep.id === 'autoparams' && trainingError && trainingRetryCount >= MODEL_RETRY_LIMITS.maxFailures) {
-      return <RetryExceededFallback navigate={navigate} />;
+      return <RetryExceededFallback navigate={navigate} onRestart={discardAndRestartTraining} />;
     }
     return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
   };

@@ -55,13 +55,13 @@ const MovingAverageStepper: React.FC = () => {
     initializeGuidedSession,
     runNextGuidedStep,
     handleRetry,
+    discardAndRestart,
     retryCount,
     guidedSession,
     currentProgress,
     progressEvents,
   } = useSimpleModel<number | ''>({
     type: 'moving_average',
-    apiEndpoint: '/models/ma/training',
     guidedModelType: 'ma',
     stateKeys: {
       param: 'moving_average_window',
@@ -220,7 +220,7 @@ const MovingAverageStepper: React.FC = () => {
   const renderContent = () => {
     // 如果达到错误上限就不再渲染功能组件
     if (currentStep.id === 'results' && error && retryCount >= MODEL_RETRY_LIMITS.maxFailures) {
-      return <RetryExceededFallback navigate={navigate} />;
+      return <RetryExceededFallback navigate={navigate} onRestart={discardAndRestart} />;
     }
     return <CurrentComponent key={currentStep.id} {...propsForCurrentStep} />;
   };

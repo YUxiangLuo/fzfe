@@ -51,6 +51,27 @@ const readJson = async (response: { json: () => Promise<unknown> }) => {
   }
 };
 
+const requireRunnableGuidedSession = (payload: unknown) => {
+  const session =
+    payload &&
+    typeof payload === "object" &&
+    "data" in payload &&
+    Object.keys(payload as Record<string, unknown>).length === 1
+      ? (payload as { data: unknown }).data
+      : payload;
+  if (
+    !session ||
+    typeof session !== "object" ||
+    typeof (session as Record<string, unknown>).session_id !== "string" ||
+    typeof (session as Record<string, unknown>).next_step_id !== "string"
+  ) {
+    throw new Error(
+      `Expected runnable guided session, got ${JSON.stringify(payload)}`,
+    );
+  }
+  return session as { session_id: string; next_step_id: string };
+};
+
 test.describe("@shiyan model training api", () => {
   test("training controller rejects invalid model types with 400", async ({
     page,
@@ -60,7 +81,7 @@ test.describe("@shiyan model training api", () => {
     const experiment = await prepareModelStageExperiment(studentApi);
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/not-a-model/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/not-a-model/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: buildTrainingBody(experiment.experiment_id, {
@@ -96,7 +117,7 @@ test.describe("@shiyan model training api", () => {
     expect(experiment.data_window_train_end_index).toBe(5);
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: {
@@ -135,7 +156,7 @@ test.describe("@shiyan model training api", () => {
     expect(experiment.data_window_evaluate_end_index).toBe(99);
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: {
@@ -165,7 +186,7 @@ test.describe("@shiyan model training api", () => {
     );
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(secondaryToken),
         data: buildTrainingBody(experiment.experiment_id, {
@@ -185,7 +206,7 @@ test.describe("@shiyan model training api", () => {
     studentToken,
   }) => {
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: buildMinimalTrainingBody(999999, {
@@ -220,7 +241,7 @@ test.describe("@shiyan model training api", () => {
     seedManagedExperimentFixture(experiment.experiment_id, { status: "Completed" });
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: buildMinimalTrainingBody(experiment.experiment_id, {
@@ -243,7 +264,7 @@ test.describe("@shiyan model training api", () => {
     const experiment = await prepareModelStageExperiment(studentApi);
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/weighted_avg/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/weighted_avg/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: buildTrainingBody(experiment.experiment_id, {
@@ -275,7 +296,7 @@ test.describe("@shiyan model training api", () => {
     });
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: buildMinimalTrainingBody(experiment.experiment_id, {
@@ -305,7 +326,7 @@ test.describe("@shiyan model training api", () => {
     });
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: buildMinimalTrainingBody(experiment.experiment_id, {
@@ -339,7 +360,7 @@ test.describe("@shiyan model training api", () => {
     });
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: buildMinimalTrainingBody(experiment.experiment_id, {
@@ -375,7 +396,7 @@ test.describe("@shiyan model training api", () => {
     });
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: buildTrainingBody(experiment.experiment_id, {
@@ -411,7 +432,7 @@ test.describe("@shiyan model training api", () => {
     });
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: buildMinimalTrainingBody(experiment.experiment_id, {
@@ -445,7 +466,7 @@ test.describe("@shiyan model training api", () => {
     });
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: buildMinimalTrainingBody(experiment.experiment_id, {
@@ -468,7 +489,7 @@ test.describe("@shiyan model training api", () => {
     const experiment = await prepareModelStageExperiment(studentApi);
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: buildMinimalTrainingBody(experiment.experiment_id, {
@@ -495,7 +516,7 @@ test.describe("@shiyan model training api", () => {
     const experiment = await prepareModelStageExperiment(studentApi);
 
     const response = await page.request.post(
-      `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
       {
         headers: authHeaders(studentToken),
         data: buildMinimalTrainingBody(experiment.experiment_id, {
@@ -520,16 +541,24 @@ test.describe("@shiyan model training api", () => {
     studentToken,
   }) => {
     const experiment = await prepareModelStageExperiment(studentApi);
+    const createResponse = await page.request.post(
+      `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions`,
+      {
+        headers: authHeaders(studentToken),
+        data: buildTrainingBody(experiment.experiment_id, {
+          moving_average_window: 6,
+        }),
+      },
+    );
+    expect(createResponse.status()).toBe(200);
+    const session = requireRunnableGuidedSession(await readJson(createResponse));
     const slotLocks = await acquireAllModelSlots();
 
     try {
       const response = await page.request.post(
-        `${BACKEND_ORIGIN}/api/v1/models/ma/training`,
+        `${BACKEND_ORIGIN}/api/v1/models/ma/guided-training/sessions/${session.session_id}/steps/${session.next_step_id}/run`,
         {
           headers: authHeaders(studentToken),
-          data: buildTrainingBody(experiment.experiment_id, {
-            moving_average_window: 6,
-          }),
         },
       );
 
@@ -548,23 +577,28 @@ test.describe("@shiyan model training api", () => {
     studentToken,
   }) => {
     const experiment = await prepareModelStageExperiment(studentApi);
-    const url = `${BACKEND_ORIGIN}/api/v1/models/lstm/training`;
+    const createSessionUrl = `${BACKEND_ORIGIN}/api/v1/models/lstm/guided-training/sessions`;
     const requestBody = buildTrainingBody(experiment.experiment_id, {
       lstmNormalization: "minmax",
       lstmTargetFeature: "销售数量",
       lstmFeatures: "价格指数,产能利用率",
     });
-
-    const firstRequest = page.request.post(url, {
+    const createResponse = await page.request.post(createSessionUrl, {
       headers: authHeaders(studentToken),
       data: requestBody,
+    });
+    expect(createResponse.status()).toBe(200);
+    const session = requireRunnableGuidedSession(await readJson(createResponse));
+    const stepUrl = `${createSessionUrl}/${session.session_id}/steps/${session.next_step_id}/run`;
+
+    const firstRequest = page.request.post(stepUrl, {
+      headers: authHeaders(studentToken),
     });
 
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const secondResponse = await page.request.post(url, {
+    const secondResponse = await page.request.post(stepUrl, {
       headers: authHeaders(studentToken),
-      data: requestBody,
     });
     const firstResponse = await firstRequest;
 

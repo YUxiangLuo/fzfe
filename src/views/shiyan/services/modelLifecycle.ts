@@ -2,7 +2,7 @@ import { apiClient } from '@/utils/apiClient';
 import type { SelectedBestModel } from '../store/experiment/types';
 import { BEST_MODEL_TO_BACKEND_MODEL_TYPE } from '../utils/modelCatalog';
 
-type ProductionRequestStage = 'predict';
+type ProductionRequestStage = 'prepare' | 'predict';
 type ProductionRequestErrorKind = 'invalid' | 'missing' | 'conflict' | 'busy' | 'timeout' | 'unknown';
 type ApiRequestError = Error & {
   status?: number;
@@ -21,6 +21,15 @@ interface ModelPredictionResponse {
     method_name?: string;
     forecast_strategy?: string;
     implementation_notes?: string[];
+  };
+}
+
+interface ProductionPreparationResponse {
+  status: string;
+  results: {
+    preparation_token: string;
+    prepared_forecast_steps: number;
+    reused_existing: boolean;
   };
 }
 
@@ -179,10 +188,30 @@ export const predictWithBestModel = async (
   forecastSteps: number,
 ): Promise<ModelPredictionResponse> => {
   const modelType = getBackendModelType(selectedBestModel);
+  const preparation = await runProductionRequest('prepare', async () =>
+    await apiClient.post<ProductionPreparationResponse>(`/models/${modelType}/prepare-production`, {
+      experiment_id: experimentId,
+      forecast_steps: forecastSteps,
+    }, {
+      timeoutMs: null,
+    })
+  );
+  if (
+    preparation.status !== 'success'
+    || !preparation.results?.preparation_token
+    || preparation.results.prepared_forecast_steps < forecastSteps
+  ) {
+    throw new ProductionPredictionError('生产模型准备结果无效，请重试。', {
+      stage: 'prepare',
+      kind: 'unknown',
+      originalError: preparation,
+    });
+  }
   return await runProductionRequest('predict', async () =>
     await apiClient.post<ModelPredictionResponse>(`/models/${modelType}/predict`, {
       experiment_id: experimentId,
       forecast_steps: forecastSteps,
+      preparation_token: preparation.results.preparation_token,
     })
   );
 };

@@ -1,5 +1,40 @@
+import type { Page, Request } from "@playwright/test";
 import { test, expect } from "./fixtures";
 import { prepareProductionStageExperiment } from "./support/model-training";
+
+const PREPARATION_TOKEN = "11111111-1111-4111-8111-111111111111";
+
+const mockProductionPreparation = async (page: Page) => {
+  await page.route("**/api/v1/models/ma/prepare-production", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+
+    const requestBody = route.request().postDataJSON() as Record<string, unknown>;
+    expect(requestBody.experiment_id).toEqual(expect.any(Number));
+    expect(requestBody.forecast_steps).toEqual(expect.any(Number));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        status: "success",
+        results: {
+          preparation_token: PREPARATION_TOKEN,
+          prepared_forecast_steps: requestBody.forecast_steps,
+          reused_existing: true,
+        },
+      }),
+    });
+  });
+};
+
+const expectPreparedPredictionRequest = (request: Request) => {
+  expect(request.postDataJSON()).toMatchObject({
+    forecast_steps: expect.any(Number),
+    preparation_token: PREPARATION_TOKEN,
+  });
+};
 
 const buildPredictions = () =>
   Array.from({ length: 6 }, (_unused, index) => ({
@@ -14,6 +49,7 @@ test.describe("@shiyan production prediction manual retries", () => {
     studentApp,
   }) => {
     await prepareProductionStageExperiment(studentApi);
+    await mockProductionPreparation(page);
 
     let predictAttempts = 0;
 
@@ -23,6 +59,7 @@ test.describe("@shiyan production prediction manual retries", () => {
         return;
       }
 
+      expectPreparedPredictionRequest(route.request());
       predictAttempts += 1;
       if (predictAttempts === 1) {
         await route.fulfill({
@@ -69,6 +106,7 @@ test.describe("@shiyan production prediction manual retries", () => {
     studentApp,
   }) => {
     await prepareProductionStageExperiment(studentApi);
+    await mockProductionPreparation(page);
 
     let predictAttempts = 0;
 
@@ -78,6 +116,7 @@ test.describe("@shiyan production prediction manual retries", () => {
         return;
       }
 
+      expectPreparedPredictionRequest(route.request());
       predictAttempts += 1;
 
       if (predictAttempts === 1) {
@@ -126,6 +165,7 @@ test.describe("@shiyan production prediction manual retries", () => {
     studentApp,
   }) => {
     await prepareProductionStageExperiment(studentApi);
+    await mockProductionPreparation(page);
 
     let predictAttempts = 0;
     let saveAttempts = 0;
@@ -136,6 +176,7 @@ test.describe("@shiyan production prediction manual retries", () => {
         return;
       }
 
+      expectPreparedPredictionRequest(route.request());
       predictAttempts += 1;
       await route.fulfill({
         status: 200,
@@ -150,7 +191,7 @@ test.describe("@shiyan production prediction manual retries", () => {
     });
 
     await page.route("**/api/v1/experiment-runs/*", async (route) => {
-      if (route.request().method() !== "PUT") {
+      if (route.request().method() !== "PATCH") {
         await route.continue();
         return;
       }

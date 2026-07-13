@@ -23,11 +23,6 @@ const BASE_URL = API_BASE_URL;
 const getTimeoutForEndpoint = (endpoint: string): number | undefined => {
   const lowerEndpoint = endpoint.toLowerCase();
 
-  // 模型训练相关 - 无超时（可能需要几分钟）
-  if (lowerEndpoint.includes('/models/') && lowerEndpoint.includes('/training')) {
-    return undefined;
-  }
-
   // 模型生产准备 - 无超时（会重新拟合生产预测所需模型）
   if (lowerEndpoint.includes('/models/') && lowerEndpoint.includes('/prepare-production')) {
     return undefined;
@@ -38,9 +33,9 @@ const getTimeoutForEndpoint = (endpoint: string): number | undefined => {
     return 120000;
   }
 
-  // 模型预测 - 60秒（可能需要较长时间计算）
+  // 模型预测 - 后端 60 秒预算外保留网络与响应解析余量
   if (lowerEndpoint.includes('/predict') || lowerEndpoint.includes('/forecast')) {
-    return 60000;
+    return 75000;
   }
 
   // 生产计划计算 - 60秒（复杂的优化算法）

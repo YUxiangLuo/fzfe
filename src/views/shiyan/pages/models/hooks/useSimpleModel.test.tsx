@@ -55,6 +55,7 @@ const completedGuidedSession = (): GuidedTrainingSession => ({
 
 const createGuidedTrainingSession = mock(async () => readyGuidedSession());
 const runGuidedTrainingStep = mock(async () => completedGuidedSession());
+const discardGuidedTrainingSession = mock(async () => undefined);
 
 let experimentValue = {
   state: {
@@ -117,6 +118,7 @@ mock.module(guidedTrainingModulePath, () => ({
   createGuidedTrainingSession,
   runGuidedTrainingStep,
   fetchGuidedTrainingSession: mock(async () => null),
+  discardGuidedTrainingSession,
 }));
 
 const Harness = async (currentStepId = 'results') => {
@@ -126,7 +128,6 @@ const Harness = async (currentStepId = 'results') => {
   const Component: React.FC = () => {
     const simpleModel = useSimpleModel<number | ''>({
       type: 'moving_average',
-      apiEndpoint: '/models/ma/training',
       stateKeys: {
         param: 'moving_average_window',
         completed: 'moving_average_completed',

@@ -1,7 +1,7 @@
 import { apiClient } from '@/utils/apiClient';
 
 export type GuidedModelType = 'ma' | 'es' | 'arima' | 'lstm' | 'weighted_avg' | 'stacking' | 'boosting';
-export type GuidedTrainingStatus = 'ready' | 'running' | 'failed' | 'completed';
+export type GuidedTrainingStatus = 'ready' | 'running' | 'failed' | 'completed' | 'superseded';
 export type GuidedStepStatus = 'pending' | 'active' | 'completed' | 'failed';
 
 export interface GuidedTrainingStep {
@@ -29,6 +29,7 @@ export interface GuidedTrainingSession {
     experiment_state_patch?: Record<string, unknown>;
   } | null;
   error_message: string | null;
+  error_code?: 'GUIDED_SESSION_SUPERSEDED' | null;
   experiment_state_version?: number | null;
 }
 
@@ -39,7 +40,16 @@ export const createGuidedTrainingSession = async (
   modelType: GuidedModelType,
   body: Record<string, any>,
 ) => {
-  return apiClient.post<GuidedTrainingSession>(guidedBasePath(modelType), body);
+  return apiClient.post<GuidedTrainingSession>(guidedBasePath(modelType), body, {
+    timeoutMs: null,
+  });
+};
+
+export const discardGuidedTrainingSession = async (
+  modelType: GuidedModelType,
+  sessionId: string,
+) => {
+  await apiClient.delete(`${guidedBasePath(modelType)}/${sessionId}`);
 };
 
 export const fetchGuidedTrainingSession = async (

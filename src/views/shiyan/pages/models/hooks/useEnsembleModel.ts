@@ -12,7 +12,6 @@ type EnsembleType = 'weighted' | 'boosting' | 'stacking';
 
 interface EnsembleModelConfig {
   type: EnsembleType;
-  apiEndpoint: string;
   stateKey: {
     baseModels: keyof ExperimentState;
     completed: keyof ExperimentState;
@@ -223,6 +222,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     initializeSession: initializeGuidedSession,
     runNextStep: runNextGuidedStep,
     handleRetry,
+    discardAndRestart,
     resetGuidedTraining,
   } = useGuidedModelTraining<EnsembleGuidedResult>({
     modelType: guidedModelTypeFor(config.type),
@@ -283,6 +283,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
     runNextGuidedStep,
     markAsCompleted,
     handleRetry,
+    discardAndRestart,
     retryCount,
     currentProgress: null,
     progressEvents: [],

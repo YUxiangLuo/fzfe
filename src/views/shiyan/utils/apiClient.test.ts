@@ -56,7 +56,10 @@ describe("apiClient timeout handling", () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     await expect(
-      apiClient.post("/models/ma/prepare-production", { experiment_id: 7 }),
+      apiClient.post("/models/ma/prepare-production", {
+        experiment_id: 7,
+        forecast_steps: 6,
+      }),
     ).resolves.toEqual({ ok: true });
 
     expect(setTimeoutMock).not.toHaveBeenCalled();
