@@ -268,6 +268,31 @@ describe('useSimpleModel', () => {
     expect(view.getByTestId('results-ready').textContent).toBe('false');
   });
 
+  it('does not mark the model complete when a successful response contains invalid metrics', async () => {
+    runGuidedTrainingStep.mockResolvedValueOnce({
+      ...completedGuidedSession(),
+      result: {
+        ...successfulGuidedResult,
+        results: {
+          ...successfulGuidedResult.results,
+          metrics: { rmse: Number.NaN, mae: 19.67, r2: -9.49 },
+        },
+      },
+    });
+    const Component = await Harness();
+
+    view = render(
+      <MemoryRouter initialEntries={['/model/moving-average/results']}>
+        <Component />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(runGuidedTrainingStep).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(view!.getByTestId('error').textContent).toBe('模型评估指标格式无效'));
+    expect(view.getByTestId('results-ready').textContent).toBe('false');
+    expect(experimentValue.state).not.toHaveProperty('moving_average_completed');
+  });
+
   it('reapplies completed guided results when retrying after a state sync failure', async () => {
     let syncAttempts = 0;
     experimentValue.updateState = mock(async (updates: Record<string, unknown>) => {

@@ -12,7 +12,7 @@ import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { MODEL_RETRY_LIMITS } from '../constants';
 import { useGuidedModelTraining } from '../hooks/useGuidedModelTraining';
 import RetryExceededFallback from '../components/RetryExceededFallback';
-import { alignPredictionRows } from '../resultAlignment';
+import { alignPredictionRows, parseModelMetrics } from '../resultAlignment';
 
 const MODEL_NAME = 'LSTM模型';
 const BASE_PATH = '/model/lstm';
@@ -90,11 +90,18 @@ const LSTMStepper: React.FC = () => {
   ]);
 
   const handleTrainingFinalResult = useCallback(async (response: any) => {
+    if (!response || typeof response !== 'object') {
+      throw new Error('LSTM 计算结果格式无效');
+    }
     if (response.status !== "success") {
       throw new Error(response.message || "计算失败，请重试...");
     }
 
-    const apiResults = response.results;
+    if (!response.results || typeof response.results !== 'object' || Array.isArray(response.results)) {
+      throw new Error('LSTM 计算结果格式无效');
+    }
+    const apiResults = response.results as Record<string, unknown>;
+    const metrics = parseModelMetrics(apiResults.metrics);
     const nextResults = {
       predictions: alignPredictionRows({
         actualValues: apiResults.eval_y_true,
@@ -102,7 +109,7 @@ const LSTMStepper: React.FC = () => {
         backendMonths: apiResults.evaluate_months,
         fallbackMonths: evaluateMonths,
       }),
-      metrics: apiResults.metrics,
+      metrics,
     };
 
     const recoveredModelState = {
@@ -110,9 +117,9 @@ const LSTMStepper: React.FC = () => {
       lstm_normalization: normalization,
       lstm_features: features,
       lstm_target_field: target,
-      lstm_metrics_rmse: apiResults.metrics.rmse,
-      lstm_metrics_mae: apiResults.metrics.mae,
-      lstm_metrics_r2: apiResults.metrics.r2,
+      lstm_metrics_rmse: metrics.rmse,
+      lstm_metrics_mae: metrics.mae,
+      lstm_metrics_r2: metrics.r2,
       ...(response.experiment_state_patch ?? {}),
     };
     await updateState(recoveredModelState as any, { skipSync: true });

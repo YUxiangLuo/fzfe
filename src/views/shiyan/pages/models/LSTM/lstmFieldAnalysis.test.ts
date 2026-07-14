@@ -1,7 +1,7 @@
 /// <reference types="bun-types" />
 
 import { describe, expect, it } from 'bun:test';
-import { analyzeLstmField, analyzeLstmFields } from './lstmFieldAnalysis';
+import { analyzeLstmField, analyzeLstmFields, isNumericCell } from './lstmFieldAnalysis';
 
 describe('lstmFieldAnalysis', () => {
   it('marks dirty numeric-like fields as suspicious and explains the fallback', () => {
@@ -74,11 +74,17 @@ describe('lstmFieldAnalysis', () => {
     expect(profile.kind).toBe('numeric');
   });
 
-  it('classifies comma-formatted numeric columns as categorical like the backend', () => {
-    // pd.to_numeric cannot parse "1,000"; both sides fall back to categorical.
+  it('classifies comma-formatted numeric columns as numeric like the backend', () => {
     const profile = analyzeLstmField('销售数量', ['1,000', '2,000', '3,000']);
 
-    expect(profile.kind).toBe('categorical');
+    expect(profile.kind).toBe('numeric');
+    expect(profile.numericCount).toBe(3);
+  });
+
+  it('does not apply JavaScript-only hexadecimal or binary number coercion', () => {
+    expect(isNumericCell('0x10')).toBeFalse();
+    expect(isNumericCell('0b10')).toBeFalse();
+    expect(isNumericCell('1.5e2')).toBeTrue();
   });
 
   it('keeps continuous numeric fields numeric', () => {

@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import type { ExperimentState } from '../../../store/experiment/types';
-import { alignPredictionRows } from '../resultAlignment';
+import { alignPredictionRows, parseModelMetrics, type ModelMetrics } from '../resultAlignment';
 import { useGuidedModelTraining } from './useGuidedModelTraining';
 import type { GuidedModelType } from '../../../services/guidedTraining';
 
@@ -28,28 +28,20 @@ interface SimpleModelResults {
     actual: number;
     predicted: number;
   }>;
-  metrics: {
-    rmse: number;
-    mae: number;
-    r2: number;
-  };
+  metrics: ModelMetrics;
 }
 
 interface SimpleModelApiResults {
   eval_y_true?: unknown;
   eval_predictions?: unknown;
   evaluate_months?: unknown;
-  metrics: {
-    rmse: number;
-    mae: number;
-    r2: number;
-  };
+  metrics: unknown;
 }
 
 interface SimpleModelGuidedResult {
   status: string;
   message?: string;
-  results: SimpleModelApiResults;
+  results: unknown;
   experiment_state_patch?: Record<string, unknown>;
 }
 
@@ -94,11 +86,18 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
   ]);
 
   const handleFinalResult = useCallback(async (result: SimpleModelGuidedResult) => {
+    if (!result || typeof result !== 'object') {
+      throw new Error('模型计算结果格式无效');
+    }
     if (result.status !== "success") {
       throw new Error(result.message || "模型计算返回失败状态");
     }
 
-    const apiResults = result.results;
+    if (!result.results || typeof result.results !== 'object' || Array.isArray(result.results)) {
+      throw new Error('模型计算结果格式无效');
+    }
+    const apiResults = result.results as SimpleModelApiResults;
+    const metrics = parseModelMetrics(apiResults.metrics);
     const fallbackMonths = productSalesData?.monthlySales
       .slice(state.data_window_evaluate_start_index!, state.data_window_evaluate_end_index! + 1)
       .map(item => item.month) || [];
@@ -110,14 +109,14 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
         backendMonths: apiResults.evaluate_months,
         fallbackMonths,
       }),
-      metrics: apiResults.metrics,
+      metrics,
     };
 
     const recoveredModelState = {
       [config.stateKeys.param]: param === '' ? null : param,
-      [config.stateKeys.metricsRmse]: apiResults.metrics.rmse,
-      [config.stateKeys.metricsMae]: apiResults.metrics.mae,
-      [config.stateKeys.metricsR2]: apiResults.metrics.r2,
+      [config.stateKeys.metricsRmse]: metrics.rmse,
+      [config.stateKeys.metricsMae]: metrics.mae,
+      [config.stateKeys.metricsR2]: metrics.r2,
       [config.stateKeys.completed]: true,
       ...(result.experiment_state_patch ?? {}),
     } as Partial<ExperimentState>;

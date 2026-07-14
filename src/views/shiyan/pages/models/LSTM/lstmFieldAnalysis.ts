@@ -110,16 +110,19 @@ const tokenizeFeatureName = (name: string) =>
 const hasAny = (value: string, hints: readonly string[]) => hints.some(hint => value.includes(hint));
 
 const hasAnyToken = (tokens: string[], hints: readonly string[]) => hints.some(hint => tokens.includes(hint));
+const DECIMAL_NUMBER_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
 
 /**
- * Parse a single cell the way the backend's `pd.to_numeric(errors="coerce")` does:
- * plain decimals/scientific notation only. Thousands separators, currency symbols
- * and non-finite tokens are treated as non-numeric so a comma-formatted column is
- * classified as categorical on both sides.
+ * Parse a single cell using the shared data contract: ASCII commas are
+ * presentation-only separators, while currency symbols and non-finite tokens
+ * remain invalid. This mirrors the backend's `_coerce_numeric_series` helper.
  */
 const parseNumericCell = (value: string): number | null => {
-  const trimmed = value.trim();
+  const trimmed = value.replace(/,/g, '').trim();
   if (trimmed.length === 0) {
+    return null;
+  }
+  if (!DECIMAL_NUMBER_PATTERN.test(trimmed)) {
     return null;
   }
   const parsed = Number(trimmed);
