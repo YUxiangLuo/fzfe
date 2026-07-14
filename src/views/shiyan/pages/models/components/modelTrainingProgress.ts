@@ -26,8 +26,8 @@ export interface TrainingProgressProfile {
 }
 
 const BASE_FINAL_STEPS: TrainingProgressStep[] = [
-  { label: '生成回测预测', description: '使用评估区间生成预测值，准备与真实值对比。', weight: 1.1 },
-  { label: '计算评估指标', description: '计算 RMSE、MAE、R² 等模型质量指标。', weight: 0.9 },
+  { label: '生成回测预测', description: '生成评估区间预测，并将最终销量点预测截断到不小于0。', weight: 1.1 },
+  { label: '计算评估指标', description: '用非负截断后的同一预测计算残差、RMSE、MAE、R²等指标。', weight: 0.9 },
   { label: '保存模型产物', description: '写入实验模型文件，并等待后端返回训练结果。', weight: 0.9 },
 ];
 
@@ -51,8 +51,8 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
     accent: 'indigo',
     steps: [
       { label: '准备训练序列', description: '截取训练区间的销量时间序列。', weight: 0.8 },
-      { label: '执行差分检验', description: '依次计算不同差分阶数下的 ADF 统计量和 p 值。', weight: 2.2 },
-      { label: '判定平稳性', description: '根据 p 值和临界值判断序列是否平稳。', weight: 0.9 },
+      { label: '执行差分检验', description: '对d=0、1、2分别执行含常数项的ADF检验，并以AIC自动选择检验滞后。', weight: 2.2 },
+      { label: '应用ADF门槛', description: 'p<0.05时拒绝单位根零假设并判为通过；否则表示当前证据不足以拒绝单位根，不等于证明序列不平稳。', weight: 0.9 },
       { label: '保存检验结果', description: '将可用的平稳性检验结果写入实验记录。', weight: 0.8 },
     ],
   },
@@ -62,9 +62,9 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
     estimate: '通常需要数秒',
     accent: 'blue',
     steps: [
-      { label: '校验时间窗口', description: '确认移动平均窗口不超过训练数据长度。', weight: 0.7 },
+      { label: '校验时间窗口', description: '确认窗口是2到训练样本数之间的整数。', weight: 0.7 },
       { label: '加载训练数据', description: '读取训练区间和评估区间的销量序列。', weight: 0.8 },
-      { label: '计算移动平均', description: '滚动计算历史窗口均值并生成预测。', weight: 1.4 },
+      { label: '计算移动平均', description: '取最近n期均值递推多步，最终销量点预测按max(0, ŷ)截断。', weight: 1.4 },
       ...BASE_FINAL_STEPS,
     ],
   },
@@ -76,7 +76,7 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
     steps: [
       { label: '校验平滑系数', description: '确认 α 参数和实验数据窗口有效。', weight: 0.7 },
       { label: '加载训练数据', description: '读取训练区间和评估区间的销量序列。', weight: 0.8 },
-      { label: '拟合指数平滑', description: '根据平滑系数拟合模型并更新状态。', weight: 1.5 },
+      { label: '拟合指数平滑', description: '以首个观测初始化、固定α递推；多步保持末尾水平并对销量做非负兜底。', weight: 1.5 },
       ...BASE_FINAL_STEPS,
     ],
   },
@@ -87,12 +87,12 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
     accent: 'indigo',
     steps: [
       { label: '校验差分阶数', description: '确认 d 值、训练样本和评估窗口有效。', weight: 0.8 },
-      { label: 'AIC 参数搜索', description: '搜索 p、q 组合，寻找 AIC 表现更优的候选模型。', weight: 2.4 },
-      { label: 'BIC 参数搜索', description: '使用 BIC 准则再次寻优，降低小样本过拟合风险。', weight: 2.4 },
-      { label: '选择最优阶数', description: '比较候选模型并确定最终 ARIMA(p,d,q)。', weight: 1.0 },
+      { label: 'AIC 参数搜索', description: '在样本量自适应边界内运行AIC目标的非季节stepwise搜索。', weight: 2.4 },
+      { label: 'BIC 参数搜索', description: '在相同边界内运行BIC目标的stepwise搜索；两次都不是穷举。', weight: 2.4 },
+      { label: '选择最终阶数', description: '比较两次搜索的优胜者：n<30按BIC优先，否则按AIC优先。', weight: 1.0 },
       ...BASE_FINAL_STEPS,
     ],
-    tip: 'ARIMA 的自动搜索由后端算法执行，耗时会随训练窗口和候选阶数组合变化。',
+    tip: '点预测截断为非负；95%区间仍来自未截断的ARIMA分布。模型不包含季节项。',
   },
   lstm: {
     title: 'LSTM 模型训练中',
@@ -101,12 +101,12 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
     accent: 'purple',
     steps: [
       { label: '分析字段类型', description: '识别数值、类别和目标字段，准备训练输入。', weight: 0.9 },
-      { label: '归一化与构造序列', description: '按选择的归一化方式转换数据，并构造 LSTM 时间窗口样本。', weight: 1.4 },
-      { label: '构建神经网络', description: '创建 LSTM 层和 Dense 输出层，配置优化器与学习率策略。', weight: 1.0 },
-      { label: 'Epoch 训练', description: '在后端逐轮训练神经网络，并应用早停策略保留较优权重。', weight: 4.2 },
+      { label: '归一化与构造序列', description: '仅用训练区间拟合缩放/编码器，构造历史窗口与直接多步标签。', weight: 1.4 },
+      { label: '构建神经网络', description: '创建两层LSTM、Dense隐藏层和horizon长度输出层，配置Adam。', weight: 1.0 },
+      { label: 'Epoch 训练', description: '保持时间顺序训练，逐轮衰减学习率；早停监控训练loss并恢复最佳权重。', weight: 4.2 },
       ...BASE_FINAL_STEPS,
     ],
-    tip: 'LSTM 训练会占用较多计算资源，请不要刷新或关闭页面。',
+    tip: '逆缩放后的销量点预测截断为非负；只读取历史窗口，小样本早停没有另切验证集。',
   },
   ensemble: {
     title: '融合模型训练中',
@@ -114,7 +114,7 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
     estimate: '可能需要几分钟',
     accent: 'purple',
     steps: [
-      { label: '检查基础模型', description: '确认所选基础模型均已完成训练，并读取可复用模型产物。', weight: 1.0 },
+      { label: '检查基础模型', description: '确认所选基础模型均已完成且版本匹配，并读取产物中的真实配置。', weight: 1.0 },
       { label: '生成基础预测', description: '训练或复用基础模型，生成验证区间和评估区间预测。', weight: 3.8 },
       { label: '计算融合结果', description: '组合多个基础模型输出，得到最终融合预测。', weight: 2.0 },
       ...BASE_FINAL_STEPS,
@@ -127,10 +127,10 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
     estimate: '可能需要几分钟',
     accent: 'purple',
     steps: [
-      { label: '检查基础模型', description: '确认基础模型状态并读取已训练模型产物。', weight: 1.0 },
-      { label: '生成验证集预测', description: '在权重验证集上获取各基础模型预测。', weight: 3.0 },
-      { label: '计算模型权重', description: '根据验证集残差 MSE 的倒数计算归一化权重。', weight: 1.3 },
-      { label: '完整训练与加权组合', description: '在完整训练区间生成评估预测并加权组合。', weight: 2.5 },
+      { label: '检查基础模型', description: '读取MA窗口、ES的α、ARIMA的d及LSTM训练配置。', weight: 1.0 },
+      { label: '生成验证集预测', description: '沿用固定配置在前段重拟合，ARIMA重新搜索p/q；8–15个训练点时末段通常只留2–3点。', weight: 3.0 },
+      { label: '计算模型权重', description: '按1/(MSE+10⁻⁹)归一化；本实现不估计成员误差协方差。', weight: 1.3 },
+      { label: '完整训练与加权组合', description: '成员销量先截断再加权，组合结果也做非负兜底后评估。', weight: 2.5 },
       ...BASE_FINAL_STEPS,
     ],
     tip: '加权平均会多次调用基础模型，训练期间请保持当前页面打开。',
@@ -141,10 +141,10 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
     estimate: '可能需要几分钟',
     accent: 'purple',
     steps: [
-      { label: '检查基础模型', description: '确认基础模型配置和已保存模型产物。', weight: 1.0 },
-      { label: '训练 Level-0 模型', description: '训练或复用基础模型，生成 Level-1 训练预测。', weight: 3.3 },
-      { label: '训练元模型', description: '在 Level-1 预测矩阵上拟合融合元模型。', weight: 1.4 },
-      { label: '生成最终评估预测', description: '完整训练基础模型并通过元模型输出最终预测。', weight: 2.6 },
+      { label: '检查基础模型', description: '确认产物版本，读取MA、ES、LSTM固定配置和ARIMA的d。', weight: 1.0 },
+      { label: '训练 Level-0 模型', description: '只在前段重拟合，ARIMA重新搜索p/q，生成 Level-1 训练预测。', weight: 3.3 },
+      { label: '训练元模型', description: '拟合非负无截距回归并归一化系数；不稳定时回退inverse-MAE。', weight: 1.4 },
+      { label: '生成最终评估预测', description: '截断成员销量后交给元模型，最终组合也做非负兜底。', weight: 2.6 },
       ...BASE_FINAL_STEPS,
     ],
     tip: 'Stacking 需要基础模型与元模型两层训练，耗时通常比单模型更长。',
@@ -155,10 +155,10 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
     estimate: '可能需要几分钟',
     accent: 'amber',
     steps: [
-      { label: '检查基础模型', description: '确认基础模型配置、学习率和最大迭代轮数。', weight: 1.0 },
-      { label: '初始化残差', description: '划分 Boosting 训练集和验证集，准备残差序列。', weight: 1.0 },
-      { label: '逐轮残差学习', description: '每轮评估候选基础模型，选择残差改进最大的模型。', weight: 4.2 },
-      { label: '组合模型链', description: '按学习率累加各轮模型输出，形成最终预测。', weight: 2.0 },
+      { label: '检查基础模型', description: '读取成员核心配置，并确认学习率和最大迭代轮数。', weight: 1.0 },
+      { label: '初始化残差', description: '按时间顺序留出验证段，并以原始销量作为第一轮残差目标。', weight: 1.0 },
+      { label: '逐轮残差学习', description: '沿用核心配置但改训当前残差；首轮截断非负，后续保留有符号输出。', weight: 4.2 },
+      { label: '组合模型链', description: '第一阶段系数1、后续默认0.3；累加后将最终销量再次截断为非负。', weight: 2.0 },
       ...BASE_FINAL_STEPS,
     ],
     tip: 'Boosting 会逐轮训练和评估候选模型，训练时间会随轮数和基础模型数量增加。',

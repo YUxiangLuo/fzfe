@@ -33,7 +33,7 @@ const Preprocessing: React.FC<PreprocessingProps> = ({ normalization, setNormali
               <span className="ml-4 flex-1 cursor-pointer">
                 <p className="text-base font-semibold text-gray-800 mb-2">最小-最大归一化</p>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  在数据需要被压缩到特定区间及不涉及距离度量、梯度、协方差计算时被广泛使用。
+                  按训练区间的最小值和最大值做线性缩放；训练值通常落在 [0,1]，评估或未来值超出训练范围时可以小于0或大于1。
                 </p>
               </span>
             </label>
@@ -50,11 +50,15 @@ const Preprocessing: React.FC<PreprocessingProps> = ({ normalization, setNormali
               <span className="ml-4 flex-1 cursor-pointer">
                 <p className="text-base font-semibold text-gray-800 mb-2">Z-score 标准化</p>
                 <p className="text-sm text-gray-700 leading-relaxed">
-                  适用于属性 A 的最大值和最小值未知的情况，或有超出取值范围的离群数据的情况。
+                  按训练区间均值和标准差做中心化与缩放，不限制取值范围，也不会把非正态数据变成正态分布；均值和标准差同样会受离群值影响。
                 </p>
               </span>
             </label>
           </div>
+        </div>
+
+        <div className="p-4 bg-sky-50 rounded-lg border border-sky-200 text-sm text-sky-900 leading-relaxed">
+          两种变换都只应用于数值字段，并且只在训练区间拟合参数；类别字段使用 One-Hot 编码。这样可避免评估数据参与预处理造成信息泄漏。
         </div>
 
         {error && (
@@ -73,6 +77,7 @@ const Preprocessing: React.FC<PreprocessingProps> = ({ normalization, setNormali
           什么是标准化？
         </button>
       </div>
+
     </div>
   );
 };

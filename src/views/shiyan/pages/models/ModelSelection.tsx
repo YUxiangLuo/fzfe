@@ -14,10 +14,10 @@ import {
 
 // Full model list to get details from
 const allModels = [
-  { id: 'moving_average', name: '移动平均法', description: '简单的时间序列预测方法。', icon: LineChart, path: '/model/moving-average/intro' },
-  { id: 'exponential_smoothing', name: '指数平滑法', description: '加权平均，近期数据权重更大。', icon: ChartSpline, path: '/model/exponential-smoothing/intro' },
-  { id: 'arima', name: 'ARIMA模型', description: '经典的统计预测模型。', icon: Sigma, path: '/model/arima/intro' },
-  { id: 'lstm', name: 'LSTM模型', description: '先进的深度学习预测模型。', icon: BrainCircuit, path: '/model/lstm/intro' },
+  { id: 'moving_average', name: '移动平均法', description: '最近窗口均值的递推多步基准。', icon: LineChart, path: '/model/moving-average/intro' },
+  { id: 'exponential_smoothing', name: '指数平滑法', description: '用户固定α的一次水平平滑。', icon: ChartSpline, path: '/model/exponential-smoothing/intro' },
+  { id: 'arima', name: 'ARIMA模型', description: '固定d、stepwise辅助定阶的非季节ARIMA。', icon: Sigma, path: '/model/arima/intro' },
+  { id: 'lstm', name: 'LSTM模型', description: '历史多变量输入的直接多步网络。', icon: BrainCircuit, path: '/model/lstm/intro' },
 ];
 
 const ModelCard: React.FC<{ model: any; isCompleted: boolean; onClick: () => void }> = ({ model, isCompleted, onClick }) => {
@@ -118,7 +118,7 @@ const ModelSelection: React.FC = () => {
         <PartyPopper className="w-16 h-16 text-green-500 mb-4" />
         <h2 className="text-2xl font-bold text-gray-800 mb-2">基础模型已全部完成！</h2>
         <p className="text-gray-600 max-w-md">
-          您已成功完成所有已选基础模型的学习和训练。现在，您可以进入下一步，了解并使用融合模型来进一步提升预测的准确性和稳定性。
+          您已完成所有已选基础模型的学习和训练。下一步可以学习融合方法，并在同一独立评估区间检验它们是否真的改善准确性或稳定性；融合并不保证优于最佳单模型。
         </p>
       </div>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-shrink-0 mt-6">

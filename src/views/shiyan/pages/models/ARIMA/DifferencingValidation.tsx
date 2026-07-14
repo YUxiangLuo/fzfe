@@ -27,14 +27,14 @@ const DifferencingValidation: React.FC<DifferencingValidationProps> = ({ selecte
     if (adfRow.stationary) {
       return {
         isValid: true,
-        message: `差分阶数 d=${selectedD} 检验通过`,
-        detail: `该阶数下序列已达到平稳状态（p值=${adfRow.p_value.toFixed(4)}）`
+        message: `差分阶数 d=${selectedD} 通过当前ADF门槛`,
+        detail: `该阶数下 p值=${adfRow.p_value.toFixed(4)} < 0.05，拒绝单位根零假设；这是支持当前建模选择的统计证据`
       };
     } else {
       return {
         isValid: false,
-        message: `差分阶数 d=${selectedD} 未能使序列平稳`,
-        detail: `该阶数下序列仍为非平稳状态（p值=${adfRow.p_value.toFixed(4)} > 0.05）`
+        message: `差分阶数 d=${selectedD} 未通过当前ADF门槛`,
+        detail: `该阶数下 p值=${adfRow.p_value.toFixed(4)} ≥ 0.05，不能拒绝单位根零假设；这不等于已经证明序列不平稳`
       };
     }
   }, [selectedD, adfResults]);

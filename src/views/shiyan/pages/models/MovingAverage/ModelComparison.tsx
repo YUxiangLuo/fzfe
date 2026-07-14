@@ -19,7 +19,7 @@ const ModelComparison: React.FC = () => {
         </div>
         <div className="flex items-start gap-3">
           <span className="font-semibold text-indigo-600 min-w-[4rem]">R²</span>
-          <span>决定系数，值越接近1表示模型拟合效果越好</span>
+          <span>决定系数，最高为1且越高通常越好；可为负，表示不如评估集均值基准。实际值恒定时，本系统约定完全预测正确为1，否则为0</span>
         </div>
       </div>
     </>

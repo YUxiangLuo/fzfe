@@ -19,7 +19,7 @@ const outputKeyLabels: Record<string, string> = {
   batch_size: '批大小',
   boost_train_size: '残差训练样本',
   boost_val_size: '残差验证样本',
-  best_order: '最优阶数',
+  best_order: '选定阶数',
   bic: 'BIC',
   candidates: '候选模型误差',
   converged: '是否收敛',

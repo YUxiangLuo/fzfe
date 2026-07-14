@@ -104,7 +104,7 @@ const ARIMAStepper: React.FC = () => {
       return { id: 'autoregression-info', name: '自回归方程', path: AUTOREGRESSION_INFO_PATH, component: AutoregressionInfo };
     }
     if (isStationarityTablePage) {
-      return { id: 'stationarity-table', name: '平稳性检验表', path: STATIONARITY_TABLE_PATH, component: StationarityTable };
+      return { id: 'stationarity-table', name: 'ADF 单位根检验表', path: STATIONARITY_TABLE_PATH, component: StationarityTable };
     }
     if (isDifferencingInfoPage) {
       return { id: 'differencing-info', name: '差分阶数选择的意义', path: DIFFERENCING_INFO_PATH, component: DifferencingInfo };
@@ -297,7 +297,7 @@ const ARIMAStepper: React.FC = () => {
       // 在adf检验结果页面
       const isAnyStationary = adfResults.some(r => r.stationary);
       if (!isAnyStationary) {
-        setAdfError("所有差分阶数的检验结果均为非平稳，无法继续进行ARIMA建模。请尝试调整数据窗口或选择其他产品。");
+        setAdfError("所有差分阶数均未通过当前ADF门槛，无法继续进行ARIMA建模。请尝试调整数据窗口或选择其他产品。");
         return;
       }
       const nextStep = STEPS[DIFFERENCING_STEP_INDEX];

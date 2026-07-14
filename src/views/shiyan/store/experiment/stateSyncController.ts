@@ -146,6 +146,19 @@ export const createExperimentStateSyncController = ({
     updateState: async (updates, options = {}) => {
       const { throwOnSyncError = false } = options;
       const previousState = getState();
+      const incomingStateVersion = updates.state_version;
+      const targetsCurrentExperiment = updates.experiment_id === undefined
+        || updates.experiment_id === previousState.experiment_id;
+      if (
+        options.skipSync
+        && targetsCurrentExperiment
+        && typeof incomingStateVersion === "number"
+        && Number.isFinite(incomingStateVersion)
+        && incomingStateVersion < previousState.state_version
+      ) {
+        onIgnoreStaleResponse(incomingStateVersion, previousState.state_version);
+        return;
+      }
       synchronizeCompletionTracking(previousState);
 
       const currentUpdateVersion = ++stateUpdateVersion;

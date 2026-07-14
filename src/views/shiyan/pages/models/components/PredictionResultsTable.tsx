@@ -60,7 +60,7 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
               </th>
               {showAccuracy && (
                 <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
-                  预测准确率
+                  单点相对准确度（展示值）
                 </th>
               )}
             </tr>
@@ -92,7 +92,7 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
         <div className="mt-6 p-6 bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50 rounded-xl border-2 border-indigo-200 shadow-md">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-6 bg-indigo-600 rounded-full"></div>
-            <h4 className="text-lg font-bold text-gray-800">预测准确率计算说明</h4>
+            <h4 className="text-lg font-bold text-gray-800">单点相对准确度计算说明</h4>
           </div>
 
           <div className="flex flex-row gap-6">
@@ -102,7 +102,7 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
                 {/* 主公式 */}
                 <div className="text-center">
                   <div className="text-xl font-bold text-gray-800 leading-relaxed">
-                    预测准确率 = (1 - <span className="text-indigo-600">误差绝对值</span> / <span className="text-blue-600">实际需求量</span>) × 100%
+                    单点相对准确度 = (1 - <span className="text-indigo-600">误差绝对值</span> / |<span className="text-blue-600">实际需求量</span>|) × 100%
                   </div>
                 </div>
 
@@ -115,7 +115,7 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
                     其中：<span className="font-semibold text-indigo-600">误差绝对值</span> = |<span className="text-blue-600">实际需求量</span> - <span className="text-purple-600">预测需求量</span>|
                   </div>
                   <div className="mt-2 text-xs text-gray-500">
-                    实际需求量为 0 时百分比准确率无定义，表中显示“不适用”。
+                    这是由单点绝对百分比误差派生的页面展示值，不是训练或模型选择指标；当误差大于实际值绝对值时可为负数。实际需求量为0时无定义，表中显示“不适用”。
                   </div>
                 </div>
               </div>
@@ -123,26 +123,26 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
 
             {/* 右侧：评价标准 */}
             <div className="flex-[2] bg-white rounded-lg p-5 border border-gray-200 shadow-sm">
-              <div className="text-sm font-semibold text-gray-700 mb-3">评价标准</div>
+              <div className="text-sm font-semibold text-gray-700 mb-3">页面色带（非统计标准）</div>
               <div className="space-y-2">
                 <div className="flex items-center p-2 bg-green-50 rounded border border-green-200">
                   <div className="flex-1">
-                    <div className="text-sm font-bold text-green-700">≥ 85% <span className="text-xs font-normal text-green-600">优秀</span></div>
+                    <div className="text-sm font-bold text-green-700">≥ 85% <span className="text-xs font-normal text-green-600">相对误差较小</span></div>
                   </div>
                 </div>
                 <div className="flex items-center p-2 bg-blue-50 rounded border border-blue-200">
                   <div className="flex-1">
-                    <div className="text-sm font-bold text-blue-700">70-85% <span className="text-xs font-normal text-blue-600">良好</span></div>
+                    <div className="text-sm font-bold text-blue-700">70-85% <span className="text-xs font-normal text-blue-600">仅作显示分组</span></div>
                   </div>
                 </div>
                 <div className="flex items-center p-2 bg-yellow-50 rounded border border-yellow-200">
                   <div className="flex-1">
-                    <div className="text-sm font-bold text-yellow-700">60-70% <span className="text-xs font-normal text-yellow-600">合格</span></div>
+                    <div className="text-sm font-bold text-yellow-700">60-70% <span className="text-xs font-normal text-yellow-600">仅作显示分组</span></div>
                   </div>
                 </div>
                 <div className="flex items-center p-2 bg-red-50 rounded border border-red-200">
                   <div className="flex-1">
-                    <div className="text-sm font-bold text-red-700">&lt; 60% <span className="text-xs font-normal text-red-600">需改进</span></div>
+                    <div className="text-sm font-bold text-red-700">&lt; 60% <span className="text-xs font-normal text-red-600">相对误差较大</span></div>
                   </div>
                 </div>
               </div>

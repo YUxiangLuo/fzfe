@@ -107,7 +107,7 @@ const RoleIntroduction: React.FC = () => {
                       场景1：淡旺季需求波动
                     </p>
                     <p className="text-xs text-gray-700">
-                      产品呈现明显的季节性特征时，需选择能够捕捉周期性规律的模型（如指数平滑、ARIMA），避免库存积压或缺货
+                      产品呈现明显季节性时，应使用 Holt-Winters、SARIMA 等季节模型；本系统的一次指数平滑和非季节 ARIMA 不能直接建模季节项
                     </p>
                   </div>
                   <div className="bg-white/60 rounded-lg p-3 border border-rose-200">
@@ -123,7 +123,7 @@ const RoleIntroduction: React.FC = () => {
                       场景3：复杂多因素影响
                     </p>
                     <p className="text-xs text-gray-700">
-                      需求受多种因素影响时，可尝试LSTM深度学习模型或集成模型，提升预测准确度
+                      需求受多种因素影响时，可比较 LSTM 或集成模型是否在留出评估段带来改善；本系统 LSTM 只读取预测起点前的历史特征
                     </p>
                   </div>
                 </div>
@@ -168,7 +168,7 @@ const RoleIntroduction: React.FC = () => {
                     <div className="flex-1">
                       <h4 className="font-semibold text-purple-900 text-sm mb-1">选择并应用模型</h4>
                       <p className="text-xs text-gray-700 leading-relaxed">
-                        训练多种模型，比较MAE、RMSE等性能指标，选出最优方案
+                        训练多种模型，在同一评估区间比较MAE、RMSE等指标，选择更适合当前数据的方案
                       </p>
                     </div>
                   </div>

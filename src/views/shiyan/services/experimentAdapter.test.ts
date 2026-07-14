@@ -19,7 +19,18 @@ describe("experimentAdapter", () => {
       ensemble_weighted_base_models: ["lstm", "ma", false],
       ensemble_boosting_base_models: ["arima", "exp"],
       ensemble_stacking_base_models: "invalid",
-      arima_adf_stationarity: [{ diff_order: 1 }],
+      arima_adf_stationarity: [
+        {
+          diff_order: 1,
+          statistic: -3.84,
+          p_value: 0.018,
+          used_lags: 2,
+          n_obs: 11,
+          stationary: true,
+          critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
+        },
+        { diff_order: 2 },
+      ],
       production_forecast_results: [{ prediction: 10, std_dev: 2 }, null],
       production_mps_table: [{ period: 1 }, null],
     } as unknown as ExperimentApiState;
@@ -36,6 +47,8 @@ describe("experimentAdapter", () => {
     expect(state.ensemble_stacking_base_models).toEqual([]);
     expect(state.arima_adf_stationarity).toHaveLength(1);
     expect(state.arima_adf_stationarity[0]?.diff_order).toBe(1);
+    expect(state.arima_adf_stationarity[0]?.used_lags).toBe(2);
+    expect(state.arima_adf_stationarity[0]?.n_obs).toBe(11);
     expect(state.production_forecast_results).toEqual([{ prediction: 10, std_dev: 2 }]);
     expect(state.production_mps_table).toHaveLength(1);
     expect(state.production_mps_table[0]?.period).toBe(1);

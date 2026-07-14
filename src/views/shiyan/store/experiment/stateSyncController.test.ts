@@ -51,6 +51,50 @@ describe("stateSyncController", () => {
     expect(onSyncSuccess).toHaveBeenCalledTimes(1);
   });
 
+  it("ignores an older authoritative skipSync patch for the current experiment", async () => {
+    let currentState: ExperimentState = {
+      ...buildInitialState(),
+      experiment_id: 42,
+      state_version: 11,
+      ensemble_weighted_completed: true,
+      selected_best_model: "ensemble_weighted",
+      production_plan_completed: true,
+    };
+    const repository = createRepositoryStub();
+    const onLocalStateChange = mock(() => {});
+    const onIgnoreStaleResponse = mock(() => {});
+    const controller = createExperimentStateSyncController({
+      repository,
+      getState: () => currentState,
+      setState: (state) => {
+        currentState = state;
+      },
+      onLocalStateChange,
+      onSyncSuccess: mock(() => {}),
+      onSyncError: mock(() => {}),
+      onIgnoreStaleResponse,
+      onRemoteProductSelectionChanged: mock(() => {}),
+      onCompletedStepRecordError: mock(() => {}),
+    });
+
+    await controller.updateState({
+      state_version: 3,
+      ensemble_weighted_completed: false,
+      selected_best_model: null,
+      production_plan_completed: false,
+    }, { skipSync: true });
+
+    expect(currentState).toMatchObject({
+      state_version: 11,
+      ensemble_weighted_completed: true,
+      selected_best_model: "ensemble_weighted",
+      production_plan_completed: true,
+    });
+    expect(onLocalStateChange).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
+    expect(onIgnoreStaleResponse).toHaveBeenCalledWith(3, 11);
+  });
+
   it("records completed step events for each newly completed step", async () => {
     let currentState: ExperimentState = {
       ...buildInitialState(),

@@ -73,15 +73,51 @@ const normalizeStringArray = (value: unknown): string[] => {
   return value.filter((item): item is string => typeof item === "string");
 };
 
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+const isAdfRow = (value: unknown): value is AdfStationarityRow => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const row = value as Record<string, unknown>;
+  const criticalValues = row.critical_values;
+  if (
+    typeof criticalValues !== "object"
+    || criticalValues === null
+    || Array.isArray(criticalValues)
+  ) {
+    return false;
+  }
+  const critical = criticalValues as Record<string, unknown>;
+  return Number.isSafeInteger(row.diff_order)
+    && Number(row.diff_order) >= 0
+    && Number(row.diff_order) <= 2
+    && isFiniteNumber(row.statistic)
+    && isFiniteNumber(row.p_value)
+    && row.p_value >= 0
+    && row.p_value <= 1
+    && Number.isSafeInteger(row.used_lags)
+    && Number(row.used_lags) >= 0
+    && Number.isSafeInteger(row.n_obs)
+    && Number(row.n_obs) >= 1
+    && typeof row.stationary === "boolean"
+    && isFiniteNumber(critical["1%"])
+    && isFiniteNumber(critical["5%"])
+    && isFiniteNumber(critical["10%"]);
+};
+
 const normalizeAdfRows = (value: unknown): AdfStationarityRow[] => {
   if (!Array.isArray(value)) {
     return [];
   }
 
-  return value.filter(
-    (item): item is AdfStationarityRow =>
-      typeof item === "object" && item !== null,
-  );
+  const rows = value.filter(isAdfRow);
+  const diffOrders = rows.map((row) => row.diff_order);
+  if (rows.length > 3 || new Set(diffOrders).size !== diffOrders.length) {
+    return [];
+  }
+  return rows;
 };
 
 const normalizeMpsRows = (value: unknown): MPSTableRow[] => {

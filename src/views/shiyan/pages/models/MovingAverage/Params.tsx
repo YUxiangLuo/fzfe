@@ -45,7 +45,7 @@ const Params: React.FC<ParamsProps> = ({ windowSize, setWindowSize }) => {
 
       <div className="p-5 bg-amber-50 rounded-lg border border-amber-200">
         <p className="text-gray-700 leading-relaxed text-base">
-          请根据您的数据特点和分析目标，选取合适的时间窗口大小 n。窗口大小 n 会影响到移动平均的平滑程度和对数据趋势的反应灵敏度。较小的窗口大小会使移动平均更接近原始数据，但可能保留较多的噪声；较大的窗口大小则会平滑掉更多的波动，但也可能导致对快速变化趋势的反应迟缓。
+          请选择不超过训练样本数的整数 n，且 n≥2。较小窗口更接近近期数据但保留更多噪声；较大窗口更平滑但对水平变化反应更迟缓。n=1只是把上一期值作为下一期预测，不展示移动“平均”的特性，因此本系统不开放。
         </p>
       </div>
     </div>

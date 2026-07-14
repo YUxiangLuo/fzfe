@@ -12,7 +12,6 @@ describe('LSTM Build', () => {
         features={[]}
         setFeatures={mock(() => {})}
         target="销售数量"
-        setTarget={mock(() => {})}
         error={null}
         isLoading={false}
         fieldOptions={['销售数量', 'SKU编码', '渠道类型', 'unused_free_text', '外部,指标']}
@@ -25,6 +24,8 @@ describe('LSTM Build', () => {
     expect(view.getByLabelText('unused_free_text')).toBeTruthy();
     expect(view.getByLabelText('外部,指标')).toBeTruthy();
     expect((view.getByLabelText('销售数量(目标字段)') as HTMLInputElement).disabled).toBe(true);
+    expect(view.getByText(/附加特征可以不选/)).toBeTruthy();
+    expect(view.getByText(/附加特征（可选）/)).toBeTruthy();
   });
 
   it('shows field type labels and warnings for dirty numeric-like and high-cardinality fields', () => {
@@ -38,7 +39,6 @@ describe('LSTM Build', () => {
         features={[]}
         setFeatures={mock(() => {})}
         target="销售数量"
-        setTarget={mock(() => {})}
         error={null}
         isLoading={false}
         fieldOptions={['销售数量', '促销投入', 'SKU编码']}
@@ -63,7 +63,6 @@ describe('LSTM Build', () => {
         features={[]}
         setFeatures={setFeatures}
         target="销售数量"
-        setTarget={mock(() => {})}
         error={null}
         isLoading={false}
         fieldOptions={['销售数量', '外部,指标']}

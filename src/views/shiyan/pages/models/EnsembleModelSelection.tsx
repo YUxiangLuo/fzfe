@@ -16,9 +16,9 @@ import {
 
 // Full ensemble model list to get details from
 const allEnsembleModels = [
-  { id: 'weighted_ensemble', name: '加权平均融合', description: '结合多个模型预测结果。', icon: Scale, path: '/model/weighted-ensemble/intro' },
-  { id: 'boosting_ensemble', name: 'Boosting融合', description: '迭代式地提升模型性能。', icon: Sparkles, path: '/model/boosting-ensemble/intro' },
-  { id: 'stacking_ensemble', name: 'Stacking融合', description: '多层次模型融合策略。', icon: Layers, path: '/model/stacking-ensemble/intro' },
+  { id: 'weighted_ensemble', name: '加权平均融合', description: '时间留出残差MSE倒数加权。', icon: Scale, path: '/model/weighted-ensemble/intro' },
+  { id: 'boosting_ensemble', name: 'Boosting融合', description: '异构候选的贪心残差加法链。', icon: Sparkles, path: '/model/boosting-ensemble/intro' },
+  { id: 'stacking_ensemble', name: 'Stacking融合', description: '时间留出的两层非负线性组合。', icon: Layers, path: '/model/stacking-ensemble/intro' },
 ];
 
 const ModelCard: React.FC<{ model: any; isCompleted: boolean; onClick: () => void }> = ({ model, isCompleted, onClick }) => {
