@@ -3,10 +3,11 @@ import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { validatePredictions } from '../utils/predictionValidator';
-import { predictWithBestModel } from '../../../services/modelLifecycle';
+import { ProductionPredictionError, predictWithBestModel } from '../../../services/modelLifecycle';
 import { useToast } from '../../../shared/hooks/useToast';
 import { Toast } from '../../../shared/components/common/Toast';
 import ProductionForecastAssumptionNote from '../components/ProductionForecastAssumptionNote';
+import ProductionPredictionErrorAlert from '../components/ProductionPredictionErrorAlert';
 
 /**
  * 完整计划表（结果视图）
@@ -27,6 +28,7 @@ const CompletePlanView: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasAttempted, setHasAttempted] = useState(false);
   const [canRetryManually, setCanRetryManually] = useState(false);
+  const [predictionError, setPredictionError] = useState<ProductionPredictionError | null>(null);
   const isGeneratingRef = useRef(false);
   const autoGenerateGuardRef = useRef(false);
   const scheduledAutoGenerateRef = useRef<number | null>(null);
@@ -39,22 +41,28 @@ const CompletePlanView: React.FC = () => {
     isGeneratingRef.current = true;
     hideToast();
     setCanRetryManually(false);
+    setPredictionError(null);
     setIsGenerating(true);
 
     try {
-      // 🆕 优先使用Step1中已保存的预测数据
-      if (state.predictions && state.predictions.length > 0) {
-        const validation = validatePredictions(state.predictions);
-        validation.allWarnings.forEach(warning => console.warn(warning));
-        const predictionsToUse = validation.validatedData.slice(0, state.forecastPeriods);
-        if (predictionsToUse.length < state.forecastPeriods) {
-          throw new Error(`预测数据不足：期望 ${state.forecastPeriods} 期，实际 ${predictionsToUse.length} 期`);
-        }
+      let predictionsToUse: Array<{ prediction: number; std_dev: number }> | null = null;
 
-        const generatedTable = generateFullMPS(predictionsToUse);
-        await saveMPSDataToGlobal(updateState, generatedTable, predictionsToUse);
-      } else {
-        // 如果没有保存的预测数据，则调用API获取
+      // 优先复用 Step1 的预测；旧版缓存不符合当前契约时改为重新请求。
+      if (state.predictions && state.predictions.length > 0) {
+        try {
+          const validation = validatePredictions(state.predictions);
+          validation.allWarnings.forEach(warning => console.warn(warning));
+          const cachedPredictions = validation.validatedData.slice(0, state.forecastPeriods);
+          if (cachedPredictions.length < state.forecastPeriods) {
+            throw new Error(`预测数据不足：期望 ${state.forecastPeriods} 期，实际 ${cachedPredictions.length} 期`);
+          }
+          predictionsToUse = cachedPredictions;
+        } catch (cachedPredictionError) {
+          console.warn('已缓存的预测数据无效，将重新请求模型预测:', cachedPredictionError);
+        }
+      }
+
+      if (!predictionsToUse) {
         if (!experimentState.experiment_id) {
           throw new Error('实验状态未初始化，无法进行需求预测');
         }
@@ -65,23 +73,24 @@ const CompletePlanView: React.FC = () => {
           state.forecastPeriods,
         );
 
-        if (response.status === 'success' && response.results?.predictions) {
-          const validation = validatePredictions(response.results.predictions);
-          validation.allWarnings.forEach(warning => console.warn(warning));
-          const predictionsToUse = validation.validatedData.slice(0, state.forecastPeriods);
-          if (predictionsToUse.length < state.forecastPeriods) {
-            throw new Error(`预测数据不足：期望 ${state.forecastPeriods} 期，实际 ${predictionsToUse.length} 期`);
-          }
-
-          const generatedTable = generateFullMPS(predictionsToUse);
-          await saveMPSDataToGlobal(updateState, generatedTable, predictionsToUse);
-        } else {
-          throw new Error('预测API返回数据格式错误');
+        const validation = validatePredictions(response.results.predictions);
+        validation.allWarnings.forEach(warning => console.warn(warning));
+        predictionsToUse = validation.validatedData.slice(0, state.forecastPeriods);
+        if (predictionsToUse.length < state.forecastPeriods) {
+          throw new Error(`预测数据不足：期望 ${state.forecastPeriods} 期，实际 ${predictionsToUse.length} 期`);
         }
       }
+
+      const generatedTable = generateFullMPS(predictionsToUse);
+      await saveMPSDataToGlobal(updateState, generatedTable, predictionsToUse);
     } catch (err) {
       console.error('生成完整计划失败:', err);
       setCanRetryManually(true);
+
+      if (err instanceof ProductionPredictionError) {
+        setPredictionError(err);
+        return;
+      }
       
       // 更详细的错误提示
       let errorMessage = '生成失败，请重试';
@@ -229,7 +238,16 @@ const CompletePlanView: React.FC = () => {
         </div>
       )}
 
-      {hasAttempted && canRetryManually && !isGenerating && (
+      {hasAttempted && predictionError && !isGenerating && (
+        <ProductionPredictionErrorAlert
+          error={predictionError}
+          selectedBestModel={state.selectedBestModel}
+          isRetrying={isGenerating}
+          onRetry={handleGenerate}
+        />
+      )}
+
+      {hasAttempted && canRetryManually && !predictionError && !isGenerating && (
         <div className="bg-white border border-gray-200 rounded-lg p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>

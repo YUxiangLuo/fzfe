@@ -4,10 +4,11 @@ import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { MPS_CALCULATION, SERVICE_LEVELS } from '../config/mpsConstants';
 import { validatePredictions } from '../utils/predictionValidator';
-import { predictWithBestModel } from '../../../services/modelLifecycle';
+import { ProductionPredictionError, predictWithBestModel } from '../../../services/modelLifecycle';
 import { useToast } from '../../../shared/hooks/useToast';
 import { Toast } from '../../../shared/components/common/Toast';
 import ProductionForecastAssumptionNote from '../components/ProductionForecastAssumptionNote';
+import ProductionPredictionErrorAlert from '../components/ProductionPredictionErrorAlert';
 import {
   calculateCapacityScenarioOptions,
   type CapacityScenarioOption,
@@ -73,6 +74,7 @@ const NewStep1: React.FC = () => {
   const { toast, showToast, hideToast } = useToast();
 
   const [isPredicting, setIsPredicting] = useState(false);
+  const [predictionError, setPredictionError] = useState<ProductionPredictionError | null>(null);
   const [isPeriod1Generated, setIsPeriod1Generated] = useState(false);
   const [period1Data, setPeriod1Data] = useState<{
     demand: number;
@@ -112,6 +114,7 @@ const NewStep1: React.FC = () => {
     }
     isPredictingRef.current = true;
     hideToast();
+    setPredictionError(null);
     setIsPredicting(true);
 
     try {
@@ -185,7 +188,11 @@ const NewStep1: React.FC = () => {
     } catch (err) {
       console.error('生成预测失败:', err);
       if (isMountedRef.current) {
-        showToast(err instanceof Error ? err.message : '生成预测失败，请重试', 'error');
+        if (err instanceof ProductionPredictionError) {
+          setPredictionError(err);
+        } else {
+          showToast(err instanceof Error ? err.message : '生成预测失败，请重试', 'error');
+        }
       }
     } finally {
       isPredictingRef.current = false;
@@ -316,6 +323,17 @@ const NewStep1: React.FC = () => {
   };
 
   const renderPeriod1Action = () => {
+    if (predictionError) {
+      return (
+        <ProductionPredictionErrorAlert
+          error={predictionError}
+          selectedBestModel={state.selectedBestModel}
+          isRetrying={isPredicting}
+          onRetry={handlePredictPeriod1}
+        />
+      );
+    }
+
     if (hasGeneratedPeriod1 && displayedPeriod1Demand != null) {
       return (
         <div className="bg-green-50 border-2 border-green-400 rounded-lg p-4">

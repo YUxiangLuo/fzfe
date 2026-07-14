@@ -2,8 +2,16 @@ import { apiClient, MODEL_API_TIMEOUTS } from '@/utils/apiClient';
 import type { SelectedBestModel } from '../store/experiment/types';
 import { BEST_MODEL_TO_BACKEND_MODEL_TYPE } from '../utils/modelCatalog';
 
-type ProductionRequestStage = 'prepare' | 'predict';
-type ProductionRequestErrorKind = 'invalid' | 'missing' | 'conflict' | 'busy' | 'timeout' | 'unknown';
+export type ProductionRequestStage = 'prepare' | 'predict';
+export type ProductionRequestErrorKind =
+  | 'invalid'
+  | 'invalid-response'
+  | 'missing'
+  | 'conflict'
+  | 'busy'
+  | 'timeout'
+  | 'unknown';
+export type ProductionRecoveryAction = 'retry' | 'retrain';
 type ApiRequestError = Error & {
   status?: number;
   payload?: unknown;
@@ -15,7 +23,7 @@ export interface ModelPredictionPoint {
   std_dev: number;
 }
 
-interface ModelPredictionResponse {
+export interface ModelPredictionResponse {
   status: string;
   results: {
     predictions: ModelPredictionPoint[];
@@ -30,7 +38,6 @@ interface ProductionPreparationResponse {
   results: {
     preparation_token: string;
     prepared_forecast_steps: number;
-    reused_existing: boolean;
   };
 }
 
@@ -38,6 +45,8 @@ export class ProductionPredictionError extends Error {
   readonly status?: number;
   readonly stage: ProductionRequestStage;
   readonly kind: ProductionRequestErrorKind;
+  readonly code?: string;
+  readonly recoveryAction: ProductionRecoveryAction;
   readonly originalError: unknown;
 
   constructor(
@@ -46,6 +55,8 @@ export class ProductionPredictionError extends Error {
       status?: number;
       stage: ProductionRequestStage;
       kind: ProductionRequestErrorKind;
+      code?: string;
+      recoveryAction: ProductionRecoveryAction;
       originalError: unknown;
     },
   ) {
@@ -54,6 +65,8 @@ export class ProductionPredictionError extends Error {
     this.status = options.status;
     this.stage = options.stage;
     this.kind = options.kind;
+    this.code = options.code;
+    this.recoveryAction = options.recoveryAction;
     this.originalError = options.originalError;
   }
 }
@@ -111,6 +124,24 @@ const extractPayloadCode = (payload: unknown): string | null => {
   return typeof code === 'string' ? code : null;
 };
 
+const extractPayloadRequiredAction = (payload: unknown): string | null => {
+  if (typeof payload !== 'object' || payload === null) {
+    return null;
+  }
+  const requiredAction = (payload as Record<string, unknown>).required_action;
+  return typeof requiredAction === 'string' ? requiredAction : null;
+};
+
+const getProductionRecoveryAction = (
+  error: ApiRequestError,
+  code: string | undefined,
+): ProductionRecoveryAction => {
+  if (code === 'MODEL_ARTIFACT_INVALID' || extractPayloadRequiredAction(error.payload) === 'retrain') {
+    return 'retrain';
+  }
+  return 'retry';
+};
+
 const getProductionErrorKind = (error: ApiRequestError): ProductionRequestErrorKind => {
   if (error.code === 'CLIENT_TIMEOUT') {
     return 'timeout';
@@ -165,6 +196,12 @@ const buildProductionErrorMessage = (error: ApiRequestError): string => {
       if (code === 'PRODUCTION_PREPARATION_REQUIRED') {
         return '生产预测模型尚未准备好，请再次点击“重试”重新生成需求预测。';
       }
+      if (code === 'MODEL_ARTIFACT_INVALID') {
+        return appendErrorDetail(
+          '已训练模型的产物已损坏或与当前环境不兼容。请返回对应模型的训练页面重新训练，再生成生产计划。',
+          detail,
+        );
+      }
       return '当前模型已有训练或预测任务在执行，请稍后再次点击“重试”。';
     }
     case 429:
@@ -184,6 +221,7 @@ const normalizeProductionRequestError = (
   const requestError = error instanceof Error
     ? (error as ApiRequestError)
     : (new Error('未知错误') as ApiRequestError);
+  const code = requestError.code ?? extractPayloadCode(requestError.payload) ?? undefined;
 
   return new ProductionPredictionError(
     buildProductionErrorMessage(requestError),
@@ -191,9 +229,113 @@ const normalizeProductionRequestError = (
       status: requestError.status,
       stage,
       kind: getProductionErrorKind(requestError),
+      code,
+      recoveryAction: getProductionRecoveryAction(requestError, code),
       originalError: error,
     },
   );
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const invalidProductionResponse = (
+  stage: ProductionRequestStage,
+  message: string,
+  response: unknown,
+): ProductionPredictionError => new ProductionPredictionError(message, {
+  stage,
+  kind: 'invalid-response',
+  code: 'PRODUCTION_RESPONSE_INVALID',
+  recoveryAction: 'retry',
+  originalError: response,
+});
+
+const parseProductionPreparationResponse = (
+  response: unknown,
+  forecastSteps: number,
+): ProductionPreparationResponse => {
+  if (!isRecord(response) || response.status !== 'success' || !isRecord(response.results)) {
+    throw invalidProductionResponse('prepare', '生产模型准备结果格式无效，请重试。', response);
+  }
+
+  const token = response.results.preparation_token;
+  const preparedForecastSteps = response.results.prepared_forecast_steps;
+  if (
+    typeof token !== 'string'
+    || token.trim().length === 0
+    || !Number.isInteger(preparedForecastSteps)
+    || (preparedForecastSteps as number) < forecastSteps
+  ) {
+    throw invalidProductionResponse('prepare', '生产模型准备结果不完整或预测期数不足，请重试。', response);
+  }
+
+  return {
+    status: 'success',
+    results: {
+      preparation_token: token,
+      prepared_forecast_steps: preparedForecastSteps as number,
+    },
+  };
+};
+
+const parseModelPredictionResponse = (
+  response: unknown,
+  forecastSteps: number,
+): ModelPredictionResponse => {
+  if (!isRecord(response) || response.status !== 'success' || !isRecord(response.results)) {
+    throw invalidProductionResponse('predict', '需求预测结果格式无效，请重试。', response);
+  }
+
+  const rawPredictions = response.results.predictions;
+  if (!Array.isArray(rawPredictions) || rawPredictions.length < forecastSteps) {
+    throw invalidProductionResponse(
+      'predict',
+      `需求预测结果期数不足：期望至少 ${forecastSteps} 期。`,
+      response,
+    );
+  }
+
+  const predictions = rawPredictions.map((point, index) => {
+    if (!isRecord(point) || !isFiniteNumber(point.prediction) || !isFiniteNumber(point.std_dev) || point.std_dev < 0) {
+      throw invalidProductionResponse(
+        'predict',
+        `需求预测第 ${index + 1} 期数据无效，请重试。`,
+        response,
+      );
+    }
+    return {
+      prediction: point.prediction,
+      std_dev: point.std_dev,
+    };
+  });
+
+  const methodName = response.results.method_name;
+  const forecastStrategy = response.results.forecast_strategy;
+  const implementationNotes = response.results.implementation_notes;
+  if (
+    (methodName !== undefined && typeof methodName !== 'string')
+    || (forecastStrategy !== undefined && typeof forecastStrategy !== 'string')
+    || (
+      implementationNotes !== undefined
+      && (!Array.isArray(implementationNotes) || !implementationNotes.every((note) => typeof note === 'string'))
+    )
+  ) {
+    throw invalidProductionResponse('predict', '需求预测结果元数据格式无效，请重试。', response);
+  }
+
+  return {
+    status: 'success',
+    results: {
+      predictions,
+      ...(methodName !== undefined ? { method_name: methodName } : {}),
+      ...(forecastStrategy !== undefined ? { forecast_strategy: forecastStrategy } : {}),
+      ...(implementationNotes !== undefined ? { implementation_notes: implementationNotes } : {}),
+    },
+  };
 };
 
 const runProductionRequest = async <T>(
@@ -213,27 +355,17 @@ export const predictWithBestModel = async (
   forecastSteps: number,
 ): Promise<ModelPredictionResponse> => {
   const modelType = getBackendModelType(selectedBestModel);
-  const preparation = await runProductionRequest('prepare', async () =>
-    await apiClient.post<ProductionPreparationResponse>(`/models/${modelType}/prepare-production`, {
+  const rawPreparation = await runProductionRequest('prepare', async () =>
+    await apiClient.post<unknown>(`/models/${modelType}/prepare-production`, {
       experiment_id: experimentId,
       forecast_steps: forecastSteps,
     }, {
       timeoutMs: MODEL_API_TIMEOUTS.EXECUTION,
     })
   );
-  if (
-    preparation.status !== 'success'
-    || !preparation.results?.preparation_token
-    || preparation.results.prepared_forecast_steps < forecastSteps
-  ) {
-    throw new ProductionPredictionError('生产模型准备结果无效，请重试。', {
-      stage: 'prepare',
-      kind: 'unknown',
-      originalError: preparation,
-    });
-  }
-  return await runProductionRequest('predict', async () =>
-    await apiClient.post<ModelPredictionResponse>(`/models/${modelType}/predict`, {
+  const preparation = parseProductionPreparationResponse(rawPreparation, forecastSteps);
+  const rawPrediction = await runProductionRequest('predict', async () =>
+    await apiClient.post<unknown>(`/models/${modelType}/predict`, {
       experiment_id: experimentId,
       forecast_steps: forecastSteps,
       preparation_token: preparation.results.preparation_token,
@@ -241,4 +373,5 @@ export const predictWithBestModel = async (
       timeoutMs: MODEL_API_TIMEOUTS.PREDICTION,
     })
   );
+  return parseModelPredictionResponse(rawPrediction, forecastSteps);
 };

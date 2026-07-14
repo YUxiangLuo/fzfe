@@ -75,6 +75,19 @@ export const BEST_MODEL_TO_BACKEND_MODEL_TYPE: Record<SelectedBestModel, string>
   ensemble_stacking: "stacking",
 };
 
+const BEST_MODEL_TO_TRAINING_RESULT_PATH: Record<SelectedBestModel, string> = {
+  ma: "/model/moving-average/results",
+  exp: "/model/exponential-smoothing/results",
+  arima: "/model/arima/autoparams",
+  lstm: "/model/lstm/results",
+  ensemble_weighted: "/model/weighted-ensemble/results",
+  ensemble_boosting: "/model/boosting-ensemble/results",
+  ensemble_stacking: "/model/stacking-ensemble/results",
+};
+
+export const getBestModelRetrainingPath = (selectedBestModel: SelectedBestModel): string =>
+  BEST_MODEL_TO_TRAINING_RESULT_PATH[selectedBestModel];
+
 export const isBaseBestModel = (
   selectedBestModel: SelectedBestModel,
 ): selectedBestModel is Extract<SelectedBestModel, "ma" | "exp" | "arima" | "lstm"> => (

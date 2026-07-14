@@ -60,14 +60,27 @@ describe("MPS Calculation Utils", () => {
       expect(result.hasModifications).toBe(true);
     });
 
-    it("fixes invalid predictions (NaN)", () => {
+    it("rejects invalid predictions instead of replacing them with zero", () => {
       const predictions = [
         { prediction: NaN, std_dev: 50 },
         { prediction: 1100, std_dev: 55 },
       ];
-      const result = validatePredictions(predictions);
-      expect(result.validatedData[0]?.prediction).toBe(0);
-      expect(result.hasModifications).toBe(true);
+      expect(() => validatePredictions(predictions)).toThrow("prediction 必须是有限数字");
+    });
+
+    it("rejects values that only look numeric instead of coercing them", () => {
+      expect(() => validatePredictions([
+        { prediction: "1000", std_dev: 50 },
+      ])).toThrow("prediction 必须是有限数字");
+    });
+
+    it("rejects negative or non-finite standard deviations", () => {
+      expect(() => validatePredictions([
+        { prediction: 1000, std_dev: -1 },
+      ])).toThrow("std_dev 必须是非负有限数字");
+      expect(() => validatePredictions([
+        { prediction: 1000, std_dev: Number.POSITIVE_INFINITY },
+      ])).toThrow("std_dev 必须是非负有限数字");
     });
   });
 

@@ -288,31 +288,9 @@ const ProductionPlanContent: React.FC = () => {
 };
 
 // 包装Provider，从全局状态获取真实数据
-const ProductionPlanSteps: React.FC = () => {
+export const ProductionPlanSteps: React.FC = () => {
   const navigate = useNavigate();
   const { state: experimentState, ui, productSalesData } = useExperiment();
-
-  if (!experimentState.selected_best_model) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center max-w-md px-6">
-          <h2 className="text-xl font-semibold text-gray-900">请先完成最佳模型选择</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            生产计划需要基于评估页中选定的最佳模型生成预测结果。
-          </p>
-          <button
-            type="button"
-            onClick={() => navigate('/evaluation')}
-            className="mt-4 px-5 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            返回结果评估
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const selectedBestModel = experimentState.selected_best_model;
 
   // 📊 从历史销量数据计算真实的平均需求
   const avgDemand = React.useMemo(() => {
@@ -337,6 +315,28 @@ const ProductionPlanSteps: React.FC = () => {
     console.log(`📦 产品信息: ${productSalesData.meta.name} (${productSalesData.meta.unit})`);
     return Math.round(average);
   }, [productSalesData]);
+
+  if (!experimentState.selected_best_model) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center max-w-md px-6">
+          <h2 className="text-xl font-semibold text-gray-900">请先完成最佳模型选择</h2>
+          <p className="mt-2 text-sm text-gray-600">
+            生产计划需要基于评估页中选定的最佳模型生成预测结果。
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/evaluation')}
+            className="mt-4 px-5 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            返回结果评估
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const selectedBestModel = experimentState.selected_best_model;
 
   // 🔄 等待销量数据加载完成
   if (ui.isLoadingSales) {

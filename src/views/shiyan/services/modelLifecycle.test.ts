@@ -11,7 +11,10 @@ const apiClientModulePath = resolve(import.meta.dir, "../../../utils/apiClient.t
 const predictionResponse = {
   status: "success",
   results: {
-    predictions: [{ prediction: 101.2, std_dev: 3.4 }],
+    predictions: Array.from({ length: 12 }, (_, index) => ({
+      prediction: 101.2 + index,
+      std_dev: 3.4,
+    })),
   },
 };
 
@@ -87,12 +90,7 @@ describe("modelLifecycle", () => {
     }, {
       timeoutMs: 690_000,
     });
-    expect(result).toEqual({
-      status: "success",
-      results: {
-        predictions: [{ prediction: 101.2, std_dev: 3.4 }],
-      },
-    });
+    expect(result).toEqual(predictionResponse);
   });
 
   it("uses the explicit prepare/predict protocol for ensemble best models", async () => {
@@ -122,7 +120,7 @@ describe("modelLifecycle", () => {
     apiPost.mockResolvedValueOnce({
         status: "success",
         results: {
-          predictions: [{ prediction: 101.2, std_dev: 3.4 }],
+          predictions: predictionResponse.results.predictions.slice(0, 6),
           method_name: "递推移动平均",
           forecast_strategy: "recursive_roll_forward",
           implementation_notes: ["训练后使用拟合模型递推预测未来销量。"],
@@ -132,7 +130,7 @@ describe("modelLifecycle", () => {
     const result = await predictWithBestModel("ma", 7, 6);
 
     expect(result.results).toMatchObject({
-      predictions: [{ prediction: 101.2, std_dev: 3.4 }],
+      predictions: predictionResponse.results.predictions.slice(0, 6),
       method_name: "递推移动平均",
       forecast_strategy: "recursive_roll_forward",
       implementation_notes: ["训练后使用拟合模型递推预测未来销量。"],
@@ -162,6 +160,7 @@ describe("modelLifecycle", () => {
       status: 429,
       stage: "predict",
       kind: "busy",
+      recoveryAction: "retry",
     });
     expect(apiPost).toHaveBeenCalledTimes(2);
     expect(apiPost).toHaveBeenNthCalledWith(2, "/models/ma/predict", {
@@ -211,10 +210,41 @@ describe("modelLifecycle", () => {
     const rejected = await predictWithBestModel("exp", 13, 5).catch((error: any) => error);
     expect(rejected.status).toBe(409);
     expect(rejected.kind).toBe("conflict");
+    expect(rejected.code).toBe("PRODUCTION_PREPARATION_STALE");
+    expect(rejected.recoveryAction).toBe("retry");
     // Distinct from the generic MODEL_BUSY 409 wording.
     expect(rejected.message).toContain("生产模型版本已更新");
     expect(rejected.message).toContain("重新生成需求预测");
     expect(rejected.message).not.toContain("已有训练或预测任务在执行");
+  });
+
+  it("tells the user to retrain when prepare detects a corrupt backtest artifact", async () => {
+    const { predictWithBestModel } = await loadModelLifecycle();
+
+    const artifactError = new Error("HTTP 409 - artifact invalid") as Error & {
+      status?: number;
+      payload?: unknown;
+    };
+    artifactError.status = 409;
+    artifactError.payload = {
+      error: "MA 回测模型产物已损坏，请重新训练该模型",
+      code: "MODEL_ARTIFACT_INVALID",
+      required_action: "retrain",
+    };
+    apiPost.mockRejectedValueOnce(artifactError);
+
+    await expect(
+      predictWithBestModel("ma", 13, 6),
+    ).rejects.toMatchObject({
+      name: "ProductionPredictionError",
+      message: expect.stringContaining("请返回对应模型的训练页面重新训练"),
+      status: 409,
+      stage: "prepare",
+      kind: "conflict",
+      code: "MODEL_ARTIFACT_INVALID",
+      recoveryAction: "retrain",
+    });
+    expect(apiPost).toHaveBeenCalledTimes(1);
   });
 
   it("maps production prediction 400 errors to actionable messages", async () => {
@@ -270,5 +300,84 @@ describe("modelLifecycle", () => {
       kind: "timeout",
     });
     expect(apiPost).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an empty successful prepare response as a typed protocol error", async () => {
+    const { predictWithBestModel } = await loadModelLifecycle();
+    apiPost.mockResolvedValueOnce(null);
+
+    await expect(
+      predictWithBestModel("ma", 31, 6),
+    ).rejects.toMatchObject({
+      name: "ProductionPredictionError",
+      stage: "prepare",
+      kind: "invalid-response",
+      code: "PRODUCTION_RESPONSE_INVALID",
+      recoveryAction: "retry",
+    });
+    expect(apiPost).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a prepare response whose token or horizon is invalid", async () => {
+    const { predictWithBestModel } = await loadModelLifecycle();
+    apiPost.mockResolvedValueOnce({
+      status: "success",
+      results: {
+        preparation_token: "",
+        prepared_forecast_steps: 5,
+      },
+    });
+
+    await expect(
+      predictWithBestModel("arima", 32, 6),
+    ).rejects.toMatchObject({
+      stage: "prepare",
+      kind: "invalid-response",
+      recoveryAction: "retry",
+    });
+    expect(apiPost).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a prediction response with too few periods", async () => {
+    const { predictWithBestModel } = await loadModelLifecycle();
+    apiPost.mockResolvedValueOnce(preparationResponse);
+    apiPost.mockResolvedValueOnce({
+      status: "success",
+      results: {
+        predictions: predictionResponse.results.predictions.slice(0, 2),
+      },
+    });
+
+    await expect(
+      predictWithBestModel("lstm", 33, 6),
+    ).rejects.toMatchObject({
+      stage: "predict",
+      kind: "invalid-response",
+      recoveryAction: "retry",
+    });
+    expect(apiPost).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects non-finite prediction points and negative standard deviations", async () => {
+    const { predictWithBestModel } = await loadModelLifecycle();
+    apiPost.mockResolvedValueOnce(preparationResponse);
+    apiPost.mockResolvedValueOnce({
+      status: "success",
+      results: {
+        predictions: [
+          ...predictionResponse.results.predictions.slice(0, 5),
+          { prediction: Number.NaN, std_dev: -1 },
+        ],
+      },
+    });
+
+    await expect(
+      predictWithBestModel("exp", 34, 6),
+    ).rejects.toMatchObject({
+      stage: "predict",
+      kind: "invalid-response",
+      code: "PRODUCTION_RESPONSE_INVALID",
+    });
+    expect(apiPost).toHaveBeenCalledTimes(2);
   });
 });

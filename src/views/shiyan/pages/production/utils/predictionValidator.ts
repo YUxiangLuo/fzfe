@@ -33,7 +33,7 @@ export const validateAndFixStdDev = (
   let isModified = false;
 
   // 1. 检查是否为负数或非法值（必须修正，否则会导致NaN）
-  if (stdDev < 0 || !isFinite(stdDev) || isNaN(stdDev)) {
+  if (typeof stdDev !== 'number' || stdDev < 0 || !Number.isFinite(stdDev)) {
     warnings.push(
       `期 ${periodIndex + 1} 的std_dev非法: ${stdDev}，使用需求的${MPS_CALCULATION.DEFAULT_STD_DEV_RATIO * 100}%作为替代`
     );
@@ -64,30 +64,44 @@ export const validateAndFixStdDev = (
  * @returns 验证后的数据和汇总警告
  */
 export const validatePredictions = (
-  predictions: Array<{ prediction: number; std_dev: number }>
+  predictions: unknown,
 ): {
   validatedData: Array<{ prediction: number; std_dev: number }>;
   allWarnings: string[];
   hasModifications: boolean;
 } => {
+  if (!Array.isArray(predictions)) {
+    throw new Error('预测数据格式无效：预测结果必须为数组');
+  }
+
   const allWarnings: string[] = [];
   let hasModifications = false;
 
   const validatedData = predictions.map((pred, index) => {
-    let normalizedPrediction = pred.prediction;
+    if (typeof pred !== 'object' || pred === null || Array.isArray(pred)) {
+      throw new Error(`预测数据格式无效：第 ${index + 1} 期不是有效对象`);
+    }
 
-    if (!isFinite(normalizedPrediction) || isNaN(normalizedPrediction)) {
-      allWarnings.push(`期 ${index + 1} 的prediction非法: ${pred.prediction}，使用0作为替代`);
-      normalizedPrediction = 0;
-      hasModifications = true;
-    } else if (normalizedPrediction < 0) {
+    const point = pred as Record<string, unknown>;
+    if (typeof point.prediction !== 'number' || !Number.isFinite(point.prediction)) {
+      throw new Error(`预测数据格式无效：第 ${index + 1} 期 prediction 必须是有限数字`);
+    }
+    if (typeof point.std_dev !== 'number' || !Number.isFinite(point.std_dev) || point.std_dev < 0) {
+      throw new Error(`预测数据格式无效：第 ${index + 1} 期 std_dev 必须是非负有限数字`);
+    }
+
+    const prediction = point.prediction;
+    const stdDev = point.std_dev;
+    let normalizedPrediction = prediction;
+
+    if (normalizedPrediction < 0) {
       allWarnings.push(`期 ${index + 1} 的prediction为负数: ${normalizedPrediction}，已修正为0`);
       normalizedPrediction = 0;
       hasModifications = true;
     }
 
     const demandForecast = Math.round(normalizedPrediction);
-    const validationResult = validateAndFixStdDev(pred.std_dev, demandForecast, index);
+    const validationResult = validateAndFixStdDev(stdDev, demandForecast, index);
 
     if (validationResult.warnings.length > 0) {
       allWarnings.push(...validationResult.warnings);
