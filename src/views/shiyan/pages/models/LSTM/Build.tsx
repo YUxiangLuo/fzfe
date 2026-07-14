@@ -6,7 +6,6 @@ export interface BuildProps {
   features: string[];
   setFeatures: (features: string[]) => void;
   target: string | null;
-  setTarget: (target: string | null) => void;
   error: string | null;
   isLoading: boolean;
   fieldOptions: string[];
@@ -23,7 +22,7 @@ const typeBadgeClasses: Record<string, string> = {
   字段: 'bg-gray-100 text-gray-600 border-gray-200',
 };
 
-const Build: React.FC<BuildProps> = ({ features, setFeatures, target, setTarget, error, isLoading, fieldOptions, csvData, onShowLSTMMethodInfo }) => {
+const Build: React.FC<BuildProps> = ({ features, setFeatures, target, error, isLoading, fieldOptions, csvData, onShowLSTMMethodInfo }) => {
   const handleFeatureToggle = (field: string) => {
     const newFeatures = features.includes(field)
       ? features.filter(f => f !== field)
@@ -56,11 +55,12 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, setTarget,
                 <div>
                   <h4 className="font-semibold text-amber-900 mb-2">💡 特征选择技巧</h4>
                   <ul className="space-y-1 text-sm text-amber-800 leading-relaxed">
-                    <li>• 优先选择与销量有业务关系、且在预测时可提前规划或预估的字段，如月份、促销强度、广告投放金额、线上搜索指数、节假日类型、天气类型。</li>
-                    <li>• 字段不是越多越好。本实验样本量较小，建议先选择 5-8 个核心特征，避免噪声过多导致模型不稳定。</li>
+                    <li>• 附加特征可以不选；此时系统只使用“销售数量”的历史窗口，训练单变量 LSTM。</li>
+                    <li>• 优先选择与销量有业务关系、且在每个历史时点已经产生的字段。当前实现只读取训练截止点前的历史窗口，不会把未来月份、促销计划、天气预报等未来轨迹送入模型。</li>
+                    <li>• 如果添加附加特征，字段不是越多越好。本实验样本量较小，建议只选少量核心特征，避免噪声过多导致模型不稳定。</li>
                     <li>• 单产品实验中，行业名称、公司名称、产品名称、数量单位等字段通常几乎不变，提供的信息有限，一般不建议优先选择。</li>
                     <li>• 谨慎选择库存水平、缺货天数、退货率、客户满意度等可能在销售发生后才知道的字段，真实业务中这类字段容易造成“数据泄漏”或伪相关。</li>
-                    <li>• 目标字段“销售数量”由系统固定为预测对象，不需要作为输入特征重复选择。</li>
+                    <li>• 目标字段“销售数量”由系统固定为预测对象，并会自动加入历史输入，因此不需要在附加特征中重复选择。</li>
                   </ul>
                 </div>
                 <div className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-medium text-amber-700 border border-amber-200">
@@ -76,7 +76,7 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, setTarget,
 
             <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm">
               <label className="block text-lg font-semibold text-gray-800 mb-4">
-                请选择需求预测时所使用的特征:
+                请选择需求预测时所使用的附加特征（可选）:
               </label>
               <div className="space-y-3">
                 {filteredFields.map(field => {

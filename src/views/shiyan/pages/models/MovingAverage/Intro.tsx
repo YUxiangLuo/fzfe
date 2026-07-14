@@ -19,7 +19,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <TrendingUp className="w-5 h-5 text-blue-600" />
-              <p className="text-gray-800 font-medium">取长度为窗口数 n 的时间序列值的均值作为预测值，逐项推移，依次算出包含窗口数 n 的一次移动平均数</p>
+              <p className="text-gray-800 font-medium">选择整数窗口 n，并用最近 n 期观测的算术平均预测下一期；本系统要求 2≤n≤训练样本数</p>
             </div>
           </div>
         </div>
@@ -31,7 +31,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <Calendar className="w-5 h-5 text-indigo-600" />
-              <p className="text-gray-800 font-medium">在原始数据表的末尾添加移动平均预测值</p>
+              <p className="text-gray-800 font-medium">预测多期时，把刚得到的预测值放回窗口并移除最早值，再计算下一期；不读取评估期真实值</p>
             </div>
           </div>
         </div>
@@ -40,7 +40,7 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base">
-          移动平均的教科书定义通常先给出下一期预测。本系统为了评估和预测未来多期销量，会把每一期预测值滚入窗口继续递推，不使用评估集或未来真实值参与下一步计算。
+          移动平均的教科书定义通常先给出下一期预测。本系统为了评估和预测未来多期销量，会把每一期预测值滚入窗口继续递推，不使用评估集或未来真实值参与下一步计算。窗口 n=1 等同于“下一期沿用上一期”，不体现均值平滑，因此教学入口从 n=2 开始。最终销量点预测按 max(0, ŷ) 截断，残差、std_dev和指标都使用截断后的同一口径；该截断是业务后处理，不属于移动平均公式。
         </p>
       </div>
     </div>

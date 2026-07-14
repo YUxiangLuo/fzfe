@@ -12,7 +12,7 @@ const LSTMMethodInfo: React.FC = () => {
           构建 LSTM 模型的流程包括以下几个步骤：
         </p>
         <p className="text-gray-800 leading-relaxed text-base">
-          首先，进行<strong>数据准备</strong>，这涉及到从文件或数据库加载时间序列数据，预处理数据以确保其格式正确，例如将年份和月份转换为单一的日期特征，并提取相关的数值特征（如销售金额、销售数量和价格）。然后对这些特征进行归一化处理，使数据在同一量级，并划分时间窗口，生成训练集和测试集。
+          首先进行<strong>数据准备</strong>：系统识别数值与类别字段，自动把目标销量作为历史数值输入；仅用训练区间拟合数值缩放器和类别One-Hot编码器，再按look_back切出历史窗口，并以未来连续horizon期销量作为标签。评估区间不会参与预处理器拟合。
         </p>
       </div>
 
@@ -33,13 +33,13 @@ const LSTMMethodInfo: React.FC = () => {
 
       <div className="p-6 bg-gradient-to-br from-sky-50 to-blue-50 rounded-lg border border-sky-200 shadow-sm">
         <p className="text-gray-800 leading-relaxed text-base">
-          <strong>本系统实现说明：</strong>训练评估与生产预测都采用直接多步预测，一次性输出整个预测区间的销量，而不是先预测一步再递归。若训练或生产重训的数据窗口过短、无法支撑既定的多步输出长度，系统不会改用递归单步，而是报错提示扩大数据窗口后重试。
+          <strong>本系统实现说明：</strong>训练评估与生产预测都采用直接多步预测，一次性输出整个预测区间的销量，而不是先预测一步再递归。预测输入只包含截止点前最后look_back行历史数据，不读取未来特征路径。若训练或生产重训的数据窗口过短、无法支撑既定多步输出长度，系统不会改用递归单步，而是报错提示扩大数据窗口后重试。
         </p>
       </div>
 
       <div className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg border border-amber-200 shadow-sm">
         <p className="text-gray-800 leading-relaxed text-base">
-          <strong>训练过程</strong>：将训练数据分批输入模型，计算预测值和实际值之间的损失，通过反向传播更新模型参数。
+          <strong>训练过程</strong>：按时间顺序（shuffle=false）将样本分批输入模型，以MSE反向传播更新参数。为尽量保留小样本，本系统不再切验证集；EarlyStopping监控训练loss，耐心轮数按总epochs动态取2–6，并恢复训练loss最低时的权重。这能缩短平台期训练，但不能提供验证集早停的泛化保证。
         </p>
       </div>
 

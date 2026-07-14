@@ -123,7 +123,7 @@ const Results: React.FC<ResultsProps> = ({
 
       <div className="p-5 bg-purple-50 rounded-lg border border-purple-200">
         <p className="text-gray-700 text-base leading-relaxed">
-          上图表展示了各基础模型在加权平均融合中的权重分布。权重根据验证集残差MSE倒数计算，预测误差越小的模型获得更大的权重。
+          上图表展示各成员的固定权重。权重来自时间顺序内部验证段的1/(MSE+10⁻⁹)归一化结果，验证误差越小权重越大；训练点8–15时该验证段通常只有2–3点，因此高权重不等于该成员在独立评估或未来一定最好。
         </p>
       </div>
     </div>

@@ -19,7 +19,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <Database className="w-5 h-5 text-blue-600" />
-              <p className="text-gray-800 font-medium">对时序数据进行标准化或归一化处理。</p>
+              <p className="text-gray-800 font-medium">只用训练区间拟合数值缩放器和类别 One-Hot 编码器，再构造历史窗口与多步销量标签。</p>
             </div>
           </div>
         </div>
@@ -31,7 +31,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <Cpu className="w-5 h-5 text-purple-600" />
-              <p className="text-gray-800 font-medium">构建和训练 LSTM 模型；使用训练集数据对模型进行训练通过优化算法调整模型参数，使其能够有效捕捉数据中的时间依赖关系。</p>
+              <p className="text-gray-800 font-medium">构建两层 LSTM 与直接多步 Dense 输出头，用 MSE 和 Adam 训练；样本顺序不打乱，早停监控训练 loss。</p>
             </div>
           </div>
         </div>
@@ -43,10 +43,17 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <TrendingUp className="w-5 h-5 text-green-600" />
-              <p className="text-gray-800 font-medium">模型预测。</p>
+              <p className="text-gray-800 font-medium">仅输入训练截止点前最后 look_back 行历史特征，一次输出完整预测跨度；还原销量尺度后按 max(0, ŷ) 截断。</p>
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
+        <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
+        <p className="text-gray-700 leading-relaxed text-base">
+          教科书重点是 LSTM 单元的门控机制；层数、隐藏单元和预测头属于工程选择。本系统自动把目标销量加入历史输入，支持额外数值/类别历史特征，但不会读取评估期或未来期的促销、天气等特征轨迹。新训练固定采用直接多步输出；窗口不足时会报错，不会自动退回一步递归。线性Dense输出本身可为负，因此逆缩放后的最终销量点预测会截断到不小于0，并以截断值计算残差、std_dev和指标；Boosting内部的有符号残差预测不截断。
+        </p>
       </div>
     </div>
   );

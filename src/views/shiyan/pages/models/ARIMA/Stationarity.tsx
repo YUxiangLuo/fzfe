@@ -14,10 +14,10 @@ const Stationarity: React.FC<StationarityProps> = ({ onShowAutoregression }) => 
 
         <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm">
           <p className="text-gray-800 leading-relaxed text-base mb-4">
-            平稳性检验使用 ADF 单位根检验，单位根检验是指检验序列是否存在单位根，如果存在单位根即为非平稳时间序列；检验零假设为：存在单位根；如果 P 值大于显著性水平(5%)，则不可拒绝原假设，即检验序列存在单位根。
+            平稳性检验使用 ADF 单位根检验。零假设是“序列存在单位根”。本系统采用严格规则：p&lt;0.05 时拒绝零假设，并把对应差分序列标记为“通过当前 ADF 门槛”；p≥0.05 时只能说证据不足以拒绝单位根，不能证明序列一定非平稳。
           </p>
           <p className="text-gray-800 leading-relaxed text-base">
-            当一个自回归过程中，如果滞后项系数 b 为 1，就称为单位根。当单位根存在时，自变量和因变量之间的关系具有欺骗性，是非平稳时间序列。
+            对最简单的 AR(1) 过程，滞后系数为1就是单位根；更高阶模型要看特征多项式的根。本系统调用 ADF 时包含常数项，并由 AIC 自动选择检验回归的滞后长度。
           </p>
         </div>
       </div>

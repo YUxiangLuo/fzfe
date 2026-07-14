@@ -9,6 +9,18 @@ test.describe("@shiyan @smoke 核心路径", () => {
     await studentApi.cleanupInProgressExperiments();
 
     await studentApp.loginViaUi();
+    const reportHomeButton = studentApp.currentPage.getByRole("button", {
+      name: "进入实验首页",
+    });
+    await expect
+      .poll(async () => (
+        new URL(studentApp.currentPage.url()).hash === "#/introduction"
+        || await reportHomeButton.isVisible().catch(() => false)
+      ))
+      .toBe(true);
+    if (await reportHomeButton.isVisible().catch(() => false)) {
+      await reportHomeButton.click();
+    }
     await studentApp.expectHash("/introduction");
     await studentApp.startNewExperimentFromIntroduction();
 

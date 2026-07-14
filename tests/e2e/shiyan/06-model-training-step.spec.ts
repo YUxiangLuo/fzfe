@@ -668,6 +668,8 @@ test.describe("@shiyan model training step", () => {
               diff_order: 0,
               statistic: -1.12,
               p_value: 0.71,
+              used_lags: 0,
+              n_obs: 14,
               stationary: false,
               critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
             },
@@ -675,6 +677,8 @@ test.describe("@shiyan model training step", () => {
               diff_order: 1,
               statistic: -1.38,
               p_value: 0.58,
+              used_lags: 1,
+              n_obs: 13,
               stationary: false,
               critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
             },
@@ -682,6 +686,8 @@ test.describe("@shiyan model training step", () => {
               diff_order: 2,
               statistic: -1.41,
               p_value: 0.55,
+              used_lags: 2,
+              n_obs: 12,
               stationary: false,
               critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
             },
@@ -692,12 +698,12 @@ test.describe("@shiyan model training step", () => {
 
     await studentApp.open("/model/arima/stationarity-table");
     await studentApp.expectHash("/model/arima/stationarity-table");
-    await expect(page.getByText("平稳性检验表")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "ADF 单位根检验表" })).toBeVisible();
 
     await studentApp.clickEnabledButton("下一步");
 
     await expect(
-      page.getByText("所有差分阶数的检验结果均为非平稳，无法继续进行ARIMA建模。"),
+      page.getByText("所有差分阶数均未通过当前ADF门槛，无法继续进行ARIMA建模。请尝试调整数据窗口或选择其他产品。"),
     ).toBeVisible();
 
     await page.getByRole("button", { name: "重新选择数据时段" }).click();
@@ -737,6 +743,8 @@ test.describe("@shiyan model training step", () => {
               diff_order: 0,
               statistic: -1.12,
               p_value: 0.71,
+              used_lags: 0,
+              n_obs: 14,
               stationary: false,
               critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
             },
@@ -744,6 +752,8 @@ test.describe("@shiyan model training step", () => {
               diff_order: 1,
               statistic: -3.84,
               p_value: 0.018,
+              used_lags: 1,
+              n_obs: 13,
               stationary: true,
               critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
             },
@@ -751,6 +761,8 @@ test.describe("@shiyan model training step", () => {
               diff_order: 2,
               statistic: -4.22,
               p_value: 0.006,
+              used_lags: 2,
+              n_obs: 12,
               stationary: true,
               critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
             },
@@ -767,13 +779,14 @@ test.describe("@shiyan model training step", () => {
 
     await retryButton.click();
 
-    await expect(page.getByText("平稳性检验表")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: "ADF 单位根检验表" })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("d = 1")).toBeVisible();
+    await expect(page.getByText("1 / 13")).toBeVisible();
     await expect(
       page
         .getByRole("row")
         .filter({ has: page.getByText("d = 1") })
-        .getByText("平稳", { exact: true }),
+        .getByText("通过", { exact: true }),
     ).toBeVisible();
     expect(attempts).toBe(2);
   });
@@ -811,6 +824,8 @@ test.describe("@shiyan model training step", () => {
               diff_order: 0,
               statistic: -1.12,
               p_value: 0.71,
+              used_lags: 0,
+              n_obs: 14,
               stationary: false,
               critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
             },
@@ -818,6 +833,8 @@ test.describe("@shiyan model training step", () => {
               diff_order: 1,
               statistic: -3.84,
               p_value: 0.018,
+              used_lags: 1,
+              n_obs: 13,
               stationary: true,
               critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
             },
@@ -841,7 +858,7 @@ test.describe("@shiyan model training step", () => {
 
     await retryButton.click();
 
-    await expect(page.getByText("平稳性检验表")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: "ADF 单位根检验表" })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText("d = 1")).toBeVisible();
     expect(attempts).toBe(3);
   });
@@ -897,6 +914,8 @@ test.describe("@shiyan model training step", () => {
           diff_order: 0,
           statistic: -1.12,
           p_value: 0.71,
+          used_lags: 0,
+          n_obs: 14,
           stationary: false,
           critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
         },
@@ -904,6 +923,8 @@ test.describe("@shiyan model training step", () => {
           diff_order: 1,
           statistic: -3.84,
           p_value: 0.018,
+          used_lags: 1,
+          n_obs: 13,
           stationary: true,
           critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
         },
@@ -965,6 +986,8 @@ test.describe("@shiyan model training step", () => {
               diff_order: 0,
               statistic: -1.12,
               p_value: 0.71,
+              used_lags: 0,
+              n_obs: 14,
               stationary: false,
               critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
             },
@@ -972,6 +995,8 @@ test.describe("@shiyan model training step", () => {
               diff_order: 1,
               statistic: -3.84,
               p_value: 0.018,
+              used_lags: 1,
+              n_obs: 13,
               stationary: true,
               critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
             },
@@ -979,6 +1004,8 @@ test.describe("@shiyan model training step", () => {
               diff_order: 2,
               statistic: -4.22,
               p_value: 0.006,
+              used_lags: 2,
+              n_obs: 12,
               stationary: true,
               critical_values: { "1%": -3.75, "5%": -2.99, "10%": -2.64 },
             },
@@ -1005,13 +1032,13 @@ test.describe("@shiyan model training step", () => {
 
     await studentApp.open("/model/arima/stationarity-table");
     await studentApp.expectHash("/model/arima/stationarity-table");
-    await expect(page.getByText("平稳性检验表")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "ADF 单位根检验表" })).toBeVisible();
     await expect(page.getByText("d = 1")).toBeVisible();
     await expect(
       page
         .getByRole("row")
         .filter({ has: page.getByText("d = 1") })
-        .getByText("平稳", { exact: true }),
+        .getByText("通过", { exact: true }),
     ).toBeVisible();
 
     await studentApp.clickEnabledButton("下一步");
@@ -1020,7 +1047,7 @@ test.describe("@shiyan model training step", () => {
     await page.locator("#diff-order").fill("0");
     await studentApp.clickEnabledButton("下一步");
     await studentApp.expectHash("/model/arima/differencing-validation");
-    await expect(page.getByText("差分阶数 d=0 未能使序列平稳")).toBeVisible();
+    await expect(page.getByText("差分阶数 d=0 未通过当前ADF门槛")).toBeVisible();
     await expect(page.getByRole("button", { name: "下一步" })).toBeDisabled();
 
     await studentApp.clickEnabledButton("上一步");
@@ -1029,11 +1056,11 @@ test.describe("@shiyan model training step", () => {
     await page.locator("#diff-order").fill("1");
     await studentApp.clickEnabledButton("下一步");
     await studentApp.expectHash("/model/arima/differencing-validation");
-    await expect(page.getByText("差分阶数 d=1 检验通过")).toBeVisible();
+    await expect(page.getByText("差分阶数 d=1 通过当前ADF门槛")).toBeVisible();
 
     await studentApp.clickEnabledButton("下一步");
     await studentApp.expectHash("/model/arima/autoparams");
-    await completeGuidedTraining(page, /ARIMA 法 - 自动参数寻优计算|最佳模型/, 180_000);
+    await completeGuidedTraining(page, /ARIMA 法 - 自动参数寻优计算/, 180_000);
     await expect(page.getByText(/ARIMA\(2,\s*1,\s*1\)/)).toBeVisible();
 
     await page.getByRole("button", { name: "信息准则函数法" }).click();

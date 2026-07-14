@@ -35,6 +35,8 @@ export interface AdfStationarityRow {
   diff_order: number;
   statistic: number;
   p_value: number;
+  used_lags: number;
+  n_obs: number;
   stationary: boolean;
   critical_values: Record<string, number>;
 }

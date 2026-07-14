@@ -13,7 +13,7 @@ const NormalizationInfo: React.FC = () => {
           在机器学习和深度学习中，不同特征的数值范围可能差异很大。数据标准化可以消除量纲影响，使模型训练更加稳定高效。
         </p>
         <p className="text-gray-800 leading-relaxed text-base">
-          对于神经网络模型，标准化还能加速梯度下降的收敛速度，防止梯度爆炸或梯度消失问题。
+          对于神经网络，合适的尺度通常有助于优化过程更稳定；但缩放不能单独保证消除梯度爆炸或梯度消失。本系统还在 Adam 中使用 clipnorm=1.0 控制梯度范数。
         </p>
       </div>
 
@@ -26,7 +26,7 @@ const NormalizationInfo: React.FC = () => {
         </div>
         <div className="space-y-3 text-gray-800 text-base">
           <p className="leading-relaxed">
-            <strong>特点：</strong>将数据线性变换到 [0, 1] 区间，保持原始数据的分布形状。
+            <strong>特点：</strong>用训练区间的最小值和最大值做线性变换，因此训练范围内的值通常落在 [0,1]。评估或未来值超出训练范围时，变换结果可小于0或大于1。
           </p>
           <p className="leading-relaxed">
             <strong>适用场景：</strong>当需要将数据压缩到特定范围时，例如神经网络的激活函数输入、图像像素值处理等。
@@ -53,16 +53,16 @@ const NormalizationInfo: React.FC = () => {
         </div>
         <div className="space-y-3 text-gray-800 text-base">
           <p className="leading-relaxed">
-            <strong>特点：</strong>将数据转换为均值为 0、标准差为 1 的标准正态分布。
+            <strong>特点：</strong>用训练均值和标准差做线性变换，使训练样本的该数值列均值约为0、标准差约为1；它不会改变分布形状，也不会自动产生标准正态分布。
           </p>
           <p className="leading-relaxed">
-            <strong>适用场景：</strong>当数据的最大值和最小值未知，或数据中存在离群值时更加稳健。
+            <strong>适用场景：</strong>不希望把特征限制在固定区间，或更关心相对训练均值的偏离程度时。
           </p>
           <p className="leading-relaxed">
-            <strong>优点：</strong>对异常值不敏感，适合处理具有离群点的数据。
+            <strong>优点：</strong>没有固定上下界，超出训练范围的新值仍可自然表示为更大的正负标准分数。
           </p>
           <p className="leading-relaxed">
-            <strong>缺点：</strong>标准化后的数据没有固定的取值范围，可能不适合某些特定算法。
+            <strong>缺点：</strong>均值和标准差都受异常值影响，因此普通Z-score并不是稳健缩放方法；变换后的数据也没有固定范围。
           </p>
         </div>
       </div>
@@ -74,9 +74,16 @@ const NormalizationInfo: React.FC = () => {
             <strong>使用最小-最大归一化：</strong>当数据分布相对均匀，没有明显异常值，且需要将数据限制在特定范围时。
           </p>
           <p>
-            <strong>使用 Z-score 标准化：</strong>当数据中存在离群值，或不确定数据的取值范围时，这种方法更加稳健。
+            <strong>使用 Z-score 标准化：</strong>当不需要固定范围，并希望按训练均值与标准差表达相对偏离时。若离群值明显，两种方法都应先检查数据质量；本系统未实现RobustScaler。
           </p>
         </div>
+      </div>
+
+      <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
+        <h4 className="text-base font-semibold text-gray-800 mb-2">本系统的拟合边界</h4>
+        <p className="text-gray-700 leading-relaxed text-base">
+          MinMax或Z-score参数只从训练区间计算；类别字段不做数值缩放，而是只用训练区间拟合One-Hot编码器。评估区间不会参与这些参数的估计。
+        </p>
       </div>
     </div>
   );

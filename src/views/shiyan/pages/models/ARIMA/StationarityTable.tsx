@@ -13,7 +13,7 @@ export interface StationarityTableProps {
   navigate: NavigateFunction;
 }
 
-const NON_RETRYABLE_ERROR = "所有差分阶数的检验结果均为非平稳，无法继续进行ARIMA建模。请尝试调整数据窗口或选择其他产品。";
+const NON_RETRYABLE_ERROR = "所有差分阶数均未通过当前ADF门槛，无法继续进行ARIMA建模。请尝试调整数据窗口或选择其他产品。";
 
 const formatNumber = (value: number | null | undefined, fractionDigits = 3) =>
   typeof value === "number" ? value.toFixed(fractionDigits) : "—";
@@ -53,9 +53,9 @@ const StationarityTable: React.FC<StationarityTableProps> = ({ adfResults, isLoa
     <div className="space-y-6">
       {status}
       <div>
-        <h3 className="text-2xl font-bold text-gray-800 mb-3">平稳性检验表</h3>
+        <h3 className="text-2xl font-bold text-gray-800 mb-3">ADF 单位根检验表</h3>
         <p className="text-gray-600 text-base leading-relaxed">
-          以下是不同差分阶数下的 ADF 检验结果。p 值越小，越倾向于接受"序列平稳"的结论。
+          以下是 d=0、1、2 的 ADF 检验结果。p 值越小，反对“存在单位根”零假设的证据越强；这不是直接“接受平稳假设”。本系统检验含常数项，以 AIC 自动选择滞后长度，并在表中显示实际滞后数和有效样本数。
         </p>
       </div>
 
@@ -73,7 +73,10 @@ const StationarityTable: React.FC<StationarityTableProps> = ({ adfResults, isLoa
                 p 值
               </th>
               <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
-                是否平稳
+                滞后数 / 有效样本
+              </th>
+              <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
+                是否通过ADF门槛
               </th>
               <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider border-b-2 border-gray-300">
                 临界值 (1%/5%/10%)
@@ -97,12 +100,15 @@ const StationarityTable: React.FC<StationarityTableProps> = ({ adfResults, isLoa
                     {formatPValue(row.p_value)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    {`${formatNumber(row.used_lags, 0)} / ${formatNumber(row.n_obs, 0)}`}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                     {row.stationary ? (
                       <span className="inline-flex items-center gap-1 text-green-700 font-semibold">
-                        <CheckCircle className="w-4 h-4" /> 平稳
+                        <CheckCircle className="w-4 h-4" /> 通过
                       </span>
                     ) : (
-                      <span className="text-gray-600">不平稳</span>
+                      <span className="text-gray-600">未通过</span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-xs text-center text-gray-600">
@@ -112,7 +118,7 @@ const StationarityTable: React.FC<StationarityTableProps> = ({ adfResults, isLoa
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="text-center py-8 text-gray-500">
+                <td colSpan={6} className="text-center py-8 text-gray-500">
                   暂无检验结果
                 </td>
               </tr>
@@ -124,9 +130,9 @@ const StationarityTable: React.FC<StationarityTableProps> = ({ adfResults, isLoa
       <div className="p-5 bg-blue-50 rounded-lg border border-blue-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">判断标准：</h4>
         <div className="space-y-2 text-gray-700 text-sm">
-          <p>• <strong>p 值 ≤ 0.05</strong>：拒绝原假设，序列平稳</p>
-          <p>• <strong>p 值 &gt; 0.05</strong>：不能拒绝原假设，序列非平稳</p>
-          <p>• <strong>ADF统计量 &lt; 临界值</strong>：倾向于平稳结论</p>
+          <p>• <strong>p 值 &lt; 0.05</strong>：拒绝单位根零假设，通过本系统ADF门槛</p>
+          <p>• <strong>p 值 ≥ 0.05</strong>：不能拒绝单位根零假设，未通过当前门槛，但不能据此证明序列不平稳</p>
+          <p>• <strong>ADF统计量小于相应显著性水平的临界值</strong>：在该水平拒绝单位根零假设</p>
         </div>
       </div>
     </div>

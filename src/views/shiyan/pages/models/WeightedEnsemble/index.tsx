@@ -1,11 +1,11 @@
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ModelStepLayout from '../components/ModelStepLayout';
 import Intro from './Intro';
 import SelectModels, { type SelectModelsProps } from './SelectModels';
 import Results, { type ResultsProps } from './Results';
 import PredictionComparison, { type PredictionComparisonProps } from './PredictionComparison';
-import ModelMetricsComparison, { type ModelMetricsComparisonProps } from './ModelMetricsComparison';
+import ModelMetricsComparison from './ModelMetricsComparison';
 import { MODEL_RETRY_LIMITS } from '../constants';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useEnsembleModel } from '../hooks/useEnsembleModel';
@@ -36,7 +36,6 @@ const WeightedEnsembleStepper: React.FC = () => {
     selectedModels,
     setSelectedModels,
     results,
-    setResults,
     isLoading,
     error,
     setError,
@@ -157,7 +156,7 @@ const WeightedEnsembleStepper: React.FC = () => {
 
   const CurrentComponent = currentStep.component as React.FC<any>;
 
-  const componentProps: { [key: string]: SelectModelsProps | ResultsProps | PredictionComparisonProps | ModelMetricsComparisonProps | {} } = {
+  const componentProps: { [key: string]: SelectModelsProps | ResultsProps | PredictionComparisonProps | {} } = {
     'select-models': { selectedModels, setSelectedModels, error },
     results: {
       data: results ? { weights: results.weights, model_names: results.model_names } : null,
@@ -173,10 +172,7 @@ const WeightedEnsembleStepper: React.FC = () => {
     'prediction-comparison': {
       data: results ? { predictions: results.predictions } : null
     },
-    'model-metrics-comparison': {
-      data: results ? { metrics: results.metrics } : null,
-      baseModelIds: selectedModels
-    },
+    'model-metrics-comparison': {},
   };
 
   const propsForCurrentStep = componentProps[currentStep.id] ?? {};

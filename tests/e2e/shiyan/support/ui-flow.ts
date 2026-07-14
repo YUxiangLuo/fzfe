@@ -419,16 +419,16 @@ export async function completeARIMA(page: Page) {
   await clickLastEnabledButton(page, "下一步", 60_000); // 增加超时到 60 秒
 
   // Wait for ADF results table to load, find first stationary d value
-  await expect(page.getByText("平稳性检验表")).toBeVisible({ timeout: 120_000 });
-  const stationaryCell = page
+  await expect(page.getByRole("heading", { name: "ADF 单位根检验表" })).toBeVisible({ timeout: 120_000 });
+  const passingCell = page
     .locator("td")
-    .filter({ hasText: /^\s*平稳\s*$/ })
+    .filter({ hasText: /^\s*通过\s*$/ })
     .first();
-  await expect(stationaryCell).toBeVisible({ timeout: 120_000 });
+  await expect(passingCell).toBeVisible({ timeout: 120_000 });
 
-  // Read the d value from the same row as the first "平稳" cell
-  const stationaryRow = stationaryCell.locator("xpath=ancestor::tr");
-  const dCellText = (await stationaryRow.locator("td").first().textContent()) ?? "";
+  // Read the d value from the same row as the first passing ADF result.
+  const passingRow = passingCell.locator("xpath=ancestor::tr");
+  const dCellText = (await passingRow.locator("td").first().textContent()) ?? "";
   const dValue = dCellText.match(/\d+/)?.[0] ?? "1";
 
   // → differencing order input
@@ -437,11 +437,11 @@ export async function completeARIMA(page: Page) {
   await clickLastEnabledButton(page, "下一步", 60_000); // 增加超时到 60 秒
 
   // → differencing validation (should pass)
-  await expect(page.getByText("检验通过")).toBeVisible();
+  await expect(page.getByText(`差分阶数 d=${dValue} 通过当前ADF门槛`)).toBeVisible();
   await clickLastEnabledButton(page, "下一步");
 
   // → auto-params (guided training)
-  await completeGuidedTraining(page, /ARIMA 法 - 自动参数寻优计算|最佳模型/, 180_000);
+  await completeGuidedTraining(page, /ARIMA 法 - 自动参数寻优计算/, 180_000);
   await clickLastEnabledButton(page, "下一步");
 
   // → results view

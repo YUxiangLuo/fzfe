@@ -31,7 +31,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <GitCompare className="w-5 h-5 text-indigo-600" />
-              <p className="text-gray-800 font-medium"><strong>差分处理:</strong> 若非平稳，进行差分处理，将非平稳时间序列转化为平稳时间序列。</p>
+              <p className="text-gray-800 font-medium"><strong>差分处理:</strong> 若当前检验未通过，尝试非季节差分，使序列更接近平稳，再重新检验。</p>
             </div>
           </div>
         </div>
@@ -43,7 +43,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <Target className="w-5 h-5 text-purple-600" />
-              <p className="text-gray-800 font-medium"><strong>模型定阶:</strong> 教科书通常借助自相关(ACF)、偏自相关(PACF)和信息准则识别模型阶数；本系统自动用 AIC/BIC 搜索 p 和 q。</p>
+              <p className="text-gray-800 font-medium"><strong>模型定阶:</strong> 教科书通常借助自相关(ACF)、偏自相关(PACF)和信息准则识别阶数；本系统在固定 d 下分别执行 AIC/BIC 目标的 stepwise 搜索来辅助选择 p、q。</p>
             </div>
           </div>
         </div>
@@ -67,7 +67,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <TrendingUp className="w-5 h-5 text-green-600" />
-              <p className="text-gray-800 font-medium"><strong>模型预测:</strong> 使用建立的 ARIMA 模型进行预测。</p>
+              <p className="text-gray-800 font-medium"><strong>模型预测:</strong> 生成多步ARIMA预测，并将最终销量点预测按 max(0, ŷ) 截断。</p>
             </div>
           </div>
         </div>
@@ -76,7 +76,7 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base">
-          ARIMA 的教科书流程通常结合平稳性检验、ACF/PACF、信息准则和残差诊断。本系统由用户指定差分阶数 d，并自动用 AIC/BIC 搜索 p 和 q；训练后使用拟合模型直接生成多步 forecast，并由预测区间近似换算标准差。
+          ARIMA 的教科书流程通常结合平稳性检验、ACF/PACF、信息准则和残差诊断。本系统实现非季节 ARIMA：ADF 对 d=0、1、2 使用常数项并以 AIC 自动选滞后，用户固定 d；系统按样本量限制 p/q 后分别运行 AIC、BIC 的 stepwise 搜索。stepwise 不穷举全部组合。原始点预测可能为负，系统将用于残差、指标和输出的销量点预测按 max(0, ŷ) 截断；95%区间仍来自未截断的ARIMA分布，仅以其宽度除以3.92近似标准差。
         </p>
       </div>
     </div>

@@ -13,7 +13,7 @@ const Intro: React.FC = () => {
           验证残差MSE倒数加权法是一种常见的组合预测权重确定方法。它借鉴逆方差加权思想，通过验证集残差均方误差的大小确定权重，即对MSE较小的模型赋以高权重。
         </p>
         <p className="text-gray-800 leading-relaxed text-base">
-          一般来说每种单项预测模型的预测精度不同，MSE是反映预测误差大小的一个指标。与只看残差方差相比，MSE还会惩罚系统性高估或低估，因此更适合本系统的未来销量预测任务。
+          MSE反映误差平方的平均大小。与只看去均值后的残差方差相比，MSE还会保留系统性高估或低估造成的误差；只有残差近似无偏时，它才与误差方差接近。
         </p>
       </div>
 
@@ -44,13 +44,13 @@ const Intro: React.FC = () => {
       </div>
 
       <div className="p-5 bg-green-50 rounded-lg border border-green-200">
-        <h4 className="text-base font-semibold text-gray-800 mb-3">方法优势</h4>
+        <h4 className="text-base font-semibold text-gray-800 mb-3">方法特点</h4>
         <div className="space-y-2 text-gray-700 leading-relaxed text-base">
           <p>
             <strong>自适应权重分配：</strong>根据各模型的预测精度自动调整权重，精度高的模型获得更大权重。
           </p>
           <p>
-            <strong>提高预测稳定性：</strong>通过融合多个模型的预测结果，降低单一模型的偏差和波动。
+            <strong>分散模型风险：</strong>当成员误差不完全同步时，组合可能比单一成员更稳定；这不是必然保证。
           </p>
           <p>
             <strong>简单易实现：</strong>计算方法直观明了，易于理解和实施。
@@ -60,8 +60,11 @@ const Intro: React.FC = () => {
 
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
+        <p className="text-gray-700 leading-relaxed text-base mb-3">
+          系统按时间顺序留出末段验证集：训练点8–15时通常留2–3点，更长时约留20%。每个成员只用前段训练，再计算验证MSE，按1/(MSE+10⁻⁹)归一化权重。本实现没有估计成员误差协方差，短验证段也会使权重波动；成员销量预测先截断为不小于0，组合结果也做非负兜底，指标和std_dev使用同一最终预测。评估点不足2个时，std_dev使用内部验证组合残差估计。
+        </p>
         <p className="text-gray-700 leading-relaxed text-base">
-          系统按时间顺序从训练区间中留出一段权重验证集，计算各基础模型在该验证段上的残差均方误差，并按MSE倒数归一化得到权重。这是逆方差加权思想在预测误差可能有偏时的教学化改写；在残差近似无偏时，MSE与方差口径一致。
+          内部验证保持成员的必要定义一致：MA 沿用窗口、ES 沿用 α，LSTM 沿用 look_back、epochs、特征和归一化配置；由于样本段与预测跨度改变，LSTM 的动态隐藏单元、批大小和输出宽度按单模型的同一规则重算。ARIMA 只沿用用户固定的 d，并在验证段之前的数据上重新执行同一套 AIC/BIC stepwise 搜索；若直接使用完整训练段选出的 p、q，会让留出段间接参与自己的预测。独立评估通常复用完整训练产物；仅当 LSTM 已保存的直接预测长度不足时，才保持上述单模型配置并在完整训练段重新拟合、扩展输出长度。
         </p>
       </div>
     </div>

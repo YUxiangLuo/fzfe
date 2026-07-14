@@ -213,8 +213,8 @@ const LSTMStepper: React.FC = () => {
   }, [currentStep?.id, target, productFieldOptions]);
 
   const areParamsValid = useMemo(() => {
-    return !!normalization && !!target && features.length > 0;
-  }, [normalization, target, features]);
+    return !!normalization && !!target;
+  }, [normalization, target]);
 
   const normSelected = useMemo(() => {
     return !!normalization;
@@ -322,7 +322,6 @@ const LSTMStepper: React.FC = () => {
       features,
       setFeatures,
       target,
-      setTarget,
       error,
       isLoading,
       fieldOptions: productFieldOptions ?? [],
