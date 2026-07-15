@@ -33,10 +33,10 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base mb-3">
-          本系统按时间顺序拆分Level-0/Level-1：训练点8–15时Level-1通常2–3点，更长时约20%。元模型先拟合非负无截距线性回归，再归一化系数为和为1的权重；这是稳定的凸组合近似，不是直接求解带和约束的最小二乘。当Level-1样本数≤成员数+1，或矩阵奇异、条件数非有限或&gt;10⁶时，系统认为元模型拟合不够稳定，回退为inverse-MAE。成员销量与最终组合结果都截断为不小于0，指标和std_dev使用同一最终结果；评估点不足2个时std_dev使用Level-1组合残差。
+          本系统按时间顺序拆分 Level-0/Level-1，Level-1 至少保留成员数+2个点。元模型直接求解无截距非负最小二乘（NNLS），保留原始系数而不强制总和为1。数据不足时明确拒绝训练，不切换为 inverse-MAE 等另一种融合算法。
         </p>
         <p className="text-gray-700 leading-relaxed text-base">
-          Level-0 重训沿用 MA 窗口、ES 的 α，以及 LSTM 的 look_back、epochs、特征和归一化方式；由于子训练段和 Level-1 跨度不同，LSTM 的动态隐藏单元、批大小和输出宽度按单模型的同一规则重算。ARIMA 只沿用用户固定的 d，并在 Level-0 重新执行同一套 AIC/BIC stepwise 搜索，避免把完整训练段选出的 p、q 泄漏给 Level-1。独立评估阶段通常复用完整训练产物；只有 LSTM 直接输出长度不足时，才保持上述单模型配置并重拟合以扩展长度。
+          Level-0 只继承用户选择的 MA 窗口、ES α、ARIMA d 与 LSTM 特征/归一化；ARIMA 阶数和 LSTM 隐藏配置均按 Level-0 重算。不确定性仅用 Level-1 的组合残差校准成员逐 horizon 增长形状，独立评估真实值不参与校准；证据不足时明确标记 fallback。
         </p>
       </div>
     </div>

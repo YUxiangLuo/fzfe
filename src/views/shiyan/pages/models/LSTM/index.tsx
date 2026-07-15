@@ -21,7 +21,7 @@ const STEPS = [
   { id: 'intro', name: '方法步骤', path: `${BASE_PATH}/intro`, component: Intro },
   { id: 'preprocessing', name: '数据预处理', path: `${BASE_PATH}/preprocessing`, component: Preprocessing },
   { id: 'build', name: '构建LSTM模型', path: `${BASE_PATH}/build`, component: Build },
-  { id: 'results', name: '计算结果', path: `${BASE_PATH}/results`, component: Results },
+  { id: 'results', name: '分阶段训练与结果', path: `${BASE_PATH}/results`, component: Results },
 ];
 
 // Hidden pages - not part of the main steps
@@ -106,6 +106,7 @@ const LSTMStepper: React.FC = () => {
       predictions: alignPredictionRows({
         actualValues: apiResults.eval_y_true,
         predictedValues: apiResults.eval_predictions,
+        predictionPoints: apiResults.prediction_points,
         backendMonths: apiResults.evaluate_months,
         fallbackMonths: evaluateMonths,
       }),

@@ -186,6 +186,10 @@ describe("reportBuilder", () => {
     expect(markdown).toContain("| 行业 | electronics |");
     expect(markdown).toContain("**选定模型**: 加权平均融合");
     expect(markdown).toContain("95%");
+    expect(markdown).toContain("| 安全库存 Z 值 | 1.65 |");
+    expect(markdown).toContain("Z × 预测误差标准差 × √提前期");
+    expect(markdown).not.toContain("历史平均低估");
+    expect(markdown).not.toContain("回退估计期数");
     expect(markdown).toContain("| 产能模式 | 产能正常 |");
     expect(markdown).toContain("decision analysis");
     expect(markdown).toContain("| P1 | 100 | 10 | 110 |");
@@ -221,6 +225,69 @@ describe("reportBuilder", () => {
 
     expect(markdown).toContain("| 产能模式 | 自定义产能 |");
     expect(markdown).not.toContain("| 产能模式 | 产能正常 |");
+  });
+
+  it("preserves a valid zero production capacity in markdown", () => {
+    const state = {
+      ...buildInitialState(),
+      production_capacity_mode: "auto" as const,
+      production_capacity: 0,
+    };
+
+    const markdown = buildExperimentReportMarkdown({
+      state,
+      userInfo: null,
+      analyses: { data: "", comparison: "", selection: "", params: "", decision: "" },
+      viewModel: buildReportViewModel(state, productSalesData),
+    });
+
+    expect(markdown).toContain("| 产能上限/期 | 0 件 |");
+    expect(markdown).not.toContain("| 产能上限/期 | N/A |");
+  });
+
+  it("records fallback uncertainty count and de-duplicated reasons in markdown", () => {
+    const state = {
+      ...buildInitialState(),
+      production_forecast_results: [
+        {
+          prediction: 100,
+          std_dev: 2,
+          upper_error_p99: 4,
+          uncertainty_source: "fallback" as const,
+          uncertainty_reason: "first_difference_rms_floor",
+          calibration_mean_error: null,
+          calibration_count: null,
+        },
+        {
+          prediction: 105,
+          std_dev: 3,
+          upper_error_p99: 5,
+          uncertainty_source: "fallback" as const,
+          uncertainty_reason: "first_difference_rms_floor",
+          calibration_mean_error: null,
+          calibration_count: null,
+        },
+        {
+          prediction: 110,
+          std_dev: 1,
+          upper_error_p99: 2,
+          uncertainty_source: "model" as const,
+          calibration_mean_error: 0.5,
+          calibration_count: 8,
+        },
+      ],
+    };
+
+    const markdown = buildExperimentReportMarkdown({
+      state,
+      userInfo: null,
+      analyses: { data: "", comparison: "", selection: "", params: "", decision: "" },
+      viewModel: buildReportViewModel(state, productSalesData),
+    });
+
+    expect(markdown).toContain("| 回退估计期数 | 2 期（需结合业务经验复核） |");
+    expect(markdown).toContain("| 回退原因 | 差分波动接近零但存在稳定趋势，改用一阶差分均方根作为保守尺度 |");
+    expect(markdown.match(/差分波动接近零但存在稳定趋势/g)).toHaveLength(1);
   });
 
   it("renders fallback sections when report data is incomplete", () => {

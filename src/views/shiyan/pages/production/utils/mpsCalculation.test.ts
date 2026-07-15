@@ -1,49 +1,17 @@
 /// <reference types="bun-types" />
 
 import { describe, expect, it } from "bun:test";
-import { validateAndFixStdDev, validatePredictions } from "./predictionValidator";
-import { MPS_CALCULATION, SERVICE_LEVELS } from "../config/mpsConstants";
+import { validatePredictions } from "./predictionValidator";
+import { calculateSafetyStock } from "./productionCapacityHelper";
+
+const calibration = { calibration_mean_error: 2, calibration_count: 12 } as const;
 
 describe("MPS Calculation Utils", () => {
-  describe("validateAndFixStdDev", () => {
-    it("returns valid stdDev unchanged", () => {
-      const result = validateAndFixStdDev(50, 1000, 0);
-      expect(result.value).toBe(50);
-      expect(result.isModified).toBe(false);
-      expect(result.warnings).toHaveLength(0);
-    });
-
-    it("fixes negative stdDev", () => {
-      const result = validateAndFixStdDev(-10, 1000, 0);
-      expect(result.value).toBe(1000 * MPS_CALCULATION.DEFAULT_STD_DEV_RATIO);
-      expect(result.isModified).toBe(true);
-      expect(result.warnings.length).toBeGreaterThan(0);
-    });
-
-    it("fixes NaN stdDev", () => {
-      const result = validateAndFixStdDev(NaN, 1000, 0);
-      expect(result.isModified).toBe(true);
-      expect(result.warnings.length).toBeGreaterThan(0);
-    });
-
-    it("warns about zero stdDev", () => {
-      const result = validateAndFixStdDev(0, 1000, 0);
-      expect(result.value).toBe(0);
-      expect(result.warnings.length).toBeGreaterThan(0);
-    });
-
-    it("warns about abnormally large stdDev", () => {
-      const result = validateAndFixStdDev(400, 1000, 0); // 40% of demand
-      expect(result.value).toBe(400);
-      expect(result.warnings.length).toBeGreaterThan(0);
-    });
-  });
-
   describe("validatePredictions", () => {
     it("validates normal predictions", () => {
       const predictions = [
-        { prediction: 1000, std_dev: 50 },
-        { prediction: 1100, std_dev: 55 },
+        { prediction: 1000, std_dev: 50, upper_error_p99: 120, uncertainty_source: "empirical", ...calibration },
+        { prediction: 1100, std_dev: 55, upper_error_p99: 130, uncertainty_source: "empirical", ...calibration },
       ];
       const result = validatePredictions(predictions);
       expect(result.validatedData).toHaveLength(2);
@@ -52,8 +20,8 @@ describe("MPS Calculation Utils", () => {
 
     it("fixes negative predictions", () => {
       const predictions = [
-        { prediction: -100, std_dev: 50 },
-        { prediction: 1100, std_dev: 55 },
+        { prediction: -100, std_dev: 50, upper_error_p99: 120, uncertainty_source: "empirical", ...calibration },
+        { prediction: 1100, std_dev: 55, upper_error_p99: 130, uncertainty_source: "empirical", ...calibration },
       ];
       const result = validatePredictions(predictions);
       expect(result.validatedData[0]?.prediction).toBe(0);
@@ -62,25 +30,63 @@ describe("MPS Calculation Utils", () => {
 
     it("rejects invalid predictions instead of replacing them with zero", () => {
       const predictions = [
-        { prediction: NaN, std_dev: 50 },
-        { prediction: 1100, std_dev: 55 },
+        { prediction: NaN, std_dev: 50, upper_error_p99: 120, uncertainty_source: "empirical" },
+        { prediction: 1100, std_dev: 55, upper_error_p99: 130, uncertainty_source: "empirical" },
       ];
       expect(() => validatePredictions(predictions)).toThrow("prediction 必须是有限数字");
     });
 
     it("rejects values that only look numeric instead of coercing them", () => {
       expect(() => validatePredictions([
-        { prediction: "1000", std_dev: 50 },
+        { prediction: "1000", std_dev: 50, upper_error_p99: 120, uncertainty_source: "empirical" },
       ])).toThrow("prediction 必须是有限数字");
     });
 
     it("rejects negative or non-finite standard deviations", () => {
       expect(() => validatePredictions([
-        { prediction: 1000, std_dev: -1 },
+        { prediction: 1000, std_dev: -1, upper_error_p99: 120, uncertainty_source: "empirical" },
       ])).toThrow("std_dev 必须是非负有限数字");
       expect(() => validatePredictions([
-        { prediction: 1000, std_dev: Number.POSITIVE_INFINITY },
+        { prediction: 1000, std_dev: Number.POSITIVE_INFINITY, upper_error_p99: 120, uncertainty_source: "empirical" },
       ])).toThrow("std_dev 必须是非负有限数字");
+    });
+
+    it("preserves and warns about fallback uncertainty", () => {
+      const result = validatePredictions([{
+        prediction: 1000,
+        std_dev: 80,
+        upper_error_p99: 180,
+        uncertainty_source: "fallback",
+        uncertainty_reason: "样本不足",
+        calibration_mean_error: null,
+        calibration_count: null,
+      }]);
+
+      expect(result.validatedData[0]).toMatchObject({
+        uncertainty_source: "fallback",
+        uncertainty_reason: "样本不足",
+      });
+      expect(result.allWarnings.join(" ")).toContain("安全库存应结合业务经验复核");
+    });
+
+    it("rejects missing, partial, or invalid bias diagnostics", () => {
+      const base = {
+        prediction: 1000,
+        std_dev: 50,
+        upper_error_p99: 120,
+        uncertainty_source: "empirical",
+      };
+      expect(() => validatePredictions([base])).toThrow("偏差诊断");
+      expect(() => validatePredictions([{
+        ...base,
+        calibration_mean_error: 2,
+        calibration_count: null,
+      }])).toThrow("偏差诊断");
+      expect(() => validatePredictions([{
+        ...base,
+        calibration_mean_error: Number.NaN,
+        calibration_count: 3,
+      }])).toThrow("偏差诊断");
     });
   });
 
@@ -108,24 +114,14 @@ describe("MPS Calculation Utils", () => {
   });
 
   describe("Safety Stock Calculation", () => {
-    it("calculates correct safety stock for 99% service level", () => {
-      const demandForecast = 1000;
-      const stdDev = demandForecast * 0.1; // 10% coefficient of variation
-      const zScore = SERVICE_LEVELS.EXCELLENT.zScore; // 2.33
-      const safetyStock = Math.round(zScore * stdDev);
-      
-      // Expected: 2.33 * 100 = 233
-      expect(safetyStock).toBe(233);
+    it("uses the selected Z value and centered prediction-error standard deviation", () => {
+      expect(calculateSafetyStock(50, 1.28)).toBe(64);
+      expect(calculateSafetyStock(50, 1.65)).toBe(83);
+      expect(calculateSafetyStock(50, 2.33)).toBe(117);
     });
 
-    it("calculates correct safety stock for 95% service level", () => {
-      const demandForecast = 1000;
-      const stdDev = demandForecast * 0.1;
-      const zScore = SERVICE_LEVELS.GOOD.zScore; // 1.65
-      const safetyStock = Math.round(zScore * stdDev);
-      
-      // Expected: 1.65 * 100 = 165
-      expect(safetyStock).toBe(165);
+    it("rejects a negative standard deviation", () => {
+      expect(() => calculateSafetyStock(-4, 1.65)).toThrow("预测标准差");
     });
   });
 

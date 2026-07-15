@@ -59,7 +59,7 @@ describe("apiClient timeout handling", () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
 
     await expect(
-      apiClient.post("/models/ma/prepare-production", {
+      apiClient.post("/models/ma/production-preparation/sessions", {
         experiment_id: 7,
         forecast_steps: 6,
       }),

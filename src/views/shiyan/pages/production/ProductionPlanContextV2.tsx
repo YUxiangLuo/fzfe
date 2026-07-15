@@ -1,8 +1,16 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { CapacityMode, CapacityScenario } from './utils/productionCapacityHelper';
-import { validateAndFixStdDev } from './utils/predictionValidator';
-import { DEFAULT_PARAMETERS } from './config/mpsConstants';
+import {
+  calculateSafetyStock,
+  type CapacityMode,
+  type CapacityScenario,
+} from './utils/productionCapacityHelper';
+import {
+  DEFAULT_PARAMETERS,
+  getServiceLevelOption,
+  resolvePersistedServiceLevel,
+  type ServiceLevel,
+} from './config/mpsConstants';
 import type {
   ExperimentState,
   MPSTableRow as GlobalMPSTableRow,
@@ -38,6 +46,16 @@ export interface PeriodData {
 // 为了兼容性，保留Period2Data别名
 export type Period2Data = PeriodData;
 
+export interface ProductionPredictionPoint {
+  prediction: number;
+  std_dev: number;
+  upper_error_p99: number;
+  uncertainty_source: 'model' | 'empirical' | 'fallback';
+  uncertainty_reason?: string;
+  calibration_mean_error: number | null;
+  calibration_count: number | null;
+}
+
 type PersistExperimentState = (
   updates: Partial<ExperimentState>,
   options?: { forceSync?: boolean; skipSync?: boolean; throwOnSyncError?: boolean },
@@ -52,8 +70,8 @@ export interface ProductionPlanState {
   // 参数设置
   forecastPeriods: number;
   initialInventory: number;
-  targetServiceLevel: number;
-  safetyStockZScore: number;
+  targetServiceLevel: ServiceLevel | null;
+  safetyStockZScore: number | null;
   selectedBestModel: SelectedBestModel;
 
   // 产能参数
@@ -66,7 +84,7 @@ export interface ProductionPlanState {
   avgDemand: number;
 
   // 预测结果数据（从预测接口获取的完整数据）
-  predictions: Array<{ prediction: number; std_dev: number }> | null;
+  predictions: ProductionPredictionPoint[] | null;
 
   // 第1期的完整数据（作为参考，自动计算）
   period1Data: PeriodData;
@@ -99,9 +117,10 @@ interface ProductionPlanContextValue {
   updateParameters: (params: {
     forecastPeriods?: number;
     initialInventory?: number;
-    targetServiceLevel?: number;
-    safetyStockZScore?: number;
   }) => void;
+
+  // 服务水平决定客户公式中的 Z 值；完成第1步后锁定。
+  selectServiceLevel: (serviceLevel: ServiceLevel) => void;
 
   // 产能设置
   updateCapacity: (params: {
@@ -122,10 +141,10 @@ interface ProductionPlanContextValue {
   updatePeriod2Data: (data: Partial<Period2Data>) => void;
 
   // 保存预测结果（从预测接口获取的完整数据）
-  savePredictions: (predictions: Array<{ prediction: number; std_dev: number }>) => void;
+  savePredictions: (predictions: ProductionPredictionPoint[]) => void;
 
   // 生成完整MPS表
-  generateFullMPS: (predictions: Array<{ prediction: number; std_dev: number }>) => MPSTableRow[];
+  generateFullMPS: (predictions: ProductionPredictionPoint[]) => MPSTableRow[];
 
   // 完整计划表教学内容控制
   hideCompletePlanTeaching: () => void;
@@ -134,7 +153,7 @@ interface ProductionPlanContextValue {
   saveMPSDataToGlobal: (
     updateStateFunc: PersistExperimentState,
     mpsTableOverride?: MPSTableRow[],
-    predictionsOverride?: Array<{ prediction: number; std_dev: number }>,
+    predictionsOverride?: ProductionPredictionPoint[],
   ) => Promise<void>;
 
   // 重置
@@ -179,8 +198,25 @@ const isPredictionPoint = (
 
   const prediction = (value as { prediction?: unknown }).prediction;
   const stdDev = (value as { std_dev?: unknown }).std_dev;
+  const upperErrorP99 = (value as { upper_error_p99?: unknown }).upper_error_p99;
+  const uncertaintySource = (value as { uncertainty_source?: unknown }).uncertainty_source;
+  const calibrationMeanError = (value as { calibration_mean_error?: unknown }).calibration_mean_error;
+  const calibrationCount = (value as { calibration_count?: unknown }).calibration_count;
+  const hasValidCalibration = (
+    calibrationMeanError === null
+    && calibrationCount === null
+  ) || (
+    typeof calibrationMeanError === 'number'
+    && Number.isFinite(calibrationMeanError)
+    && typeof calibrationCount === 'number'
+    && Number.isInteger(calibrationCount)
+    && calibrationCount > 0
+  );
   return typeof prediction === 'number' && Number.isFinite(prediction)
-    && typeof stdDev === 'number' && Number.isFinite(stdDev);
+    && typeof stdDev === 'number' && Number.isFinite(stdDev) && stdDev >= 0
+    && typeof upperErrorP99 === 'number' && Number.isFinite(upperErrorP99) && upperErrorP99 >= 0
+    && ['model', 'empirical', 'fallback'].includes(String(uncertaintySource))
+    && hasValidCalibration;
 };
 
 const isPersistedMpsRow = (value: unknown): value is GlobalMPSTableRow => {
@@ -202,19 +238,29 @@ export const buildInitialProductionPlanState = ({
   const defaultAvgDemand = avgDemand ?? 1050;
 
   const persistedPredictions = Array.isArray(persistedState?.production_forecast_results)
-    ? persistedState.production_forecast_results.filter(isPredictionPoint)
+    && persistedState.production_forecast_results.every(isPredictionPoint)
+    ? persistedState.production_forecast_results
     : null;
   const normalizedPredictions = persistedPredictions && persistedPredictions.length > 0
     ? persistedPredictions
     : null;
-  const persistedMpsTable = Array.isArray(persistedState?.production_mps_table)
+  const rawPersistedMpsTable = Array.isArray(persistedState?.production_mps_table)
     ? persistedState.production_mps_table.filter(isPersistedMpsRow)
     : [];
-  const hasPersistedPlan = persistedMpsTable.length > 0;
+  const persistedServiceLevel = resolvePersistedServiceLevel(
+    persistedState?.production_target_service_level,
+    persistedState?.production_safety_stock_z_score,
+  );
+  const hasPersistedPlan = rawPersistedMpsTable.length > 0 && persistedServiceLevel !== null;
+  const persistedMpsTable = hasPersistedPlan ? rawPersistedMpsTable : [];
   const completedSteps = hasPersistedPlan ? [1, 2, 3, 4, 5] : [];
   const currentStep = hasPersistedPlan ? 5 : 1;
-  const capacityMode = persistedState?.production_capacity_mode ?? 'scenario';
-  const productionCapacity = capacityMode === 'custom'
+  const capacityMode: CapacityMode = persistedState?.production_capacity_mode === 'custom'
+    ? 'custom'
+    : 'scenario';
+  const productionCapacity = persistedServiceLevel === null
+    ? null
+    : capacityMode === 'custom'
     ? (persistedState?.production_custom_capacity
         ?? persistedState?.production_capacity
         ?? null)
@@ -229,15 +275,15 @@ export const buildInitialProductionPlanState = ({
 
     forecastPeriods,
     initialInventory: persistedState?.production_initial_inventory ?? DEFAULT_PARAMETERS.initialInventory,
-    targetServiceLevel: persistedState?.production_target_service_level ?? DEFAULT_PARAMETERS.targetServiceLevel,
-    safetyStockZScore: persistedState?.production_safety_stock_z_score ?? DEFAULT_PARAMETERS.safetyStockZScore,
+    targetServiceLevel: persistedServiceLevel?.value ?? DEFAULT_PARAMETERS.targetServiceLevel,
+    safetyStockZScore: persistedServiceLevel?.zScore ?? DEFAULT_PARAMETERS.safetyStockZScore,
     selectedBestModel: initialModel ?? persistedState?.selected_best_model ?? 'lstm',
 
     // 产能参数（默认使用 normal 场景）
     capacityMode,
     capacityScenario: persistedState?.production_capacity_scenario ?? 'normal',
     productionCapacity,
-    customCapacity: capacityMode === 'custom'
+    customCapacity: persistedServiceLevel !== null && capacityMode === 'custom'
       ? (persistedState?.production_custom_capacity ?? productionCapacity)
       : null,
 
@@ -261,7 +307,7 @@ export const buildInitialProductionPlanState = ({
     // 保存状态
     isSaving: false,
     savingError: null,
-    hasSavedToGlobal: Boolean(persistedState?.production_plan_completed || hasPersistedPlan),
+    hasSavedToGlobal: hasPersistedPlan && Boolean(persistedState?.production_plan_completed),
   };
 };
 
@@ -313,13 +359,26 @@ export const ProductionPlanProvider: React.FC<{
   const updateParameters = (params: {
     forecastPeriods?: number;
     initialInventory?: number;
-    targetServiceLevel?: number;
-    safetyStockZScore?: number;
   }) => {
     setState((prev) => ({
       ...prev,
       ...params,
     }));
+  };
+
+  const selectServiceLevel = (serviceLevel: ServiceLevel) => {
+    setState((prev) => {
+      if (prev.completedSteps.includes(1)) return prev;
+      const option = getServiceLevelOption(serviceLevel);
+      if (!option) return prev;
+      return {
+        ...prev,
+        targetServiceLevel: option.value,
+        safetyStockZScore: option.zScore,
+        productionCapacity: null,
+        customCapacity: null,
+      };
+    });
   };
 
   // 更新产能配置
@@ -331,6 +390,7 @@ export const ProductionPlanProvider: React.FC<{
     capacity?: number | null;
   }) => {
     setState((prev) => {
+      if (prev.completedSteps.includes(1)) return prev;
       const nextMode = params.mode ?? prev.capacityMode;
       const nextScenario = params.scenario ?? prev.capacityScenario;
 
@@ -398,19 +458,22 @@ export const ProductionPlanProvider: React.FC<{
   };
 
   // 保存预测结果（从预测接口获取的完整数据）
-  const savePredictions = (predictions: Array<{ prediction: number; std_dev: number }>) => {
+  const savePredictions = (predictions: ProductionPredictionPoint[]) => {
     setState((prev) => ({
       ...prev,
       predictions: predictions,
     }));
   };
 
-  const generateFullMPS = (predictions: Array<{ prediction: number; std_dev: number }>) => {
+  const generateFullMPS = (predictions: ProductionPredictionPoint[]) => {
     if (predictions.length < 2) {
       throw new Error('预测数据不足，至少需要2期数据');
     }
     if (state.productionCapacity == null) {
       throw new Error('请先选择月产能模式');
+    }
+    if (state.targetServiceLevel == null || state.safetyStockZScore == null) {
+      throw new Error('请先选择目标服务水平');
     }
 
     // Period1 是标准化基准期，安全库存固定为 0，因此不校验 safetyStock
@@ -506,12 +569,11 @@ export const ProductionPlanProvider: React.FC<{
       const serviceLevel = demandForecast > 0 ? Math.max(0, 1 - (stockout / demandForecast)) : 1.0;
 
 
-      // 3. 计算本期投入量 (供下一期使用)
-      // 🛡️ 数据验证和修正：使用专用验证函数
-      const validationResult = validateAndFixStdDev(prediction.std_dev, demandForecast, i);
-      validationResult.warnings.forEach(warning => console.warn(`⚠️ ${warning}`));
-      const stdDev = validationResult.value;
-      const safetyStock = Math.round(state.safetyStockZScore * stdDev);
+      // 3. 客户需求文档公式：安全库存 = Z × std_dev × √提前期。
+      const safetyStock = calculateSafetyStock(
+        prediction.std_dev,
+        state.safetyStockZScore,
+      );
 
       // 计划生产量 = 预测需求 + 安全库存 + 上期缺货 - 期初库存
       const plannedProduction = Math.max(
@@ -542,6 +604,7 @@ export const ProductionPlanProvider: React.FC<{
 
     setState((prev) => ({
       ...prev,
+      predictions,
       fullMPSTable: generatedTable,
       isFullPlanGenerated: true,
     }));
@@ -560,7 +623,7 @@ export const ProductionPlanProvider: React.FC<{
   const saveMPSDataToGlobal = async (
     updateStateFunc: PersistExperimentState,
     mpsTableOverride?: MPSTableRow[],
-    predictionsOverride?: Array<{ prediction: number; std_dev: number }>,
+    predictionsOverride?: ProductionPredictionPoint[],
   ) => {
     setState((prev) => ({
       ...prev,
@@ -582,6 +645,9 @@ export const ProductionPlanProvider: React.FC<{
       const predictionsToSave = predictionsOverride ?? currentState.predictions;
       if (currentState.productionCapacity == null) {
         throw new Error('请先选择月产能模式');
+      }
+      if (currentState.targetServiceLevel == null || currentState.safetyStockZScore == null) {
+        throw new Error('请先选择目标服务水平');
       }
 
       await updateStateFunc({
@@ -634,6 +700,7 @@ export const ProductionPlanProvider: React.FC<{
         goToStep,
         completeCurrentStep,
         updateParameters,
+        selectServiceLevel,
         updateCapacity,
         fillPeriod1Data,
         fillPeriod2Field,

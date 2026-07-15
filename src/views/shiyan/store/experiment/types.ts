@@ -137,6 +137,11 @@ export interface PersistedExperimentState {
   production_forecast_results: Array<{
     prediction: number;
     std_dev: number;
+    upper_error_p99: number;
+    uncertainty_source: 'model' | 'empirical' | 'fallback';
+    uncertainty_reason?: string;
+    calibration_mean_error: number | null;
+    calibration_count: number | null;
   }> | null;
   production_mps_table: MPSTableRow[];
   production_capacity_mode: "scenario" | "auto" | "custom" | null;

@@ -45,7 +45,8 @@ const getTimeoutForEndpoint = (endpoint: string): number | undefined => {
   // 模型元数据请求、长执行请求和预测分别使用明确的有限预算。
   if (lowerEndpoint.includes('/models/')) {
     if (
-      lowerEndpoint.includes('/prepare-production')
+      /\/production-preparation\/sessions$/.test(lowerEndpoint)
+      || /\/production-preparation\/sessions\/[^/]+\/steps\/[^/]+\/run$/.test(lowerEndpoint)
       // Guided session creation loads/serializes the full dataset and shares the
       // same 660s backend deadline as a training step; keep it off the 30s
       // metadata budget even if a caller forgets to pass an explicit timeout.

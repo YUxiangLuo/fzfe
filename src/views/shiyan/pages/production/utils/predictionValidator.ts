@@ -2,59 +2,46 @@
  * 预测数据验证工具
  *
  * 职责：
- * - 验证和修正预测数据中的标准差（std_dev）
- * - 确保数据在合理范围内
+ * - 严格验证当前预测与不确定性契约
+ * - 拒绝缺字段或非有限值，避免用前端猜测替代模型结果
  * - 提供清晰的警告信息
  */
 
-import { MPS_CALCULATION } from '../config/mpsConstants';
+import type { ProductionPredictionPoint } from '../ProductionPlanContextV2';
 
-export interface ValidationResult {
-  value: number;
-  warnings: string[];
-  isModified: boolean;
+const UNCERTAINTY_REASON_LABELS: Record<string, string> = {
+  first_difference_scale: '可用残差不足，改用训练序列一阶差分尺度',
+  first_difference_rms_floor: '差分波动接近零但存在稳定趋势，改用一阶差分均方根作为保守尺度',
+  insufficient_residuals: '残差和差分样本不足，改用保守的基准波动',
+  nonfinite_scale: '估计尺度无效，改用保守的基准波动',
+};
+
+export const describeUncertaintyReason = (reason: string): string =>
+  UNCERTAINTY_REASON_LABELS[reason] ?? reason;
+
+export interface UncertaintyAuditPoint {
+  uncertainty_source?: 'model' | 'empirical' | 'fallback';
+  uncertainty_reason?: string;
 }
 
-/**
- * 验证并修正标准差
- *
- * @param stdDev - 原始标准差
- * @param demandForecast - 需求预测值
- * @param periodIndex - 期数索引（从0开始）
- * @returns 验证结果，包含修正后的值和警告信息
- */
-export const validateAndFixStdDev = (
-  stdDev: number,
-  demandForecast: number,
-  periodIndex: number
-): ValidationResult => {
-  const warnings: string[] = [];
-  let value = stdDev;
-  let isModified = false;
+export interface FallbackUncertaintySummary {
+  fallbackCount: number;
+  reasons: string[];
+}
 
-  // 1. 检查是否为负数或非法值（必须修正，否则会导致NaN）
-  if (typeof stdDev !== 'number' || stdDev < 0 || !Number.isFinite(stdDev)) {
-    warnings.push(
-      `期 ${periodIndex + 1} 的std_dev非法: ${stdDev}，使用需求的${MPS_CALCULATION.DEFAULT_STD_DEV_RATIO * 100}%作为替代`
-    );
-    value = demandForecast * MPS_CALCULATION.DEFAULT_STD_DEV_RATIO;
-    isModified = true;
-    return { value, warnings, isModified };
-  }
-
-  // 2. 检查是否为0（MA等模型可能返回0）
-  if (stdDev === 0) {
-    warnings.push(`期 ${periodIndex + 1} 的std_dev为0，安全库存将为0`);
-  }
-
-  // 3. 检查是否异常大（超过预测值的30%）- 仅警告
-  else if (stdDev > demandForecast * 0.3) {
-    warnings.push(
-      `期 ${periodIndex + 1} 的std_dev异常大: ${stdDev.toFixed(2)}，占预测值 ${((stdDev / demandForecast) * 100).toFixed(1)}%`
-    );
-  }
-
-  return { value, warnings, isModified };
+export const summarizeFallbackUncertainty = (
+  predictions?: readonly UncertaintyAuditPoint[] | null,
+): FallbackUncertaintySummary => {
+  const fallbackPoints = (predictions ?? []).filter(
+    point => point.uncertainty_source === 'fallback',
+  );
+  const reasons = Array.from(new Set(
+    fallbackPoints
+      .map(point => point.uncertainty_reason?.trim())
+      .filter((reason): reason is string => Boolean(reason))
+      .map(describeUncertaintyReason),
+  ));
+  return { fallbackCount: fallbackPoints.length, reasons };
 };
 
 /**
@@ -66,7 +53,7 @@ export const validateAndFixStdDev = (
 export const validatePredictions = (
   predictions: unknown,
 ): {
-  validatedData: Array<{ prediction: number; std_dev: number }>;
+  validatedData: ProductionPredictionPoint[];
   allWarnings: string[];
   hasModifications: boolean;
 } => {
@@ -92,6 +79,44 @@ export const validatePredictions = (
 
     const prediction = point.prediction;
     const stdDev = point.std_dev;
+    if (
+      typeof point.upper_error_p99 !== 'number'
+      || !Number.isFinite(point.upper_error_p99)
+      || point.upper_error_p99 < 0
+    ) {
+      throw new Error(`预测数据格式无效：第 ${index + 1} 期 upper_error_p99 必须是非负有限数字`);
+    }
+
+    const uncertaintySource = point.uncertainty_source;
+    const uncertaintyReason = point.uncertainty_reason;
+    if (
+      !['model', 'empirical', 'fallback'].includes(String(uncertaintySource))
+    ) {
+      throw new Error(`预测数据格式无效：第 ${index + 1} 期 uncertainty_source 无效`);
+    }
+    if (uncertaintyReason !== undefined && typeof uncertaintyReason !== 'string') {
+      throw new Error(`预测数据格式无效：第 ${index + 1} 期 uncertainty_reason 无效`);
+    }
+    const hasValidCalibrationDiagnostics = (
+      point.calibration_mean_error === null
+      && point.calibration_count === null
+    ) || (
+      typeof point.calibration_mean_error === 'number'
+      && Number.isFinite(point.calibration_mean_error)
+      && typeof point.calibration_count === 'number'
+      && Number.isInteger(point.calibration_count)
+      && point.calibration_count > 0
+    );
+    if (!hasValidCalibrationDiagnostics) {
+      throw new Error(
+        `预测数据格式无效：第 ${index + 1} 期偏差诊断必须同时为有效均值与样本数，或同时为 null`,
+      );
+    }
+    if (uncertaintySource === 'fallback') {
+      allWarnings.push(
+        `第 ${index + 1} 期误差区间与安全库存标准差使用回退估计${uncertaintyReason ? `（${describeUncertaintyReason(uncertaintyReason)}）` : ''}；安全库存应结合业务经验复核`,
+      );
+    }
     let normalizedPrediction = prediction;
 
     if (normalizedPrediction < 0) {
@@ -100,20 +125,16 @@ export const validatePredictions = (
       hasModifications = true;
     }
 
-    const demandForecast = Math.round(normalizedPrediction);
-    const validationResult = validateAndFixStdDev(stdDev, demandForecast, index);
-
-    if (validationResult.warnings.length > 0) {
-      allWarnings.push(...validationResult.warnings);
-    }
-
-    if (validationResult.isModified) {
-      hasModifications = true;
-    }
-
     return {
       prediction: normalizedPrediction,
-      std_dev: validationResult.value,
+      std_dev: stdDev,
+      upper_error_p99: point.upper_error_p99,
+      uncertainty_source: uncertaintySource as ProductionPredictionPoint['uncertainty_source'],
+      calibration_mean_error: point.calibration_mean_error as number | null,
+      calibration_count: point.calibration_count as number | null,
+      ...(typeof uncertaintyReason === 'string'
+        ? { uncertainty_reason: uncertaintyReason }
+        : {}),
     };
   });
 

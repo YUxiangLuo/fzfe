@@ -133,16 +133,33 @@ const normalizeMpsRows = (value: unknown): MPSTableRow[] => {
 const normalizeForecastResults = (
   value: unknown,
 ): ExperimentState["production_forecast_results"] => {
-  if (!Array.isArray(value)) {
+  if (!Array.isArray(value) || value.length === 0) {
     return null;
   }
-
-  return value.filter(
-    (
-      item,
-    ): item is NonNullable<ExperimentState["production_forecast_results"]>[number] =>
-      typeof item === "object" && item !== null,
-  );
+  const valid = value.every((item) => {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) return false;
+    const point = item as Record<string, unknown>;
+    return typeof point.prediction === "number" && Number.isFinite(point.prediction)
+      && typeof point.std_dev === "number" && Number.isFinite(point.std_dev) && point.std_dev >= 0
+      && typeof point.upper_error_p99 === "number"
+      && Number.isFinite(point.upper_error_p99)
+      && point.upper_error_p99 >= 0
+      && ["model", "empirical", "fallback"].includes(String(point.uncertainty_source))
+      && (point.uncertainty_reason === undefined || typeof point.uncertainty_reason === "string")
+      && (
+        (point.calibration_mean_error === null && point.calibration_count === null)
+        || (
+          typeof point.calibration_mean_error === "number"
+          && Number.isFinite(point.calibration_mean_error)
+          && typeof point.calibration_count === "number"
+          && Number.isInteger(point.calibration_count)
+          && point.calibration_count > 0
+        )
+      );
+  });
+  return valid
+    ? value as NonNullable<ExperimentState["production_forecast_results"]>
+    : null;
 };
 
 export const fromExperimentApi = (state: ExperimentApiState | null | undefined): ExperimentState => {

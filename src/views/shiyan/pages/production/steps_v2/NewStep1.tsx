@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight, CheckCircle2, Factory, Gauge, Info, Loader2, Scale, ShieldAlert, TrendingUp } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
-import { MPS_CALCULATION, SERVICE_LEVELS } from '../config/mpsConstants';
+import { MPS_CALCULATION, SERVICE_LEVEL_OPTIONS } from '../config/mpsConstants';
 import { validatePredictions } from '../utils/predictionValidator';
 import { ProductionPredictionError, predictWithBestModel } from '../../../services/modelLifecycle';
 import { useToast } from '../../../shared/hooks/useToast';
 import { Toast } from '../../../shared/components/common/Toast';
 import ProductionForecastAssumptionNote from '../components/ProductionForecastAssumptionNote';
 import ProductionPredictionErrorAlert from '../components/ProductionPredictionErrorAlert';
+import ProductionBiasDiagnostic from '../components/ProductionBiasDiagnostic';
 import {
   calculateCapacityScenarioOptions,
   type CapacityScenarioOption,
@@ -69,11 +70,20 @@ const CAPACITY_CARD_CLASSES = {
  * - 预测第一期需求
  */
 const NewStep1: React.FC = () => {
-  const { state, updateParameters, updateCapacity, fillPeriod1Data, savePredictions, completeCurrentStep } = useProductionPlan();
+  const {
+    state,
+    updateParameters,
+    selectServiceLevel,
+    updateCapacity,
+    fillPeriod1Data,
+    savePredictions,
+    completeCurrentStep,
+  } = useProductionPlan();
   const { state: experimentState } = useExperiment();
   const { toast, showToast, hideToast } = useToast();
 
   const [isPredicting, setIsPredicting] = useState(false);
+  const [preparationProgress, setPreparationProgress] = useState<string | null>(null);
   const [predictionError, setPredictionError] = useState<ProductionPredictionError | null>(null);
   const [isPeriod1Generated, setIsPeriod1Generated] = useState(false);
   const [period1Data, setPeriod1Data] = useState<{
@@ -93,11 +103,11 @@ const NewStep1: React.FC = () => {
 
   // 🔒 固定参数
   const INITIAL_INVENTORY = MPS_CALCULATION.INITIAL_INVENTORY; // 初始库存 = 0
-  const TARGET_SERVICE_LEVEL = SERVICE_LEVELS.EXCELLENT.value; // 目标服务水平 = 99%
-  const Z_SCORE = SERVICE_LEVELS.EXCELLENT.zScore; // Z分数 = 2.33
   const capacityOptions = React.useMemo(
-    () => calculateCapacityScenarioOptions(state.predictions ?? [], Z_SCORE),
-    [state.predictions, Z_SCORE],
+    () => state.safetyStockZScore == null
+      ? []
+      : calculateCapacityScenarioOptions(state.predictions ?? [], state.safetyStockZScore),
+    [state.predictions, state.safetyStockZScore],
   );
   const selectedCapacityOption = state.productionCapacity == null
     ? null
@@ -115,6 +125,7 @@ const NewStep1: React.FC = () => {
     isPredictingRef.current = true;
     hideToast();
     setPredictionError(null);
+    setPreparationProgress('正在创建或恢复生产模型准备会话');
     setIsPredicting(true);
 
     try {
@@ -126,6 +137,19 @@ const NewStep1: React.FC = () => {
         state.selectedBestModel,
         experimentState.experiment_id,
         FIXED_FORECAST_PERIODS,
+        {
+          onPreparationProgress: (progress) => {
+            if (!isMountedRef.current) return;
+            if (progress.status === 'completed') {
+              setPreparationProgress('生产模型已准备完成，正在生成需求预测');
+              return;
+            }
+            const stepLabel = progress.nextStepLabel ? `：${progress.nextStepLabel}` : '';
+            setPreparationProgress(
+              `正在准备生产模型（${progress.completedSteps}/${progress.totalSteps}）${stepLabel}`,
+            );
+          },
+        },
       );
 
       // The backend keeps running after a browser disconnect; if the student
@@ -180,8 +204,6 @@ const NewStep1: React.FC = () => {
       updateParameters({
         forecastPeriods: FIXED_FORECAST_PERIODS,
         initialInventory: INITIAL_INVENTORY,
-        targetServiceLevel: TARGET_SERVICE_LEVEL,
-        safetyStockZScore: Z_SCORE,
       });
 
       setIsPeriod1Generated(true);
@@ -198,6 +220,7 @@ const NewStep1: React.FC = () => {
       isPredictingRef.current = false;
       if (isMountedRef.current) {
         setIsPredicting(false);
+        setPreparationProgress(null);
       }
     }
   };
@@ -213,6 +236,10 @@ const NewStep1: React.FC = () => {
 
   // 🔹 进入下一步
   const handleNext = () => {
+    if (state.targetServiceLevel == null || state.safetyStockZScore == null) {
+      showToast('请先选择目标服务水平，再选择月产能模式', 'error');
+      return;
+    }
     if (state.productionCapacity == null) {
       showToast('请先选择一种月产能模式，再进入下一步', 'error');
       return;
@@ -222,6 +249,14 @@ const NewStep1: React.FC = () => {
 
   const renderCapacitySelection = () => {
     if (!hasGeneratedPeriod1) return null;
+
+    if (state.safetyStockZScore == null) {
+      return (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          请先选择目标服务水平。系统将用对应 Z 值重新计算每期安全库存与三种产能方案。
+        </div>
+      );
+    }
 
     if (capacityOptions.length === 0) {
       return (
@@ -243,7 +278,7 @@ const NewStep1: React.FC = () => {
                 本实验使用预测负荷作为产能规划基准：预测负荷 = 预测需求 + 安全库存。月产能上限表示每期最多能完成的产出量，不代表每期固定生产这么多。
               </p>
               <p className="mt-1 text-xs text-slate-500 leading-relaxed">
-                这里的安全库存仅用于估算产能模式；MPS 表第 1 期仍按标准化规则填写，安全库存为 0。
+                第 1 期按标准化规则取安全库存 0；从第 2 期起，系统按所选服务水平对应的 Z 值计算安全库存。
               </p>
             </div>
             <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-700">
@@ -322,6 +357,51 @@ const NewStep1: React.FC = () => {
     );
   };
 
+  const renderServiceLevelSelection = () => {
+    if (!hasGeneratedPeriod1) return null;
+    return (
+      <div className="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+        <h4 className="font-semibold text-indigo-950">选择目标服务水平</h4>
+        <p className="mt-1 text-sm leading-relaxed text-indigo-800">
+          这是安全库存公式中的规划参数。选择越高，Z 值和库存缓冲越大；它不保证最终实际服务水平一定达到该数值。
+        </p>
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+          {SERVICE_LEVEL_OPTIONS.map((option) => {
+            const selected = state.targetServiceLevel === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                disabled={isCapacityLocked}
+                aria-pressed={selected}
+                onClick={() => selectServiceLevel(option.value)}
+                className={`rounded-lg border-2 bg-white p-3 text-left transition-all ${
+                  selected
+                    ? 'border-indigo-600 ring-2 ring-indigo-200'
+                    : 'border-indigo-100 hover:border-indigo-300'
+                } ${isCapacityLocked ? 'cursor-default opacity-90' : ''}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xl font-bold text-indigo-950">{option.label}</span>
+                  <span className="rounded bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-800">
+                    Z = {option.zScore}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-relaxed text-slate-600">{option.description}</p>
+                <div className="mt-2 text-xs font-medium text-indigo-700">
+                  {selected ? '已选择' : '点击选择'}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-3 text-xs text-indigo-700">
+          客户文档公式：安全库存 = Z × 预测误差标准差 × √提前期；本实验提前期 L = 1 个月。
+        </p>
+      </div>
+    );
+  };
+
   const renderPeriod1Action = () => {
     if (predictionError) {
       return (
@@ -366,6 +446,17 @@ const NewStep1: React.FC = () => {
                 <p className="mt-2 text-xs text-gray-600">
                   MPS 表第一排已按标准化规则填充：期初库存=0、产出量=需求、期末库存=0、缺货=0、服务水平=100%。下一步开始，所选月产能上限会用于约束每期产出量。
                 </p>
+                <ProductionForecastAssumptionNote
+                  className="mt-3"
+                  predictions={state.predictions ?? []}
+                />
+                <ProductionBiasDiagnostic
+                  className="mt-3"
+                  predictions={state.predictions ?? []}
+                  zScore={state.safetyStockZScore}
+                  focusIndex={1}
+                />
+                {renderServiceLevelSelection()}
                 {renderCapacitySelection()}
               </div>
             </div>
@@ -373,9 +464,9 @@ const NewStep1: React.FC = () => {
               <button
                 type="button"
                 onClick={handleNext}
-                disabled={state.productionCapacity == null}
+                disabled={state.targetServiceLevel == null || state.productionCapacity == null}
                 className={`flex items-center space-x-2 px-6 py-3 rounded-lg transition-colors font-medium shadow-md ${
-                  state.productionCapacity == null
+                  state.targetServiceLevel == null || state.productionCapacity == null
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-lg'
                 }`}
@@ -403,11 +494,19 @@ const NewStep1: React.FC = () => {
             <p className="mt-2 text-xs text-green-700 leading-relaxed">
               生产计划模块沿用需求预测阶段的目标字段、特征字段和归一化方式；LSTM/融合模型会基于已保存的历史窗口生成基线预测。
             </p>
+            {isPredicting && preparationProgress && (
+              <p className="mt-3 text-sm font-medium text-green-800" aria-live="polite">
+                {preparationProgress}
+              </p>
+            )}
             <details className="mt-2 text-sm">
               <summary className="cursor-pointer font-medium text-green-700 hover:text-green-800">
                 查看生产预测特征说明
               </summary>
-              <ProductionForecastAssumptionNote className="mt-3" />
+              <ProductionForecastAssumptionNote
+                className="mt-3"
+                predictions={state.predictions ?? []}
+              />
             </details>
           </div>
           <div className="flex xl:justify-end flex-shrink-0">

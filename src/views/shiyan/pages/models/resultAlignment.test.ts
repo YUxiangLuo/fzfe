@@ -70,6 +70,61 @@ describe('alignPredictionRows', () => {
       fallbackMonths: [],
     })).toThrow('实际值与预测值数量不一致');
   });
+
+  it('preserves validated uncertainty metadata and prediction intervals', () => {
+    const rows = alignPredictionRows({
+      actualValues: [100],
+      predictedValues: [98],
+      predictionPoints: [{
+        prediction: 98,
+        std_dev: 4,
+        uncertainty_source: 'empirical',
+        calibration_source: 'internal_validation',
+        interval_lower: 90.16,
+        interval_upper: 105.84,
+        interval_level: 0.95,
+        interval_kind: 'normal_approximation',
+      }],
+      backendMonths: ['2024-01'],
+      fallbackMonths: [],
+    });
+
+    expect(rows[0]).toMatchObject({
+      stdDev: 4,
+      uncertaintySource: 'empirical',
+      calibrationSource: 'internal_validation',
+      intervalLower: 90.16,
+      intervalUpper: 105.84,
+      intervalLevel: 0.95,
+      intervalKind: 'normal_approximation',
+    });
+  });
+
+  it('rejects malformed or misaligned uncertainty metadata', () => {
+    expect(() => alignPredictionRows({
+      actualValues: [100],
+      predictedValues: [98],
+      predictionPoints: [{
+        prediction: 97,
+        std_dev: 4,
+        uncertainty_source: 'empirical',
+      }],
+      backendMonths: ['2024-01'],
+      fallbackMonths: [],
+    })).toThrow('预测值与带不确定性的预测点第 1 项不一致');
+
+    expect(() => alignPredictionRows({
+      actualValues: [100],
+      predictedValues: [98],
+      predictionPoints: [{
+        prediction: 98,
+        std_dev: -1,
+        uncertainty_source: 'empirical',
+      }],
+      backendMonths: ['2024-01'],
+      fallbackMonths: [],
+    })).toThrow('标准差必须是非负有限数字');
+  });
 });
 
 describe('model result metadata validation', () => {

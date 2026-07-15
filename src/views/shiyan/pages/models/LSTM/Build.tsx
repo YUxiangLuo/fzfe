@@ -46,7 +46,7 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, error, isL
         {isLoading ? (
           <div className="flex items-center justify-center h-full p-8">
             <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-            <p className="ml-4 text-gray-600">正在训练模型，请稍候...</p>
+            <p className="ml-4 text-gray-600">正在加载字段信息，请稍候...</p>
           </div>
         ) : (
           <div className="space-y-6">

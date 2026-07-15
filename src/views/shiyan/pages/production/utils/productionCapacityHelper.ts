@@ -1,16 +1,15 @@
-import { MPS_CALCULATION } from '../config/mpsConstants';
-
 /**
  * 生产能力计算工具
  *
- * 支持多种模式：
+ * 支持两种模式：
  * 1. scenario - 场景选择模式（学生从三种教学场景中选择）
- * 2. auto - 自动计算模式（保留兼容）
- * 3. custom - 自定义输入模式（保留兼容）
- */
+ * 2. custom - 自定义输入模式
+*/
+
+import { MPS_CALCULATION } from '../config/mpsConstants';
 
 // 产能计算模式
-export type CapacityMode = 'scenario' | 'auto' | 'custom';
+export type CapacityMode = 'scenario' | 'custom';
 
 // 产能场景类型
 export type CapacityScenario = 'tight' | 'normal' | 'abundant';
@@ -81,21 +80,31 @@ const normalizeDemand = (value: unknown): number => {
   return Math.max(0, Math.round(parsed));
 };
 
-const normalizeStdDev = (value: unknown, demand: number): number => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return demand * MPS_CALCULATION.DEFAULT_STD_DEV_RATIO;
+export const calculateSafetyStock = (
+  stdDev: number,
+  zScore: number,
+  leadTimeMonths: number = MPS_CALCULATION.LEAD_TIME_MONTHS,
+): number => {
+  if (!Number.isFinite(stdDev) || stdDev < 0) {
+    throw new Error('预测标准差必须是非负有限数字');
   }
-  return parsed;
+  if (!Number.isFinite(zScore) || zScore <= 0) {
+    throw new Error('安全库存 Z 值必须是正有限数字');
+  }
+  if (!Number.isFinite(leadTimeMonths) || leadTimeMonths <= 0) {
+    throw new Error('提前期必须是正有限数字');
+  }
+  return Math.max(0, Math.round(zScore * stdDev * Math.sqrt(leadTimeMonths)));
 };
 
 export const calculateForecastLoadPoints = (
-  predictions: Array<{ prediction: number; std_dev?: number | null }>,
+  predictions: Array<{ prediction: number; std_dev: number }>,
   zScore: number,
 ): ForecastLoadPoint[] => predictions.map((prediction, index) => {
   const demand = normalizeDemand(prediction.prediction);
-  const stdDev = normalizeStdDev(prediction.std_dev, demand);
-  const safetyStock = Math.max(0, Math.round(zScore * stdDev));
+  // The customer workflow defines period 1 as a standardized baseline with
+  // zero safety stock; the selected formula applies from period 2 onward.
+  const safetyStock = index === 0 ? 0 : calculateSafetyStock(prediction.std_dev, zScore);
 
   return {
     period: index + 1,
@@ -106,7 +115,7 @@ export const calculateForecastLoadPoints = (
 });
 
 export const calculateForecastLoadStats = (
-  predictions: Array<{ prediction: number; std_dev?: number | null }>,
+  predictions: Array<{ prediction: number; std_dev: number }>,
   zScore: number,
 ): { averageForecastLoad: number; peakForecastLoad: number; forecastLoadPoints: ForecastLoadPoint[] } => {
   const forecastLoadPoints = calculateForecastLoadPoints(predictions, zScore);
@@ -119,23 +128,6 @@ export const calculateForecastLoadStats = (
   const peakForecastLoad = Math.max(...forecastLoadPoints.map((point) => point.forecastLoad));
 
   return { averageForecastLoad, peakForecastLoad, forecastLoadPoints };
-};
-
-/**
- * 计算平均需求
- */
-export const calculateAverageDemand = (predictions: Array<{ prediction: number }>): number => {
-  if (!predictions || predictions.length === 0) return 0;
-  const sum = predictions.reduce((acc, p) => acc + p.prediction, 0);
-  return Math.round(sum / predictions.length);
-};
-
-/**
- * 计算最大需求
- */
-export const calculateMaxDemand = (predictions: Array<{ prediction: number }>): number => {
-  if (!predictions || predictions.length === 0) return 0;
-  return Math.round(Math.max(...predictions.map(p => p.prediction)));
 };
 
 /**
@@ -160,7 +152,7 @@ export const calculateCapacityByScenario = (
 };
 
 export const calculateCapacityScenarioOptions = (
-  predictions: Array<{ prediction: number; std_dev?: number | null }>,
+  predictions: Array<{ prediction: number; std_dev: number }>,
   zScore: number,
 ): CapacityScenarioOption[] => {
   const { averageForecastLoad, peakForecastLoad, forecastLoadPoints } =
@@ -173,34 +165,6 @@ export const calculateCapacityScenarioOptions = (
     peakForecastLoad,
     forecastLoadPoints,
   }));
-};
-
-/**
- * 自动模式：根据预测数据自动计算合理产能
- *
- * 策略：综合考虑平均需求和峰值需求
- * - 基础产能 = 平均需求 * 1.2
- * - 峰值缓冲 = (最大需求 - 平均需求) * 0.5
- * - 总产能 = 基础产能 + 峰值缓冲
- */
-export const calculateCapacityAuto = (
-  predictions: Array<{ prediction: number; std_dev: number }>
-): number => {
-  if (!predictions || predictions.length === 0) return 0;
-
-  const avgDemand = calculateAverageDemand(predictions);
-  const maxDemand = calculateMaxDemand(predictions);
-
-  // 计算需求波动性（标准差的平均值）
-  const avgStdDev = predictions.reduce((sum, p) => sum + p.std_dev, 0) / predictions.length;
-
-  // 策略1：保守型（适合需求波动大的情况）
-  if (avgStdDev > avgDemand * 0.1) {
-    return Math.round(avgDemand * 1.2 + maxDemand * 0.2);
-  }
-
-  // 策略2：均衡型（标准策略）
-  return Math.round((avgDemand * 1.2 + maxDemand * 1.1) / 2);
 };
 
 /**
@@ -243,49 +207,6 @@ export const validateCustomCapacity = (
   }
 
   return { valid: true };
-};
-
-/**
- * 统一的产能计算接口
- *
- * 根据模式和参数计算产能，方便未来切换模式
- */
-export const calculateProductionCapacity = (
-  mode: CapacityMode,
-  params: {
-    scenario?: CapacityScenario;
-    customValue?: number;
-    predictions?: Array<{ prediction: number; std_dev: number }>;
-    avgDemand?: number;
-    peakForecastLoad?: number;
-  }
-): number => {
-  switch (mode) {
-    case 'scenario':
-      if (!params.scenario || params.avgDemand === undefined) {
-        throw new Error('Scenario mode requires scenario and average forecast load');
-      }
-      return calculateCapacityByScenario(
-        params.scenario,
-        params.avgDemand,
-        params.peakForecastLoad,
-      );
-
-    case 'auto':
-      if (!params.predictions) {
-        throw new Error('Auto mode requires predictions data');
-      }
-      return calculateCapacityAuto(params.predictions);
-
-    case 'custom':
-      if (params.customValue === undefined) {
-        throw new Error('Custom mode requires customValue');
-      }
-      return Math.round(params.customValue);
-
-    default:
-      throw new Error(`Unknown capacity mode: ${mode}`);
-  }
 };
 
 /**

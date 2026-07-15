@@ -4,6 +4,14 @@ interface Prediction {
   date: string;
   actual: number;
   predicted: number | null;
+  stdDev?: number | null;
+  uncertaintySource?: 'model' | 'empirical' | 'fallback' | null;
+  uncertaintyReason?: string | null;
+  calibrationSource?: string | null;
+  intervalLower?: number | null;
+  intervalUpper?: number | null;
+  intervalLevel?: number | null;
+  intervalKind?: string | null;
 }
 
 interface PredictionResultsTableProps {
@@ -34,11 +42,52 @@ export const getPredictionAccuracyClassName = (
   return 'bg-red-50 text-red-700 font-semibold';
 };
 
+const uncertaintySourceLabels: Record<string, string> = {
+  model: '模型解析区间',
+  empirical: '内部残差估计',
+  fallback: '回退估计',
+};
+
+const uncertaintyReasonLabels: Record<string, string> = {
+  first_difference_scale: '一阶差分尺度',
+  first_difference_rms_floor: '稳定趋势差分均方根',
+  insufficient_residuals: '可用残差不足',
+  nonfinite_scale: '原尺度无效',
+};
+
+const calibrationSourceLabels: Record<string, string> = {
+  internal_validation: '内部时间验证段',
+  level1_holdout: 'Level-1 时间留出段',
+  internal_time_validation: '内部时间验证窗口',
+  training_rolling_origin: '训练段 rolling-origin 回测',
+  training_one_step_residuals: '训练期一步预测残差',
+  training_history: '训练历史回退尺度',
+};
+
+export const formatPredictionInterval = (prediction: Prediction): string => {
+  if (prediction.predicted === null) return '未提供';
+  const hasStoredInterval = typeof prediction.intervalLower === 'number'
+    && Number.isFinite(prediction.intervalLower)
+    && typeof prediction.intervalUpper === 'number'
+    && Number.isFinite(prediction.intervalUpper);
+  if (hasStoredInterval) {
+    return `[${prediction.intervalLower!.toFixed(2)}, ${prediction.intervalUpper!.toFixed(2)}]`;
+  }
+  if (typeof prediction.stdDev === 'number' && Number.isFinite(prediction.stdDev) && prediction.stdDev >= 0) {
+    return `[${(prediction.predicted - 1.96 * prediction.stdDev).toFixed(2)}, ${(prediction.predicted + 1.96 * prediction.stdDev).toFixed(2)}]`;
+  }
+  return '未提供';
+};
+
 const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
   title,
   predictions,
   showAccuracy = true,
 }) => {
+  const hasUncertainty = predictions.some((prediction) => (
+    typeof prediction.stdDev === 'number' && Number.isFinite(prediction.stdDev)
+  ));
+
   return (
     <div className="space-y-6">
       <div>
@@ -58,6 +107,19 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
               <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
                 预测值
               </th>
+              {hasUncertainty && (
+                <>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
+                    标准差 σ
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
+                    95% 不确定性范围
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
+                    估计来源
+                  </th>
+                </>
+              )}
               {showAccuracy && (
                 <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
                   单点相对准确度（展示值）
@@ -75,8 +137,31 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
                   {row.actual}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-base text-blue-600 font-semibold">
-                  {row.predicted !== null ? row.predicted.toFixed(2) : 'N/A'}
+                  {row.predicted !== null ? row.predicted.toFixed(2) : '未提供'}
                 </td>
+                {hasUncertainty && (
+                  <>
+                    <td className="px-6 py-4 whitespace-nowrap text-base text-gray-700">
+                      {typeof row.stdDev === 'number' ? row.stdDev.toFixed(2) : '未提供'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-base text-gray-700">
+                      {formatPredictionInterval(row)}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      <div>{row.uncertaintySource ? uncertaintySourceLabels[row.uncertaintySource] ?? row.uncertaintySource : '未提供'}</div>
+                      {row.calibrationSource && (
+                        <div className="mt-1 text-xs text-sky-700">
+                          校准：{calibrationSourceLabels[row.calibrationSource] ?? row.calibrationSource}
+                        </div>
+                      )}
+                      {row.uncertaintyReason && (
+                        <div className="mt-1 text-xs text-amber-700">
+                          {uncertaintyReasonLabels[row.uncertaintyReason] ?? row.uncertaintyReason}
+                        </div>
+                      )}
+                    </td>
+                  </>
+                )}
                 {showAccuracy && (
                   <td className={`px-6 py-4 whitespace-nowrap text-base ${getPredictionAccuracyClassName(row.actual, row.predicted)}`}>
                     {formatPredictionAccuracy(row.actual, row.predicted)}
@@ -87,6 +172,12 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
           </tbody>
         </table>
       </div>
+
+      {hasUncertainty && (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-900">
+          ARIMA 展示模型原生的 95% 预测区间；其他模型优先展示 actual-prediction 校准残差的 2.5%–97.5% 经验分位数区间，样本不足的期次才使用明确标记的正态近似回退。σ 是残差离散程度的辅助指标，不用于反推经验分位数区间。区间不参与点预测指标计算，也不会随销量点预测一起截断为非负。
+        </div>
+      )}
 
       {showAccuracy && (
         <div className="mt-6 p-6 bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50 rounded-xl border-2 border-indigo-200 shadow-md">
@@ -132,12 +223,12 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
                 </div>
                 <div className="flex items-center p-2 bg-blue-50 rounded border border-blue-200">
                   <div className="flex-1">
-                    <div className="text-sm font-bold text-blue-700">70-85% <span className="text-xs font-normal text-blue-600">仅作显示分组</span></div>
+                    <div className="text-sm font-bold text-blue-700">70% ≤ x &lt; 85% <span className="text-xs font-normal text-blue-600">仅作显示分组</span></div>
                   </div>
                 </div>
                 <div className="flex items-center p-2 bg-yellow-50 rounded border border-yellow-200">
                   <div className="flex-1">
-                    <div className="text-sm font-bold text-yellow-700">60-70% <span className="text-xs font-normal text-yellow-600">仅作显示分组</span></div>
+                    <div className="text-sm font-bold text-yellow-700">60% ≤ x &lt; 70% <span className="text-xs font-normal text-yellow-600">仅作显示分组</span></div>
                   </div>
                 </div>
                 <div className="flex items-center p-2 bg-red-50 rounded border border-red-200">

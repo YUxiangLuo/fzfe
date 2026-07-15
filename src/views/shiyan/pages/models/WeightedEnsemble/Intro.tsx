@@ -30,7 +30,8 @@ const Intro: React.FC = () => {
           <div>
             <p className="mb-2">模型 i 的权重 w<sub>i</sub> 计算公式为：</p>
             <div className="bg-white p-4 rounded border border-blue-200 font-mono text-center">
-              w<sub>i</sub> = [1/(MSE<sub>i</sub> + ε)] / Σ[1/(MSE<sub>j</sub> + ε)]
+              v<sub>i</sub> = [1/(MSE<sub>i</sub> + ε)] / Σ[1/(MSE<sub>j</sub> + ε)]
+              <br />w<sub>i</sub> = ρv<sub>i</sub> + (1-ρ)/K, ρ=n/(n+K+1)
             </div>
           </div>
 
@@ -47,7 +48,7 @@ const Intro: React.FC = () => {
         <h4 className="text-base font-semibold text-gray-800 mb-3">方法特点</h4>
         <div className="space-y-2 text-gray-700 leading-relaxed text-base">
           <p>
-            <strong>自适应权重分配：</strong>根据各模型的预测精度自动调整权重，精度高的模型获得更大权重。
+            <strong>训练期数据驱动权重：</strong>系统根据内部时间验证段的残差MSE计算一次权重；产物用于预测时权重保持固定，只有重新训练才会更新。
           </p>
           <p>
             <strong>分散模型风险：</strong>当成员误差不完全同步时，组合可能比单一成员更稳定；这不是必然保证。
@@ -61,10 +62,10 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base mb-3">
-          系统按时间顺序留出末段验证集：训练点8–15时通常留2–3点，更长时约留20%。每个成员只用前段训练，再计算验证MSE，按1/(MSE+10⁻⁹)归一化权重。本实现没有估计成员误差协方差，短验证段也会使权重波动；成员销量预测先截断为不小于0，组合结果也做非负兜底，指标和std_dev使用同一最终预测。评估点不足2个时，std_dev使用内部验证组合残差估计。
+          系统按模型数、样本量和所有成员的可训练条件动态留出时间末段。先用带数据尺度 ε 的 1/MSE 得到候选权重，再按验证点数可靠度向等权组合收缩，避免短验证段把权重几乎全押在单一成员。本实现仍不估计成员误差协方差。
         </p>
         <p className="text-gray-700 leading-relaxed text-base">
-          内部验证保持成员的必要定义一致：MA 沿用窗口、ES 沿用 α，LSTM 沿用 look_back、epochs、特征和归一化配置；由于样本段与预测跨度改变，LSTM 的动态隐藏单元、批大小和输出宽度按单模型的同一规则重算。ARIMA 只沿用用户固定的 d，并在验证段之前的数据上重新执行同一套 AIC/BIC stepwise 搜索；若直接使用完整训练段选出的 p、q，会让留出段间接参与自己的预测。独立评估通常复用完整训练产物；仅当 LSTM 已保存的直接预测长度不足时，才保持上述单模型配置并在完整训练段重新拟合、扩展输出长度。
+          内部验证只继承用户选择的 MA 窗口、ES α、ARIMA d 与 LSTM 特征/归一化。ARIMA 阶数和 LSTM 的 look-back、容量、批大小、轮数都按当前前缀重新推导，避免完整训练段的信息泄漏。不确定性仅用该内部验证段的组合残差校准成员逐 horizon 增长形状，独立评估真实值不参与校准；证据不足时会明确标记 fallback。
         </p>
       </div>
     </div>

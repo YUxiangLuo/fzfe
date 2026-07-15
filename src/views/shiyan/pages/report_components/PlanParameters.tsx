@@ -1,7 +1,8 @@
 import React from 'react';
-import { Calculator } from 'lucide-react';
+import { Calculator, TriangleAlert } from 'lucide-react';
 import { ReportCard } from './ReportCard';
 import type { ExperimentState } from '../../contexts/ExperimentContext.zustand';
+import { summarizeFallbackUncertainty } from '../production/utils/predictionValidator';
 
 interface PlanParametersProps {
   state: ExperimentState;
@@ -43,23 +44,48 @@ export const PlanParameters: React.FC<PlanParametersProps> = ({
 }) => {
   const period1 = state.production_mps_table.length > 0 ? state.production_mps_table[0] : null;
   const period2 = state.production_mps_table.length > 1 ? state.production_mps_table[1] : null;
+  const fallbackSummary = summarizeFallbackUncertainty(state.production_forecast_results);
+  const fallbackAudit = fallbackSummary.fallbackCount > 0 ? (
+    <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900" role="alert">
+      <TriangleAlert className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+      <div className="space-y-1">
+        <p className="font-semibold">不确定性审计：{fallbackSummary.fallbackCount} 期使用回退估计</p>
+        <p>这些期的误差区间与安全库存标准差并非由充分的模型残差直接校准，需结合业务经验复核。</p>
+        {fallbackSummary.reasons.length > 0 && (
+          <p className="text-xs text-amber-700">回退原因：{fallbackSummary.reasons.join('；')}</p>
+        )}
+      </div>
+    </div>
+  ) : null;
 
   const renderContent = () => {
     if (!period1 || !period2) {
-      return <p className="text-sm text-gray-500">生产计划数据不完整，无法展示参数计算结果。</p>;
+      return (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">生产计划数据不完整，无法展示参数计算结果。</p>
+          {fallbackAudit}
+        </div>
+      );
     }
 
     return (
       <div className="space-y-6">
         <div>
-          <h3 className="text-base font-semibold text-gray-800 mb-3">默认参数</h3>
+          <h3 className="text-base font-semibold text-gray-800 mb-3">规划参数</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <ValueCard label="目标服务水平" value={`${(state.production_target_service_level || 0) * 100}%`} />
-            <ValueCard label="安全库存Z值" value={state.production_safety_stock_z_score || 0} />
+            <ValueCard label="目标服务水平" value={state.production_target_service_level == null ? 'N/A' : `${state.production_target_service_level * 100}%`} />
+            <ValueCard label="安全库存 Z 值" value={state.production_safety_stock_z_score ?? 'N/A'} />
             <ValueCard label="产能模式" value={formatCapacityMode(state)} />
-            <ValueCard label="产能上限/期" value={(state.production_capacity || 0).toLocaleString()} unit="件" />
+            <ValueCard
+              label="产能上限/期"
+              value={state.production_capacity == null ? 'N/A' : state.production_capacity.toLocaleString()}
+              unit={state.production_capacity == null ? undefined : '件'}
+            />
           </div>
+          <p className="mt-3 text-xs text-gray-500">安全库存 = max(0, round(Z × 预测误差标准差 × √提前期))；本实验提前期为 1 个月。</p>
         </div>
+
+        {fallbackAudit}
 
         <div>
           <h3 className="text-base font-semibold text-gray-800 mb-3">期1 vs 期2 数据对比</h3>

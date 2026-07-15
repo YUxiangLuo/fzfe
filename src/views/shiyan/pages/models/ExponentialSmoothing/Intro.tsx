@@ -19,7 +19,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <PlayCircle className="w-5 h-5 text-blue-600" />
-              <p className="text-gray-800 font-medium">用第一个训练观测初始化水平：S₁ = Y₁</p>
+              <p className="text-gray-800 font-medium">保持用户 α 不变，用训练数据估计一次指数平滑的初始水平</p>
             </div>
           </div>
         </div>
@@ -64,7 +64,7 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base">
-          本系统实现一次指数平滑，并明确采用首个训练观测初始化、用户固定 α。它适合无明显趋势和季节性的水平型销量序列。多步预测会沿用最新平滑水平；若数据存在明确趋势或季节性，应使用 Holt 或 Holt-Winters 扩展模型。最终销量点预测按 max(0, ŷ) 做非负兜底，残差与指标也使用截断后的值；这不是教科书递推式的一部分。
+          本系统实现一次指数平滑：用户固定 α，初始水平则在该 α 下由训练数据估计。它适合无明显趋势和季节性的水平型销量序列。多步预测会沿用最新平滑水平；若数据存在明确趋势或季节性，应使用 Holt 或 Holt-Winters 扩展模型。最终销量点预测按 max(0, ŷ) 做非负兜底，评估残差与指标使用截断后的值；不确定性的创新尺度来自训练期未截断的一步预测残差。这些输出处理不是教科书递推式的一部分。
         </p>
       </div>
     </div>

@@ -18,7 +18,7 @@ const Preprocessing: React.FC<PreprocessingProps> = ({ normalization, setNormali
 
         <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm">
           <label className="block text-lg font-semibold text-gray-800 mb-4">
-            请选择标准化方法:
+            请选择数值缩放方式：
           </label>
           <div className="space-y-4">
             <label htmlFor="min-max" className="flex items-start p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-blue-400 transition-colors cursor-pointer">

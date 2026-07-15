@@ -30,10 +30,15 @@ const completedGuidedSession = () => ({
     results: {
       eval_y_true: [100, 120],
       eval_predictions: [98, 121],
+      prediction_points: [
+        { prediction: 98, std_dev: 4, uncertainty_source: 'empirical', calibration_source: 'internal_validation', interval_lower: 90.16, interval_upper: 105.84, interval_level: 0.95, interval_kind: 'normal_approximation' },
+        { prediction: 121, std_dev: 5, uncertainty_source: 'empirical', calibration_source: 'internal_validation', interval_lower: 111.2, interval_upper: 130.8, interval_level: 0.95, interval_kind: 'normal_approximation' },
+      ],
       evaluate_months: ['2024-04', '2024-05'],
       metrics: { rmse: 2.1, mae: 1.7, r2: 0.95 },
       weights: [0.6, 0.4],
       model_names: ['ma', 'lstm'],
+      stage_coefficients: [0.75, 0.2],
     },
   },
 });
@@ -47,10 +52,15 @@ const successfulGuidedResult = {
   results: {
     eval_y_true: [100, 120],
     eval_predictions: [98, 121],
+    prediction_points: [
+      { prediction: 98, std_dev: 4, uncertainty_source: 'empirical', calibration_source: 'internal_validation', interval_lower: 90.16, interval_upper: 105.84, interval_level: 0.95, interval_kind: 'normal_approximation' },
+      { prediction: 121, std_dev: 5, uncertainty_source: 'empirical', calibration_source: 'internal_validation', interval_lower: 111.2, interval_upper: 130.8, interval_level: 0.95, interval_kind: 'normal_approximation' },
+    ],
     evaluate_months: ['2024-04', '2024-05'],
     metrics: { rmse: 2.1, mae: 1.7, r2: 0.95 },
     weights: [0.6, 0.4],
     model_names: ['ma', 'lstm'],
+    stage_coefficients: [0.75, 0.2],
   },
 };
 
@@ -67,10 +77,11 @@ let experimentValue = {
     arima_d: 1,
     exponential_smoothing_alpha: 0.3,
     moving_average_window: 3,
-    lstm_features: ['销售数量'],
+    lstm_features: [],
     lstm_target_field: '销售数量',
     lstm_normalization: 'minmax' as const,
     ensemble_weighted_base_models: ['moving_average', 'lstm'],
+    ensemble_boosting_base_models: ['moving_average', 'lstm'],
   },
   productSalesData: {
     meta: {
@@ -112,19 +123,19 @@ mock.module(guidedTrainingModulePath, () => ({
   discardGuidedTrainingSession,
 }));
 
-const Harness = async () => {
+const Harness = async (type: 'weighted' | 'boosting' = 'weighted') => {
   const { useEnsembleModel } = await import('./useEnsembleModel');
   const { useAutoCalculation } = await import('./useAutoCalculation');
 
   const Component: React.FC = () => {
     const ensemble = useEnsembleModel({
-      type: 'weighted',
+      type,
       stateKey: {
-        baseModels: 'ensemble_weighted_base_models',
-        completed: 'ensemble_weighted_completed',
-        metricsRmse: 'ensemble_weighted_metrics_rmse',
-        metricsMae: 'ensemble_weighted_metrics_mae',
-        metricsR2: 'ensemble_weighted_metrics_r2',
+        baseModels: type === 'weighted' ? 'ensemble_weighted_base_models' : 'ensemble_boosting_base_models',
+        completed: type === 'weighted' ? 'ensemble_weighted_completed' : 'ensemble_boosting_completed',
+        metricsRmse: type === 'weighted' ? 'ensemble_weighted_metrics_rmse' : 'ensemble_boosting_metrics_rmse',
+        metricsMae: type === 'weighted' ? 'ensemble_weighted_metrics_mae' : 'ensemble_boosting_metrics_mae',
+        metricsR2: type === 'weighted' ? 'ensemble_weighted_metrics_r2' : 'ensemble_boosting_metrics_r2',
       },
     });
 
@@ -143,6 +154,9 @@ const Harness = async () => {
         <div data-testid="loading">{String(ensemble.isLoading)}</div>
         <div data-testid="results-ready">{String(ensemble.results !== null)}</div>
         <div data-testid="error">{ensemble.error ?? ''}</div>
+        <div data-testid="model-chain">{ensemble.results?.model_chain?.join('>') ?? ''}</div>
+        <div data-testid="stage-coefficients">{ensemble.results?.stage_coefficients?.join(',') ?? ''}</div>
+        <div data-testid="first-std-dev">{ensemble.results?.predictions[0]?.stdDev ?? ''}</div>
       </div>
     );
   };
@@ -171,10 +185,11 @@ describe('useEnsembleModel', () => {
         arima_d: 1,
         exponential_smoothing_alpha: 0.3,
         moving_average_window: 3,
-        lstm_features: ['销售数量'],
+        lstm_features: [],
         lstm_target_field: '销售数量',
         lstm_normalization: 'minmax' as const,
         ensemble_weighted_base_models: ['moving_average', 'lstm'],
+        ensemble_boosting_base_models: ['moving_average', 'lstm'],
       },
       productSalesData: {
         meta: {
@@ -212,7 +227,7 @@ describe('useEnsembleModel', () => {
     mock.clearAllMocks();
   });
 
-  it('does not retrigger auto-training after a successful save sync with the same selection', async () => {
+  it('preserves target-only LSTM selection without retriggering after a successful save sync', async () => {
     const Component = await Harness();
 
     view = render(
@@ -236,11 +251,12 @@ describe('useEnsembleModel', () => {
     expect(runGuidedTrainingStep).not.toHaveBeenCalled();
     const firstRequestBody = (createGuidedTrainingSession.mock.calls[0] as unknown[] | undefined)?.[1];
     expect(firstRequestBody).toMatchObject({
-      lstmFeatures: JSON.stringify(['销售数量']),
+      lstmFeatures: '[]',
     });
     expect(completedGuidedSession().result).toEqual(successfulGuidedResult);
     expect(view.getByTestId('loading').textContent).toBe('false');
     expect(view.getByTestId('results-ready').textContent).toBe('true');
+    expect(view.getByTestId('first-std-dev').textContent).toBe('4');
   });
 
   it('does not keep ensemble results when the state sync fails after training succeeds', async () => {
@@ -259,5 +275,19 @@ describe('useEnsembleModel', () => {
     await waitFor(() => expect(view!.getByTestId('error').textContent).toBe('sync failed'));
 
     expect(view.getByTestId('results-ready').textContent).toBe('false');
+  });
+
+  it('preserves the Boosting model chain and refitted stage coefficients', async () => {
+    const Component = await Harness('boosting');
+
+    view = render(
+      <MemoryRouter initialEntries={['/model/boosting-ensemble/results']}>
+        <Component />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
+    expect(view.getByTestId('model-chain').textContent).toBe('ma>lstm');
+    expect(view.getByTestId('stage-coefficients').textContent).toBe('0.75,0.2');
   });
 });

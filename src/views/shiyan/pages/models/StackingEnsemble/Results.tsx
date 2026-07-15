@@ -13,11 +13,8 @@ export interface ResultsProps {
       kind?: string;
       strategy?: string;
       model_names?: string[];
-      weights?: number[];
-      raw_coefficients?: number[];
-      fallback_reason?: string;
-      condition_number?: number | null;
-      level1_mae?: number[];
+      coefficients?: number[];
+      residual_norm?: number;
     };
   } | null;
   isLoading: boolean;
@@ -39,37 +36,26 @@ const BASE_MODEL_LABELS: Record<string, string> = {
 
 const MetaModelSummary: React.FC<{ metaModel: NonNullable<NonNullable<ResultsProps['data']>['meta_model']> }> = ({ metaModel }) => {
   const modelNames = metaModel.model_names ?? [];
-  const weights = metaModel.weights ?? [];
-  const isFallback = metaModel.strategy === 'inverse_mae_fallback';
+  const coefficients = metaModel.coefficients ?? [];
 
-  if (modelNames.length === 0 || weights.length !== modelNames.length) {
+  if (modelNames.length === 0 || coefficients.length !== modelNames.length) {
     return null;
   }
 
   return (
     <div className="space-y-3">
-      {isFallback && (
-        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-          <p className="font-semibold">本次 Stacking 已回退为逆 MAE 加权</p>
-          <p className="mt-1">
-            Level-1 样本数不超过成员数+1，或成员预测矩阵出现奇异、严重共线等不稳定条件时，系统自动改用各基础模型验证误差倒数作为组合权重。
-            此时 Stacking 的效果等价于按误差加权平均，与教科书中"元学习器学习组合"的 Stacking 有所不同。
-            增加训练区间长度或减少基础模型数量有助于降低回退概率，但共线性仍可能触发回退。
-          </p>
-          {metaModel.fallback_reason && (
-            <p className="mt-1 text-xs text-amber-700">回退原因：{metaModel.fallback_reason}</p>
-          )}
-        </div>
-      )}
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <p className="text-sm font-semibold text-gray-700">
-          元模型组合权重{isFallback ? '（逆 MAE 回退）' : '（非负无截距回归后归一化）'}
+          NNLS 元模型系数（非负、未归一化）
+        </p>
+        <p className="mt-1 text-xs text-gray-500">
+          系数由 Level-1 时间留出预测直接学习，不要求总和为 1。
         </p>
         <ul className="mt-2 space-y-1">
           {modelNames.map((name, index) => (
             <li key={name} className="flex items-center justify-between text-sm text-gray-600">
               <span>{BASE_MODEL_LABELS[name] ?? name}</span>
-              <span className="font-mono">{(Number(weights[index]) * 100).toFixed(1)}%</span>
+              <span className="font-mono">{Number(coefficients[index]).toFixed(4)}</span>
             </li>
           ))}
         </ul>

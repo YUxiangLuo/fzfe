@@ -22,6 +22,10 @@ const successfulGuidedResult = {
   results: {
     eval_y_true: [172, 181],
     eval_predictions: [157.33, 160.78],
+    prediction_points: [
+      { prediction: 157.33, std_dev: 3, uncertainty_source: 'empirical', calibration_source: 'training_rolling_origin', interval_lower: 151.45, interval_upper: 163.21, interval_level: 0.95, interval_kind: 'normal_approximation' },
+      { prediction: 160.78, std_dev: 4, uncertainty_source: 'empirical', calibration_source: 'training_rolling_origin', interval_lower: 152.94, interval_upper: 168.62, interval_level: 0.95, interval_kind: 'normal_approximation' },
+    ],
     evaluate_months: ['2024-09', '2024-10'],
     metrics: { rmse: 20.55, mae: 19.67, r2: -9.49 },
   },
@@ -156,6 +160,7 @@ const Harness = async (currentStepId = 'results') => {
         <div data-testid="results-ready">{String(simpleModel.results !== null)}</div>
         <div data-testid="error">{simpleModel.error ?? ''}</div>
         <div data-testid="completion-error">{completionError ?? ''}</div>
+        <div data-testid="first-std-dev">{simpleModel.results?.predictions[0]?.stdDev ?? ''}</div>
         <button
           type="button"
           onClick={() => {
@@ -359,6 +364,7 @@ describe('useSimpleModel', () => {
 
     await waitFor(() => expect(view!.getByTestId('results-ready').textContent).toBe('true'));
     expect(runGuidedTrainingStep).not.toHaveBeenCalled();
+    expect(view.getByTestId('first-std-dev').textContent).toBe('3');
   });
 
   it('restores model metrics and current downstream invalidations from a reused session', async () => {

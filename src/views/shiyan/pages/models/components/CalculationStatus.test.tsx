@@ -26,7 +26,7 @@ describe('CalculationStatus', () => {
     expect(view.getByText('LSTM 模型训练中')).toBeDefined();
     expect(view.getByText('后端训练流程')).toBeDefined();
     expect(view.getByText('归一化与构造序列')).toBeDefined();
-    expect(view.getByText('Epoch 训练')).toBeDefined();
+    expect(view.getByText('动态轮数训练')).toBeDefined();
   });
 
   it('falls back to the ensemble training profile when only isEnsembleModel is provided', () => {

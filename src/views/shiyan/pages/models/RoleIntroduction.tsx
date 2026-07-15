@@ -146,7 +146,7 @@ const RoleIntroduction: React.FC = () => {
                     <div className="flex-1">
                       <h4 className="font-semibold text-purple-900 text-sm mb-1">选择数据时段</h4>
                       <p className="text-xs text-gray-700 leading-relaxed">
-                        划分训练集和评估集，确保模型训练的有效性和结果的可验证性
+                        按时间顺序划分训练集和评估集，为模型训练和结果验证提供基础
                       </p>
                     </div>
                   </div>

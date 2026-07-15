@@ -43,7 +43,7 @@ const Formula: React.FC = () => {
       <div className="mt-6 p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明：</h4>
         <p className="text-gray-700 leading-relaxed text-base">
-          本系统固定用第一个训练观测初始化，即 S<sub>1</sub>=Y<sub>1</sub>，并使用用户输入的 α 递推，训练过程不自动优化 α。若训练末期为 T，则原始的 h≥1 预测均为 Ŷ<sub>T+h</sub>=S<sub>T</sub>；作为销量输出时再取 max(0, ŷ)。趋势和季节性需要 Holt 或 Holt-Winters 扩展，本模型未启用。
+          本系统保持用户输入的 α 不变，并用训练数据估计初始水平；训练过程不会自动改变 α。若训练末期为 T，则原始的 h≥1 预测均为 Ŷ<sub>T+h</sub>=S<sub>T</sub>；作为销量输出时再取 max(0, ŷ)。趋势和季节性需要 Holt 或 Holt-Winters 扩展，本模型未启用。
         </p>
       </div>
     </div>

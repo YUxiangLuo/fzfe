@@ -6,6 +6,23 @@ import { fireEvent, render } from '@testing-library/react';
 import Build from './Build';
 
 describe('LSTM Build', () => {
+  it('describes field loading without claiming that model training has started', () => {
+    const view = render(
+      <Build
+        features={[]}
+        setFeatures={mock(() => {})}
+        target="销售数量"
+        error={null}
+        isLoading
+        fieldOptions={[]}
+        onShowLSTMMethodInfo={mock(() => {})}
+      />,
+    );
+
+    expect(view.getByText('正在加载字段信息，请稍候...')).toBeTruthy();
+    expect(view.queryByText(/正在训练模型/)).toBeNull();
+  });
+
   it('shows custom categorical and identifier-like fields instead of filtering them out', () => {
     const view = render(
       <Build

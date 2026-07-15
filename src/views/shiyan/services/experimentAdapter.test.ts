@@ -31,7 +31,14 @@ describe("experimentAdapter", () => {
         },
         { diff_order: 2 },
       ],
-      production_forecast_results: [{ prediction: 10, std_dev: 2 }, null],
+      production_forecast_results: [{
+        prediction: 10,
+        std_dev: 2,
+        upper_error_p99: 5,
+        uncertainty_source: "empirical",
+        calibration_mean_error: 1.25,
+        calibration_count: 8,
+      }],
       production_mps_table: [{ period: 1 }, null],
     } as unknown as ExperimentApiState;
 
@@ -49,7 +56,14 @@ describe("experimentAdapter", () => {
     expect(state.arima_adf_stationarity[0]?.diff_order).toBe(1);
     expect(state.arima_adf_stationarity[0]?.used_lags).toBe(2);
     expect(state.arima_adf_stationarity[0]?.n_obs).toBe(11);
-    expect(state.production_forecast_results).toEqual([{ prediction: 10, std_dev: 2 }]);
+    expect(state.production_forecast_results).toEqual([{
+      prediction: 10,
+      std_dev: 2,
+      upper_error_p99: 5,
+      uncertainty_source: "empirical",
+      calibration_mean_error: 1.25,
+      calibration_count: 8,
+    }]);
     expect(state.production_mps_table).toHaveLength(1);
     expect(state.production_mps_table[0]?.period).toBe(1);
   });

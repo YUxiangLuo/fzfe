@@ -27,7 +27,7 @@ const STEPS = [
   { id: 'intro', name: '方法步骤', path: `${BASE_PATH}/intro`, component: Intro },
   { id: 'stationarity', name: '平稳性检验', path: `${BASE_PATH}/stationarity`, component: Stationarity },
   { id: 'differencing', name: '差分阶数选择', path: `${BASE_PATH}/differencing`, component: Differencing },
-  { id: 'autoparams', name: '自动参数寻优计算', path: `${BASE_PATH}/autoparams`, component: AutoParams },
+  { id: 'autoparams', name: '自动定阶、分阶段训练与结果', path: `${BASE_PATH}/autoparams`, component: AutoParams },
 ];
 
 // Hidden pages - not part of the main steps
@@ -219,6 +219,7 @@ const ARIMAStepper: React.FC = () => {
       predictions: alignPredictionRows({
         actualValues: apiResults.eval_y_true,
         predictedValues: apiResults.eval_predictions,
+        predictionPoints: apiResults.prediction_points,
         backendMonths: apiResults.evaluate_months,
         fallbackMonths,
       }),

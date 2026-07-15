@@ -4,29 +4,41 @@
  * 集中管理所有MPS相关的配置参数，避免魔法数字
  */
 
-/**
- * 服务水平配置
- */
-export const SERVICE_LEVELS = {
-  EXCELLENT: {
-    value: 0.99,
-    zScore: 2.33,
-    label: '99% (追求卓越)',
-    description: '追求卓越服务，满足99%的客户需求',
-  },
-  GOOD: {
-    value: 0.95,
-    zScore: 1.65,
-    label: '95% (良好)',
-    description: '良好的服务水平，适合大多数场景',
-  },
-  NORMAL: {
+/** 客户需求文档指定的三档服务水平及其单侧正态 Z 值。 */
+export const SERVICE_LEVEL_OPTIONS = [
+  {
     value: 0.90,
     zScore: 1.28,
-    label: '90% (一般)',
-    description: '基本的服务水平，成本较低',
+    label: '90%',
+    description: '较低库存缓冲，缺货风险相对较高',
   },
-} as const;
+  {
+    value: 0.95,
+    zScore: 1.65,
+    label: '95%',
+    description: '在库存成本与缺货风险之间折中',
+  },
+  {
+    value: 0.99,
+    zScore: 2.33,
+    label: '99%',
+    description: '较高库存缓冲，库存占用也更高',
+  },
+] as const;
+
+export type ServiceLevel = typeof SERVICE_LEVEL_OPTIONS[number]['value'];
+export type ServiceLevelOption = typeof SERVICE_LEVEL_OPTIONS[number];
+
+export const getServiceLevelOption = (value: unknown): ServiceLevelOption | null =>
+  SERVICE_LEVEL_OPTIONS.find((option) => option.value === value) ?? null;
+
+export const resolvePersistedServiceLevel = (
+  targetServiceLevel: unknown,
+  zScore: unknown,
+): ServiceLevelOption | null => {
+  const option = getServiceLevelOption(targetServiceLevel);
+  return option && option.zScore === zScore ? option : null;
+};
 
 /**
  * MPS计算相关常量
@@ -39,36 +51,11 @@ export const MPS_CALCULATION = {
   INITIAL_INVENTORY: 0,
 
   /**
-   * 默认标准差比率
-   * 当标准差数据缺失或异常时，使用需求的5%作为替代
-   */
-  DEFAULT_STD_DEV_RATIO: 0.05,
-
-  /**
-   * 异常标准差阈值
-   * 如果标准差超过需求的30%，视为异常并发出警告
-   */
-  ABNORMAL_STD_DEV_THRESHOLD: 0.3,
-
-  /**
    * 提前期（Lead Time）
    * 单位：月
    * 本月投入 → 下月产出
    */
   LEAD_TIME_MONTHS: 1,
-} as const;
-
-/**
- * 标准差估算配置
- * 当API未返回标准差或标准差数据异常时使用
- */
-export const STD_DEV_ESTIMATION = {
-  /**
-   * Fallback标准差比率
-   * 估算标准差 = 需求预测 × 0.2 (即需求的20%)
-   * 这是一个保守的估算，适用于大多数产品
-   */
-  FALLBACK_RATIO: 0.2,
 } as const;
 
 /**
@@ -114,19 +101,9 @@ export const CAPACITY_CONFIG = {
 export const DEFAULT_PARAMETERS = {
   forecastPeriods: FORECAST_PERIODS.DEFAULT,
   initialInventory: MPS_CALCULATION.INITIAL_INVENTORY,
-  targetServiceLevel: SERVICE_LEVELS.EXCELLENT.value,
-  safetyStockZScore: SERVICE_LEVELS.EXCELLENT.zScore,
+  targetServiceLevel: null,
+  safetyStockZScore: null,
 } as const;
-
-/**
- * 获取服务水平配置
- * @param value - 服务水平值（0-1）
- */
-export const getServiceLevelConfig = (value: number) => {
-  if (value >= 0.99) return SERVICE_LEVELS.EXCELLENT;
-  if (value >= 0.95) return SERVICE_LEVELS.GOOD;
-  return SERVICE_LEVELS.NORMAL;
-};
 
 /**
  * 验证预测期数是否有效

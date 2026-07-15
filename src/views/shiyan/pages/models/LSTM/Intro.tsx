@@ -31,7 +31,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <Cpu className="w-5 h-5 text-purple-600" />
-              <p className="text-gray-800 font-medium">构建两层 LSTM 与直接多步 Dense 输出头，用 MSE 和 Adam 训练；样本顺序不打乱，早停监控训练 loss。</p>
+              <p className="text-gray-800 font-medium">按参数预算构建单层 LSTM 与直接多步 Dense 输出头。标准模式用时间顺序验证 loss 早停选轮数，再在全部窗口重拟合。</p>
             </div>
           </div>
         </div>
@@ -43,7 +43,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <TrendingUp className="w-5 h-5 text-green-600" />
-              <p className="text-gray-800 font-medium">仅输入训练截止点前最后 look_back 行历史特征，一次输出完整预测跨度；还原销量尺度后按 max(0, ŷ) 截断。</p>
+              <p className="text-gray-800 font-medium">仅输入训练截止点前由样本量动态确定的最近历史窗口，一次输出完整预测跨度；还原销量尺度后按 max(0, ŷ) 截断。</p>
             </div>
           </div>
         </div>
@@ -52,7 +52,7 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base">
-          教科书重点是 LSTM 单元的门控机制；层数、隐藏单元和预测头属于工程选择。本系统自动把目标销量加入历史输入，支持额外数值/类别历史特征，但不会读取评估期或未来期的促销、天气等特征轨迹。新训练固定采用直接多步输出；窗口不足时会报错，不会自动退回一步递归。线性Dense输出本身可为负，因此逆缩放后的最终销量点预测会截断到不小于0，并以截断值计算残差、std_dev和指标；Boosting内部的有符号残差预测不截断。
+          教科书重点是 LSTM 单元的门控机制；层数、容量和训练轮数属于工程选择。本系统根据训练长度、预测跨度和编码后特征数动态推导 look-back、隐藏单元、批大小与最大轮数。标准数据量使用带 horizon 隔离的时间验证；过小数据进入明确标注的教学演示模式。模型不会读取未来特征轨迹，也不会自动退回递归单步预测。
         </p>
       </div>
     </div>

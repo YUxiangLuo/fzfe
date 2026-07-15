@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Target, ArrowRight, Calculator, Info, BarChart2, Shield } from 'lucide-react';
+import { ArrowRight, Calculator, Info, BarChart2, Shield } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
 import { useToast } from '../../../shared/hooks/useToast';
 import { Toast } from '../../../shared/components/common/Toast';
-import { validateAndFixStdDev } from '../utils/predictionValidator';
-import { STD_DEV_ESTIMATION } from '../config/mpsConstants';
+import { calculateSafetyStock as calculateSafetyStockFromStdDev } from '../utils/productionCapacityHelper';
+import ProductionBiasDiagnostic from '../components/ProductionBiasDiagnostic';
 
 /**
  * Step 4: 预测量
@@ -22,37 +22,17 @@ const NewStep4: React.FC = () => {
 
   const period2Demand = state.period2Data.demandForecast ?? 0;
   const targetServiceLevel = state.targetServiceLevel;
-  const zScore = state.safetyStockZScore;
+  const safetyStockZScore = state.safetyStockZScore;
 
-  // 使用预测接口返回的真实标准差
   const calculateSafetyStock = (): number => {
-    // 优先使用predictions[1]的标准差（第2期）
     const secondPrediction = state.predictions?.[1];
-    if (secondPrediction) {
-      // 🛡️ 使用验证函数确保标准差有效
-      const validationResult = validateAndFixStdDev(
-        secondPrediction.std_dev,
-        period2Demand,
-        1 // 第2期索引为1
-      );
-
-      // 输出警告信息（如有）
-      validationResult.warnings.forEach(warning => {
-        console.warn(`⚠️ ${warning}`);
-      });
-
-      const safetyStock = Math.round(zScore * validationResult.value);
-      return Math.max(0, safetyStock);
+    if (!secondPrediction || safetyStockZScore == null) {
+      throw new Error('缺少第2期预测或目标服务水平，无法计算安全库存');
     }
-    // 如果没有预测数据，使用简化估算
-    const avgDemand = state.avgDemand;
-    const stdDev = avgDemand * STD_DEV_ESTIMATION.FALLBACK_RATIO;
-    const safetyStock = Math.round(zScore * stdDev);
-    return Math.max(0, safetyStock);
+    return calculateSafetyStockFromStdDev(secondPrediction.std_dev, safetyStockZScore);
   };
 
-  // 获取第2期的标准差（用于显示）
-  const period2StdDev = state.predictions?.[1]?.std_dev ?? state.avgDemand * STD_DEV_ESTIMATION.FALLBACK_RATIO;
+  const period2StdDev = state.predictions?.[1]?.std_dev ?? 0;
 
   const safetyStock = hasCalculated ? calculateSafetyStock() : null;
   const forecastQuantity = hasCalculated && safetyStock !== null
@@ -219,14 +199,15 @@ const NewStep4: React.FC = () => {
             </h5>
             <div className="bg-white p-3 rounded border border-purple-300 mb-3">
               <div className="font-mono text-sm text-gray-800 text-center">
-                安全库存 = Z分数 × 需求标准差
+                安全库存 = Z × 预测误差标准差 × √提前期
               </div>
             </div>
             <div className="text-xs text-purple-800 space-y-1">
-              <div>• <strong>Z分数</strong>：基于目标服务水平的统计参数（目标：{(targetServiceLevel * 100).toFixed(0)}% → Z = {zScore.toFixed(1)}）</div>
-              <div>• <strong>需求标准差</strong>：需求波动的度量（从预测模型获得）</div>
+              <div>• <strong>目标服务水平</strong>：你在第1步选择了 {targetServiceLevel == null ? '—' : `${(targetServiceLevel * 100).toFixed(0)}%`}，对应 Z = {safetyStockZScore ?? '—'}。</div>
+              <div>• <strong>预测误差标准差</strong>：模型用历史校准误差估计需求预测的不确定程度。</div>
+              <div>• <strong>提前期</strong>：本实验 L = 1 个月，因此 √L = 1。</div>
               <div className="mt-2 text-xs bg-purple-100 border-l-4 border-purple-400 pl-3 py-2 rounded">
-                注：完整公式为 安全库存 = Z × σ × √L（L=提前期）。本实验提前期 L=1 个月，因此 √L=1，公式简化为 Z × σ。
+                这是客户需求文档指定的简化公式。目标服务水平是规划参数，不等同于对最终实际服务水平作保证。
               </div>
             </div>
           </div>
@@ -271,7 +252,7 @@ const NewStep4: React.FC = () => {
           {/* 与前几步的关联 */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-900">
-              预测量的计算直接依赖于在前几步中得出的结果，特别是<strong>需求预测结果</strong>和<strong>服务水平</strong>。
+              预测量的计算直接依赖于<strong>需求点预测</strong>、所选目标对应的 <strong>Z 值</strong>和模型给出的<strong>预测误差标准差</strong>。
             </p>
           </div>
         </div>
@@ -326,14 +307,11 @@ const NewStep4: React.FC = () => {
           {/* 参数回顾 */}
           <div>
             <h5 className="text-sm font-semibold text-gray-700 mb-2">已知数据：</h5>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="bg-white p-3 rounded border border-gray-300">
                 <div className="text-xs text-gray-600">目标服务水平</div>
-                <div className="text-lg font-bold text-gray-900">{(targetServiceLevel * 100).toFixed(0)}%</div>
-              </div>
-              <div className="bg-white p-3 rounded border border-gray-300">
-                <div className="text-xs text-gray-600">Z分数</div>
-                <div className="text-lg font-bold text-gray-900">{zScore.toFixed(1)}</div>
+                <div className="text-lg font-bold text-gray-900">{targetServiceLevel == null ? '—' : `${(targetServiceLevel * 100).toFixed(0)}%`}</div>
+                <div className="text-xs text-gray-500">Z = {safetyStockZScore ?? '—'}</div>
               </div>
               <div className="bg-blue-50 p-3 rounded border border-blue-200">
                 <div className="text-xs text-blue-700">第2期需求预测</div>
@@ -341,6 +319,12 @@ const NewStep4: React.FC = () => {
               </div>
             </div>
           </div>
+
+          <ProductionBiasDiagnostic
+            predictions={state.predictions ?? []}
+            zScore={safetyStockZScore}
+            focusIndex={1}
+          />
 
           {/* 计算按钮 */}
           <button
@@ -358,12 +342,13 @@ const NewStep4: React.FC = () => {
               <div className="border-t-2 border-amber-200 pt-4">
                 <h5 className="text-sm font-semibold text-gray-700 mb-3">计算过程：</h5>
 
-                {/* 步骤1：获取需求标准差 */}
+                {/* 步骤1：获取预测误差标准差 */}
                 <div className="bg-white border border-gray-300 rounded-lg p-4 mb-3">
-                  <div className="text-sm font-semibold text-gray-800 mb-2">步骤1：获取需求标准差</div>
+                  <div className="text-sm font-semibold text-gray-800 mb-2">步骤1：获取参数</div>
                   <div className="font-mono text-sm text-gray-700 space-y-1">
-                    <div>需求标准差（从预测模型）</div>
-                    <div className="ml-4 font-bold">σ = {period2StdDev.toFixed(1)}</div>
+                    <div>目标服务水平对应 Z = {safetyStockZScore}</div>
+                    <div>预测误差标准差 σ = {period2StdDev.toFixed(1)}</div>
+                    <div>提前期 L = 1 个月</div>
                   </div>
                 </div>
 
@@ -371,9 +356,8 @@ const NewStep4: React.FC = () => {
                 <div className="bg-purple-50 border border-purple-300 rounded-lg p-4 mb-3">
                   <div className="text-sm font-semibold text-purple-900 mb-2">步骤2：计算安全库存</div>
                   <div className="font-mono text-sm text-purple-800 space-y-1">
-                    <div>安全库存 = Z分数 × 需求标准差</div>
-                    <div className="ml-4">= {zScore.toFixed(1)} × {period2StdDev.toFixed(1)}</div>
-                    <div className="ml-4">= {(zScore * period2StdDev).toFixed(1)}</div>
+                    <div>安全库存 = max(0, round(Z × σ × √L))</div>
+                    <div className="ml-4">= max(0, round({safetyStockZScore} × {period2StdDev.toFixed(1)} × √1))</div>
                     <div className="ml-4 font-bold text-purple-900">≈ {safetyStock}（取整）</div>
                   </div>
                 </div>
@@ -444,7 +428,7 @@ const NewStep4: React.FC = () => {
       <div className="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4">
         <h4 className="font-semibold text-blue-900 mb-2">💡 关键理解</h4>
         <p className="text-sm text-blue-800 mb-2">
-          预测量是生产计划的核心，它不仅基于我们前几步计算出的<strong>需求预测结果</strong>和<strong>服务水平</strong>，还直接影响企业的生产安排和库存管理。通过准确的预测量计算，能够更好地应对市场需求的不确定性，提高企业的生产效率和市场竞争力。
+          预测量由<strong>需求点预测</strong>与按所选目标服务水平计算的<strong>安全库存</strong>共同构成，并直接影响生产安排和库存管理。历史偏差只作为诊断提示，不会自动修正点预测或客户指定公式；实际业务仍需结合缺货成本、库存成本与预测漂移持续校准。
         </p>
       </div>
 

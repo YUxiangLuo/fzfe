@@ -73,21 +73,21 @@ const ModelMetricsTable: React.FC<ModelMetricsTableProps> = ({
                       model.model === highlightRow ? 'text-blue-700 font-bold' : 'text-blue-600'
                     }`}
                   >
-                    {model.rmse !== null ? model.rmse.toFixed(4) : 'N/A'}
+                    {model.rmse !== null ? model.rmse.toFixed(4) : '未提供'}
                   </td>
                   <td
                     className={`px-6 py-4 whitespace-nowrap text-sm text-center font-semibold ${
                       model.model === highlightRow ? 'text-green-700 font-bold' : 'text-green-600'
                     }`}
                   >
-                    {model.mae !== null ? model.mae.toFixed(4) : 'N/A'}
+                    {model.mae !== null ? model.mae.toFixed(4) : '未提供'}
                   </td>
                   <td
                     className={`px-6 py-4 whitespace-nowrap text-sm text-center font-semibold ${
                       model.model === highlightRow ? 'text-indigo-700 font-bold' : 'text-indigo-600'
                     }`}
                   >
-                    {model.r2 !== null ? model.r2.toFixed(4) : 'N/A'}
+                    {model.r2 !== null ? model.r2.toFixed(4) : '未提供'}
                   </td>
                 </tr>
               ))}

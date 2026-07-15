@@ -21,6 +21,11 @@ type ApiRequestError = Error & {
 export interface ModelPredictionPoint {
   prediction: number;
   std_dev: number;
+  upper_error_p99: number;
+  uncertainty_source: 'model' | 'empirical' | 'fallback';
+  uncertainty_reason?: string;
+  calibration_mean_error: number | null;
+  calibration_count: number | null;
 }
 
 export interface ModelPredictionResponse {
@@ -33,12 +38,31 @@ export interface ModelPredictionResponse {
   };
 }
 
+type ProductionPreparationStatus = 'ready' | 'running' | 'failed' | 'completed' | 'superseded';
+
 interface ProductionPreparationResponse {
   status: string;
   results: {
-    preparation_token: string;
-    prepared_forecast_steps: number;
+    session_id: string;
+    session_status: ProductionPreparationStatus;
+    completed_step_ids: string[];
+    total_steps: number;
+    next_step: { id: string; label: string } | null;
+    error_message: string | null;
+    preparation_token?: string;
+    prepared_forecast_steps?: number;
   };
+}
+
+export interface ProductionPreparationProgress {
+  completedSteps: number;
+  totalSteps: number;
+  nextStepLabel: string | null;
+  status: ProductionPreparationStatus;
+}
+
+export interface PredictWithBestModelOptions {
+  onPreparationProgress?: (progress: ProductionPreparationProgress) => void;
 }
 
 export class ProductionPredictionError extends Error {
@@ -262,22 +286,61 @@ const parseProductionPreparationResponse = (
     throw invalidProductionResponse('prepare', '生产模型准备结果格式无效，请重试。', response);
   }
 
+  const sessionId = response.results.session_id;
+  const sessionStatus = response.results.session_status;
+  const completedStepIds = response.results.completed_step_ids;
+  const totalSteps = response.results.total_steps;
+  const nextStep = response.results.next_step;
+  if (
+    typeof sessionId !== 'string'
+    || sessionId.trim().length === 0
+    || !['ready', 'running', 'failed', 'completed', 'superseded'].includes(String(sessionStatus))
+    || !Array.isArray(completedStepIds)
+    || !completedStepIds.every((stepId) => typeof stepId === 'string' && stepId.length > 0)
+    || new Set(completedStepIds).size !== completedStepIds.length
+    || !Number.isInteger(totalSteps)
+    || (totalSteps as number) < completedStepIds.length
+    || (nextStep !== null && (
+      !isRecord(nextStep)
+      || typeof nextStep.id !== 'string'
+      || nextStep.id.length === 0
+      || typeof nextStep.label !== 'string'
+      || nextStep.label.length === 0
+    ))
+    || (response.results.error_message !== null && typeof response.results.error_message !== 'string')
+  ) {
+    throw invalidProductionResponse('prepare', '生产模型准备会话结果不完整，请重试。', response);
+  }
+
   const token = response.results.preparation_token;
   const preparedForecastSteps = response.results.prepared_forecast_steps;
-  if (
+  if (sessionStatus === 'completed' && (
     typeof token !== 'string'
     || token.trim().length === 0
     || !Number.isInteger(preparedForecastSteps)
     || (preparedForecastSteps as number) < forecastSteps
-  ) {
-    throw invalidProductionResponse('prepare', '生产模型准备结果不完整或预测期数不足，请重试。', response);
+  )) {
+    throw invalidProductionResponse('prepare', '生产模型准备结果缺少有效凭证或预测期数不足，请重试。', response);
+  }
+  if (sessionStatus !== 'completed' && nextStep === null) {
+    throw invalidProductionResponse('prepare', '生产模型准备会话缺少下一步骤，请重试。', response);
   }
 
   return {
     status: 'success',
     results: {
-      preparation_token: token,
-      prepared_forecast_steps: preparedForecastSteps as number,
+      session_id: sessionId,
+      session_status: sessionStatus as ProductionPreparationStatus,
+      completed_step_ids: [...completedStepIds] as string[],
+      total_steps: totalSteps as number,
+      next_step: nextStep === null
+        ? null
+        : { id: nextStep.id as string, label: nextStep.label as string },
+      error_message: response.results.error_message as string | null,
+      ...(typeof token === 'string' ? { preparation_token: token } : {}),
+      ...(Number.isInteger(preparedForecastSteps)
+        ? { prepared_forecast_steps: preparedForecastSteps as number }
+        : {}),
     },
   };
 };
@@ -300,16 +363,59 @@ const parseModelPredictionResponse = (
   }
 
   const predictions = rawPredictions.map((point, index) => {
-    if (!isRecord(point) || !isFiniteNumber(point.prediction) || !isFiniteNumber(point.std_dev) || point.std_dev < 0) {
+    if (
+      !isRecord(point)
+      || !isFiniteNumber(point.prediction)
+      || !isFiniteNumber(point.std_dev)
+      || point.std_dev < 0
+      || !isFiniteNumber(point.upper_error_p99)
+      || point.upper_error_p99 < 0
+    ) {
       throw invalidProductionResponse(
         'predict',
         `需求预测第 ${index + 1} 期数据无效，请重试。`,
         response,
       );
     }
+    if (!['model', 'empirical', 'fallback'].includes(String(point.uncertainty_source))) {
+      throw invalidProductionResponse(
+        'predict',
+        `需求预测第 ${index + 1} 期缺少有效的不确定性来源，请重试。`,
+        response,
+      );
+    }
+    if (point.uncertainty_reason !== undefined && typeof point.uncertainty_reason !== 'string') {
+      throw invalidProductionResponse(
+        'predict',
+        `需求预测第 ${index + 1} 期不确定性说明无效，请重试。`,
+        response,
+      );
+    }
+    const hasValidCalibrationDiagnostics = (
+      point.calibration_mean_error === null
+      && point.calibration_count === null
+    ) || (
+      isFiniteNumber(point.calibration_mean_error)
+      && Number.isInteger(point.calibration_count)
+      && (point.calibration_count as number) > 0
+    );
+    if (!hasValidCalibrationDiagnostics) {
+      throw invalidProductionResponse(
+        'predict',
+        `需求预测第 ${index + 1} 期偏差诊断无效，请重试。`,
+        response,
+      );
+    }
     return {
       prediction: point.prediction,
       std_dev: point.std_dev,
+      upper_error_p99: point.upper_error_p99,
+      uncertainty_source: point.uncertainty_source as ModelPredictionPoint['uncertainty_source'],
+      calibration_mean_error: point.calibration_mean_error as number | null,
+      calibration_count: point.calibration_count as number | null,
+      ...(typeof point.uncertainty_reason === 'string'
+        ? { uncertainty_reason: point.uncertainty_reason }
+        : {}),
     };
   });
 
@@ -353,22 +459,65 @@ export const predictWithBestModel = async (
   selectedBestModel: SelectedBestModel,
   experimentId: number,
   forecastSteps: number,
+  options: PredictWithBestModelOptions = {},
 ): Promise<ModelPredictionResponse> => {
   const modelType = getBackendModelType(selectedBestModel);
   const rawPreparation = await runProductionRequest('prepare', async () =>
-    await apiClient.post<unknown>(`/models/${modelType}/prepare-production`, {
+    await apiClient.post<unknown>(`/models/${modelType}/production-preparation/sessions`, {
       experiment_id: experimentId,
       forecast_steps: forecastSteps,
     }, {
       timeoutMs: MODEL_API_TIMEOUTS.EXECUTION,
     })
   );
-  const preparation = parseProductionPreparationResponse(rawPreparation, forecastSteps);
+  let preparation = parseProductionPreparationResponse(rawPreparation, forecastSteps);
+  const preparationSessionId = preparation.results.session_id;
+  const reportProgress = () => options.onPreparationProgress?.({
+    completedSteps: preparation.results.completed_step_ids.length,
+    totalSteps: preparation.results.total_steps,
+    nextStepLabel: preparation.results.next_step?.label ?? null,
+    status: preparation.results.session_status,
+  });
+  reportProgress();
+
+  for (let attempt = 0; preparation.results.session_status !== 'completed'; attempt += 1) {
+    if (attempt >= 32 || preparation.results.session_status === 'superseded') {
+      throw invalidProductionResponse('prepare', '生产模型准备会话无法继续，请重新开始。', preparation);
+    }
+    const nextStep = preparation.results.next_step;
+    if (!nextStep) {
+      throw invalidProductionResponse('prepare', '生产模型准备会话缺少下一步骤，请重试。', preparation);
+    }
+    const completedBefore = preparation.results.completed_step_ids.length;
+    const rawStep = await runProductionRequest('prepare', async () =>
+      await apiClient.post<unknown>(
+        `/models/${modelType}/production-preparation/sessions/${preparation.results.session_id}/steps/${nextStep.id}/run`,
+        undefined,
+        { timeoutMs: MODEL_API_TIMEOUTS.EXECUTION },
+      )
+    );
+    preparation = parseProductionPreparationResponse(rawStep, forecastSteps);
+    if (preparation.results.session_id !== preparationSessionId) {
+      throw invalidProductionResponse('prepare', '生产模型准备会话标识发生变化，请重试。', rawStep);
+    }
+    if (
+      preparation.results.session_status !== 'completed'
+      && preparation.results.completed_step_ids.length <= completedBefore
+    ) {
+      throw invalidProductionResponse('prepare', '生产模型准备步骤未产生进度，请重试。', rawStep);
+    }
+    reportProgress();
+  }
+
+  const preparationToken = preparation.results.preparation_token;
+  if (!preparationToken) {
+    throw invalidProductionResponse('prepare', '生产模型准备结果缺少有效凭证，请重试。', preparation);
+  }
   const rawPrediction = await runProductionRequest('predict', async () =>
     await apiClient.post<unknown>(`/models/${modelType}/predict`, {
       experiment_id: experimentId,
       forecast_steps: forecastSteps,
-      preparation_token: preparation.results.preparation_token,
+      preparation_token: preparationToken,
     }, {
       timeoutMs: MODEL_API_TIMEOUTS.PREDICTION,
     })

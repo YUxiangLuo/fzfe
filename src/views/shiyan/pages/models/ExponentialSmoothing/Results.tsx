@@ -31,22 +31,25 @@ const Results: React.FC<ResultsProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<'table' | 'chart'>('table');
 
+  const guidedPanel = (
+    <GuidedTrainingPanel
+      title="指数平滑法 - 分阶段训练"
+      session={guidedSession ?? null}
+      isLoading={isLoading}
+      error={error}
+      onInitialize={onInitialize ?? (() => {})}
+      onRunNextStep={onRunNextStep ?? (() => {})}
+      onRetry={onRetry}
+    />
+  );
+
   if (!data) {
-    return (
-      <GuidedTrainingPanel
-        title="指数平滑法 - 分阶段训练"
-        session={guidedSession ?? null}
-        isLoading={isLoading}
-        error={error}
-        onInitialize={onInitialize ?? (() => {})}
-        onRunNextStep={onRunNextStep ?? (() => {})}
-        onRetry={onRetry}
-      />
-    );
+    return guidedPanel;
   }
 
   return (
     <div className="space-y-6">
+      {guidedPanel}
       <div className="flex justify-end">
         <button
           onClick={() => setViewMode('table')}

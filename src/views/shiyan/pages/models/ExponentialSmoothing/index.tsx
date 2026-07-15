@@ -18,7 +18,7 @@ const STEPS = [
   { id: 'intro', name: '方法步骤', path: `${BASE_PATH}/intro`, component: Intro },
   { id: 'formula', name: '计算公式', path: `${BASE_PATH}/formula`, component: Formula },
   { id: 'params', name: '平滑系数选择', path: `${BASE_PATH}/params`, component: Params },
-  { id: 'results', name: '计算结果', path: `${BASE_PATH}/results`, component: Results },
+  { id: 'results', name: '分阶段训练与结果', path: `${BASE_PATH}/results`, component: Results },
 ];
 
 const VALIDATION_PATH = `${BASE_PATH}/validation`;

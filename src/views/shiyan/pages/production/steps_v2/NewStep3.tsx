@@ -19,6 +19,8 @@ const NewStep3: React.FC = () => {
 
   const period2Demand = state.period2Data.demandForecast ?? 0;
   const period2Stockout = state.period2Data.stockout ?? 0;
+  const targetServiceLevel = state.targetServiceLevel ?? 0.95;
+  const nearTargetThreshold = Math.max(0, targetServiceLevel - 0.05);
 
   // 计算服务水平
   const calculateServiceLevel = (): number => {
@@ -317,9 +319,9 @@ const NewStep3: React.FC = () => {
                   <div className="w-full bg-gray-200 rounded-full h-8 overflow-hidden shadow-inner">
                     <div
                       className={`h-full flex items-center justify-center text-sm font-bold text-white transition-all duration-500 ${
-                        serviceLevel >= 0.95
+                        serviceLevel >= targetServiceLevel
                           ? 'bg-gradient-to-r from-green-500 to-emerald-600'
-                          : serviceLevel >= 0.90
+                          : serviceLevel >= nearTargetThreshold
                           ? 'bg-gradient-to-r from-yellow-500 to-amber-600'
                           : 'bg-gradient-to-r from-red-500 to-rose-600'
                       }`}
@@ -332,29 +334,29 @@ const NewStep3: React.FC = () => {
 
                 {/* 评估 */}
                 <div className="mt-4 p-4 rounded-lg border-2" style={{
-                  backgroundColor: serviceLevel >= 0.99 ? '#f0fdf4' : serviceLevel >= 0.95 ? '#fffbeb' : '#fef2f2',
-                  borderColor: serviceLevel >= 0.99 ? '#86efac' : serviceLevel >= 0.95 ? '#fde047' : '#fca5a5',
+                  backgroundColor: serviceLevel >= targetServiceLevel ? '#f0fdf4' : serviceLevel >= nearTargetThreshold ? '#fffbeb' : '#fef2f2',
+                  borderColor: serviceLevel >= targetServiceLevel ? '#86efac' : serviceLevel >= nearTargetThreshold ? '#fde047' : '#fca5a5',
                 }}>
                   <div className="flex items-center space-x-3">
                     <div className="text-3xl">
-                      {serviceLevel >= 0.99 ? '✅' : serviceLevel >= 0.95 ? '⚠️' : '❌'}
+                      {serviceLevel >= targetServiceLevel ? '✅' : serviceLevel >= nearTargetThreshold ? '⚠️' : '❌'}
                     </div>
                     <div className="flex-1">
                       <div className="font-semibold text-lg" style={{
-                        color: serviceLevel >= 0.99 ? '#166534' : serviceLevel >= 0.95 ? '#92400e' : '#991b1b',
+                        color: serviceLevel >= targetServiceLevel ? '#166534' : serviceLevel >= nearTargetThreshold ? '#92400e' : '#991b1b',
                       }}>
-                        {serviceLevel >= 0.99 ? '优秀' : serviceLevel >= 0.95 ? '良好' : '需要改进'}
+                        {serviceLevel >= targetServiceLevel ? '达到目标' : serviceLevel >= nearTargetThreshold ? '接近目标' : '需要改进'}
                       </div>
                       <div className="text-sm mt-1" style={{
-                        color: serviceLevel >= 0.99 ? '#15803d' : serviceLevel >= 0.95 ? '#a16207' : '#b91c1c',
+                        color: serviceLevel >= targetServiceLevel ? '#15803d' : serviceLevel >= nearTargetThreshold ? '#a16207' : '#b91c1c',
                       }}>
                         {serviceLevel >= 1
                           ? '完美！满足了所有需求，无缺货。'
-                          : serviceLevel >= 0.99
-                          ? '优秀！服务水平达到目标（≥99%），客户满意度高。'
-                          : serviceLevel >= 0.95
-                          ? '良好！服务水平在95%以上，但离目标99%仍有差距。'
-                          : '服务水平较低（<95%），建议增加产能或安全库存。'}
+                          : serviceLevel >= targetServiceLevel
+                          ? `本期实际服务水平达到所选目标（≥${(targetServiceLevel * 100).toFixed(0)}%）。`
+                          : serviceLevel >= nearTargetThreshold
+                          ? `本期实际服务水平接近目标 ${(targetServiceLevel * 100).toFixed(0)}%，但仍有差距。`
+                          : `本期实际服务水平明显低于目标 ${(targetServiceLevel * 100).toFixed(0)}%，可复核产能与投入策略。`}
                       </div>
                     </div>
                   </div>

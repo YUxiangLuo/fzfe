@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { MODEL_ID_MAP, ENSEMBLE_CONSTANTS } from '../constants';
-import { alignPredictionRows } from '../resultAlignment';
+import { alignPredictionRows, type PredictionRow } from '../resultAlignment';
 import { useGuidedModelTraining } from './useGuidedModelTraining';
 import type { GuidedModelType } from '../../../services/guidedTraining';
 import type { ExperimentState } from '../../../store/experiment/types';
@@ -22,11 +22,7 @@ interface EnsembleModelConfig {
 }
 
 interface EnsembleResults {
-  predictions: Array<{
-    date: string;
-    actual: number;
-    predicted: number;
-  }>;
+  predictions: PredictionRow[];
   metrics: {
     rmse: number;
     mae: number;
@@ -38,12 +34,11 @@ interface EnsembleResults {
     kind?: string;
     strategy?: string;
     model_names?: string[];
-    weights?: number[];
-    raw_coefficients?: number[];
-    fallback_reason?: string;
-    condition_number?: number | null;
-    level1_mae?: number[];
+    coefficients?: number[];
+    residual_norm?: number;
   };
+  model_chain?: string[];
+  stage_coefficients?: number[];
 }
 
 interface EnsembleGuidedResult {
@@ -53,6 +48,7 @@ interface EnsembleGuidedResult {
   results: {
     eval_y_true?: unknown;
     eval_predictions?: unknown;
+    prediction_points?: unknown;
     evaluate_months?: unknown;
     metrics: {
       rmse: number;
@@ -62,6 +58,7 @@ interface EnsembleGuidedResult {
     weights?: number[];
     model_names?: string[];
     meta_model?: EnsembleResults['meta_model'];
+    stage_coefficients?: number[];
   };
 }
 
@@ -182,6 +179,7 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       predictions: alignPredictionRows({
         actualValues: apiResults.eval_y_true,
         predictedValues: apiResults.eval_predictions,
+        predictionPoints: apiResults.prediction_points,
         backendMonths: apiResults.evaluate_months,
         fallbackMonths: evaluateMonths,
       }),
@@ -193,6 +191,9 @@ export function useEnsembleModel(config: EnsembleModelConfig) {
       ensembleResults.model_names = apiResults.model_names;
     } else if (config.type === 'stacking') {
       ensembleResults.meta_model = apiResults.meta_model;
+    } else if (config.type === 'boosting') {
+      ensembleResults.model_chain = apiResults.model_names;
+      ensembleResults.stage_coefficients = apiResults.stage_coefficients;
     }
 
     const recoveredModelState = {

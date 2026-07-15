@@ -5,6 +5,7 @@ import type {
   ProductSalesData,
   SelectedBestModel,
 } from "../store/experiment/types";
+import { summarizeFallbackUncertainty } from "../pages/production/utils/predictionValidator";
 
 export interface ReportUserSummary {
   user_id: number;
@@ -461,6 +462,11 @@ export const buildExperimentReportMarkdown = ({
   const selectedModelLabel = state.selected_best_model
     ? MODEL_LABELS[state.selected_best_model]
     : "N/A";
+  const fallbackSummary = summarizeFallbackUncertainty(state.production_forecast_results);
+  const fallbackAuditRows = fallbackSummary.fallbackCount > 0
+    ? `| 回退估计期数 | ${fallbackSummary.fallbackCount} 期（需结合业务经验复核） |
+| 回退原因 | ${escapeMarkdownTableCell(fallbackSummary.reasons.join("；") || "未提供具体原因")} |`
+    : "";
 
   const periodComparisonSection = !period1 || !period2
     ? "**📝 说明：数据不完整**"
@@ -574,13 +580,15 @@ ${stripHtmlTags(analyses.selection)}
 ## 四、生产计划参数计算结果
 (以期1和期2为例)
 
-### 4.1 默认参数
+### 4.1 规划参数
 | 参数 | 值 |
 |------|-----|
-| 目标服务水平 | ${state.production_target_service_level ? `${state.production_target_service_level * 100}%` : "N/A"} |
-| 安全库存Z值 | ${state.production_safety_stock_z_score || "N/A"} |
+| 目标服务水平 | ${state.production_target_service_level == null ? "N/A" : `${state.production_target_service_level * 100}%`} |
+| 安全库存 Z 值 | ${state.production_safety_stock_z_score ?? "N/A"} |
+| 安全库存公式 | max(0, round(Z × 预测误差标准差 × √提前期))，提前期 = 1 个月 |
 | 产能模式 | ${formatCapacityMode(state)} |
-| 产能上限/期 | ${state.production_capacity ? `${state.production_capacity.toLocaleString()} 件` : "N/A"} |
+| 产能上限/期 | ${state.production_capacity == null ? "N/A" : `${state.production_capacity.toLocaleString()} 件`} |
+${fallbackAuditRows}
 
 ### 4.2 数据对比
 ${periodComparisonSection}

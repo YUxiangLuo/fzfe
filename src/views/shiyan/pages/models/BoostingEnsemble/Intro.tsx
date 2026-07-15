@@ -25,7 +25,7 @@ const Intro: React.FC = () => {
         <div className="space-y-3 text-gray-800 leading-relaxed text-base">
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>
-            <p className="pt-0.5">按时间顺序留出验证段，让全部候选拟合原始销量；候选输出先截断为非负，再选择验证RMSE最低者作为第一阶段，系数固定为1。</p>
+            <p className="pt-0.5">动态留出时间验证段，让全部候选拟合原始销量；每个候选通过非负平方损失线搜索求阶段系数，再比较验证残差RMSE。</p>
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">2</span>
@@ -37,11 +37,11 @@ const Intro: React.FC = () => {
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">4</span>
-            <p className="pt-0.5">选择使验证残差RMSE最低且确有改善的模型；第二阶段起按默认学习率0.3加入，同一种模型类型可以重复入选。</p>
+            <p className="pt-0.5">选择验证残差RMSE最低且达到相对改善阈值的模型；同一种模型类型可以重复入选。</p>
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">5</span>
-            <p className="pt-0.5">重复残差计算和候选选择，直到达到最大轮数或不再改善。</p>
+            <p className="pt-0.5">重复残差计算和候选选择，最多 min(2K, 验证点数-1) 轮，或在改善不足时提前停止。</p>
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">6</span>
@@ -68,13 +68,16 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base mb-3">
-          页面中的 Boosting 指残差提升融合，不是 AdaBoost 的样本权重更新流程。训练点8–15时通常只留末尾2–3点作内部验证，更长时约留20%。同一验证段反复用于每轮贪心选择，这是兼容小数据的折中，可能产生选择过拟合；若没有候选模型继续改善，则提前停止。评估点不足2个时，std_dev使用最终内部验证残差估计。
+          页面中的 Boosting 指残差提升融合，不是 AdaBoost。短验证段要求至少5%相对改善，其余要求1%；同一验证段反复用于贪心选择仍可能产生选择过拟合。选定链在完整训练段逐级重训并重新估计非负系数；若某级最优系数变为0，该级及后续验证候选链会被裁剪。
         </p>
         <p className="text-gray-700 leading-relaxed text-base mb-3">
-          候选仍使用已完成单模型的核心配置：MA 窗口、ES 的 α、ARIMA 的 d，以及 LSTM 的 look_back、epochs、特征与归一化方式。候选筛选只能用内部前段，因此 ARIMA 从第一轮起都会针对当前训练目标和数据段重新搜索 p、q；第一轮目标仍是原销量，第二轮起才改为当前有符号残差并保留负修正。第一阶段在完整训练段可直接复用原销量基础模型，后续阶段则按残差模型链重新训练。
+          候选只继承用户选择的 MA 窗口、ES α、ARIMA d 及 LSTM 特征/归一化；ARIMA 阶数与 LSTM 隐藏配置针对每轮当前目标和数据段重算。第一轮目标是销量，后续轮次拟合有符号残差并保留负修正。
         </p>
         <p className="text-gray-700 leading-relaxed text-base">
           更新训练段残差时，序列开头尚无样本内拟合值的位置按“零修正”处理，即保留原残差。例如 MA 必须先凑满完整窗口，LSTM 必须先凑满 look_back；系统不会为这些位置临时改用较短窗口或读取未来值。
+        </p>
+        <p className="mt-3 text-gray-700 leading-relaxed text-base">
+          最终不确定性仅用内部时间验证段的组合残差校准各阶段逐 horizon 增长形状；独立评估区间的真实值只用于误差指标，不参与不确定性校准。
         </p>
       </div>
     </div>

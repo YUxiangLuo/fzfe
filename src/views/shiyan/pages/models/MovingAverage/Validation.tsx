@@ -30,7 +30,7 @@ const Validation: React.FC<ValidationProps> = ({ windowSize, isValid, trainDataL
                 您选择的时间窗口大小为 <span className="font-semibold text-blue-600">{windowSize}</span>
               </p>
               <p className="text-sm text-gray-500">
-                点击"下一步"继续查看计算结果
+                点击“下一步”进入分阶段训练
               </p>
             </div>
           </div>

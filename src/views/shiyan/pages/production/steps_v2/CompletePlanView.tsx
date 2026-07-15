@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useProductionPlan } from '../ProductionPlanContextV2';
+import type { ProductionPredictionPoint } from '../ProductionPlanContextV2';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import { validatePredictions } from '../utils/predictionValidator';
 import { ProductionPredictionError, predictWithBestModel } from '../../../services/modelLifecycle';
@@ -8,6 +9,7 @@ import { useToast } from '../../../shared/hooks/useToast';
 import { Toast } from '../../../shared/components/common/Toast';
 import ProductionForecastAssumptionNote from '../components/ProductionForecastAssumptionNote';
 import ProductionPredictionErrorAlert from '../components/ProductionPredictionErrorAlert';
+import ProductionBiasDiagnostic from '../components/ProductionBiasDiagnostic';
 
 /**
  * 完整计划表（结果视图）
@@ -45,7 +47,7 @@ const CompletePlanView: React.FC = () => {
     setIsGenerating(true);
 
     try {
-      let predictionsToUse: Array<{ prediction: number; std_dev: number }> | null = null;
+      let predictionsToUse: ProductionPredictionPoint[] | null = null;
 
       // 优先复用 Step1 的预测；旧版缓存不符合当前契约时改为重新请求。
       if (state.predictions && state.predictions.length > 0) {
@@ -223,7 +225,11 @@ const CompletePlanView: React.FC = () => {
         </p>
       </div>
 
-      <ProductionForecastAssumptionNote />
+      <ProductionForecastAssumptionNote predictions={state.predictions ?? []} />
+      <ProductionBiasDiagnostic
+        predictions={state.predictions ?? []}
+        zScore={state.safetyStockZScore}
+      />
 
       {/* 生成状态 */}
       {isGenerating && (
@@ -435,12 +441,12 @@ const CompletePlanView: React.FC = () => {
           <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4">
             <h4 className="font-semibold text-amber-900 mb-2">💡 从计划中获得的洞察</h4>
             <ul className="text-sm text-amber-800 space-y-1">
-              {summary.avgServiceLevel >= 0.99 ? (
-                <li>✅ <strong>达到目标服务水平</strong>：您的计划达到了{(summary.avgServiceLevel * 100).toFixed(1)}%的平均服务水平（目标99%），客户满意度高</li>
-              ) : summary.avgServiceLevel >= 0.95 ? (
-                <li>⚠️ <strong>接近目标但有提升空间</strong>：服务水平{(summary.avgServiceLevel * 100).toFixed(1)}%，离目标99%还有差距，考虑提高产能</li>
+              {state.targetServiceLevel != null && summary.avgServiceLevel >= state.targetServiceLevel ? (
+                <li>✅ <strong>达到目标服务水平</strong>：计划的平均实际服务水平为 {(summary.avgServiceLevel * 100).toFixed(1)}%，达到所选目标 {(state.targetServiceLevel * 100).toFixed(0)}%</li>
+              ) : state.targetServiceLevel != null && summary.avgServiceLevel >= Math.max(0, state.targetServiceLevel - 0.05) ? (
+                <li>⚠️ <strong>接近目标但有提升空间</strong>：平均实际服务水平为 {(summary.avgServiceLevel * 100).toFixed(1)}%，离所选目标 {(state.targetServiceLevel * 100).toFixed(0)}% 仍有差距，可复核产能</li>
               ) : (
-                <li>❌ <strong>服务水平较低</strong>：建议提升产能上限或优化投入策略</li>
+                <li>❌ <strong>实际服务水平低于规划目标</strong>：建议提升产能上限或优化投入策略</li>
               )}
               {summary.periodsWithStockout > 0 ? (
                 <li>• <strong>{summary.periodsWithStockout}期发生缺货</strong>：这些时期的需求超过了可用库存</li>

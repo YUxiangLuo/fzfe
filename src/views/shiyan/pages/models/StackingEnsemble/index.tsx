@@ -16,7 +16,7 @@ const BASE_PATH = '/model/stacking-ensemble';
 const STEPS = [
   { id: 'intro', name: '方法步骤', path: `${BASE_PATH}/intro`, component: Intro },
   { id: 'select-models', name: '模型选择', path: `${BASE_PATH}/select-models`, component: SelectModels },
-  { id: 'results', name: '计算结果', path: `${BASE_PATH}/results`, component: Results },
+  { id: 'results', name: '分阶段训练与结果', path: `${BASE_PATH}/results`, component: Results },
 ];
 
 // Hidden pages - not part of the main steps

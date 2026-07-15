@@ -40,7 +40,7 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base">
-          移动平均的教科书定义通常先给出下一期预测。本系统为了评估和预测未来多期销量，会把每一期预测值滚入窗口继续递推，不使用评估集或未来真实值参与下一步计算。窗口 n=1 等同于“下一期沿用上一期”，不体现均值平滑，因此教学入口从 n=2 开始。最终销量点预测按 max(0, ŷ) 截断，残差、std_dev和指标都使用截断后的同一口径；该截断是业务后处理，不属于移动平均公式。
+          移动平均的教科书定义通常先给出下一期预测。本系统为了评估和预测未来多期销量，会把每一期预测值滚入窗口继续递推，不使用未来真实值。窗口 n=1 不体现均值平滑，因此教学入口从 n=2 开始。逐 horizon 的标准差、95%区间和99%上侧误差由训练段 rolling-origin 多步残差校准；区间采用经验分位数，样本不足时会明确标记 fallback。最终销量点预测按 max(0, ŷ) 截断，该截断是业务后处理。
         </p>
       </div>
     </div>

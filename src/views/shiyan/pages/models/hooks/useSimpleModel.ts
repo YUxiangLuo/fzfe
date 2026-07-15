@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useExperiment } from '../../../contexts/ExperimentContext.zustand';
 import type { ExperimentState } from '../../../store/experiment/types';
-import { alignPredictionRows, parseModelMetrics, type ModelMetrics } from '../resultAlignment';
+import { alignPredictionRows, parseModelMetrics, type ModelMetrics, type PredictionRow } from '../resultAlignment';
 import { useGuidedModelTraining } from './useGuidedModelTraining';
 import type { GuidedModelType } from '../../../services/guidedTraining';
 
@@ -23,17 +23,14 @@ interface SimpleModelConfig<T> {
 }
 
 interface SimpleModelResults {
-  predictions: Array<{
-    date: string;
-    actual: number;
-    predicted: number;
-  }>;
+  predictions: PredictionRow[];
   metrics: ModelMetrics;
 }
 
 interface SimpleModelApiResults {
   eval_y_true?: unknown;
   eval_predictions?: unknown;
+  prediction_points?: unknown;
   evaluate_months?: unknown;
   metrics: unknown;
 }
@@ -106,6 +103,7 @@ export function useSimpleModel<T extends number | ''>(config: SimpleModelConfig<
       predictions: alignPredictionRows({
         actualValues: apiResults.eval_y_true,
         predictedValues: apiResults.eval_predictions,
+        predictionPoints: apiResults.prediction_points,
         backendMonths: apiResults.evaluate_months,
         fallbackMonths,
       }),

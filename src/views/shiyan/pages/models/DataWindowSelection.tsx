@@ -334,14 +334,14 @@ const DataWindowSelection: React.FC = () => {
           <span>选择历史销量数据时段</span>
         </h2>
         <p className="text-gray-600">
-          请选择用于训练预测模型的历史数据范围，以及用于评估模型表现的对比区间。每次选择都会即时保存。
+          请选择用于训练预测模型的历史数据范围，以及用于评估模型表现的对比区间。选择将在点击“下一步”后保存。
         </p>
       </header>
 
       <section className="bg-blue-50 border border-blue-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-blue-900 mb-2">当前产品</h3>
         <p className="text-blue-700">
-          {meta?.name ?? 'N/A'} · 单位：{meta?.unit ?? 'N/A'}
+          {meta?.name ?? '未提供'} · 单位：{meta?.unit ?? '未提供'}
         </p>
         <p className="text-sm text-blue-600 mt-2">
           数据包含 {points.length} 个月的销量记录，从 {points[0]?.month ?? '—'} 到{' '}
