@@ -33,6 +33,9 @@ const Intro: React.FC = () => {
               v<sub>i</sub> = [1/(MSE<sub>i</sub> + ε)] / Σ[1/(MSE<sub>j</sub> + ε)]
               <br />w<sub>i</sub> = ρv<sub>i</sub> + (1-ρ)/K, ρ=n/(n+K+1)
             </div>
+            <p className="mt-3 text-sm text-gray-700">
+              v<sub>i</sub> 是MSE倒数归一化后的候选权重，n是内部时间验证点数，K是成员模型数，ρ是验证权重可靠度。ε不是固定的任意小数，而是随目标数据尺度调整的数值稳定项，用于避免MSE接近0时倒数溢出。
+            </p>
           </div>
 
           <div>

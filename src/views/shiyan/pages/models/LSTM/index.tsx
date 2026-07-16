@@ -20,7 +20,7 @@ const BASE_PATH = '/model/lstm';
 const STEPS = [
   { id: 'intro', name: '方法步骤', path: `${BASE_PATH}/intro`, component: Intro },
   { id: 'preprocessing', name: '数据预处理', path: `${BASE_PATH}/preprocessing`, component: Preprocessing },
-  { id: 'build', name: '构建LSTM模型', path: `${BASE_PATH}/build`, component: Build },
+  { id: 'build', name: '选择历史输入特征', path: `${BASE_PATH}/build`, component: Build },
   { id: 'results', name: '分阶段训练与结果', path: `${BASE_PATH}/results`, component: Results },
 ];
 
@@ -200,7 +200,7 @@ const LSTMStepper: React.FC = () => {
       return { id: 'normalization-info', name: '标准化介绍', path: NORMALIZATION_INFO_PATH, component: NormalizationInfo };
     }
     if (isLSTMMethodInfoPage) {
-      return { id: 'lstm-method-info', name: '构建LSTM方法', path: LSTM_METHOD_INFO_PATH, component: LSTMMethodInfo };
+      return { id: 'lstm-method-info', name: 'LSTM建模方法', path: LSTM_METHOD_INFO_PATH, component: LSTMMethodInfo };
     }
     if (isComparisonPage) {
       return { id: 'comparison', name: '模型对比', path: COMPARISON_PATH, component: ModelComparison };

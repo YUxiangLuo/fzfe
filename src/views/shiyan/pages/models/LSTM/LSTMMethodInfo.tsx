@@ -4,7 +4,7 @@ const LSTMMethodInfo: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-2xl font-bold text-gray-800 mb-4">构建LSTM方法介绍</h3>
+        <h3 className="text-2xl font-bold text-gray-800 mb-4">LSTM建模方法介绍</h3>
       </div>
 
       <div className="p-6 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg border border-blue-200 shadow-sm">

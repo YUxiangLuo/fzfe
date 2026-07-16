@@ -18,8 +18,8 @@ const Intro: React.FC = () => {
           </div>
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
-              <PlayCircle className="w-5 h-5 text-blue-600" />
-              <p className="text-gray-800 font-medium">保持用户 α 不变，用训练数据估计一次指数平滑的初始水平</p>
+              <Settings className="w-5 h-5 text-blue-600" />
+              <p className="text-gray-800 font-medium">由用户给定平滑系数 α（0&lt;α≤1）；本系统不自动估计 α</p>
             </div>
           </div>
         </div>
@@ -30,8 +30,8 @@ const Intro: React.FC = () => {
           </div>
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
-              <Settings className="w-5 h-5 text-indigo-600" />
-              <p className="text-gray-800 font-medium">由用户给定平滑系数 α（0&lt;α≤1）；本系统不自动估计 α</p>
+              <PlayCircle className="w-5 h-5 text-indigo-600" />
+              <p className="text-gray-800 font-medium">固定用户 α，用训练数据估计一次指数平滑的初始水平</p>
             </div>
           </div>
         </div>

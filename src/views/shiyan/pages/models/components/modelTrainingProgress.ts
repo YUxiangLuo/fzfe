@@ -26,7 +26,7 @@ export interface TrainingProgressProfile {
 }
 
 const BASE_FINAL_STEPS: TrainingProgressStep[] = [
-  { label: '生成回测预测', description: '生成评估区间预测，并将最终销量点预测截断到不小于0。', weight: 1.1 },
+  { label: '生成评估区间预测', description: '为独立历史评估区间生成预测，并将最终销量点预测截断到不小于0。', weight: 1.1 },
   { label: '计算评估指标', description: '用非负截断后的同一预测计算残差、RMSE、MAE、R²等指标。', weight: 0.9 },
   { label: '保存模型产物', description: '写入实验模型文件，并等待后端返回训练结果。', weight: 0.9 },
 ];
@@ -96,7 +96,7 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
   },
   lstm: {
     title: 'LSTM 模型训练中',
-    subtitle: '后端正在完成特征处理、神经网络训练和回测评估。',
+    subtitle: '后端正在完成特征处理、神经网络训练和独立评估区间预测。',
     estimate: '通常需要几十秒到数分钟',
     accent: 'purple',
     steps: [
@@ -158,7 +158,7 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
       { label: '检查基础模型', description: '读取用户选择的成员配置，并按数据推导验证段和最大轮数。', weight: 1.0 },
       { label: '初始化残差', description: '按时间顺序留出验证段，并以原始销量作为第一轮残差目标。', weight: 1.0 },
       { label: '逐轮残差学习', description: '沿用核心配置但改训当前残差；首轮截断非负，后续保留有符号输出。', weight: 4.2 },
-      { label: '组合模型链', description: '每阶段在内部时间验证段用非负平方损失线搜索求系数；完整训练重训保留该系数，不确定性仍由验证残差校准。', weight: 2.0 },
+      { label: '准备并组合模型链', description: '每阶段在内部时间验证段用非负平方损失线搜索求系数；完整训练阶段重训或复用成员产物并保留该系数，不确定性仍由验证残差校准。', weight: 2.0 },
       ...BASE_FINAL_STEPS,
     ],
     tip: 'Boosting 会逐轮训练和评估候选模型，训练时间会随轮数和基础模型数量增加。',

@@ -27,8 +27,8 @@ const ResultEvaluation: React.FC = () => {
       try {
         await handleBestModelChange(selectedBestModel);
       } catch (error) {
-        console.error('保存最优模型失败:', error);
-        toastEventBus.error('保存最优模型失败，请稍后重试');
+        console.error('保存所选模型失败:', error);
+        toastEventBus.error('保存所选模型失败，请稍后重试');
         return;
       }
     }
@@ -58,27 +58,27 @@ const ResultEvaluation: React.FC = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Optimization Criteria */}
           <div className="bg-white rounded-xl border-2 border-gray-300 p-8 min-h-[600px] flex flex-col">
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">最优准则</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">方案选择准则</h2>
 
             <div className="space-y-8 text-base text-gray-700 leading-loose flex-1 flex flex-col justify-center">
               <p className="pl-8">
                 <span className="font-semibold">1.主要关注 RMSE 和 MAE：</span>
-                RMSE（均方根误差）：反映模型对较大误差的敏感度，适用于评估模型在大偏差情况下的表现；MAE（平均绝对误差）：提供平均误差水平，适用于评估模型的整体稳定性和准确性。
+                RMSE（均方根误差）会对较大误差给予更高惩罚；MAE（平均绝对误差）表示绝对误差的平均大小。两者量纲都与销量一致。
               </p>
 
               <p className="pl-8">
                 <span className="font-semibold">2.比较模型的 RMSE 和 MAE 值：</span>
-                选择 RMSE 和 MAE 值较低的模型，这意味着模型在整体和局部都具有良好的预测性能。
+                只有目标、量纲和评估区间相同时才可直接比较；数值较低表示当前独立评估区间的误差较低，不保证未来仍保持同一排名。
               </p>
 
               <p className="pl-8">
                 <span className="font-semibold">3.使用 R²作为辅助指标：</span>
-                当多个模型的 RMSE 和 MAE 相近时，选择 R²值更接近 1 的模型，以确保模型对数据的拟合程度更好。
+                R²最高为1且越高通常越好，也可能为负。它反映模型相对评估集均值基准的表现，应与RMSE、MAE一起解释，不能单独保证预测可靠。
               </p>
 
               <p className="pl-8">
-                <span className="font-semibold">4.综合评估，选出最优模型：</span>
-                优先选择在 RMSE、MAE 和 R²上均表现优秀的模型，确保模型在准确性和稳健性方面都有良好表现。
+                <span className="font-semibold">4.综合评估，选择当前方案：</span>
+                结合当前独立评估误差、不确定性质量、模型复杂度和业务可解释性，选择更适合当前数据与决策任务的模型，而不是寻找对所有场景都通用的“最佳模型”。
               </p>
             </div>
           </div>
@@ -136,7 +136,7 @@ const ResultEvaluation: React.FC = () => {
         <div className="space-y-6">
           <div className="bg-white rounded-xl border-2 border-gray-300 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-6">
-              请根据最优准则及评估结果对比，勾选出最佳方法:
+              请根据方案选择准则及评估结果，勾选更适合当前实验数据的方法：
             </h2>
 
             <div className="space-y-3">

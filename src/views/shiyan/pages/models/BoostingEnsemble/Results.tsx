@@ -39,7 +39,7 @@ const ModelChainSummary: React.FC<{
     <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
       <h4 className="text-lg font-semibold text-gray-800">最终残差提升模型链</h4>
       <p className="mt-1 text-sm leading-6 text-gray-600">
-        以下是完整训练区间重训后保留下来的阶段及非负系数；顺序表示逐阶段累加关系，同一种模型可以重复出现。
+        以下是完整训练区间部署产物准备完成后的模型链及验证阶段非负系数；首阶段可能复用匹配的已完成基础模型，顺序表示逐阶段累加关系，同一种模型可以重复出现。
       </p>
       <ol className="mt-4 space-y-2">
         {modelChain.map((modelName, index) => (

@@ -45,7 +45,7 @@ const Intro: React.FC = () => {
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">6</span>
-            <p className="pt-0.5">在完整训练区间重训基础学习器，并保留时间验证段选出的阶段系数：第一阶段销量输出截断为非负，后续有符号残差输出不截断；累加后最终物理销量再截断为不小于0。</p>
+            <p className="pt-0.5">准备完整训练区间的部署产物：第一阶段可复用配置和训练区间匹配的已完成基础模型，必要时重新拟合；后续阶段按当前完整训练残差拟合。所有阶段都保留时间验证段选出的系数；第一阶段销量输出截断为非负，后续有符号残差输出不截断，累加后的最终物理销量再截断为不小于0。</p>
           </div>
         </div>
       </div>
@@ -68,7 +68,7 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base mb-3">
-          页面中的 Boosting 指残差提升融合，不是 AdaBoost。短验证段要求至少5%相对改善，其余要求1%；同一验证段反复用于贪心选择仍可能产生选择过拟合。选定链会在完整训练段逐级重训基础学习器，但部署阶段系数保持为时间验证段的线搜索结果，不使用全量样本内拟合重新估计或裁剪模型链。
+          页面中的 Boosting 指残差提升融合，不是 AdaBoost。短验证段要求至少5%相对改善，其余要求1%；同一验证段反复用于贪心选择仍可能产生选择过拟合。选定链会准备完整训练区间的部署产物：首阶段优先复用匹配的已完成基础模型，必要时重新拟合，后续阶段按完整训练残差拟合；部署阶段系数始终保持为时间验证段的线搜索结果，不使用完整训练样本内拟合重新估计或裁剪模型链。
         </p>
         <p className="text-gray-700 leading-relaxed text-base mb-3">
           候选只继承用户选择的 MA 窗口、ES α、ARIMA d 及 LSTM 历史特征/归一化；ARIMA 阶数与 LSTM 隐藏配置针对每轮当前目标和数据段重算，LSTM 不接收已知未来特征。第一轮目标是销量，后续轮次拟合有符号残差并保留负修正。

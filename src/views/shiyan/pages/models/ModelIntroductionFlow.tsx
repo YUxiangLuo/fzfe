@@ -233,8 +233,14 @@ const baseModels: Model[] = [
         { symbol: 'p', meaning: '自回归阶数（自动搜索）' },
         { symbol: 'd', meaning: '差分阶数（用户指定）' },
         { symbol: 'q', meaning: '移动平均阶数（自动搜索）' },
+        { symbol: 'B', meaning: '滞后算子，Byₜ=yₜ₋₁' },
+        { symbol: 'φᵢ / θᵢ', meaning: '第i阶自回归系数 / 移动平均系数' },
+        { symbol: 'c', meaning: '模型中的常数项或漂移相关项' },
+        { symbol: 'εₜ', meaning: 't时刻的随机创新项' },
         { symbol: 'AICc', meaning: '带小样本修正的信息准则，用于平衡拟合与复杂度' },
-        { symbol: 'k', meaning: '参数数量' }
+        { symbol: 'k', meaning: '用于信息准则计算的估计参数数量' },
+        { symbol: 'n', meaning: '差分后用于拟合的有效样本数' },
+        { symbol: 'L', meaning: '候选模型在训练数据上的最大似然值' }
       ],
       example: '若用户设定d=1，系统会在有效样本量允许的边界内执行 AICc stepwise 搜索；它不保证检查范围内每个(p,q)。'
     },
@@ -309,7 +315,10 @@ const baseModels: Model[] = [
         { symbol: 'o_t', meaning: '输出门：决定当前记忆向隐藏状态暴露多少' },
         { symbol: 'C_t', meaning: '细胞状态：LSTM的长期记忆载体' },
         { symbol: 'h_t', meaning: '隐藏状态：传递给下一时刻和输出层的表示' },
-        { symbol: 'x_t', meaning: '输入向量（包含数值和编码后的类别特征）' }
+        { symbol: 'x_t', meaning: '输入向量（包含数值和编码后的类别特征）' },
+        { symbol: 'σ', meaning: 'Sigmoid激活函数，把门值压缩到0到1之间' },
+        { symbol: 'W_*', meaning: '各个门和候选记忆对应的可训练权重矩阵' },
+        { symbol: 'b_*', meaning: '各个门和候选记忆对应的可训练偏置向量' }
       ],
       example: '在预测销量时，f_t可能学会忽略上个月的随机噪声，i_t则重点关注经数值缩放或类别编码后的促销活动信号。'
     },
@@ -340,7 +349,7 @@ const baseModels: Model[] = [
       { title: '混合特征支持', description: '通过数值缩放与One-Hot预处理支持历史数值和类别字段' },
       { title: '非线性表达力', description: 'LSTM门控层和全连接输出能学习非线性时序关系' },
       { title: '动态容量', description: '参数预算随可用窗口与特征维度调整，避免固定大网络' },
-      { title: '直接多步预测', description: '面向评估区间直接输出未来多期销量' }
+      { title: '直接多步预测', description: '从训练截止点一次输出完整评估跨度的多期销量，不读取评估区间特征' }
     ],
     cons: [
       { title: '训练较慢', description: '神经网络参数训练比统计模型耗时更长' },

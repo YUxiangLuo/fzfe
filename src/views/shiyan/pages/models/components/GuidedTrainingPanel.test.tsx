@@ -21,12 +21,16 @@ const completedSession: GuidedTrainingSession = {
     actionLabel: '完成',
     status: 'completed',
     output: {
+      action: 'refit_stage',
       aicc: 123.456,
       criterion: 'aicc',
       uses_validation: true,
       training_regime: 'standard',
       calibration_source: 'internal_validation',
       stop_reason: 'round_budget',
+      model: 'ma',
+      reused_artifact: true,
+      evaluation_role: 'reporting_only',
       model_chain: ['ma', 'es', 'arima', 'lstm', 'ma'],
       evaluate_indices: [991, 992],
       diagnostics: {
@@ -49,6 +53,22 @@ const completedSession: GuidedTrainingSession = {
         minimum_relative_improvement: 0.01,
         relative_improvement: 0.04,
         winner: 'lstm',
+      },
+      uncertainty_summary: {
+        method: 'ets_ann_analytic',
+        calibration_source: 'training_one_step_residuals',
+        horizons: [{
+          std_dev: 1.25,
+          interval_lower_offset: -2.45,
+          interval_upper_offset: 2.45,
+          upper_error_p99: 2.91,
+          source: 'fallback',
+          calibration_source: 'training_one_step_residuals',
+          calibration_mean_error: null,
+          calibration_count: null,
+          interval_kind: 'fallback_normal_approximation',
+          reason: 'missing_horizon_calibration',
+        }],
       },
     },
   }],
@@ -77,6 +97,8 @@ describe('GuidedTrainingPanel teaching output', () => {
     expect(view.getByText('标准训练模式')).toBeDefined();
     expect(view.getByText('内部时间验证段')).toBeDefined();
     expect(view.getByText('达到最大轮数')).toBeDefined();
+    expect(view.getByText('准备部署阶段产物')).toBeDefined();
+    expect(view.getByText('仅用于教学展示，不参与模型链或系数选择')).toBeDefined();
     expect(view.getByText(/移动平均（MA）、一次指数平滑（ES）、ARIMA、LSTM、移动平均（MA）/)).toBeDefined();
     expect(view.getByText(/胜出模型: LSTM/)).toBeDefined();
     expect(view.getByText(/残差诊断/)).toBeDefined();
@@ -87,9 +109,15 @@ describe('GuidedTrainingPanel teaching output', () => {
     expect(view.getByText(/移动平均（MA）: 0.6000/)).toBeDefined();
     expect(view.getByText(/LSTM: 0.4000/)).toBeDefined();
     expect(view.getByText('模型产物已保存')).toBeDefined();
+    expect(view.getByText(/第 1 步：预测误差标准差 1.2500/)).toBeDefined();
+    expect(view.getByText(/该预测步缺少单独校准证据/)).toBeDefined();
     expect(view.container.textContent).not.toContain('evaluate_indices');
     expect(view.container.textContent).not.toContain('991');
     expect(view.container.textContent).not.toContain('/srv/private');
     expect(view.container.textContent).not.toContain('residual autocorrelation remains');
+    expect(view.container.textContent).not.toContain('reused_artifact');
+    expect(view.container.textContent).not.toContain('std_dev');
+    expect(view.container.textContent).not.toContain('refit_stage');
+    expect(view.container.textContent).not.toContain('missing_horizon_calibration');
   });
 });

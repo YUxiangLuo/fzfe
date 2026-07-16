@@ -40,7 +40,7 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, error, isL
     <div className="flex flex-col h-full">
       <div className="flex-1 space-y-6">
         <div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-4">LSTM 法 - 构建LSTM模型</h3>
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">LSTM 法 - 选择历史输入特征</h3>
         </div>
 
         {isLoading ? (
@@ -138,7 +138,7 @@ const Build: React.FC<BuildProps> = ({ features, setFeatures, target, error, isL
           onClick={onShowLSTMMethodInfo}
           className="px-5 py-2 bg-gray-200 text-gray-700 font-medium rounded-md hover:bg-gray-300 transition-colors text-sm"
         >
-          构建LSTM方法
+          查看LSTM建模方法
         </button>
       </div>
     </div>

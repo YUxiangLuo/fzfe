@@ -11,11 +11,11 @@ const ModelComparison: React.FC = () => {
       <div className="space-y-2 text-gray-700 text-sm">
         <div className="flex items-start gap-3">
           <span className="font-semibold text-blue-600 min-w-[4rem]">RMSE</span>
-          <span>均方根误差，值越小表示模型预测越准确</span>
+          <span>均方根误差；在相同目标、量纲和评估区间下，值越小表示误差越低</span>
         </div>
         <div className="flex items-start gap-3">
           <span className="font-semibold text-green-600 min-w-[4rem]">MAE</span>
-          <span>平均绝对误差，值越小表示模型预测越准确</span>
+          <span>平均绝对误差；在相同目标、量纲和评估区间下，值越小表示误差越低</span>
         </div>
         <div className="flex items-start gap-3">
           <span className="font-semibold text-indigo-600 min-w-[4rem]">R²</span>

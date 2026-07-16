@@ -10,7 +10,7 @@ const NormalizationInfo: React.FC = () => {
       <div className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg border border-purple-200 shadow-sm">
         <h4 className="text-lg font-semibold text-gray-800 mb-3">为什么需要数据标准化？</h4>
         <p className="text-gray-800 leading-relaxed text-base mb-4">
-          在机器学习和深度学习中，不同特征的数值范围可能差异很大。数据标准化可以消除量纲影响，使模型训练更加稳定高效。
+          在机器学习和深度学习中，不同特征的数值范围可能差异很大。数据标准化可以减轻不同尺度对优化过程的影响，通常有助于模型训练更加稳定高效。
         </p>
         <p className="text-gray-800 leading-relaxed text-base">
           对于神经网络，合适的尺度通常有助于优化过程更稳定；但缩放不能单独保证消除梯度爆炸或梯度消失。本系统还在 Adam 中使用 clipnorm=1.0 控制梯度范数。

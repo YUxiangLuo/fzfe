@@ -18,6 +18,7 @@ const outputKeyLabels: Record<string, string> = {
   aic: 'AIC',
   aicc: 'AICc',
   alpha: '平滑系数',
+  artifact_origin: '成员产物来源',
   batch_size: '批大小',
   boost_train_size: '残差训练样本',
   boost_val_size: '残差验证样本',
@@ -44,6 +45,7 @@ const outputKeyLabels: Record<string, string> = {
   evaluate_months: '评估月份',
   evaluate_size: '评估样本数',
   evaluated_points: '评估点数',
+  evaluation_role: '独立评估结果用途',
   feature_keys: '特征字段',
   feature_types: '字段类型',
   final_loss: '最终损失',
@@ -79,6 +81,7 @@ const outputKeyLabels: Record<string, string> = {
   minimum_relative_improvement: '最小相对改善门槛',
   model_chain: '模型链',
   model_count: '成员模型数',
+  model: '模型',
   model_name: '模型',
   model_names: '基础模型顺序',
   model_spec: '模型规格',
@@ -123,19 +126,31 @@ const outputKeyLabels: Record<string, string> = {
   stage: '阶段',
   stages: '逐轮选择记录',
   stage_coefficients: '时间验证段阶段系数',
-  stage_eval: '阶段评估',
+  stage_eval: '独立评估区间阶段结果（仅报告）',
   strategy: '求解策略',
   target_key: '目标字段',
   target_shape: '标签形状',
   training_regime: '训练模式',
   train_size: '训练样本数',
+  training_residual_points: '训练期残差点数',
   teaching_small_sample: '是否为小样本教学划分',
   uncertainty_summary: '不确定性方法',
+  uncertainty_profile: '逐预测步不确定性配置',
   calibration_source: '不确定性校准数据',
+  calibration_count: '校准样本数',
+  calibration_mean_error: '校准平均误差',
+  confidence_intervals: '预测区间',
   fallback: '是否使用回退估计',
   fallback_horizons: '使用回退的预测步',
+  horizons: '逐预测步不确定性',
+  horizon_start: '起始预测步',
+  interval_lower_offset: '95%误差下偏移',
+  interval_upper_offset: '95%误差上偏移',
   reason: '原因',
+  reused_artifact: '是否复用已完成基础模型产物',
   source: '不确定性来源',
+  std_dev: '预测误差标准差',
+  upper_error_p99: '99%上侧误差',
   units: 'LSTM 隐藏单元',
   used_validation: '是否使用时间验证',
   uses_validation: '是否使用时间验证',
@@ -153,8 +168,8 @@ const outputKeyLabels: Record<string, string> = {
   window_values: '窗口数据',
   purge_windows: '隔离窗口数',
   q: '移动平均阶数 q',
-  refit_coefficients: '完整训练保留的验证系数',
-  refit_model_chain: '完整训练保留模型链',
+  refit_coefficients: '部署模型链保留的验证系数',
+  refit_model_chain: '部署模型链',
   seasonal_order: '季节阶数',
   trend: '趋势或漂移设定',
   warning: '诊断提示',
@@ -169,6 +184,8 @@ const outputValueLabels: Record<string, string> = {
   teaching_demo: '教学演示模式',
   selected: '已选中',
   early_stop: '改善不足，提前停止',
+  refit_stage: '准备部署阶段产物',
+  reporting_only: '仅用于教学展示，不参与模型链或系数选择',
   round_budget: '达到最大轮数',
   internal_validation: '内部时间验证段',
   level1_holdout: 'Level-1 时间留出段',
@@ -200,7 +217,7 @@ const outputValueLabels: Record<string, string> = {
   boosting: 'Boosting 内部验证',
   stacking: 'Stacking Level-1 留出',
   standalone_base: '复用已完成基础模型产物',
-  temporary_training: '当前流程临时重训',
+  temporary_training: '本阶段新拟合产物',
   model: '模型解析结果',
   empirical: '经验残差估计',
   fallback: '回退估计',
@@ -208,6 +225,11 @@ const outputValueLabels: Record<string, string> = {
   categorical: '类别字段',
   minmax: 'MinMax 归一化',
   zscore: 'Z-score 标准化',
+  first_difference_rms_floor: '使用一阶差分均方根下限',
+  first_difference_scale: '使用一阶差分尺度',
+  insufficient_residuals: '可用残差样本不足',
+  nonfinite_scale: '残差尺度不是有限数值',
+  missing_horizon_calibration: '该预测步缺少单独校准证据',
   'effective sample is too short for a degrees-of-freedom adjusted Ljung-Box test': '有效样本过少，无法执行自由度修正后的 Ljung–Box 检验',
   'residual variance is degenerate, so Ljung-Box is undefined': '残差方差退化，Ljung–Box 检验无定义',
   'residual autocorrelation remains at the 5% level': '在 5% 显著性水平下仍检测到残差自相关',
@@ -249,6 +271,60 @@ const formatValue = (value: unknown, key?: string): string => {
     return value ? '是' : '否';
   }
   if (Array.isArray(value)) {
+    if (key === 'horizons') {
+      return value.map((item, index) => {
+        if (!item || typeof item !== 'object' || Array.isArray(item)) {
+          return `第 ${index + 1} 步：${formatValue(item)}`;
+        }
+        const horizon = item as Record<string, unknown>;
+        const parts: string[] = [];
+        if (horizon.std_dev !== undefined) {
+          parts.push(`预测误差标准差 ${formatValue(horizon.std_dev, 'std_dev')}`);
+        }
+        if (horizon.interval_lower_offset !== undefined || horizon.interval_upper_offset !== undefined) {
+          parts.push(`95%误差偏移 [${formatValue(horizon.interval_lower_offset, 'interval_lower_offset')}, ${formatValue(horizon.interval_upper_offset, 'interval_upper_offset')}]`);
+        }
+        if (horizon.upper_error_p99 !== undefined) {
+          parts.push(`99%上侧误差 ${formatValue(horizon.upper_error_p99, 'upper_error_p99')}`);
+        }
+        if (horizon.interval_kind !== undefined) {
+          parts.push(`区间类型 ${formatValue(horizon.interval_kind, 'interval_kind')}`);
+        }
+        if (horizon.source !== undefined) {
+          parts.push(`来源 ${formatValue(horizon.source, 'source')}`);
+        }
+        if (horizon.calibration_source !== undefined) {
+          parts.push(`校准数据 ${formatValue(horizon.calibration_source, 'calibration_source')}`);
+        }
+        if (horizon.calibration_count !== undefined) {
+          parts.push(`校准样本 ${formatValue(horizon.calibration_count, 'calibration_count')}`);
+        }
+        if (horizon.calibration_mean_error !== undefined) {
+          parts.push(`校准平均误差 ${formatValue(horizon.calibration_mean_error, 'calibration_mean_error')}`);
+        }
+        if (horizon.reason !== undefined) {
+          parts.push(`说明 ${formatValue(horizon.reason, 'reason')}`);
+        }
+        const handledKeys = new Set([
+          'std_dev',
+          'interval_lower_offset',
+          'interval_upper_offset',
+          'upper_error_p99',
+          'interval_kind',
+          'source',
+          'calibration_source',
+          'calibration_count',
+          'calibration_mean_error',
+          'reason',
+        ]);
+        for (const [nestedKey, nestedValue] of Object.entries(horizon)) {
+          if (!handledKeys.has(nestedKey) && !hiddenOutputKeys.has(nestedKey)) {
+            parts.push(`${formatKey(nestedKey)} ${formatValue(nestedValue, nestedKey)}`);
+          }
+        }
+        return `第 ${index + 1} 步：${parts.join('；')}`;
+      }).join('\n');
+    }
     return value.map((item) => formatValue(item)).filter(Boolean).join('、');
   }
   if (typeof value === 'object') {
