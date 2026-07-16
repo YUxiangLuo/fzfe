@@ -38,19 +38,17 @@ describe('model introduction teaching copy', () => {
     expect(ensembleCopy).not.toContain('随时加入');
     expect(ensembleCopy).toContain("title: '贪心路径依赖'");
     expect(ensembleCopy).toContain('差分后序列的线性自相关');
-    expect(ensembleCopy).toContain('只继承MA窗口、ES α、ARIMA d与LSTM特征/数值缩放方式');
-    expect(ensembleCopy).toContain('数据量少时优先使用加权平均');
-    expect(ensembleCopy).toContain('基础模型×滚动折');
-    expect(ensembleCopy).toContain('候选模型×滚动折');
-    expect(ensembleCopy).toContain('基础模型×Level-1折');
     expect(ensembleCopy).toContain('LSTM始终不接收已知未来特征');
-    expect(ensembleCopy).not.toContain('训练阶段需要一次内部验证评估');
-    expect(weightedIntroCopy).toContain('基础模型 × 滚动折');
-    expect(weightedIntroCopy).toContain('全部有效折完成后才统一合并残差');
-    expect(boostingIntroCopy).toContain('候选模型 × 滚动折');
-    expect(boostingIntroCopy).toContain('单折结果不会单独求阶段系数 γ');
-    expect(stackingIntroCopy).toContain('基础模型 × Level-1折');
-    expect(stackingIntroCopy).toContain('全部有效折完成后才拼接完整OOF矩阵');
+    expect(ensembleCopy).toContain('保留时间留出验证选出的阶段系数');
+    expect(boostingIntroCopy).toContain('保留时间验证段选出的阶段系数');
+    expect(weightedIntroCopy).toContain('LSTM 不接收任何已知未来特征');
+    expect(stackingIntroCopy).toContain('LSTM 不接收任何已知未来特征');
+    for (const copy of [ensembleCopy, weightedIntroCopy, boostingIntroCopy, stackingIntroCopy]) {
+      expect(copy).not.toContain('最多三折');
+      expect(copy).not.toContain('OOF');
+      expect(copy).not.toContain('滚动折');
+    }
+    expect(ensembleCopy).toContain('数据量少时优先使用加权平均');
     expect(ensembleCopy).not.toContain('房价预测');
   });
 });

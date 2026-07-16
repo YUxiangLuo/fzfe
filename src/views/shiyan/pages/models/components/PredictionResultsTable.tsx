@@ -56,7 +56,6 @@ const uncertaintyReasonLabels: Record<string, string> = {
 };
 
 const calibrationSourceLabels: Record<string, string> = {
-  rolling_origin_oof: '扩展窗口滚动起点 OOF',
   internal_validation: '内部时间验证段',
   level1_holdout: 'Level-1 时间留出段',
   internal_time_validation: '内部时间验证窗口',

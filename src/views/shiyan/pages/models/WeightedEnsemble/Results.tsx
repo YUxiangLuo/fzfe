@@ -123,7 +123,7 @@ const Results: React.FC<ResultsProps> = ({
 
       <div className="p-5 bg-purple-50 rounded-lg border border-purple-200">
         <p className="text-gray-700 text-base leading-relaxed">
-          上图表展示各成员的固定权重。系统先合并最多三折扩展窗口滚动起点OOF残差，按其MSE倒数计算候选权重，再根据OOF点数向等权组合收缩；验证证据越少，收缩越强。因此高权重表示该成员在这些历史滚动起点上相对较好，不代表它在独立评估或未来一定最好。
+          上图表展示各成员的固定权重。系统先按时间顺序内部验证段的残差MSE倒数计算候选权重，再根据验证点数向等权组合收缩；验证证据越少，收缩越强。因此高权重表示该成员在这段内部验证中相对较好，不代表它在独立评估或未来一定最好。
         </p>
       </div>
     </div>
