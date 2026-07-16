@@ -49,7 +49,7 @@ const MetaModelSummary: React.FC<{ metaModel: NonNullable<NonNullable<ResultsPro
           NNLS 元模型系数（非负、未归一化）
         </p>
         <p className="mt-1 text-xs text-gray-500">
-          系数由 Level-1 时间留出预测直接学习，不要求总和为 1。
+          系数由最多三折扩展窗口 Level-1 OOF 预测合并学习，不要求总和为 1。
         </p>
         <ul className="mt-2 space-y-1">
           {modelNames.map((name, index) => (

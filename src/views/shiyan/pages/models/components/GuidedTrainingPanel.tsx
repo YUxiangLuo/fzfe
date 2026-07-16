@@ -48,6 +48,8 @@ const outputKeyLabels: Record<string, string> = {
   feature_types: '字段类型',
   final_loss: '最终损失',
   fitted_points: '拟合点数',
+  fold: '滚动折',
+  fold_count: '实际折数',
   forecast_horizon: '预测跨度',
   forecast_steps: '预测步数',
   history_end_index: '历史结束点',
@@ -79,6 +81,7 @@ const outputKeyLabels: Record<string, string> = {
   minimum_relative_improvement: '最小相对改善门槛',
   model_chain: '模型链',
   model_count: '成员模型数',
+  model: '基础模型',
   model_name: '模型',
   model_names: '基础模型顺序',
   model_spec: '模型规格',
@@ -116,13 +119,14 @@ const outputKeyLabels: Record<string, string> = {
   selection_coefficients: '验证阶段系数',
   selection_model_chain: '验证选出的模型链',
   split_plan: '时间拆分方案',
+  skipped: '是否跳过',
   stop_reason: '停止原因',
   saved_model: '模型产物',
   std_dev_residuals: '残差波动',
   stage_count: '阶段数',
   stage: '阶段',
   stages: '逐轮选择记录',
-  stage_coefficients: '完整训练重估系数',
+  stage_coefficients: '滚动 OOF 阶段系数',
   stage_eval: '阶段评估',
   strategy: '求解策略',
   target_key: '目标字段',
@@ -153,7 +157,7 @@ const outputKeyLabels: Record<string, string> = {
   window_values: '窗口数据',
   purge_windows: '隔离窗口数',
   q: '移动平均阶数 q',
-  refit_coefficients: '完整训练重估系数',
+  refit_coefficients: '完整训练保留的 OOF 系数',
   refit_model_chain: '完整训练保留模型链',
   seasonal_order: '季节阶数',
   trend: '趋势或漂移设定',
@@ -171,6 +175,7 @@ const outputValueLabels: Record<string, string> = {
   early_stop: '改善不足，提前停止',
   round_budget: '达到最大轮数',
   internal_validation: '内部时间验证段',
+  rolling_origin_oof: '扩展窗口滚动起点 OOF',
   level1_holdout: 'Level-1 时间留出段',
   internal_time_validation: '内部时间验证窗口',
   training_rolling_origin: '训练段 rolling-origin 回测',
@@ -196,9 +201,9 @@ const outputValueLabels: Record<string, string> = {
   validation_residual_rmse: '验证段残差 RMSE',
   nnls: '非负最小二乘（NNLS）',
   nonnegative_least_squares: '非负最小二乘',
-  weighted: '加权平均内部验证',
-  boosting: 'Boosting 内部验证',
-  stacking: 'Stacking Level-1 留出',
+  weighted: '加权平均滚动起点 OOF',
+  boosting: 'Boosting 滚动起点 OOF',
+  stacking: 'Stacking 滚动起点 OOF',
   standalone_base: '复用已完成基础模型产物',
   temporary_training: '当前流程临时重训',
   model: '模型解析结果',
@@ -272,20 +277,178 @@ const outputRows = (output: unknown) => {
     .filter((row) => row.value.length > 0);
 };
 
+type FoldStepKind = 'weighted' | 'stacking' | 'boosting';
+
+interface FoldStepMetadata {
+  kind: FoldStepKind;
+  fold: number;
+  round?: number;
+}
+
+interface StepDisplayGroup {
+  id: string;
+  kind: 'fold' | 'round';
+  label: string;
+  description: string;
+  steps: GuidedTrainingStep[];
+}
+
+type StepDisplayItem =
+  | { kind: 'step'; step: GuidedTrainingStep }
+  | { kind: 'group'; group: StepDisplayGroup };
+
+const getOutputRecord = (step: GuidedTrainingStep): Record<string, unknown> | null => (
+  step.output && typeof step.output === 'object' && !Array.isArray(step.output)
+    ? step.output as Record<string, unknown>
+    : null
+);
+
+const isSkippedStep = (step: GuidedTrainingStep) => getOutputRecord(step)?.skipped === true;
+
+const parseFoldStep = (stepId: string): FoldStepMetadata | null => {
+  const weighted = stepId.match(/^validation_prediction_fold_(\d+)_(?:ma|es|arima|lstm)$/);
+  if (weighted) return { kind: 'weighted', fold: Number(weighted[1]) };
+
+  const stacking = stepId.match(/^level1_prediction_fold_(\d+)_(?:ma|es|arima|lstm)$/);
+  if (stacking) return { kind: 'stacking', fold: Number(stacking[1]) };
+
+  const boosting = stepId.match(/^round_(\d+)_evaluate_fold_(\d+)_(?:ma|es|arima|lstm)$/);
+  if (boosting) {
+    return {
+      kind: 'boosting',
+      round: Number(boosting[1]),
+      fold: Number(boosting[2]),
+    };
+  }
+  return null;
+};
+
+const foldGroupCopy = (metadata: FoldStepMetadata) => {
+  if (metadata.kind === 'weighted') {
+    return {
+      label: `权重 OOF · 第 ${metadata.fold} 折`,
+      description: '本折按基础模型逐个拟合历史前缀并预测留出段；全部有效折完成后才统一计算融合权重。',
+    };
+  }
+  if (metadata.kind === 'stacking') {
+    return {
+      label: `Level-1 OOF · 第 ${metadata.fold} 折`,
+      description: '本折按基础模型逐个生成 Level-1 特征；全部有效折完成后才合并矩阵并拟合 NNLS 元模型。',
+    };
+  }
+  return {
+    label: `第 ${metadata.fold} 折候选`,
+    description: '本折按候选模型逐个拟合当前残差；本轮全部有效折完成后才统一求阶段系数并选择胜出模型。',
+  };
+};
+
+const buildFoldStepItems = (steps: GuidedTrainingStep[]): StepDisplayItem[] => {
+  const handled = new Set<string>();
+  const items: StepDisplayItem[] = [];
+
+  for (const step of steps) {
+    if (handled.has(step.id)) continue;
+    const metadata = parseFoldStep(step.id);
+    if (!metadata) {
+      items.push({ kind: 'step', step });
+      continue;
+    }
+
+    const groupedSteps = steps.filter((candidate) => {
+      const candidateMetadata = parseFoldStep(candidate.id);
+      return candidateMetadata?.kind === metadata.kind
+        && candidateMetadata.fold === metadata.fold
+        && candidateMetadata.round === metadata.round;
+    });
+    groupedSteps.forEach((candidate) => handled.add(candidate.id));
+    const copy = foldGroupCopy(metadata);
+    items.push({
+      kind: 'group',
+      group: {
+        id: `${metadata.kind}-round-${metadata.round ?? 0}-fold-${metadata.fold}`,
+        kind: 'fold',
+        label: copy.label,
+        description: copy.description,
+        steps: groupedSteps,
+      },
+    });
+  }
+  return items;
+};
+
+const buildStepDisplayItems = (session: GuidedTrainingSession): StepDisplayItem[] => {
+  if (session.model_type !== 'boosting') {
+    return buildFoldStepItems(session.steps);
+  }
+
+  const handled = new Set<string>();
+  const items: StepDisplayItem[] = [];
+  for (const step of session.steps) {
+    if (handled.has(step.id)) continue;
+    const roundMatch = step.id.match(/^round_(\d+)_/);
+    if (!roundMatch) {
+      items.push({ kind: 'step', step });
+      continue;
+    }
+
+    const round = Number(roundMatch[1]);
+    const roundSteps = session.steps.filter((candidate) => candidate.id.startsWith(`round_${round}_`));
+    roundSteps.forEach((candidate) => handled.add(candidate.id));
+    items.push({
+      kind: 'group',
+      group: {
+        id: `boosting-round-${round}`,
+        kind: 'round',
+        label: `第 ${round} 轮：候选评估与选择`,
+        description: '候选先按滚动折分别执行并保存检查点；所有有效折完成后，系统汇总 OOF 残差、计算非负阶段系数并选择本轮胜出模型。',
+        steps: roundSteps,
+      },
+    });
+  }
+  return items;
+};
+
+const getGroupStatus = (steps: GuidedTrainingStep[]): GuidedTrainingStep['status'] => {
+  if (steps.some((step) => step.status === 'failed')) return 'failed';
+  if (steps.some((step) => step.status === 'active')) return 'active';
+  if (steps.every((step) => step.status === 'completed')) return 'completed';
+  if (steps.some((step) => step.status === 'completed')) return 'active';
+  return 'pending';
+};
+
+const statusLabel = (status: GuidedTrainingStep['status'], skipped = false) => {
+  if (skipped) return '已跳过';
+  if (status === 'completed') return '已完成';
+  if (status === 'active') return '当前阶段';
+  if (status === 'failed') return '失败';
+  return '未开始';
+};
+
+const statusBadgeClass = (status: GuidedTrainingStep['status'], skipped = false) => {
+  if (skipped) return 'bg-gray-100 text-gray-600';
+  if (status === 'completed') return 'bg-green-100 text-green-700';
+  if (status === 'active') return 'bg-blue-100 text-blue-700';
+  if (status === 'failed') return 'bg-red-100 text-red-700';
+  return 'bg-gray-100 text-gray-600';
+};
+
 const StepMarker: React.FC<{ step: GuidedTrainingStep; isLoading: boolean }> = ({ step, isLoading }) => {
-  const markerClass = step.status === 'completed'
-    ? 'bg-green-100 text-green-700'
-    : step.status === 'active'
-      ? 'bg-blue-600 text-white ring-4 ring-blue-100'
-      : step.status === 'failed'
-        ? 'bg-red-100 text-red-700'
-        : 'bg-gray-100 text-gray-400';
+  const skipped = isSkippedStep(step);
+  const markerClass = skipped
+    ? 'bg-gray-100 text-gray-500'
+    : step.status === 'completed'
+      ? 'bg-green-100 text-green-700'
+      : step.status === 'active'
+        ? 'bg-blue-600 text-white ring-4 ring-blue-100'
+        : step.status === 'failed'
+          ? 'bg-red-100 text-red-700'
+          : 'bg-gray-100 text-gray-400';
 
   return (
     <div className={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${markerClass}`}>
       {isLoading && step.status === 'active' ? (
         <Loader2 className="h-4 w-4 animate-spin" />
-      ) : step.status === 'completed' ? (
+      ) : step.status === 'completed' && !skipped ? (
         <CheckCircle2 className="h-4 w-4" />
       ) : step.status === 'failed' ? (
         <AlertCircle className="h-4 w-4" />
@@ -293,6 +456,112 @@ const StepMarker: React.FC<{ step: GuidedTrainingStep; isLoading: boolean }> = (
         <Circle className="h-4 w-4" />
       )}
     </div>
+  );
+};
+
+const StepCard: React.FC<{ step: GuidedTrainingStep; isLoading: boolean; nested?: boolean }> = ({
+  step,
+  isLoading,
+  nested = false,
+}) => {
+  const rows = outputRows(step.output);
+  const skipped = isSkippedStep(step);
+  return (
+    <div
+      data-testid={`guided-training-step-${step.id}`}
+      className={`rounded-lg border p-4 ${nested ? 'border-gray-100 bg-white' : 'border-gray-200 bg-white shadow-sm'} ${skipped ? 'opacity-80' : ''}`}
+    >
+      <div className="flex gap-3">
+        <StepMarker step={step} isLoading={isLoading} />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-gray-900">{step.label}</p>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusBadgeClass(step.status, skipped)}`}>
+              {statusLabel(step.status, skipped)}
+            </span>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-gray-600">{step.description}</p>
+          {skipped && (
+            <p className="mt-2 text-xs leading-5 text-gray-500">
+              当前数据只生成了较少的有效滚动折，本预留折无需训练，且不参与后续汇总。
+            </p>
+          )}
+          {rows.length > 0 && (
+            <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+              {rows.map((row) => (
+                <div key={row.key} className="rounded-md bg-gray-50 px-3 py-2">
+                  <dt className="text-xs font-semibold text-gray-500">{row.label}</dt>
+                  <dd className="mt-1 whitespace-pre-wrap break-words text-gray-800">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const StepGroupCard: React.FC<{
+  group: StepDisplayGroup;
+  isLoading: boolean;
+  activeStepId: string | null;
+  nested?: boolean;
+}> = ({ group, isLoading, activeStepId, nested = false }) => {
+  const derivedStatus = getGroupStatus(group.steps);
+  const containsCurrentStep = group.steps.some((step) => step.id === activeStepId);
+  const status = derivedStatus === 'pending' && containsCurrentStep ? 'active' : derivedStatus;
+  const completedCount = group.steps.filter((step) => step.status === 'completed').length;
+  const skippedCount = group.steps.filter(isSkippedStep).length;
+  const shouldOpen = group.steps.some((step) => (
+    step.id === activeStepId || step.status === 'active' || step.status === 'failed'
+  ));
+  const childItems = group.kind === 'round'
+    ? buildFoldStepItems(group.steps)
+    : group.steps.map<StepDisplayItem>((step) => ({ kind: 'step', step }));
+
+  return (
+    <details
+      data-testid={`guided-training-group-${group.id}`}
+      open={shouldOpen}
+      className={`rounded-lg border bg-white ${nested ? 'border-gray-200' : 'border-purple-200 shadow-sm'}`}
+    >
+      <summary className="group flex cursor-pointer list-none items-start gap-3 p-4 marker:content-none">
+        <div className={`mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${status === 'completed' ? 'bg-green-100 text-green-700' : status === 'active' ? 'bg-blue-100 text-blue-700' : status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
+          {status === 'completed' ? <CheckCircle2 className="h-4 w-4" /> : status === 'failed' ? <AlertCircle className="h-4 w-4" /> : <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-gray-900">{group.label}</p>
+            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
+              {completedCount}/{group.steps.length} 个步骤
+            </span>
+            {skippedCount > 0 && (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
+                已跳过 {skippedCount} 个
+              </span>
+            )}
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusBadgeClass(status)}`}>
+              {statusLabel(status)}
+            </span>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-gray-600">{group.description}</p>
+        </div>
+      </summary>
+      <div className="space-y-3 border-t border-gray-100 bg-gray-50/70 p-3 sm:p-4">
+        {childItems.map((item) => item.kind === 'step' ? (
+          <StepCard key={item.step.id} step={item.step} isLoading={isLoading} nested />
+        ) : (
+          <StepGroupCard
+            key={item.group.id}
+            group={item.group}
+            isLoading={isLoading}
+            activeStepId={activeStepId}
+            nested
+          />
+        ))}
+      </div>
+    </details>
   );
 };
 
@@ -309,6 +578,14 @@ const GuidedTrainingPanel: React.FC<GuidedTrainingPanelProps> = ({
     () => session?.steps.find((step) => step.id === session.next_step_id)
       ?? session?.steps.find((step) => step.status === 'active')
       ?? null,
+    [session],
+  );
+  const displayItems = useMemo(
+    () => session ? buildStepDisplayItems(session) : [],
+    [session],
+  );
+  const hasFoldCheckpoints = useMemo(
+    () => session?.steps.some((step) => parseFoldStep(step.id) !== null) ?? false,
     [session],
   );
 
@@ -362,44 +639,30 @@ const GuidedTrainingPanel: React.FC<GuidedTrainingPanelProps> = ({
         )}
       </div>
 
+      {session && hasFoldCheckpoints && (
+        <div
+          data-testid="fold-checkpoint-explanation"
+          className="rounded-lg border border-purple-200 bg-purple-50 p-4 text-sm leading-6 text-purple-950"
+        >
+          <span className="font-semibold">滚动折检查点：</span>
+          每个基础模型会在每个有效滚动折上单独执行并保存结果。单折输出不代表最终权重、元模型系数或 Boosting
+          阶段系数；系统会在该组全部有效折完成后统一汇总。流程最多预留三折，样本不足时多余步骤会标记为“已跳过”。
+        </div>
+      )}
+
       {session && (
-        <ol className="space-y-3">
-          {session.steps.map((step) => {
-            const rows = outputRows(step.output);
-            return (
-              <li key={step.id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="flex gap-3">
-                  <StepMarker step={step} isLoading={isLoading} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-gray-900">{step.label}</p>
-                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
-                        {step.status === 'completed'
-                          ? '已完成'
-                          : step.status === 'active'
-                            ? '当前阶段'
-                            : step.status === 'failed'
-                              ? '失败'
-                              : '未开始'}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm leading-6 text-gray-600">{step.description}</p>
-                    {rows.length > 0 && (
-                      <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-                        {rows.map((row) => (
-                          <div key={row.key} className="rounded-md bg-gray-50 px-3 py-2">
-                            <dt className="text-xs font-semibold text-gray-500">{row.label}</dt>
-                            <dd className="mt-1 whitespace-pre-wrap break-words text-gray-800">{row.value}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    )}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ol>
+        <div className="space-y-3">
+          {displayItems.map((item) => item.kind === 'step' ? (
+            <StepCard key={item.step.id} step={item.step} isLoading={isLoading} />
+          ) : (
+            <StepGroupCard
+              key={item.group.id}
+              group={item.group}
+              isLoading={isLoading}
+              activeStepId={activeStep?.id ?? null}
+            />
+          ))}
+        </div>
       )}
     </div>
   );

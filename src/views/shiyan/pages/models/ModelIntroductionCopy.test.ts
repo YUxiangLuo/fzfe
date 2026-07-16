@@ -5,6 +5,9 @@ import { readFileSync } from 'node:fs';
 
 const baseCopy = readFileSync(new URL('./ModelIntroductionFlow.tsx', import.meta.url), 'utf8');
 const ensembleCopy = readFileSync(new URL('./EnsembleModelIntroductionFlow.tsx', import.meta.url), 'utf8');
+const weightedIntroCopy = readFileSync(new URL('./WeightedEnsemble/Intro.tsx', import.meta.url), 'utf8');
+const boostingIntroCopy = readFileSync(new URL('./BoostingEnsemble/Intro.tsx', import.meta.url), 'utf8');
+const stackingIntroCopy = readFileSync(new URL('./StackingEnsemble/Intro.tsx', import.meta.url), 'utf8');
 
 describe('model introduction teaching copy', () => {
   it('describes MA and SES without off-by-one or level/forecast ambiguity', () => {
@@ -37,6 +40,17 @@ describe('model introduction teaching copy', () => {
     expect(ensembleCopy).toContain('差分后序列的线性自相关');
     expect(ensembleCopy).toContain('只继承MA窗口、ES α、ARIMA d与LSTM特征/数值缩放方式');
     expect(ensembleCopy).toContain('数据量少时优先使用加权平均');
+    expect(ensembleCopy).toContain('基础模型×滚动折');
+    expect(ensembleCopy).toContain('候选模型×滚动折');
+    expect(ensembleCopy).toContain('基础模型×Level-1折');
+    expect(ensembleCopy).toContain('LSTM始终不接收已知未来特征');
+    expect(ensembleCopy).not.toContain('训练阶段需要一次内部验证评估');
+    expect(weightedIntroCopy).toContain('基础模型 × 滚动折');
+    expect(weightedIntroCopy).toContain('全部有效折完成后才统一合并残差');
+    expect(boostingIntroCopy).toContain('候选模型 × 滚动折');
+    expect(boostingIntroCopy).toContain('单折结果不会单独求阶段系数 γ');
+    expect(stackingIntroCopy).toContain('基础模型 × Level-1折');
+    expect(stackingIntroCopy).toContain('全部有效折完成后才拼接完整OOF矩阵');
     expect(ensembleCopy).not.toContain('房价预测');
   });
 });

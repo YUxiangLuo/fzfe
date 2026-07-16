@@ -25,7 +25,7 @@ const Intro: React.FC = () => {
         <div className="space-y-3 text-gray-800 leading-relaxed text-base">
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>
-            <p className="pt-0.5">动态留出时间验证段，让全部候选拟合原始销量；每个候选通过非负平方损失线搜索求阶段系数，再比较验证残差RMSE。</p>
+            <p className="pt-0.5">生成最多三折扩展窗口滚动起点验证，让全部候选逐折拟合原始销量；每个候选通过合并OOF平方损失的非负线搜索求阶段系数，再比较合并残差RMSE。</p>
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">2</span>
@@ -45,7 +45,7 @@ const Intro: React.FC = () => {
           </div>
           <div className="flex gap-3">
             <span className="flex-shrink-0 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">6</span>
-            <p className="pt-0.5">在完整训练区间重训：第一阶段销量输出截断为非负，后续有符号残差输出不截断；累加后最终物理销量再截断为不小于0。</p>
+            <p className="pt-0.5">在完整训练区间重训基础学习器并保留OOF选出的阶段系数：第一阶段销量输出截断为非负，后续有符号残差输出不截断；累加后最终物理销量再截断为不小于0。</p>
           </div>
         </div>
       </div>
@@ -68,16 +68,19 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base mb-3">
-          页面中的 Boosting 指残差提升融合，不是 AdaBoost。短验证段要求至少5%相对改善，其余要求1%；同一验证段反复用于贪心选择仍可能产生选择过拟合。选定链在完整训练段逐级重训并重新估计非负系数；若某级最优系数变为0，该级及后续验证候选链会被裁剪。
+          页面中的 Boosting 指残差提升融合，不是 AdaBoost。短OOF校准样本要求至少5%相对改善，其余要求1%；有限的滚动起点样本反复用于贪心选择仍可能产生选择过拟合。选定链在完整训练段逐级重训基础学习器，但部署阶段系数保持为OOF线搜索结果，不用乐观的全量样本内拟合重新估计或裁剪模型链。
         </p>
         <p className="text-gray-700 leading-relaxed text-base mb-3">
-          候选只继承用户选择的 MA 窗口、ES α、ARIMA d 及 LSTM 特征/归一化；ARIMA 阶数与 LSTM 隐藏配置针对每轮当前目标和数据段重算。第一轮目标是销量，后续轮次拟合有符号残差并保留负修正。
+          引导训练在每一轮把每个“候选模型 × 滚动折”拆成独立检查点，便于控制单步耗时并只重试失败任务。单折结果不会单独求阶段系数 γ；本轮全部有效折完成后，系统才汇总OOF残差、统一线搜索并选择胜出模型。预留但不存在的折会标记为已跳过。
+        </p>
+        <p className="text-gray-700 leading-relaxed text-base mb-3">
+          候选只继承用户选择的 MA 窗口、ES α、ARIMA d 及 LSTM 历史特征/归一化；ARIMA 阶数与 LSTM 隐藏配置针对每轮、每折当前目标和历史前缀重算，LSTM 不接收已知未来特征。第一轮目标是销量，后续轮次拟合有符号残差并保留负修正。
         </p>
         <p className="text-gray-700 leading-relaxed text-base">
           更新训练段残差时，序列开头尚无样本内拟合值的位置按“零修正”处理，即保留原残差。例如 MA 必须先凑满完整窗口，LSTM 必须先凑满 look_back；系统不会为这些位置临时改用较短窗口或读取未来值。
         </p>
         <p className="mt-3 text-gray-700 leading-relaxed text-base">
-          最终不确定性仅用内部时间验证段的组合残差校准各阶段逐 horizon 增长形状；独立评估区间的真实值只用于误差指标，不参与不确定性校准。
+          最终不确定性仅用滚动起点OOF组合残差校准各阶段逐 horizon 增长形状；独立评估区间的真实值只用于误差指标，不参与不确定性校准。
         </p>
       </div>
     </div>
