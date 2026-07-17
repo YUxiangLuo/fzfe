@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, Pagination } from 'swiper/modules';
+import { A11y, Navigation, Pagination } from 'swiper/modules';
 import type { Swiper as SwiperType } from 'swiper';
 import 'swiper/css';
 import 'swiper/css/navigation';
@@ -73,9 +73,11 @@ const ScenarioIntroduction: React.FC = () => {
   const navigate = useNavigate();
   const [hasViewedAll, setHasViewedAll] = useState(false);
   const [viewedSlides, setViewedSlides] = useState<Set<number>>(new Set([0]));
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
 
   const handleSlideChange = (swiper: SwiperType) => {
     const currentIndex = swiper.realIndex;
+    setActiveSlideIndex(currentIndex);
 
     // 记录已访问的教学页索引
     setViewedSlides((prev) => {
@@ -111,7 +113,18 @@ const ScenarioIntroduction: React.FC = () => {
         {/* 轮播容器：宽度100%，高度为宽度的9/16，但不超过父容器高度 */}
         <div className="relative w-full max-h-full" style={{ aspectRatio: '16/9' }}>
           <Swiper
-            modules={[Navigation, Pagination]}
+            modules={[A11y, Navigation, Pagination]}
+            a11y={{
+              enabled: true,
+              containerRole: 'region',
+              containerMessage: '模型实验情境介绍',
+              containerRoleDescriptionMessage: '教学内容轮播',
+              itemRoleDescriptionMessage: '教学页',
+              slideLabelMessage: '第 {{index}} 页，共 {{slidesLength}} 页',
+              prevSlideMessage: '上一教学页',
+              nextSlideMessage: '下一教学页',
+              paginationBulletMessage: '转到第 {{index}} 教学页',
+            }}
             navigation={{
               prevEl: '.swiper-button-prev-custom',
               nextEl: '.swiper-button-next-custom',
@@ -125,8 +138,11 @@ const ScenarioIntroduction: React.FC = () => {
             onSlideChange={handleSlideChange}
             className="h-full w-full rounded-lg"
           >
-            {scenarioSlides.map((slide) => (
-              <SwiperSlide key={slide.title}>
+            {scenarioSlides.map((slide, slideIndex) => (
+              <SwiperSlide
+                key={slide.title}
+                aria-hidden={activeSlideIndex !== slideIndex}
+              >
                 <div className={`h-full overflow-y-auto bg-gradient-to-br ${slide.accent} px-10 py-5 sm:px-14 sm:py-5`}>
                   <div className="mx-auto flex min-h-full max-w-5xl flex-col justify-center">
                     <span className={`w-fit rounded-full px-3 py-1 text-sm font-semibold ${slide.badge}`}>
@@ -157,6 +173,7 @@ const ScenarioIntroduction: React.FC = () => {
 
             {/* 左侧切换按钮 */}
             <button
+              type="button"
               className="swiper-button-prev-custom absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-10"
               aria-label="上一教学页"
             >
@@ -165,6 +182,7 @@ const ScenarioIntroduction: React.FC = () => {
 
             {/* 右侧切换按钮 */}
             <button
+              type="button"
               className="swiper-button-next-custom absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 hover:bg-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-10"
               aria-label="下一教学页"
             >
@@ -172,7 +190,11 @@ const ScenarioIntroduction: React.FC = () => {
             </button>
 
             {/* 底部分页器 */}
-            <div className="swiper-pagination-custom absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10"></div>
+            <div
+              className="swiper-pagination-custom absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2 z-10"
+              role="group"
+              aria-label="选择教学页"
+            ></div>
           </Swiper>
         </div>
       </div>
@@ -181,6 +203,7 @@ const ScenarioIntroduction: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-shrink-0">
         <div className="flex justify-between items-center">
           <button
+            type="button"
             onClick={handlePrevious}
             className="flex items-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium"
           >
@@ -190,6 +213,7 @@ const ScenarioIntroduction: React.FC = () => {
 
           <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={handleNext}
               disabled={!hasViewedAll}
               className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors font-medium ${
