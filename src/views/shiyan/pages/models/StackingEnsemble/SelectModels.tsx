@@ -10,6 +10,10 @@ export interface SelectModelsProps {
 
 const SelectModels: React.FC<SelectModelsProps> = ({ selectedModels, setSelectedModels, error }) => {
   const { state } = useExperiment();
+  const trainingPoints = state.data_window_train_start_index !== null
+    && state.data_window_train_end_index !== null
+    ? state.data_window_train_end_index - state.data_window_train_start_index + 1
+    : null;
 
   const completedModels = [
     { id: 'moving_average', name: '移动平均法', completed: state.moving_average_completed },
@@ -31,6 +35,10 @@ const SelectModels: React.FC<SelectModelsProps> = ({ selectedModels, setSelected
         <h3 className="text-2xl font-bold text-gray-800 mb-3">Stacking 融合 - 选择基础模型</h3>
         <p className="text-gray-600 text-base leading-relaxed">
           请选择进行融合预测的模型（至少选择两个基础模型）。
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-teal-700">
+          点击“下一步”时，系统会先用当前{trainingPoints === null ? '' : ` ${trainingPoints} 个点的`}
+          训练窗口校验 Level-0/Level-1 时间划分；若无法同时训练全部成员，将留在本页提示扩大训练窗口或减少模型/历史特征。
         </p>
       </div>
 

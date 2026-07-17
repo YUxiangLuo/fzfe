@@ -9,6 +9,7 @@ import { MODEL_RETRY_LIMITS } from '../constants';
 import { useAutoCalculation } from '../hooks/useAutoCalculation';
 import { useEnsembleModel } from '../hooks/useEnsembleModel';
 import RetryExceededFallback from '../components/RetryExceededFallback';
+import { ensureStackingPreflight } from './stackingPreflight';
 
 const MODEL_NAME = 'Stacking 融合';
 const BASE_PATH = '/model/stacking-ensemble';
@@ -91,6 +92,11 @@ const StackingEnsembleStepper: React.FC = () => {
     const nextStepIndex = currentStepIndex + 1;
 
     if (currentStep?.id === 'select-models') {
+      const preflightSucceeded = await ensureStackingPreflight(
+        guidedSession,
+        runNextGuidedStep,
+      );
+      if (!preflightSucceeded) return;
       const nextStep = STEPS[nextStepIndex];
       if (nextStep) navigate(nextStep.path);
       return;
@@ -178,8 +184,16 @@ const StackingEnsembleStepper: React.FC = () => {
       currentStepId={getCurrentStepId()}
       onNext={handleNext}
       onPrevious={handlePrevious}
-      isPreviousDisabled={isLoading || retryCount >= MODEL_RETRY_LIMITS.maxFailures}
-      isNextDisabled={isLoading || !!error || (currentStep.id==="select-models"&&!(selectedModels.length>1)) || (currentStep.id === 'results' && !results)}
+      isPreviousDisabled={
+        isLoading
+        || (currentStep.id === 'results' && retryCount >= MODEL_RETRY_LIMITS.maxFailures)
+      }
+      isNextDisabled={
+        isLoading
+        || (currentStep.id !== 'select-models' && !!error)
+        || (currentStep.id === 'select-models' && selectedModels.length <= 1)
+        || (currentStep.id === 'results' && !results)
+      }
       nextButtonText={
         currentStep?.id === 'model-metrics-comparison' ? '完成' : '下一步'
       }

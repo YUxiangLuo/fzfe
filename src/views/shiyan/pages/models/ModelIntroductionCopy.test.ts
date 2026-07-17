@@ -4,6 +4,7 @@ import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 
 const baseCopy = readFileSync(new URL('./ModelIntroductionFlow.tsx', import.meta.url), 'utf8');
+const arimaIntroCopy = readFileSync(new URL('./ARIMA/Intro.tsx', import.meta.url), 'utf8');
 const ensembleCopy = readFileSync(new URL('./EnsembleModelIntroductionFlow.tsx', import.meta.url), 'utf8');
 const weightedIntroCopy = readFileSync(new URL('./WeightedEnsemble/Intro.tsx', import.meta.url), 'utf8');
 const boostingIntroCopy = readFileSync(new URL('./BoostingEnsemble/Intro.tsx', import.meta.url), 'utf8');
@@ -14,6 +15,8 @@ const lstmIndexCopy = readFileSync(new URL('./LSTM/index.tsx', import.meta.url),
 const lstmBuildCopy = readFileSync(new URL('./LSTM/Build.tsx', import.meta.url), 'utf8');
 const scenarioCopy = readFileSync(new URL('./ScenarioIntroduction.tsx', import.meta.url), 'utf8');
 const resultEvaluationCopy = readFileSync(new URL('../ResultEvaluation.tsx', import.meta.url), 'utf8');
+const trainingProgressCopy = readFileSync(new URL('./components/modelTrainingProgress.ts', import.meta.url), 'utf8');
+const predictionResultsCopy = readFileSync(new URL('./components/PredictionResultsTable.tsx', import.meta.url), 'utf8');
 
 describe('model introduction teaching copy', () => {
   it('describes MA and SES without off-by-one or level/forecast ambiguity', () => {
@@ -47,6 +50,20 @@ describe('model introduction teaching copy', () => {
     expect(baseCopy).not.toContain('面向评估区间直接输出未来多期销量');
     expect(baseCopy).toContain("{ symbol: 'σ'");
     expect(baseCopy).toContain("{ symbol: 'B'");
+  });
+
+  it('keeps ARIMA demand-interval copy aligned with the nonnegative output contract', () => {
+    const arimaCopies = [baseCopy, arimaIntroCopy, trainingProgressCopy, predictionResultsCopy];
+    expect(baseCopy).toContain('上下分位数按max(0, 分位数值)映射为非负');
+    expect(arimaIntroCopy).toContain('95% 区间上下分位数均按 max(0, 分位数值) 映射为非负');
+    expect(trainingProgressCopy).toContain('点预测与95%区间分位数映射为非负');
+    expect(predictionResultsCopy).toContain('经过非负销量域分位数映射后的区间');
+    for (const copy of arimaCopies) {
+      expect(copy).not.toContain('95%预测区间仍来自未截断');
+      expect(copy).not.toContain('95%区间仍来自未截断');
+      expect(copy).not.toContain('保留原始ARIMA分布的95%区间宽度');
+      expect(copy).not.toContain('区间并未改造成截断分布');
+    }
   });
 
   it('matches weighted, boosting, and stacking copy to the implemented protocols', () => {

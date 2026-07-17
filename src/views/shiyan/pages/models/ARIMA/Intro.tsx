@@ -76,7 +76,7 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base">
-          ARIMA 的教科书流程通常结合平稳性检验、ACF/PACF、信息准则和残差诊断。本系统实现非季节 ARIMA：用户固定 d，系统按差分后有效样本量限制 p/q，并执行一次 AICc stepwise 搜索。stepwise 不穷举全部组合。优胜模型必须收敛；零创新的确定性随机游走/漂移边界会被明确标注。原始销量点预测按 max(0, ŷ) 截断；95%区间仍来自未截断的 ARIMA 分布。
+          ARIMA 的教科书流程通常结合平稳性检验、ACF/PACF、信息准则和残差诊断。本系统实现非季节 ARIMA：用户固定 d，系统按差分后有效样本量限制 p/q，并执行一次 AICc stepwise 搜索。stepwise 不穷举全部组合。优胜模型必须收敛；零创新的确定性随机游走/漂移边界会被明确标注。原始销量点预测与 95% 区间上下分位数均按 max(0, 分位数值) 映射为非负；std_dev 与 99% 上侧误差仍来自未截断的 ARIMA 预测分布。
         </p>
       </div>
     </div>

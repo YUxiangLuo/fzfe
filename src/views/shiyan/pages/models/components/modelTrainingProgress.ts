@@ -92,7 +92,7 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
       { label: '残差诊断', description: '记录自由度修正的Ljung–Box白噪声检验。', weight: 0.8 },
       ...BASE_FINAL_STEPS,
     ],
-    tip: '点预测截断为非负；95%区间仍来自未截断的ARIMA分布。模型不包含季节项。',
+    tip: '点预测与95%区间分位数映射为非负；std_dev和99%上侧误差仍来自未截断的ARIMA分布。模型不包含季节项。',
   },
   lstm: {
     title: 'LSTM 模型训练中',

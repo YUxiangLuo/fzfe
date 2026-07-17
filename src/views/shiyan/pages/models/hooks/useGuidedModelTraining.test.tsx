@@ -60,6 +60,7 @@ const Harness = async () => {
   const { useGuidedModelTraining } = await import('./useGuidedModelTraining');
 
   const Component: React.FC = () => {
+    const [lastRunSucceeded, setLastRunSucceeded] = React.useState<string>('');
     const guidedTraining = useGuidedModelTraining({
       modelType: 'ma',
       buildRequestBody: () => ({
@@ -81,6 +82,7 @@ const Harness = async () => {
         <div data-testid="error">{guidedTraining.error ?? ''}</div>
         <div data-testid="retry-count">{String(guidedTraining.retryCount)}</div>
         <div data-testid="session-status">{guidedTraining.session?.status ?? ''}</div>
+        <div data-testid="last-run-succeeded">{lastRunSucceeded}</div>
         <button
           type="button"
           onClick={() => {
@@ -91,8 +93,8 @@ const Harness = async () => {
         </button>
         <button
           type="button"
-          onClick={() => {
-            void guidedTraining.runNextStep();
+          onClick={async () => {
+            setLastRunSucceeded(String(await guidedTraining.runNextStep()));
           }}
         >
           run
@@ -148,6 +150,7 @@ describe('useGuidedModelTraining', () => {
     fireEvent.click(view.getByRole('button', { name: 'run' }));
 
     await waitFor(() => expect(view!.getByTestId('error').textContent).toBe('step failed'));
+    expect(view.getByTestId('last-run-succeeded').textContent).toBe('false');
     expect(view.getByTestId('retry-count').textContent).toBe('1');
 
     fireEvent.click(view.getByRole('button', { name: 'retry' }));
@@ -156,6 +159,19 @@ describe('useGuidedModelTraining', () => {
     await waitFor(() => expect(view!.getByTestId('session-status').textContent).toBe('completed'));
     expect(view.getByTestId('error').textContent).toBe('');
     expect(view.getByTestId('retry-count').textContent).toBe('0');
+  });
+
+  it('reports a successful guided step so callers can gate navigation', async () => {
+    const Component = await Harness();
+    view = render(<Component />);
+
+    fireEvent.click(view.getByRole('button', { name: 'run' }));
+
+    await waitFor(() =>
+      expect(view!.getByTestId('last-run-succeeded').textContent).toBe('true'),
+    );
+    expect(view.getByTestId('session-status').textContent).toBe('completed');
+    expect(view.getByTestId('error').textContent).toBe('');
   });
 
   it('does not count backend busy responses toward the retry limit', async () => {

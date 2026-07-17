@@ -64,7 +64,7 @@ describe('prediction accuracy presentation', () => {
     expect(view.getByText('70% ≤ x < 85%')).toBeDefined();
     expect(view.getByText('60% ≤ x < 70%')).toBeDefined();
     expect(view.getAllByText('未提供').length).toBeGreaterThanOrEqual(3);
-    expect(view.getByText(/ARIMA 展示模型原生的名义 95% 预测区间/)).toBeDefined();
+    expect(view.getByText(/ARIMA 展示由模型原生名义 95% 预测区间经过非负销量域分位数映射后的区间/)).toBeDefined();
     expect(view.container.textContent).not.toContain('N/A');
     expect(view.container.textContent).not.toContain('ARIMA 行');
   });

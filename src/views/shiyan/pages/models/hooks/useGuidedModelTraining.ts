@@ -264,9 +264,9 @@ export function useGuidedModelTraining<TFinalResult>({
     }
   }, [applyFinalResult, ensureSession, recordFailure, session]);
 
-  const runNextStep = useCallback(async () => {
+  const runNextStep = useCallback(async (): Promise<boolean> => {
     if (inFlightRef.current) {
-      return;
+      return false;
     }
     const lockOwnerId = ++lockOwnerSequenceRef.current;
 
@@ -279,28 +279,29 @@ export function useGuidedModelTraining<TFinalResult>({
       const currentSession = await ensureSession();
       const nextStepId = currentSession?.next_step_id;
       if (!currentSession) {
-        return;
+        return false;
       }
 
       if (!nextStepId) {
         await applyFinalResult(currentSession);
-        return;
+        return true;
       }
 
       const updatedSession = await runGuidedTrainingStep(modelType, currentSession.session_id, nextStepId);
       if (!isMountedRef.current) {
-        return;
+        return false;
       }
 
       setSession(updatedSession);
       if (updatedSession.status === 'failed') {
         recordFailure(updatedSession.error_message ?? '分阶段训练执行失败');
-        return;
+        return false;
       }
 
       setRetryCount(0);
 
       await applyFinalResult(updatedSession);
+      return true;
     } catch (stepError) {
       if (extractGuidedErrorCode(stepError) === 'GUIDED_SESSION_SUPERSEDED') {
         if (isMountedRef.current) {
@@ -308,9 +309,10 @@ export function useGuidedModelTraining<TFinalResult>({
           setRetryCount(0);
         }
         recordFailure(stepError, '训练会话已失效，请重新开始当前模型训练', false);
-        return;
+        return false;
       }
       recordFailure(stepError, '分阶段训练执行失败');
+      return false;
     } finally {
       inFlightRef.current = false;
       releaseTrainingLock(lockOwnerId);
