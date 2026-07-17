@@ -50,10 +50,10 @@ const PredictionChart: React.FC<PredictionChartProps> = ({ data }) => {
           <Line strokeWidth={4} type="monotone" dataKey="actual" name="真实值" stroke="#8884d8" activeDot={{ r: 8 }} />
           <Line strokeWidth={4} type="monotone" dataKey="predicted" name="预测值" stroke="#82ca9d" />
           {hasPredictionInterval && (
-            <Line strokeWidth={2} strokeDasharray="6 4" dot={false} type="monotone" dataKey="intervalUpper" name="95%范围上界" stroke="#0ea5e9" />
+            <Line strokeWidth={2} strokeDasharray="6 4" dot={false} type="monotone" dataKey="intervalUpper" name="名义95%范围上界" stroke="#0ea5e9" />
           )}
           {hasPredictionInterval && (
-            <Line strokeWidth={2} strokeDasharray="6 4" dot={false} type="monotone" dataKey="intervalLower" name="95%范围下界" stroke="#0ea5e9" />
+            <Line strokeWidth={2} strokeDasharray="6 4" dot={false} type="monotone" dataKey="intervalLower" name="名义95%范围下界" stroke="#0ea5e9" />
           )}
         </LineChart>
       </ResponsiveContainer>

@@ -12,7 +12,7 @@ const LSTMMethodInfo: React.FC = () => {
           构建 LSTM 模型的流程包括以下几个步骤：
         </p>
         <p className="text-gray-800 leading-relaxed text-base">
-          首先进行<strong>数据准备</strong>：系统识别数值与类别字段，自动把目标销量作为历史数值输入；外部评估区间不会参与预处理器拟合。标准模式选择训练轮数时，临时预处理器和临时网络容量都只依据内部验证起点前可见的数据；选定轮数后再用完整训练区间重新推导最终容量并拟合预处理器和网络。随后按look_back切出历史窗口，并以未来连续horizon期销量作为标签。
+          首先进行<strong>数据准备</strong>：系统识别数值与类别字段，自动把目标销量作为历史数值输入；外部评估区间不会参与预处理器拟合。有限时间验证模式选择训练轮数时，临时预处理器和临时网络容量都只依据内部验证起点前可见的数据；选定轮数后再用完整训练区间重新推导最终容量并拟合预处理器和网络。随后按look_back切出历史窗口，并以未来连续horizon期销量作为标签。
         </p>
       </div>
 
@@ -42,10 +42,10 @@ const LSTMMethodInfo: React.FC = () => {
 
       <div className="p-6 bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg border border-amber-200 shadow-sm">
         <p className="text-gray-800 leading-relaxed text-base mb-3">
-          <strong>训练过程</strong>：标准模式把末段监督窗口作为时间验证集，并隔离 horizon-1 个相邻窗口以降低标签重叠泄漏；EarlyStopping 监控验证 loss。选定最佳轮数后，以该轮数在全部窗口重拟合最终模型。若监督窗口不足 20 个，则进入不宣称验证性能的教学演示模式。
+          <strong>训练过程</strong>：有限时间验证模式把末段监督窗口作为时间验证集，并隔离 horizon-1 个相邻窗口以降低标签重叠泄漏；EarlyStopping 监控验证 loss。选定最佳轮数后，以该轮数在全部窗口重拟合最终模型。若监督窗口不足 20 个，则进入不宣称验证性能的教学演示模式。这里的“有限”强调它只承担教学性的轮数选择，不代表生产级泛化验证。
         </p>
         <p className="text-gray-800 leading-relaxed text-base">
-          标准差、95%区间和99%上侧误差来自临时时间验证模型在各输出 horizon 上的未截断 actual-prediction 残差；区间和上侧误差直接取经验分位数，因此不会把稳定偏差误判为零风险。由于最终模型会重拟合，这仍不是覆盖率经过严格证明的概率区间。教学演示模式没有独立验证残差，会明确标记为训练历史回退估计。
+          标准差、名义95%范围和名义99%上侧误差估计来自临时时间验证模型在各输出 horizon 上的未截断 actual-prediction 残差；区间和上侧误差直接取经验分位数，因此不会把稳定偏差误判为零风险。但同一小段数据还用于 EarlyStopping，最终模型也会重拟合，所以输出明确标记为“未校准、无覆盖率保证”。教学演示模式没有独立验证残差，会明确标记为训练历史回退估计。销量输出的范围上下界与点预测同步限制为非负并保证包含点预测；有符号残差学习仍保留原始负值。
         </p>
       </div>
 

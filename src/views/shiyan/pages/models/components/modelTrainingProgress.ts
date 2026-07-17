@@ -103,10 +103,10 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
       { label: '分析字段类型', description: '识别数值、类别和目标字段，准备训练输入。', weight: 0.9 },
       { label: '归一化与构造序列', description: '仅用训练区间拟合缩放/编码器，构造历史窗口与直接多步标签。', weight: 1.4 },
       { label: '构建神经网络', description: '按参数预算创建单层LSTM和horizon长度输出层，配置Adam。', weight: 1.0 },
-      { label: '动态轮数训练', description: '标准模式以时间验证loss早停选轮数，再在全部窗口重拟合；小样本标记教学演示。', weight: 4.2 },
+      { label: '动态轮数训练', description: '有限时间验证模式以时间验证loss早停选轮数，再在全部窗口重拟合；小样本标记教学演示。两者都不宣称生产级验证。', weight: 4.2 },
       ...BASE_FINAL_STEPS,
     ],
-    tip: '逆缩放后的销量点预测截断为非负；只读取历史窗口，不读取未来特征路径。',
+    tip: '逆缩放后的销量点预测和范围同步限制为非负；范围是无覆盖率保证的名义估计。模型只读取历史窗口，不读取未来特征路径。',
   },
   ensemble: {
     title: '融合模型训练中',

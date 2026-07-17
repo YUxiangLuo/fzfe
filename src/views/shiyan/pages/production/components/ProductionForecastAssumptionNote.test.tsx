@@ -30,4 +30,19 @@ describe('ProductionForecastAssumptionNote', () => {
     expect(view.getByRole('alert').textContent).toContain('2 期误差区间与安全库存标准差使用了回退估计');
     expect(view.getByRole('alert').textContent).toContain('回退原因：可用残差不足，改用训练序列一阶差分尺度');
   });
+
+  it('warns that LSTM nominal ranges and P99 estimates are not calibrated guarantees', () => {
+    const view = render(
+      <ProductionForecastAssumptionNote
+        predictions={[{
+          uncertainty_source: 'empirical',
+          coverage_guarantee: false,
+          upper_error_p99_kind: 'uncalibrated_estimate',
+        }]}
+      />,
+    );
+
+    expect(view.getByRole('alert').textContent).toContain('1 期使用名义误差估计，无覆盖率保证');
+    expect(view.getByRole('alert').textContent).toContain('99%上侧误差字段仅作诊断');
+  });
 });

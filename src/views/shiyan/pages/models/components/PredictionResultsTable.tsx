@@ -12,6 +12,8 @@ interface Prediction {
   intervalUpper?: number | null;
   intervalLevel?: number | null;
   intervalKind?: string | null;
+  coverageGuarantee?: boolean | null;
+  upperErrorP99Kind?: string | null;
 }
 
 interface PredictionResultsTableProps {
@@ -59,6 +61,7 @@ const calibrationSourceLabels: Record<string, string> = {
   internal_validation: '内部时间验证段',
   level1_holdout: 'Level-1 时间留出段',
   internal_time_validation: '内部时间验证窗口',
+  early_stopping_validation_reused: '复用的 EarlyStopping 时间验证窗口',
   training_rolling_origin: '训练段 rolling-origin 回测',
   training_one_step_residuals: '训练期一步预测残差',
   training_history: '训练历史回退尺度',
@@ -87,6 +90,9 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
   const hasUncertainty = predictions.some((prediction) => (
     typeof prediction.stdDev === 'number' && Number.isFinite(prediction.stdDev)
   ));
+  const hasUncalibratedUncertainty = predictions.some(
+    (prediction) => prediction.coverageGuarantee === false,
+  );
 
   return (
     <div className="space-y-6">
@@ -113,7 +119,7 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
                     标准差 σ
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
-                    95% 不确定性范围
+                    {hasUncalibratedUncertainty ? '名义 95% 误差范围' : '95% 不确定性范围'}
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-700 border-b-2 border-blue-200">
                     估计来源
@@ -151,7 +157,12 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
                       <div>{row.uncertaintySource ? uncertaintySourceLabels[row.uncertaintySource] ?? row.uncertaintySource : '未提供'}</div>
                       {row.calibrationSource && (
                         <div className="mt-1 text-xs text-sky-700">
-                          校准：{calibrationSourceLabels[row.calibrationSource] ?? row.calibrationSource}
+                          估计数据：{calibrationSourceLabels[row.calibrationSource] ?? row.calibrationSource}
+                        </div>
+                      )}
+                      {row.coverageGuarantee === false && (
+                        <div className="mt-1 text-xs text-amber-700">
+                          启发式估计，无覆盖率保证
                         </div>
                       )}
                       {row.uncertaintyReason && (
@@ -175,7 +186,7 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
 
       {hasUncertainty && (
         <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm leading-6 text-sky-900">
-          ARIMA 展示模型原生的 95% 预测区间；其他模型优先展示 actual-prediction 校准残差的 2.5%–97.5% 经验分位数区间，样本不足的期次才使用明确标记的正态近似回退。σ 是残差离散程度的辅助指标，不用于反推经验分位数区间。区间不参与点预测指标计算，也不会随销量点预测一起截断为非负。
+          ARIMA 展示模型原生的名义 95% 预测区间；其他模型展示 actual-prediction 残差的 2.5%–97.5% 经验分位数范围，样本不足的期次使用明确标记的正态近似回退。标记“无覆盖率保证”的范围只是启发式误差估计，不能解释为已校准的 95% 概率保证。σ 是残差离散程度的辅助指标，不用于反推经验分位数范围。带非负销量域标记的区间会与点预测同步限制为非负；区间不参与点预测指标计算。
         </div>
       )}
 

@@ -69,6 +69,24 @@ describe("MPS Calculation Utils", () => {
       expect(result.allWarnings.join(" ")).toContain("安全库存应结合业务经验复核");
     });
 
+    it("preserves and warns about uncalibrated nominal uncertainty", () => {
+      const result = validatePredictions([{
+        prediction: 1000,
+        std_dev: 80,
+        upper_error_p99: 180,
+        upper_error_p99_kind: "uncalibrated_estimate",
+        coverage_guarantee: false,
+        uncertainty_source: "empirical",
+        ...calibration,
+      }]);
+
+      expect(result.validatedData[0]).toMatchObject({
+        coverage_guarantee: false,
+        upper_error_p99_kind: "uncalibrated_estimate",
+      });
+      expect(result.allWarnings.join(" ")).toContain("不代表95%或99%覆盖率保证");
+    });
+
     it("rejects missing, partial, or invalid bias diagnostics", () => {
       const base = {
         prediction: 1000,

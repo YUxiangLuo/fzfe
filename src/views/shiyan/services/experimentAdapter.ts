@@ -144,6 +144,14 @@ const normalizeForecastResults = (
       && typeof point.upper_error_p99 === "number"
       && Number.isFinite(point.upper_error_p99)
       && point.upper_error_p99 >= 0
+      && (
+        point.upper_error_p99_kind === undefined
+        || (typeof point.upper_error_p99_kind === "string" && point.upper_error_p99_kind.length > 0)
+      )
+      && (
+        point.coverage_guarantee === undefined
+        || typeof point.coverage_guarantee === "boolean"
+      )
       && ["model", "empirical", "fallback"].includes(String(point.uncertainty_source))
       && (point.uncertainty_reason === undefined || typeof point.uncertainty_reason === "string")
       && (

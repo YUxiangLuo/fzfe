@@ -10,6 +10,8 @@ export interface PredictionRow {
   intervalUpper?: number | null;
   intervalLevel?: number | null;
   intervalKind?: string | null;
+  coverageGuarantee?: boolean | null;
+  upperErrorP99Kind?: string | null;
 }
 
 export interface ModelMetrics {
@@ -54,6 +56,8 @@ interface ParsedPredictionPoint {
   intervalUpper: number | null;
   intervalLevel: number | null;
   intervalKind: string | null;
+  coverageGuarantee: boolean | null;
+  upperErrorP99Kind: string | null;
 }
 
 const parsePredictionPoints = (value: unknown, expectedLength: number): ParsedPredictionPoint[] | null => {
@@ -98,6 +102,14 @@ const parsePredictionPoints = (value: unknown, expectedLength: number): ParsedPr
     )) {
       throw new Error(`预测点第 ${index + 1} 项的校准数据来源无效`);
     }
+    if (item.coverage_guarantee !== undefined && typeof item.coverage_guarantee !== 'boolean') {
+      throw new Error(`预测点第 ${index + 1} 项的覆盖率保证标记无效`);
+    }
+    if (item.upper_error_p99_kind !== undefined && (
+      typeof item.upper_error_p99_kind !== 'string' || item.upper_error_p99_kind.length === 0
+    )) {
+      throw new Error(`预测点第 ${index + 1} 项的99%上侧误差类型无效`);
+    }
 
     return {
       prediction: item.prediction,
@@ -109,6 +121,8 @@ const parsePredictionPoints = (value: unknown, expectedLength: number): ParsedPr
       intervalUpper: hasInterval ? item.interval_upper as number : null,
       intervalLevel: hasInterval ? item.interval_level as number : null,
       intervalKind: hasInterval ? item.interval_kind as string : null,
+      coverageGuarantee: typeof item.coverage_guarantee === 'boolean' ? item.coverage_guarantee : null,
+      upperErrorP99Kind: typeof item.upper_error_p99_kind === 'string' ? item.upper_error_p99_kind : null,
     };
   });
 };
@@ -192,6 +206,8 @@ export const alignPredictionRows = ({
         intervalUpper: predictionPoint.intervalUpper,
         intervalLevel: predictionPoint.intervalLevel,
         intervalKind: predictionPoint.intervalKind,
+        coverageGuarantee: predictionPoint.coverageGuarantee,
+        upperErrorP99Kind: predictionPoint.upperErrorP99Kind,
       } : {}),
     });
   }

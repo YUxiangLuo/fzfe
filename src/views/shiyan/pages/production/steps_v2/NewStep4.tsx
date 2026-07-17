@@ -204,7 +204,7 @@ const NewStep4: React.FC = () => {
             </div>
             <div className="text-xs text-purple-800 space-y-1">
               <div>• <strong>目标服务水平</strong>：你在第1步选择了 {targetServiceLevel == null ? '—' : `${(targetServiceLevel * 100).toFixed(0)}%`}，对应 Z = {safetyStockZScore ?? '—'}。</div>
-              <div>• <strong>预测误差标准差</strong>：模型用历史校准误差估计需求预测的不确定程度。</div>
+              <div>• <strong>预测误差标准差</strong>：模型用历史误差或明确标记的训练历史回退尺度，估计需求预测的不确定程度；它不单独构成覆盖率保证。</div>
               <div>• <strong>提前期</strong>：本实验 L = 1 个月，因此 √L = 1。</div>
               <div className="mt-2 text-xs bg-purple-100 border-l-4 border-purple-400 pl-3 py-2 rounded">
                 这是客户需求文档指定的简化公式。目标服务水平是规划参数，不等同于对最终实际服务水平作保证。

@@ -136,9 +136,9 @@ const outputKeyLabels: Record<string, string> = {
   teaching_small_sample: '是否为小样本教学划分',
   uncertainty_summary: '不确定性方法',
   uncertainty_profile: '逐预测步不确定性配置',
-  calibration_source: '不确定性校准数据',
-  calibration_count: '校准样本数',
-  calibration_mean_error: '校准平均误差',
+  calibration_source: '不确定性估计数据',
+  calibration_count: '误差估计样本数',
+  calibration_mean_error: '误差估计平均值',
   confidence_intervals: '预测区间',
   fallback: '是否使用回退估计',
   fallback_horizons: '使用回退的预测步',
@@ -150,7 +150,9 @@ const outputKeyLabels: Record<string, string> = {
   reused_artifact: '是否复用已完成基础模型产物',
   source: '不确定性来源',
   std_dev: '预测误差标准差',
-  upper_error_p99: '99%上侧误差',
+  upper_error_p99: '名义99%上侧误差估计',
+  upper_error_p99_kind: '99%上侧误差性质',
+  coverage_guarantee: '是否具有覆盖率保证',
   units: 'LSTM 隐藏单元',
   used_validation: '是否使用时间验证',
   uses_validation: '是否使用时间验证',
@@ -180,7 +182,8 @@ const formatKey = (key: string) => outputKeyLabels[key] ?? key;
 
 const outputValueLabels: Record<string, string> = {
   aicc: 'AICc',
-  standard: '标准训练模式',
+  standard: '常规样本量配置',
+  limited_time_validation: '有限时间验证模式',
   teaching_demo: '教学演示模式',
   selected: '已选中',
   early_stop: '改善不足，提前停止',
@@ -190,6 +193,7 @@ const outputValueLabels: Record<string, string> = {
   internal_validation: '内部时间验证段',
   level1_holdout: 'Level-1 时间留出段',
   internal_time_validation: '内部时间验证窗口',
+  early_stopping_validation_reused: '复用的 EarlyStopping 时间验证窗口',
   training_rolling_origin: '训练段 rolling-origin 回测',
   training_one_step_residuals: '训练期一步预测残差',
   training_history: '训练历史回退尺度',
@@ -202,10 +206,15 @@ const outputValueLabels: Record<string, string> = {
   ets_ann_empirical_residual_quantiles: 'ETS(A,N,N) 增长形状 + 一步残差分位数',
   ets_ann_fallback_normal: 'ETS(A,N,N) 标准差增长 + 正态近似回退',
   validation_residual_quantiles_by_horizon: '时间验证逐 horizon 残差分位数',
+  uncalibrated_validation_residual_quantiles_by_horizon: '复用 EarlyStopping 验证段的未校准逐 horizon 残差分位数',
   member_growth_residual_quantiles: '成员增长形状 + 组合残差分位数',
   normal_approximation: '基于标准差的正态近似范围',
   fallback_normal_approximation: '样本不足时的正态近似回退范围',
   empirical_residual_quantile: 'actual-prediction 经验残差分位数范围',
+  uncalibrated_empirical_residual_quantile: '未校准的 actual-prediction 经验残差分位数范围',
+  censored_nonnegative_uncalibrated_empirical_residual_quantile: '非负销量域中的未校准经验残差分位数范围',
+  censored_nonnegative_fallback_normal_approximation: '非负销量域中的正态近似回退范围',
+  uncalibrated_estimate: '未校准估计（不代表99%覆盖率）',
   model_prediction_interval: '模型原生预测区间',
   production_full_refit_in_sample: '生产窗口完整重拟合残差',
   residual_boosting: '残差提升',
@@ -282,10 +291,12 @@ const formatValue = (value: unknown, key?: string): string => {
           parts.push(`预测误差标准差 ${formatValue(horizon.std_dev, 'std_dev')}`);
         }
         if (horizon.interval_lower_offset !== undefined || horizon.interval_upper_offset !== undefined) {
-          parts.push(`95%误差偏移 [${formatValue(horizon.interval_lower_offset, 'interval_lower_offset')}, ${formatValue(horizon.interval_upper_offset, 'interval_upper_offset')}]`);
+          const intervalLabel = horizon.coverage_guarantee === false ? '名义95%误差偏移' : '95%误差偏移';
+          parts.push(`${intervalLabel} [${formatValue(horizon.interval_lower_offset, 'interval_lower_offset')}, ${formatValue(horizon.interval_upper_offset, 'interval_upper_offset')}]`);
         }
         if (horizon.upper_error_p99 !== undefined) {
-          parts.push(`99%上侧误差 ${formatValue(horizon.upper_error_p99, 'upper_error_p99')}`);
+          const p99Label = horizon.coverage_guarantee === false ? '名义99%上侧误差估计' : '99%上侧误差';
+          parts.push(`${p99Label} ${formatValue(horizon.upper_error_p99, 'upper_error_p99')}`);
         }
         if (horizon.interval_kind !== undefined) {
           parts.push(`区间类型 ${formatValue(horizon.interval_kind, 'interval_kind')}`);
@@ -294,7 +305,7 @@ const formatValue = (value: unknown, key?: string): string => {
           parts.push(`来源 ${formatValue(horizon.source, 'source')}`);
         }
         if (horizon.calibration_source !== undefined) {
-          parts.push(`校准数据 ${formatValue(horizon.calibration_source, 'calibration_source')}`);
+          parts.push(`估计数据 ${formatValue(horizon.calibration_source, 'calibration_source')}`);
         }
         if (horizon.calibration_count !== undefined) {
           parts.push(`校准样本 ${formatValue(horizon.calibration_count, 'calibration_count')}`);

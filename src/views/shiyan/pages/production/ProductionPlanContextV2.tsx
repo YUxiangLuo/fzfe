@@ -50,6 +50,8 @@ export interface ProductionPredictionPoint {
   prediction: number;
   std_dev: number;
   upper_error_p99: number;
+  upper_error_p99_kind?: string;
+  coverage_guarantee?: boolean;
   uncertainty_source: 'model' | 'empirical' | 'fallback';
   uncertainty_reason?: string;
   calibration_mean_error: number | null;
@@ -199,6 +201,8 @@ const isPredictionPoint = (
   const prediction = (value as { prediction?: unknown }).prediction;
   const stdDev = (value as { std_dev?: unknown }).std_dev;
   const upperErrorP99 = (value as { upper_error_p99?: unknown }).upper_error_p99;
+  const upperErrorP99Kind = (value as { upper_error_p99_kind?: unknown }).upper_error_p99_kind;
+  const coverageGuarantee = (value as { coverage_guarantee?: unknown }).coverage_guarantee;
   const uncertaintySource = (value as { uncertainty_source?: unknown }).uncertainty_source;
   const calibrationMeanError = (value as { calibration_mean_error?: unknown }).calibration_mean_error;
   const calibrationCount = (value as { calibration_count?: unknown }).calibration_count;
@@ -215,6 +219,8 @@ const isPredictionPoint = (
   return typeof prediction === 'number' && Number.isFinite(prediction)
     && typeof stdDev === 'number' && Number.isFinite(stdDev) && stdDev >= 0
     && typeof upperErrorP99 === 'number' && Number.isFinite(upperErrorP99) && upperErrorP99 >= 0
+    && (upperErrorP99Kind === undefined || (typeof upperErrorP99Kind === 'string' && upperErrorP99Kind.length > 0))
+    && (coverageGuarantee === undefined || typeof coverageGuarantee === 'boolean')
     && ['model', 'empirical', 'fallback'].includes(String(uncertaintySource))
     && hasValidCalibration;
 };

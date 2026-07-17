@@ -84,6 +84,8 @@ describe('alignPredictionRows', () => {
         interval_upper: 105.84,
         interval_level: 0.95,
         interval_kind: 'normal_approximation',
+        coverage_guarantee: false,
+        upper_error_p99_kind: 'uncalibrated_estimate',
       }],
       backendMonths: ['2024-01'],
       fallbackMonths: [],
@@ -97,6 +99,8 @@ describe('alignPredictionRows', () => {
       intervalUpper: 105.84,
       intervalLevel: 0.95,
       intervalKind: 'normal_approximation',
+      coverageGuarantee: false,
+      upperErrorP99Kind: 'uncalibrated_estimate',
     });
   });
 
@@ -124,6 +128,19 @@ describe('alignPredictionRows', () => {
       backendMonths: ['2024-01'],
       fallbackMonths: [],
     })).toThrow('标准差必须是非负有限数字');
+
+    expect(() => alignPredictionRows({
+      actualValues: [100],
+      predictedValues: [98],
+      predictionPoints: [{
+        prediction: 98,
+        std_dev: 4,
+        uncertainty_source: 'empirical',
+        coverage_guarantee: 'false',
+      }],
+      backendMonths: ['2024-01'],
+      fallbackMonths: [],
+    })).toThrow('覆盖率保证标记无效');
   });
 });
 

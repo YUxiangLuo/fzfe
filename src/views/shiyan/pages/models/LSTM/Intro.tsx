@@ -31,7 +31,7 @@ const Intro: React.FC = () => {
           <div className="flex-1 pt-1">
             <div className="flex items-center gap-2 mb-1">
               <Cpu className="w-5 h-5 text-purple-600" />
-              <p className="text-gray-800 font-medium">按参数预算构建单层 LSTM 与直接多步 Dense 输出头。标准模式用时间顺序验证 loss 早停选轮数，再在全部窗口重拟合。</p>
+              <p className="text-gray-800 font-medium">按参数预算构建单层 LSTM 与直接多步 Dense 输出头。有限时间验证模式用时间顺序验证 loss 早停选轮数，再在全部窗口重拟合。</p>
             </div>
           </div>
         </div>
@@ -52,7 +52,7 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base">
-          教科书重点是 LSTM 单元的门控机制；层数、容量和训练轮数属于工程选择。本系统根据训练长度、预测跨度和编码后特征数动态推导 look-back、隐藏单元、批大小与最大轮数。标准数据量使用带 horizon 隔离的时间验证；过小数据进入明确标注的教学演示模式。模型不会读取未来特征轨迹，也不会自动退回递归单步预测。
+          教科书重点是 LSTM 单元的门控机制；层数、容量和训练轮数属于工程选择。本系统根据训练长度、预测跨度和编码后特征数动态推导 look-back、隐藏单元、批大小与最大轮数。监督窗口足够时使用带 horizon 隔离的有限时间验证，过小数据进入明确标注的教学演示模式；两者都不等同于生产级泛化验证。模型不会读取未来特征轨迹，也不会自动退回递归单步预测，独立评估结果还应与上一期值、季节上一期值或漂移等朴素基线比较。
         </p>
       </div>
     </div>

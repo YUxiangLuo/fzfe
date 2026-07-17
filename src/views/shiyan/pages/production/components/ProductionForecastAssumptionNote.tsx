@@ -15,6 +15,9 @@ const ProductionForecastAssumptionNote: React.FC<ProductionForecastAssumptionNot
   predictions = [],
 }) => {
   const fallbackSummary = summarizeFallbackUncertainty(predictions);
+  const uncalibratedCount = predictions.filter(
+    prediction => prediction.coverage_guarantee === false,
+  ).length;
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -44,6 +47,16 @@ const ProductionForecastAssumptionNote: React.FC<ProductionForecastAssumptionNot
             {fallbackSummary.reasons.length > 0 && (
               <p className="text-xs text-amber-700">回退原因：{fallbackSummary.reasons.join('；')}</p>
             )}
+          </div>
+        </div>
+      )}
+      {uncalibratedCount > 0 && (
+        <div className="flex items-start gap-3 rounded-lg border border-orange-300 bg-orange-50 p-4 text-sm text-orange-900" role="alert">
+          <TriangleAlert className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600" />
+          <div className="space-y-1">
+            <p className="font-semibold">{uncalibratedCount} 期使用名义误差估计，无覆盖率保证</p>
+            <p>这些范围和99%上侧误差来自有限残差或回退近似，不能解释为实际需求落入范围的95%/99%概率保证。</p>
+            <p className="text-xs text-orange-700">当前安全库存公式只使用 std_dev 与所选 Z 值；99%上侧误差字段仅作诊断，不参与该公式。</p>
           </div>
         </div>
       )}

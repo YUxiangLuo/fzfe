@@ -22,6 +22,8 @@ export interface ModelPredictionPoint {
   prediction: number;
   std_dev: number;
   upper_error_p99: number;
+  upper_error_p99_kind?: string;
+  coverage_guarantee?: boolean;
   uncertainty_source: 'model' | 'empirical' | 'fallback';
   uncertainty_reason?: string;
   calibration_mean_error: number | null;
@@ -391,6 +393,29 @@ const parseModelPredictionResponse = (
         response,
       );
     }
+    if (
+      point.coverage_guarantee !== undefined
+      && typeof point.coverage_guarantee !== 'boolean'
+    ) {
+      throw invalidProductionResponse(
+        'predict',
+        `需求预测第 ${index + 1} 期覆盖率保证标记无效，请重试。`,
+        response,
+      );
+    }
+    if (
+      point.upper_error_p99_kind !== undefined
+      && (
+        typeof point.upper_error_p99_kind !== 'string'
+        || point.upper_error_p99_kind.length === 0
+      )
+    ) {
+      throw invalidProductionResponse(
+        'predict',
+        `需求预测第 ${index + 1} 期99%上侧误差类型无效，请重试。`,
+        response,
+      );
+    }
     const hasValidCalibrationDiagnostics = (
       point.calibration_mean_error === null
       && point.calibration_count === null
@@ -415,6 +440,12 @@ const parseModelPredictionResponse = (
       calibration_count: point.calibration_count as number | null,
       ...(typeof point.uncertainty_reason === 'string'
         ? { uncertainty_reason: point.uncertainty_reason }
+        : {}),
+      ...(typeof point.coverage_guarantee === 'boolean'
+        ? { coverage_guarantee: point.coverage_guarantee }
+        : {}),
+      ...(typeof point.upper_error_p99_kind === 'string'
+        ? { upper_error_p99_kind: point.upper_error_p99_kind }
         : {}),
     };
   });

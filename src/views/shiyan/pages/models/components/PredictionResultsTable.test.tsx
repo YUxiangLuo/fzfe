@@ -64,8 +64,31 @@ describe('prediction accuracy presentation', () => {
     expect(view.getByText('70% ≤ x < 85%')).toBeDefined();
     expect(view.getByText('60% ≤ x < 70%')).toBeDefined();
     expect(view.getAllByText('未提供').length).toBeGreaterThanOrEqual(3);
-    expect(view.getByText(/ARIMA 展示模型原生的 95% 预测区间/)).toBeDefined();
+    expect(view.getByText(/ARIMA 展示模型原生的名义 95% 预测区间/)).toBeDefined();
     expect(view.container.textContent).not.toContain('N/A');
     expect(view.container.textContent).not.toContain('ARIMA 行');
+  });
+
+  it('labels uncalibrated LSTM ranges without implying coverage', () => {
+    const view = render(
+      <PredictionResultsTable
+        title="LSTM预测结果"
+        predictions={[{
+          date: '2024-01',
+          actual: 1,
+          predicted: 0.5,
+          stdDev: 1,
+          intervalLower: 0,
+          intervalUpper: 2,
+          intervalKind: 'censored_nonnegative_uncalibrated_empirical_residual_quantile',
+          coverageGuarantee: false,
+          calibrationSource: 'early_stopping_validation_reused',
+        }]}
+      />,
+    );
+
+    expect(view.getByText('名义 95% 误差范围')).toBeDefined();
+    expect(view.getByText('启发式估计，无覆盖率保证')).toBeDefined();
+    expect(view.getByText(/复用的 EarlyStopping 时间验证窗口/)).toBeDefined();
   });
 });

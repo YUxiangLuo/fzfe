@@ -45,6 +45,9 @@ export const PlanParameters: React.FC<PlanParametersProps> = ({
   const period1 = state.production_mps_table.length > 0 ? state.production_mps_table[0] : null;
   const period2 = state.production_mps_table.length > 1 ? state.production_mps_table[1] : null;
   const fallbackSummary = summarizeFallbackUncertainty(state.production_forecast_results);
+  const uncalibratedCount = (state.production_forecast_results ?? []).filter(
+    prediction => prediction.coverage_guarantee === false,
+  ).length;
   const fallbackAudit = fallbackSummary.fallbackCount > 0 ? (
     <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900" role="alert">
       <TriangleAlert className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
@@ -57,6 +60,15 @@ export const PlanParameters: React.FC<PlanParametersProps> = ({
       </div>
     </div>
   ) : null;
+  const uncalibratedAudit = uncalibratedCount > 0 ? (
+    <div className="flex items-start gap-3 rounded-lg border border-orange-300 bg-orange-50 p-4 text-sm text-orange-900" role="alert">
+      <TriangleAlert className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600" />
+      <div className="space-y-1">
+        <p className="font-semibold">不确定性审计：{uncalibratedCount} 期为名义估计，无覆盖率保证</p>
+        <p>95%范围和99%上侧误差不能解释为已校准概率保证；99%上侧误差不参与当前安全库存公式。</p>
+      </div>
+    </div>
+  ) : null;
 
   const renderContent = () => {
     if (!period1 || !period2) {
@@ -64,6 +76,7 @@ export const PlanParameters: React.FC<PlanParametersProps> = ({
         <div className="space-y-4">
           <p className="text-sm text-gray-500">生产计划数据不完整，无法展示参数计算结果。</p>
           {fallbackAudit}
+          {uncalibratedAudit}
         </div>
       );
     }
@@ -86,6 +99,7 @@ export const PlanParameters: React.FC<PlanParametersProps> = ({
         </div>
 
         {fallbackAudit}
+        {uncalibratedAudit}
 
         <div>
           <h3 className="text-base font-semibold text-gray-800 mb-3">期1 vs 期2 数据对比</h3>

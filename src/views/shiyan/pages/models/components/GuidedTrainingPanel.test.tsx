@@ -25,7 +25,7 @@ const completedSession: GuidedTrainingSession = {
       aicc: 123.456,
       criterion: 'aicc',
       uses_validation: true,
-      training_regime: 'standard',
+      training_regime: 'limited_time_validation',
       calibration_source: 'internal_validation',
       stop_reason: 'round_budget',
       model: 'ma',
@@ -67,6 +67,8 @@ const completedSession: GuidedTrainingSession = {
           calibration_mean_error: null,
           calibration_count: null,
           interval_kind: 'fallback_normal_approximation',
+          coverage_guarantee: false,
+          upper_error_p99_kind: 'uncalibrated_estimate',
           reason: 'missing_horizon_calibration',
         }],
       },
@@ -94,7 +96,7 @@ describe('GuidedTrainingPanel teaching output', () => {
     );
 
     expect(view.getAllByText('AICc')).toHaveLength(2);
-    expect(view.getByText('标准训练模式')).toBeDefined();
+    expect(view.getByText('有限时间验证模式')).toBeDefined();
     expect(view.getByText('内部时间验证段')).toBeDefined();
     expect(view.getByText('达到最大轮数')).toBeDefined();
     expect(view.getByText('准备部署阶段产物')).toBeDefined();
@@ -110,6 +112,8 @@ describe('GuidedTrainingPanel teaching output', () => {
     expect(view.getByText(/LSTM: 0.4000/)).toBeDefined();
     expect(view.getByText('模型产物已保存')).toBeDefined();
     expect(view.getByText(/第 1 步：预测误差标准差 1.2500/)).toBeDefined();
+    expect(view.getByText(/名义99%上侧误差估计 2.9100/)).toBeDefined();
+    expect(view.getByText(/未校准估计（不代表99%覆盖率）/)).toBeDefined();
     expect(view.getByText(/该预测步缺少单独校准证据/)).toBeDefined();
     expect(view.container.textContent).not.toContain('evaluate_indices');
     expect(view.container.textContent).not.toContain('991');

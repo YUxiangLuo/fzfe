@@ -72,6 +72,34 @@ describe('PlanParameters', () => {
     expect(view.getByRole('alert').textContent).toContain('差分波动接近零但存在稳定趋势');
   });
 
+  it('records uncalibrated LSTM uncertainty in the report preview', () => {
+    const state = {
+      ...buildInitialState(),
+      production_forecast_results: [{
+        prediction: 100,
+        std_dev: 2,
+        upper_error_p99: 4,
+        upper_error_p99_kind: 'uncalibrated_estimate',
+        coverage_guarantee: false,
+        uncertainty_source: 'empirical' as const,
+        calibration_mean_error: 0,
+        calibration_count: 5,
+      }],
+    };
+
+    const view = render(
+      <PlanParameters
+        state={state}
+        getAnalysisValue={() => ''}
+        getAnalysisSetter={() => () => undefined}
+        isSubmitting={false}
+      />,
+    );
+
+    expect(view.getByRole('alert').textContent).toContain('1 期为名义估计，无覆盖率保证');
+    expect(view.getByRole('alert').textContent).toContain('99%上侧误差不参与当前安全库存公式');
+  });
+
   it('renders a valid zero capacity as zero instead of N/A', () => {
     const state = {
       ...buildInitialState(),
