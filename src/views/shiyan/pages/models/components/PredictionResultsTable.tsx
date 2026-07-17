@@ -60,6 +60,7 @@ const uncertaintyReasonLabels: Record<string, string> = {
 
 const calibrationSourceLabels: Record<string, string> = {
   internal_validation: '内部时间验证段',
+  weighted_weight_fit_holdout_reused: '复用的 Weighted 权重拟合时间留出段',
   boosting_selection_holdout_reused: '复用的 Boosting 选模时间留出段',
   stacking_meta_fit_holdout_reused: '复用的 Stacking 元模型拟合 Level-1 留出段',
   level1_holdout: 'Level-1 时间留出段',

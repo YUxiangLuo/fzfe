@@ -128,4 +128,34 @@ describe('GuidedTrainingPanel teaching output', () => {
     expect(view.container.textContent).not.toContain('refit_stage');
     expect(view.container.textContent).not.toContain('missing_horizon_calibration');
   });
+
+  it('labels Weighted shrinkage and reused holdout uncertainty precisely', () => {
+    const weightedSession: GuidedTrainingSession = {
+      ...completedSession,
+      model_type: 'weighted_avg',
+      steps: [{
+        ...completedSession.steps[0]!,
+        output: {
+          reliability: 0.5,
+          calibration_source: 'weighted_weight_fit_holdout_reused',
+          method: 'uncalibrated_weight_fit_holdout_residual_quantiles_member_growth',
+        },
+      }],
+    };
+    const view = render(
+      <GuidedTrainingPanel
+        title="分阶段训练"
+        session={weightedSession}
+        isLoading={false}
+        error={null}
+        onInitialize={mock(() => {})}
+        onRunNextStep={mock(() => {})}
+        onRetry={mock(() => {})}
+      />,
+    );
+
+    expect(view.getByText('启发式收缩系数 ρ')).toBeDefined();
+    expect(view.getByText('复用的 Weighted 权重拟合时间留出段')).toBeDefined();
+    expect(view.getByText(/未校准组合残差分位数与成员增长形状/)).toBeDefined();
+  });
 });

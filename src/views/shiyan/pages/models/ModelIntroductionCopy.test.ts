@@ -63,6 +63,9 @@ describe('model introduction teaching copy', () => {
     expect(boostingIntroCopy).toContain('部署阶段系数始终保持为时间验证段的线搜索结果');
     expect(boostingResultsCopy).toContain('首阶段可能复用匹配的已完成基础模型');
     expect(weightedIntroCopy).toContain('LSTM 不接收任何已知未来特征');
+    expect(weightedIntroCopy).toContain('不是经过统计估计的可靠度');
+    expect(weightedIntroCopy).toContain('明确标记为未校准、无覆盖率保证');
+    expect(ensembleCopy).toContain('不是经过统计估计的可靠度');
     expect(stackingIntroCopy).toContain('LSTM 不接收任何已知未来特征');
     for (const copy of [ensembleCopy, weightedIntroCopy, boostingIntroCopy, stackingIntroCopy]) {
       expect(copy).not.toContain('最多三折');

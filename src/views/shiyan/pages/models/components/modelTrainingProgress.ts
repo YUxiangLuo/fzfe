@@ -129,8 +129,8 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
     steps: [
       { label: '检查基础模型', description: '只读取用户选择的成员配置；隐藏参数将在当前数据段重算。', weight: 1.0 },
       { label: '生成验证集预测', description: '动态留出时间末段并在前缀重拟合，ARIMA阶数与LSTM配置重新推导。', weight: 3.0 },
-      { label: '计算模型权重', description: '按验证MSE倒数计算候选权重，再依据样本可靠度向等权收缩。', weight: 1.3 },
-      { label: '完整训练与加权组合', description: '成员销量先截断再加权；独立评估只计算指标，不确定性由内部权重验证段残差校准。', weight: 2.5 },
+      { label: '计算模型权重', description: '按验证MSE倒数计算候选权重，再依据验证点数的启发式系数向等权收缩。', weight: 1.3 },
+      { label: '完整训练与加权组合', description: '成员销量先截断再加权；独立评估只计算指标，名义误差范围复用同一个权重拟合留出段并明确标记为未校准。', weight: 2.5 },
       ...BASE_FINAL_STEPS,
     ],
     tip: '加权平均会多次调用基础模型，训练期间请保持当前页面打开。',

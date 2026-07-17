@@ -34,7 +34,7 @@ const Intro: React.FC = () => {
               <br />w<sub>i</sub> = ρv<sub>i</sub> + (1-ρ)/K, ρ=n/(n+K+1)
             </div>
             <p className="mt-3 text-sm text-gray-700">
-              v<sub>i</sub> 是MSE倒数归一化后的候选权重，n是内部时间验证点数，K是成员模型数，ρ是验证权重可靠度。ε不是固定的任意小数，而是随目标数据尺度调整的数值稳定项，用于避免MSE接近0时倒数溢出。
+              v<sub>i</sub> 是MSE倒数归一化后的候选权重，n是内部时间验证点数，K是成员模型数，ρ是由样本数决定的启发式收缩系数，而不是经过统计估计的可靠度。ε不是固定的任意小数，而是随目标数据尺度调整的数值稳定项，用于避免MSE接近0时倒数溢出。
             </p>
           </div>
 
@@ -65,10 +65,10 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base mb-3">
-          系统按模型数、样本量和所有成员的可训练条件动态留出时间末段。先用带数据尺度 ε 的 1/MSE 得到候选权重，再按验证点数可靠度向等权组合收缩，避免短验证段把权重几乎全押在单一成员。本实现仍不估计成员误差协方差。
+          系统按模型数、样本量和所有成员的可训练条件动态留出时间末段。先用带数据尺度 ε 的 1/MSE 得到候选权重，再按验证点数决定的启发式系数向等权组合收缩，避免短验证段把权重几乎全押在单一成员。本实现仍不估计成员误差协方差。
         </p>
         <p className="text-gray-700 leading-relaxed text-base">
-          内部验证只继承用户选择的 MA 窗口、ES α、ARIMA d 与 LSTM 历史特征/归一化。ARIMA 阶数和 LSTM 的 look-back、容量、批大小、轮数都按当前前缀重新推导，避免完整训练段的信息泄漏；LSTM 不接收任何已知未来特征。不确定性仅用该内部验证段的组合残差校准成员逐 horizon 增长形状，独立评估真实值不参与校准；证据不足时会明确标记 fallback。
+          内部验证只继承用户选择的 MA 窗口、ES α、ARIMA d 与 LSTM 历史特征/归一化。ARIMA 阶数和 LSTM 的 look-back、容量、批大小、轮数都按当前前缀重新推导，避免完整训练段的信息泄漏；LSTM 不接收任何已知未来特征。名义 95% 范围与名义 99% 上侧误差复用计算权重的同一个时间留出段的一次固定预测原点跨 horizon 组合残差，并继承成员逐 horizon 增长形状；它们明确标记为未校准、无覆盖率保证。独立评估真实值不参与估计，最终销量区间限制为非负并保证包含点预测。
         </p>
       </div>
     </div>
