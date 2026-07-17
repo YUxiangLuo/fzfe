@@ -33,10 +33,10 @@ const Intro: React.FC = () => {
       <div className="p-5 bg-sky-50 rounded-lg border border-sky-200">
         <h4 className="text-base font-semibold text-gray-800 mb-3">本系统实现说明</h4>
         <p className="text-gray-700 leading-relaxed text-base mb-3">
-          本系统按时间顺序拆分 Level-0/Level-1，Level-1 至少保留成员数+2个点。元模型直接求解无截距非负最小二乘（NNLS），保留原始系数而不强制总和为1。数据不足时明确拒绝训练，不切换为 inverse-MAE 等另一种融合算法。
+          本系统按时间顺序拆分 Level-0/Level-1，Level-1 至少保留成员数+2个点；这只是 NNLS 的最低可运行门槛，不代表统计样本已经充足。元模型直接求解无截距非负最小二乘（NNLS），保留原始系数而不强制总和为1。数据不足时明确拒绝训练，不切换为 inverse-MAE 等另一种融合算法。
         </p>
         <p className="text-gray-700 leading-relaxed text-base">
-          Level-0 只继承用户选择的 MA 窗口、ES α、ARIMA d 与 LSTM 历史特征/归一化；ARIMA 阶数和 LSTM 隐藏配置均按 Level-0 重算，LSTM 不接收任何已知未来特征。不确定性仅用 Level-1 的组合残差校准成员逐 horizon 增长形状，独立评估真实值不参与校准；证据不足时明确标记 fallback。
+          Level-0 只继承用户选择的 MA 窗口、ES α、ARIMA d 与 LSTM 历史特征/归一化；ARIMA 阶数和 LSTM 隐藏配置均按 Level-0 重算，LSTM 不接收任何已知未来特征。名义 95% 范围与名义 99% 上侧误差复用拟合元模型的同一个 Level-1 留出段的一次固定预测原点跨 horizon 组合残差，并继承成员逐 horizon 增长形状；这些范围明确标记为未校准、无覆盖率保证。独立评估真实值不参与估计，最终销量区间同步限制为非负并保证包含点预测；证据不足时明确标记 fallback。
         </p>
       </div>
     </div>

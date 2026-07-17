@@ -144,7 +144,7 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
       { label: '检查基础模型', description: '确认产物版本并读取用户选择的成员配置。', weight: 1.0 },
       { label: '训练 Level-0 模型', description: '只在前段重拟合，ARIMA重新搜索p/q，生成 Level-1 训练预测。', weight: 3.3 },
       { label: '训练元模型', description: '求解非负无截距最小二乘（NNLS），保留未归一化系数。', weight: 1.4 },
-      { label: '生成最终评估预测', description: '截断成员销量后交给元模型；不确定性沿用Level-1组合残差校准。', weight: 2.6 },
+      { label: '生成最终评估预测', description: '截断成员销量后交给元模型；名义误差范围复用同一个元模型拟合Level-1留出段的一次固定原点残差，并标记为未校准。', weight: 2.6 },
       ...BASE_FINAL_STEPS,
     ],
     tip: 'Stacking 需要基础模型与元模型两层训练，耗时通常比单模型更长。',
