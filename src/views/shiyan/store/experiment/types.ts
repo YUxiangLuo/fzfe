@@ -140,6 +140,7 @@ export interface PersistedExperimentState {
     upper_error_p99: number;
     upper_error_p99_kind?: string;
     coverage_guarantee?: boolean;
+    calibration_origins?: number;
     uncertainty_source: 'model' | 'empirical' | 'fallback';
     uncertainty_reason?: string;
     calibration_mean_error: number | null;

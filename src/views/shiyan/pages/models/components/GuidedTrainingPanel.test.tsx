@@ -63,7 +63,8 @@ const completedSession: GuidedTrainingSession = {
           interval_upper_offset: 2.45,
           upper_error_p99: 2.91,
           source: 'fallback',
-          calibration_source: 'training_one_step_residuals',
+          calibration_source: 'boosting_selection_holdout_reused',
+          calibration_origins: 1,
           calibration_mean_error: null,
           calibration_count: null,
           interval_kind: 'fallback_normal_approximation',
@@ -113,6 +114,9 @@ describe('GuidedTrainingPanel teaching output', () => {
     expect(view.getByText('模型产物已保存')).toBeDefined();
     expect(view.getByText(/第 1 步：预测误差标准差 1.2500/)).toBeDefined();
     expect(view.getByText(/名义99%上侧误差估计 2.9100/)).toBeDefined();
+    expect(view.getByText(/复用的 Boosting 选模时间留出段/)).toBeDefined();
+    expect(view.getByText(/历史预测原点 1/)).toBeDefined();
+    expect(view.getByText(/误差样本 无/)).toBeDefined();
     expect(view.getByText(/未校准估计（不代表99%覆盖率）/)).toBeDefined();
     expect(view.getByText(/该预测步缺少单独校准证据/)).toBeDefined();
     expect(view.container.textContent).not.toContain('evaluate_indices');

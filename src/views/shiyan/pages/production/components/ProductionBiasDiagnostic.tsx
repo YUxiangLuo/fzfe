@@ -38,7 +38,7 @@ const ProductionBiasDiagnostic: React.FC<ProductionBiasDiagnosticProps> = ({
     return (
       <div className={`flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 ${className}`}>
         <Info className="mt-0.5 h-5 w-5 flex-shrink-0 text-slate-500" />
-        <p>可用校准残差不足，历史平均偏差诊断不可用；这不会阻止继续制定教学计划。</p>
+        <p>可用历史误差残差不足，历史平均偏差诊断不可用；这不会阻止继续制定教学计划。</p>
       </div>
     );
   }
@@ -70,7 +70,7 @@ const ProductionBiasDiagnostic: React.FC<ProductionBiasDiagnosticProps> = ({
         <div>
           <p className="font-semibold">历史平均低估超过当前公式缓冲</p>
           <p className="mt-1">
-            校准样本显示模型平均低估约 {warningMeanError.toFixed(1)} 件（样本数 {warningCount}）。这是诊断提示，不会修正点预测、安全库存或产能。
+            误差样本显示模型平均低估约 {warningMeanError.toFixed(1)} 件（样本数 {warningCount}）。这是诊断提示，不会修正点预测、安全库存或产能。
           </p>
         </div>
       </div>

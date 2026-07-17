@@ -158,7 +158,7 @@ export const TRAINING_PROGRESS_PROFILES: Record<ModelProgressProfileKey, Trainin
       { label: '检查基础模型', description: '读取用户选择的成员配置，并按数据推导验证段和最大轮数。', weight: 1.0 },
       { label: '初始化残差', description: '按时间顺序留出验证段，并以原始销量作为第一轮残差目标。', weight: 1.0 },
       { label: '逐轮残差学习', description: '沿用核心配置但改训当前残差；首轮截断非负，后续保留有符号输出。', weight: 4.2 },
-      { label: '准备并组合模型链', description: '每阶段在内部时间验证段用非负平方损失线搜索求系数；完整训练阶段重训或复用成员产物并保留该系数，不确定性仍由验证残差校准。', weight: 2.0 },
+      { label: '准备并组合模型链', description: '每阶段在内部时间验证段用非负平方损失线搜索求系数；完整训练阶段重训或复用成员产物并保留该系数。名义误差范围复用同一选模留出段的一次固定原点残差，并明确标记为未校准。', weight: 2.0 },
       ...BASE_FINAL_STEPS,
     ],
     tip: 'Boosting 会逐轮训练和评估候选模型，训练时间会随轮数和基础模型数量增加。',

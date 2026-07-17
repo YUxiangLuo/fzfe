@@ -14,6 +14,7 @@ interface Prediction {
   intervalKind?: string | null;
   coverageGuarantee?: boolean | null;
   upperErrorP99Kind?: string | null;
+  calibrationOrigins?: number | null;
 }
 
 interface PredictionResultsTableProps {
@@ -59,6 +60,7 @@ const uncertaintyReasonLabels: Record<string, string> = {
 
 const calibrationSourceLabels: Record<string, string> = {
   internal_validation: '内部时间验证段',
+  boosting_selection_holdout_reused: '复用的 Boosting 选模时间留出段',
   level1_holdout: 'Level-1 时间留出段',
   internal_time_validation: '内部时间验证窗口',
   early_stopping_validation_reused: '复用的 EarlyStopping 时间验证窗口',
@@ -158,6 +160,11 @@ const PredictionResultsTable: React.FC<PredictionResultsTableProps> = ({
                       {row.calibrationSource && (
                         <div className="mt-1 text-xs text-sky-700">
                           估计数据：{calibrationSourceLabels[row.calibrationSource] ?? row.calibrationSource}
+                        </div>
+                      )}
+                      {typeof row.calibrationOrigins === 'number' && (
+                        <div className="mt-1 text-xs text-sky-700">
+                          历史预测原点：{row.calibrationOrigins}
                         </div>
                       )}
                       {row.coverageGuarantee === false && (

@@ -86,6 +86,7 @@ describe('alignPredictionRows', () => {
         interval_kind: 'normal_approximation',
         coverage_guarantee: false,
         upper_error_p99_kind: 'uncalibrated_estimate',
+        calibration_origins: 1,
       }],
       backendMonths: ['2024-01'],
       fallbackMonths: [],
@@ -101,6 +102,7 @@ describe('alignPredictionRows', () => {
       intervalKind: 'normal_approximation',
       coverageGuarantee: false,
       upperErrorP99Kind: 'uncalibrated_estimate',
+      calibrationOrigins: 1,
     });
   });
 
@@ -141,6 +143,19 @@ describe('alignPredictionRows', () => {
       backendMonths: ['2024-01'],
       fallbackMonths: [],
     })).toThrow('覆盖率保证标记无效');
+
+    expect(() => alignPredictionRows({
+      actualValues: [100],
+      predictedValues: [98],
+      predictionPoints: [{
+        prediction: 98,
+        std_dev: 4,
+        uncertainty_source: 'empirical',
+        calibration_origins: 0,
+      }],
+      backendMonths: ['2024-01'],
+      fallbackMonths: [],
+    })).toThrow('历史预测原点数无效');
   });
 });
 

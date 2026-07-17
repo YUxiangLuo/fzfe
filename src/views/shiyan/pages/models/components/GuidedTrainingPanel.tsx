@@ -138,6 +138,7 @@ const outputKeyLabels: Record<string, string> = {
   uncertainty_profile: '逐预测步不确定性配置',
   calibration_source: '不确定性估计数据',
   calibration_count: '误差估计样本数',
+  calibration_origins: '历史预测原点数',
   calibration_mean_error: '误差估计平均值',
   confidence_intervals: '预测区间',
   fallback: '是否使用回退估计',
@@ -207,6 +208,7 @@ const outputValueLabels: Record<string, string> = {
   ets_ann_fallback_normal: 'ETS(A,N,N) 标准差增长 + 正态近似回退',
   validation_residual_quantiles_by_horizon: '时间验证逐 horizon 残差分位数',
   uncalibrated_validation_residual_quantiles_by_horizon: '复用 EarlyStopping 验证段的未校准逐 horizon 残差分位数',
+  uncalibrated_selection_holdout_residual_quantiles_member_growth: '复用 Boosting 选模留出段的未校准组合残差分位数与成员增长形状',
   member_growth_residual_quantiles: '成员增长形状 + 组合残差分位数',
   normal_approximation: '基于标准差的正态近似范围',
   fallback_normal_approximation: '样本不足时的正态近似回退范围',
@@ -215,6 +217,7 @@ const outputValueLabels: Record<string, string> = {
   censored_nonnegative_uncalibrated_empirical_residual_quantile: '非负销量域中的未校准经验残差分位数范围',
   censored_nonnegative_fallback_normal_approximation: '非负销量域中的正态近似回退范围',
   uncalibrated_estimate: '未校准估计（不代表99%覆盖率）',
+  boosting_selection_holdout_reused: '复用的 Boosting 选模时间留出段',
   model_prediction_interval: '模型原生预测区间',
   production_full_refit_in_sample: '生产窗口完整重拟合残差',
   residual_boosting: '残差提升',
@@ -308,7 +311,11 @@ const formatValue = (value: unknown, key?: string): string => {
           parts.push(`估计数据 ${formatValue(horizon.calibration_source, 'calibration_source')}`);
         }
         if (horizon.calibration_count !== undefined) {
-          parts.push(`校准样本 ${formatValue(horizon.calibration_count, 'calibration_count')}`);
+          const sampleLabel = horizon.coverage_guarantee === false ? '误差样本' : '校准样本';
+          parts.push(`${sampleLabel} ${formatValue(horizon.calibration_count, 'calibration_count')}`);
+        }
+        if (horizon.calibration_origins !== undefined) {
+          parts.push(`历史预测原点 ${formatValue(horizon.calibration_origins, 'calibration_origins')}`);
         }
         if (horizon.calibration_mean_error !== undefined) {
           parts.push(`校准平均误差 ${formatValue(horizon.calibration_mean_error, 'calibration_mean_error')}`);
@@ -325,6 +332,7 @@ const formatValue = (value: unknown, key?: string): string => {
           'source',
           'calibration_source',
           'calibration_count',
+          'calibration_origins',
           'calibration_mean_error',
           'reason',
         ]);

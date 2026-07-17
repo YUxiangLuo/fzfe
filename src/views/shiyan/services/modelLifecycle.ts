@@ -24,6 +24,7 @@ export interface ModelPredictionPoint {
   upper_error_p99: number;
   upper_error_p99_kind?: string;
   coverage_guarantee?: boolean;
+  calibration_origins?: number;
   uncertainty_source: 'model' | 'empirical' | 'fallback';
   uncertainty_reason?: string;
   calibration_mean_error: number | null;
@@ -416,6 +417,21 @@ const parseModelPredictionResponse = (
         response,
       );
     }
+    const calibrationOrigins = point.calibration_origins;
+    if (
+      calibrationOrigins !== undefined
+      && (
+        typeof calibrationOrigins !== 'number'
+        || !Number.isInteger(calibrationOrigins)
+        || calibrationOrigins <= 0
+      )
+    ) {
+      throw invalidProductionResponse(
+        'predict',
+        `需求预测第 ${index + 1} 期历史预测原点数无效，请重试。`,
+        response,
+      );
+    }
     const hasValidCalibrationDiagnostics = (
       point.calibration_mean_error === null
       && point.calibration_count === null
@@ -446,6 +462,9 @@ const parseModelPredictionResponse = (
         : {}),
       ...(typeof point.upper_error_p99_kind === 'string'
         ? { upper_error_p99_kind: point.upper_error_p99_kind }
+        : {}),
+      ...(typeof calibrationOrigins === 'number'
+        ? { calibration_origins: calibrationOrigins }
         : {}),
     };
   });

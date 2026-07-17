@@ -17,6 +17,7 @@ const predictionResponse = {
       upper_error_p99: 8.2,
       upper_error_p99_kind: "uncalibrated_estimate",
       coverage_guarantee: false,
+      calibration_origins: 1,
       uncertainty_source: "model" as const,
       calibration_mean_error: 1.2,
       calibration_count: 6,

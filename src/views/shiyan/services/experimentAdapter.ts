@@ -152,6 +152,14 @@ const normalizeForecastResults = (
         point.coverage_guarantee === undefined
         || typeof point.coverage_guarantee === "boolean"
       )
+      && (
+        point.calibration_origins === undefined
+        || (
+          typeof point.calibration_origins === "number"
+          && Number.isInteger(point.calibration_origins)
+          && point.calibration_origins > 0
+        )
+      )
       && ["model", "empirical", "fallback"].includes(String(point.uncertainty_source))
       && (point.uncertainty_reason === undefined || typeof point.uncertainty_reason === "string")
       && (

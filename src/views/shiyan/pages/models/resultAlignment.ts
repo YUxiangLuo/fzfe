@@ -12,6 +12,7 @@ export interface PredictionRow {
   intervalKind?: string | null;
   coverageGuarantee?: boolean | null;
   upperErrorP99Kind?: string | null;
+  calibrationOrigins?: number | null;
 }
 
 export interface ModelMetrics {
@@ -58,6 +59,7 @@ interface ParsedPredictionPoint {
   intervalKind: string | null;
   coverageGuarantee: boolean | null;
   upperErrorP99Kind: string | null;
+  calibrationOrigins: number | null;
 }
 
 const parsePredictionPoints = (value: unknown, expectedLength: number): ParsedPredictionPoint[] | null => {
@@ -110,6 +112,11 @@ const parsePredictionPoints = (value: unknown, expectedLength: number): ParsedPr
     )) {
       throw new Error(`预测点第 ${index + 1} 项的99%上侧误差类型无效`);
     }
+    if (item.calibration_origins !== undefined && (
+      !Number.isInteger(item.calibration_origins) || (item.calibration_origins as number) <= 0
+    )) {
+      throw new Error(`预测点第 ${index + 1} 项的历史预测原点数无效`);
+    }
 
     return {
       prediction: item.prediction,
@@ -123,6 +130,7 @@ const parsePredictionPoints = (value: unknown, expectedLength: number): ParsedPr
       intervalKind: hasInterval ? item.interval_kind as string : null,
       coverageGuarantee: typeof item.coverage_guarantee === 'boolean' ? item.coverage_guarantee : null,
       upperErrorP99Kind: typeof item.upper_error_p99_kind === 'string' ? item.upper_error_p99_kind : null,
+      calibrationOrigins: typeof item.calibration_origins === 'number' ? item.calibration_origins : null,
     };
   });
 };
@@ -208,6 +216,7 @@ export const alignPredictionRows = ({
         intervalKind: predictionPoint.intervalKind,
         coverageGuarantee: predictionPoint.coverageGuarantee,
         upperErrorP99Kind: predictionPoint.upperErrorP99Kind,
+        calibrationOrigins: predictionPoint.calibrationOrigins,
       } : {}),
     });
   }

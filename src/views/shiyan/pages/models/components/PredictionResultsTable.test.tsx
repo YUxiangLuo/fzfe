@@ -91,4 +91,29 @@ describe('prediction accuracy presentation', () => {
     expect(view.getByText('启发式估计，无覆盖率保证')).toBeDefined();
     expect(view.getByText(/复用的 EarlyStopping 时间验证窗口/)).toBeDefined();
   });
+
+  it('identifies the reused single-origin Boosting selection holdout', () => {
+    const view = render(
+      <PredictionResultsTable
+        title="Boosting预测结果"
+        predictions={[{
+          date: '2024-01',
+          actual: 1,
+          predicted: 0.5,
+          stdDev: 1,
+          intervalLower: 0,
+          intervalUpper: 2,
+          intervalKind: 'censored_nonnegative_uncalibrated_empirical_residual_quantile',
+          coverageGuarantee: false,
+          calibrationSource: 'boosting_selection_holdout_reused',
+          calibrationOrigins: 1,
+        }]}
+      />,
+    );
+
+    expect(view.getByText('名义 95% 误差范围')).toBeDefined();
+    expect(view.getByText(/复用的 Boosting 选模时间留出段/)).toBeDefined();
+    expect(view.getByText('历史预测原点：1')).toBeDefined();
+    expect(view.getByText('启发式估计，无覆盖率保证')).toBeDefined();
+  });
 });

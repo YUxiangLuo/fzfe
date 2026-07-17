@@ -76,6 +76,7 @@ describe("MPS Calculation Utils", () => {
         upper_error_p99: 180,
         upper_error_p99_kind: "uncalibrated_estimate",
         coverage_guarantee: false,
+        calibration_origins: 1,
         uncertainty_source: "empirical",
         ...calibration,
       }]);
@@ -83,8 +84,20 @@ describe("MPS Calculation Utils", () => {
       expect(result.validatedData[0]).toMatchObject({
         coverage_guarantee: false,
         upper_error_p99_kind: "uncalibrated_estimate",
+        calibration_origins: 1,
       });
       expect(result.allWarnings.join(" ")).toContain("不代表95%或99%覆盖率保证");
+    });
+
+    it("rejects invalid calibration-origin diagnostics", () => {
+      expect(() => validatePredictions([{
+        prediction: 1000,
+        std_dev: 80,
+        upper_error_p99: 180,
+        uncertainty_source: "empirical",
+        calibration_origins: 0,
+        ...calibration,
+      }])).toThrow("calibration_origins 必须是正整数");
     });
 
     it("rejects missing, partial, or invalid bias diagnostics", () => {

@@ -23,6 +23,7 @@ export interface UncertaintyAuditPoint {
   uncertainty_source?: 'model' | 'empirical' | 'fallback';
   uncertainty_reason?: string;
   coverage_guarantee?: boolean;
+  calibration_origins?: number;
   upper_error_p99_kind?: string;
 }
 
@@ -100,9 +101,20 @@ export const validatePredictions = (
       throw new Error(`预测数据格式无效：第 ${index + 1} 期 uncertainty_reason 无效`);
     }
     const coverageGuarantee = point.coverage_guarantee;
+    const calibrationOrigins = point.calibration_origins;
     const upperErrorP99Kind = point.upper_error_p99_kind;
     if (coverageGuarantee !== undefined && typeof coverageGuarantee !== 'boolean') {
       throw new Error(`预测数据格式无效：第 ${index + 1} 期 coverage_guarantee 必须是布尔值`);
+    }
+    if (
+      calibrationOrigins !== undefined
+      && (
+        typeof calibrationOrigins !== 'number'
+        || !Number.isInteger(calibrationOrigins)
+        || calibrationOrigins <= 0
+      )
+    ) {
+      throw new Error(`预测数据格式无效：第 ${index + 1} 期 calibration_origins 必须是正整数`);
     }
     if (
       upperErrorP99Kind !== undefined
@@ -158,6 +170,9 @@ export const validatePredictions = (
         : {}),
       ...(typeof upperErrorP99Kind === 'string'
         ? { upper_error_p99_kind: upperErrorP99Kind }
+        : {}),
+      ...(typeof calibrationOrigins === 'number'
+        ? { calibration_origins: calibrationOrigins }
         : {}),
     };
   });
